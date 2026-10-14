@@ -311,3 +311,20 @@ fn a_zero_baseline_increment_means_no_grid() {
         .iter()
         .all(|l| l.top.is_finite() && l.baseline.is_finite()));
 }
+
+#[test]
+fn an_empty_paragraph_takes_a_line_of_space() {
+    let story = [
+        StoryParagraph::new(vec![Span::new("First", style())]),
+        StoryParagraph::new(vec![Span::new("", style())]),
+        StoryParagraph::new(vec![Span::new("Second", style())]),
+    ];
+    let out = run(
+        &story,
+        &[FrameBox::new(200.0, 400.0)],
+        &FlowOptions::default(),
+    );
+    let tops: Vec<f64> = out.lines.iter().map(|l| l.top).collect();
+    assert_eq!(tops.len(), 3);
+    assert!(tops[2] - tops[0] >= 2.0 * 12.0, "{tops:?}");
+}

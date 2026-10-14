@@ -95,7 +95,7 @@ impl Font {
             })
         };
         let (wght, opsz) = (axis(WGHT), axis(OPSZ));
-        let embeddable = !matches!(face.permissions(), Some(Permissions::Restricted));
+        let embeddable = embedding_allowed_by(&face);
         let units_per_em = f64::from(face.units_per_em());
         Ok(Self {
             family: family.to_string(),
@@ -414,4 +414,20 @@ impl FontBook {
         cache.insert(key, Arc::clone(&font));
         Ok(font)
     }
+}
+
+/// `OS/2.fsType`: bit 1 forbids embedding, and bits 8 and 9 forbid subsetting and embedding only
+/// bitmaps. Exports embed subsets, so any of the three rules the font out.
+fn embedding_allowed_by(face: &ttf_parser::Face<'_>) -> bool {
+    if matches!(face.permissions(), Some(Permissions::Restricted)) {
+        return false;
+    }
+    let Some(os2) = face.raw_face().table(ttf_parser::Tag::from_bytes(b"OS/2")) else {
+        return true;
+    };
+    let Some(bytes) = os2.get(8..10) else {
+        return true;
+    };
+    let fs_type = u16::from_be_bytes([bytes[0], bytes[1]]);
+    fs_type & (0x0002 | 0x0100 | 0x0200) == 0
 }

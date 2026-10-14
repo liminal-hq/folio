@@ -42,6 +42,8 @@ fn text_wraps_into_lines_that_fit() {
         assert!(!line.overfull);
         assert!(line.width <= 200.0 + 1.0, "{}", line.width);
     }
+    // Ragged lines are scored like justified ones, so the natural ragged edge can need a second
+    // tolerance step; what matters is that an optimal fit was found at all.
     assert!(out.tolerance.is_some(), "an optimal fit exists");
 }
 

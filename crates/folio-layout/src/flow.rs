@@ -110,6 +110,8 @@ pub struct Flowed {
     pub overset: bool,
     /// Where the leftover text begins: the paragraph and its byte offset.
     pub overset_from: Option<(usize, usize)>,
+    /// A preserved line (a line of verse) was wider than its column and wrapped.
+    pub overlong: bool,
     /// The tallest the text reached in each frame, to size a frame to its text.
     pub used_height: Vec<f64>,
 }
@@ -149,7 +151,8 @@ fn clip_spans(spans: &[Span], from: usize) -> Vec<Span> {
     let mut out = Vec::new();
     for span in spans {
         let end = start + span.text.len();
-        if end > from {
+        // An empty paragraph still has a line, and the space around it.
+        if end > from || (from == 0 && end == 0 && out.is_empty()) {
             let cut = from.saturating_sub(start);
             out.push(Span {
                 text: span.text[cut..].to_string(),
@@ -178,6 +181,7 @@ pub fn flow(
         lines: Vec::new(),
         overset: false,
         overset_from: None,
+        overlong: false,
         used_height: vec![0.0; frames.len()],
     };
     let mut col = 0;
@@ -201,6 +205,7 @@ pub fn flow(
             spec.hyphenate = para.hyphenate;
             spec.optimal = options.optimal;
             let laid: ParagraphLayout = layout_paragraph(book, &spec, column.width)?;
+            out.overlong |= laid.overlong;
             if laid.lines.is_empty() {
                 break;
             }

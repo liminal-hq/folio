@@ -6,7 +6,8 @@
 use folio_layout::wire::{PreflightKind, SpreadLayout};
 use folio_layout::{FontBook, Layouter, StyleSheet};
 use folio_model::{
-    Book, BookKind, Frame, FrameBase, FrameId, InlineContent, Pt, Rect, Run, StyleId, TextFrame,
+    Book, BookKind, Fit, Frame, FrameBase, FrameId, ImageFrame, ImageRef, InlineContent, Pt, Rect,
+    Run, SpreadKind, StyleId, TextFrame,
 };
 use folio_presets::{new_book, NewBookSpec, Words};
 
@@ -350,4 +351,113 @@ fn a_story_flows_from_a_frame_on_one_spread_into_a_frame_on_the_next() {
         a.lines[0].runs[0].size > 0.0,
         "flowed runs keep their style"
     );
+}
+
+fn lay(book: &Book, styles: &StyleSheet, spread: usize) -> SpreadLayout {
+    let fonts = FontBook::bundled();
+    Layouter::new(book, styles, &fonts)
+        .layout_spread(&book.spreads[spread].id)
+        .unwrap()
+        .unwrap()
+}
+
+#[test]
+fn a_run_names_the_font_that_was_measured_not_the_one_asked_for() {
+    let (mut book, _) = sample(BookKind::Novel);
+    let styles = StyleSheet::from_value(
+        &serde_json::json!({ "fontFamily": "No Such Family", "styles": {} }),
+    );
+    book.spreads[1].frames.push(text_frame(
+        "t",
+        "body",
+        60.0,
+        60.0,
+        300.0,
+        200.0,
+        "Slow river",
+    ));
+    let layout = lay(&book, &styles, 1);
+    let frame = layout.frames.iter().find(|f| f.frame.0 == "t").unwrap();
+    let run = &frame.lines[0].runs[0];
+    assert!(
+        ["Literata", "Inter", "Source Serif 4"].contains(&run.family.as_str()),
+        "{}",
+        run.family
+    );
+}
+
+#[test]
+fn a_poem_line_wider_than_its_frame_is_flagged() {
+    let (mut book, styles) = sample(BookKind::Poetry);
+    book.spreads[1].frames.push(text_frame(
+        "poem",
+        "poem",
+        60.0,
+        60.0,
+        80.0,
+        300.0,
+        "A line of verse far too long to fit in so narrow a frame\nShort",
+    ));
+    let layout = lay(&book, &styles, 1);
+    assert!(layout
+        .preflight
+        .iter()
+        .any(|p| p.kind == PreflightKind::PoemLineTooLong && p.frame.0 == "poem"));
+}
+
+#[test]
+fn a_frame_whose_flow_is_gone_shows_its_own_words() {
+    let (mut book, styles) = sample(BookKind::Novel);
+    let mut frame = text_frame("orphan", "body", 60.0, 60.0, 300.0, 200.0, "Slow river");
+    if let Frame::Text(t) = &mut frame {
+        t.flow = Some(folio_model::FlowSlot {
+            id: folio_model::FlowId("gone".into()),
+            index: 0,
+        });
+    }
+    book.spreads[1].frames.push(frame);
+    let layout = lay(&book, &styles, 1);
+    let laid = layout
+        .frames
+        .iter()
+        .find(|f| f.frame.0 == "orphan")
+        .unwrap();
+    assert!(!laid.lines.is_empty());
+}
+
+#[test]
+fn a_picture_at_the_fold_of_an_opener_needs_no_bleed_there() {
+    let (mut book, styles) = sample(BookKind::Novel);
+    let (w, h, bleed) = (book.trim.w.0, book.trim.h.0, book.bleed.0);
+    let spread = &mut book.spreads[1];
+    spread.kind = SpreadKind::Opener;
+    spread.pages.truncate(1);
+    spread.frames.clear();
+    spread.frames.push(Frame::Image(ImageFrame {
+        base: FrameBase {
+            id: FrameId("pic".into()),
+            rect: Rect {
+                x: Pt(w),
+                y: Pt(-bleed),
+                w: Pt(w + bleed),
+                h: Pt(h + bleed * 2.0),
+            },
+            rotation: 0.0,
+            locked: false,
+            from_master: None,
+            description: None,
+        },
+        image: ImageRef {
+            asset: None,
+            fit: Fit::Fill,
+            focus: (0.5, 0.5),
+            crop: None,
+        },
+        placeholder_label: None,
+    }));
+    let layout = lay(&book, &styles, 1);
+    assert!(layout
+        .preflight
+        .iter()
+        .all(|p| p.kind != PreflightKind::PictureShortOfBleed));
 }
