@@ -1,0 +1,33 @@
+.group {
+	display: inline-flex;
+	padding: 2px;
+	gap: 2px;
+	border-radius: 8px;
+	background: var(--folio-control-bg);
+}
+
+.option {
+	min-height: calc(var(--folio-hit-target) - 4px);
+	padding: 0 12px;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--folio-text-secondary);
+	font: inherit;
+	cursor: pointer;
+}
+
+.option:hover {
+	background: var(--folio-control-bg-hover);
+}
+
+.option:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: -2px;
+}
+
+.option[aria-checked='true'] {
+	background: var(--folio-bg-selected);
+	color: var(--folio-text-primary);
+	font-weight: 600;
+}
