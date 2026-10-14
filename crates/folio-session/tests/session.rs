@@ -1109,6 +1109,138 @@ fn the_same_page_numbers_again_change_nothing_and_a_master_from_elsewhere_is_kep
     assert_eq!(s.book().master_pages.len(), 1);
 }
 
+fn master<'a>(s: &'a Session, id: &str) -> Option<&'a folio_model::Master> {
+    s.book().master_pages.iter().find(|m| m.id.0 == id)
+}
+
+fn user_frame() -> Frame {
+    serde_json::from_value(json!({
+        "type": "text", "id": "fr_mine", "box": { "x": 10.0, "y": 10.0, "w": 100.0, "h": 20.0 },
+        "style": "folio", "content": { "inline": [{ "text": "Running head" }] },
+        "columns": 1, "baselineLock": false
+    }))
+    .unwrap()
+}
+
+#[test]
+fn a_frame_the_person_put_on_a_master_survives_page_numbers_and_new_pages() {
+    let mut s = session();
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::Outside,
+    })
+    .unwrap();
+    // The person edits master A through the model, as the master view will.
+    let mut edited = s.book().clone();
+    edited
+        .master_pages
+        .iter_mut()
+        .find(|m| m.id.0 == "mst_a")
+        .unwrap()
+        .frames
+        .push(user_frame());
+    let mut s = Session::new(edited);
+    for numbers in [
+        folio_model::PageNumbers::Centre,
+        folio_model::PageNumbers::Outside,
+    ] {
+        s.apply(Intent::SetPageNumbers { position: numbers })
+            .unwrap();
+        let a = master(&s, "mst_a").unwrap();
+        assert!(
+            a.frames.iter().any(|f| f.base().id.0 == "fr_mine"),
+            "the running head stays when the numbers are {numbers:?}"
+        );
+    }
+    s.apply(Intent::AddSpread {
+        after: spread("sp_1"),
+        duplicate: false,
+    })
+    .unwrap();
+    s.apply(Intent::SetBookGeometry {
+        trim: None,
+        margins: None,
+        bleed: Some(folio_model::Pt(9.0)),
+        grid: None,
+    })
+    .unwrap();
+    let a = master(&s, "mst_a").unwrap();
+    assert!(a.frames.iter().any(|f| f.base().id.0 == "fr_mine"));
+    assert_eq!(a.frames.len(), 2);
+}
+
+#[test]
+fn a_number_the_person_reworded_keeps_its_words_when_the_numbers_move() {
+    let mut s = session();
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::Outside,
+    })
+    .unwrap();
+    let mut edited = s.book().clone();
+    if let Some(Frame::Text(t)) = edited
+        .master_pages
+        .iter_mut()
+        .find(|m| m.id.0 == "mst_a")
+        .unwrap()
+        .frames
+        .iter_mut()
+        .find(|f| f.base().id.0 == "fr_pn_a")
+    {
+        t.content = Some(folio_model::InlineContent {
+            inline: vec![folio_model::Run {
+                text: "Page {page}".into(),
+                style: None,
+                bold: false,
+                italic: false,
+            }],
+        });
+    }
+    let mut s = Session::new(edited);
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::Centre,
+    })
+    .unwrap();
+    match &master(&s, "mst_a").unwrap().frames[0] {
+        Frame::Text(t) => {
+            assert_eq!(t.content.as_ref().unwrap().inline[0].text, "Page {page}");
+            assert_eq!(
+                t.overrides.as_ref().unwrap().align,
+                Some(folio_model::Align::Center)
+            );
+        }
+        _ => unreachable!(),
+    }
+    assert!(master(&s, "mst_b").is_none(), "B only held the left number");
+}
+
+#[test]
+fn turning_the_numbers_off_keeps_a_master_that_holds_more_than_numbers() {
+    let mut s = session();
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::Outside,
+    })
+    .unwrap();
+    let mut edited = s.book().clone();
+    edited
+        .master_pages
+        .iter_mut()
+        .find(|m| m.id.0 == "mst_a")
+        .unwrap()
+        .guides
+        .push(folio_model::Guide {
+            axis: Axis::Y,
+            pos: folio_model::Pt(36.0),
+            locked: false,
+        });
+    let mut s = Session::new(edited);
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::None,
+    })
+    .unwrap();
+    assert!(master(&s, "mst_a").unwrap().frames.is_empty());
+    assert_eq!(master(&s, "mst_a").unwrap().guides.len(), 1);
+    assert!(master(&s, "mst_b").is_none(), "B held only a number");
+}
+
 #[test]
 fn a_copy_of_a_flowing_frame_is_not_another_slot_in_the_flow() {
     let mut s = session();

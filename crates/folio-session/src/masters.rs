@@ -3,7 +3,9 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use folio_model::{Book, Frame, Master, MasterId, PageNumbers, Spread, SpreadKind};
+use folio_model::{
+    Align, Book, Frame, Master, MasterId, PageNumbers, Pt, Spread, SpreadKind, StyleOverrides,
+};
 use serde_json::json;
 
 /// The master a page that opens on the right uses, and the one a page on the left uses when the
@@ -11,6 +13,9 @@ use serde_json::json;
 pub const RECTO: &str = "mst_a";
 pub const VERSO: &str = "mst_b";
 
+/// The ids of the two frames the page numbers manage.
+const NUMBER_A: &str = "fr_pn_a";
+const NUMBER_B: &str = "fr_pn_b";
 const NUMBER_WIDTH: f64 = 60.0;
 const NUMBER_HEIGHT: f64 = 18.0;
 
@@ -23,7 +28,13 @@ pub fn is_recto(spread: &Spread, index: usize) -> bool {
     }
 }
 
-fn number_frame(id: &str, x: f64, y: f64, align: &str) -> Frame {
+fn number_frame(id: &str, x: f64, y: f64, align: Align) -> Frame {
+    let align = match align {
+        Align::Left => "left",
+        Align::Center => "center",
+        Align::Right => "right",
+        Align::Justify => "justify",
+    };
     serde_json::from_value(json!({
         "type": "text",
         "id": id,
@@ -37,49 +48,54 @@ fn number_frame(id: &str, x: f64, y: f64, align: &str) -> Frame {
     .expect("the page number frame is well formed")
 }
 
-/// Makes the master pages `book.page_numbers` asks for and gives every page after the cover its
-/// master. With no numbers there are no masters, and every page is without one.
-pub fn apply_page_numbers(book: &mut Book) {
-    let mode = book.page_numbers;
-    let ours = |id: &MasterId| id.0 == RECTO || id.0 == VERSO;
-    // Masters that came from elsewhere (an import, a newer Folio) are not ours to remove.
-    book.master_pages.retain(|m| !ours(&m.id));
-    if mode == PageNumbers::None {
-        for page in book.spreads.iter_mut().flat_map(|s| s.pages.iter_mut()) {
-            if page.master.as_ref().is_some_and(ours) {
-                page.master = None;
-            }
-        }
-        prune_overrides(book);
-        book.masters = book.master_pages.iter().map(|m| m.id.clone()).collect();
-        return;
+fn ours(id: &MasterId) -> bool {
+    id.0 == RECTO || id.0 == VERSO
+}
+
+fn is_number(frame: &Frame) -> bool {
+    matches!(frame.base().id.0.as_str(), NUMBER_A | NUMBER_B)
+}
+
+/// Puts the number frame `id` on `master` at the given box, or moves the one already there. Only its
+/// box and alignment are ours: the person may have changed the words or the style.
+fn place_number(master: &mut Master, id: &str, x: f64, y: f64, align: Align) {
+    if let Some(Frame::Text(text)) = master.frames.iter_mut().find(|f| f.base().id.0 == id) {
+        text.base.rect.x = Pt(x);
+        text.base.rect.y = Pt(y);
+        let overrides = text.overrides.get_or_insert(StyleOverrides {
+            size: None,
+            align: None,
+            bold: None,
+            italic: None,
+        });
+        overrides.align = Some(align);
+    } else {
+        master.frames.push(number_frame(id, x, y, align));
     }
-    let (w, h, bottom, outside) = (
-        book.trim.w.0,
-        book.trim.h.0,
-        book.margins.bottom.0,
-        book.margins.outside.0,
-    );
-    // Centred in the bottom margin, and never lower than the edge of the page.
-    let y = (h - bottom + (bottom - NUMBER_HEIGHT) / 2.0).min(h - NUMBER_HEIGHT - 4.0);
-    let recto = match mode {
-        PageNumbers::Centre => number_frame("fr_pn_a", (w - NUMBER_WIDTH) / 2.0, y, "center"),
-        _ => number_frame("fr_pn_a", w - outside - NUMBER_WIDTH, y, "right"),
-    };
-    book.master_pages.push(Master {
-        id: MasterId(RECTO.into()),
-        name: "A".into(),
-        frames: vec![recto],
-        guides: Vec::new(),
-    });
-    if mode == PageNumbers::Outside {
+}
+
+fn master_mut<'a>(book: &'a mut Book, id: &str, name: &str) -> &'a mut Master {
+    let at = book.master_pages.iter().position(|m| m.id.0 == id);
+    let at = at.unwrap_or_else(|| {
         book.master_pages.push(Master {
-            id: MasterId(VERSO.into()),
-            name: "B".into(),
-            frames: vec![number_frame("fr_pn_b", outside, y, "left")],
+            id: MasterId(id.into()),
+            name: name.into(),
+            frames: Vec::new(),
             guides: Vec::new(),
         });
-    }
+        book.master_pages.len() - 1
+    });
+    &mut book.master_pages[at]
+}
+
+/// Whether a master holds anything the person made, so it is not ours to remove.
+fn is_empty(master: &Master) -> bool {
+    master.frames.is_empty() && master.guides.is_empty()
+}
+
+/// Gives the pages that have no master, or one of ours, the master their side uses.
+fn assign(book: &mut Book) {
+    let outside = book.page_numbers == PageNumbers::Outside;
     book.masters = book.master_pages.iter().map(|m| m.id.clone()).collect();
     for spread in &mut book.spreads {
         let cover = spread.kind == SpreadKind::Cover;
@@ -93,13 +109,83 @@ pub fn apply_page_numbers(book: &mut Book) {
             }
             page.master = if cover {
                 None
-            } else if mode == PageNumbers::Outside && !recto {
+            } else if outside && !recto {
                 Some(MasterId(VERSO.into()))
             } else {
                 Some(MasterId(RECTO.into()))
             };
         }
     }
+}
+
+/// Puts the page numbers `book.page_numbers` asks for on masters A and B, and takes them off when
+/// there are none. Only the number frames are managed: anything else on a master stays, and a master
+/// that holds something is never removed.
+pub fn apply_page_numbers(book: &mut Book) {
+    let mode = book.page_numbers;
+    if mode == PageNumbers::None {
+        for master in book.master_pages.iter_mut().filter(|m| ours(&m.id)) {
+            master.frames.retain(|f| !is_number(f));
+        }
+        // A master of ours with nothing left on it was only there for the numbers.
+        let gone: Vec<MasterId> = book
+            .master_pages
+            .iter()
+            .filter(|m| ours(&m.id) && is_empty(m))
+            .map(|m| m.id.clone())
+            .collect();
+        book.master_pages.retain(|m| !gone.contains(&m.id));
+        for page in book.spreads.iter_mut().flat_map(|s| s.pages.iter_mut()) {
+            if page.master.as_ref().is_some_and(|m| gone.contains(m)) {
+                page.master = None;
+            }
+        }
+        book.masters = book.master_pages.iter().map(|m| m.id.clone()).collect();
+        prune_overrides(book);
+        return;
+    }
+    let (w, h, bottom, outside) = (
+        book.trim.w.0,
+        book.trim.h.0,
+        book.margins.bottom.0,
+        book.margins.outside.0,
+    );
+    // Centred in the bottom margin, and never lower than the edge of the page.
+    let y = (h - bottom + (bottom - NUMBER_HEIGHT) / 2.0).min(h - NUMBER_HEIGHT - 4.0);
+    match mode {
+        PageNumbers::Centre => {
+            place_number(
+                master_mut(book, RECTO, "A"),
+                NUMBER_A,
+                (w - NUMBER_WIDTH) / 2.0,
+                y,
+                Align::Center,
+            );
+            // Master B only held the left-hand number.
+            if let Some(b) = book.master_pages.iter_mut().find(|m| m.id.0 == VERSO) {
+                b.frames.retain(|f| !is_number(f));
+            }
+            book.master_pages
+                .retain(|m| m.id.0 != VERSO || !is_empty(m));
+        }
+        _ => {
+            place_number(
+                master_mut(book, RECTO, "A"),
+                NUMBER_A,
+                w - outside - NUMBER_WIDTH,
+                y,
+                Align::Right,
+            );
+            place_number(
+                master_mut(book, VERSO, "B"),
+                NUMBER_B,
+                outside,
+                y,
+                Align::Left,
+            );
+        }
+    }
+    assign(book);
     prune_overrides(book);
 }
 
