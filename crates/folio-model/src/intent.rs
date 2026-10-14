@@ -104,6 +104,19 @@ pub enum Intent {
         on: Surface,
         index: usize,
     },
+    /// Moves a ruler guide from a spread onto the masters its pages use, so it shows on every page
+    /// using them. A horizontal guide goes on each of them; a vertical one on the master of the page
+    /// it is over (as a position on that page), and mirrored onto the facing master when there is one.
+    PromoteGuide {
+        spread: SpreadId,
+        index: usize,
+    },
+    /// Moves a guide from a master back onto one spread that uses it, so it shows only there.
+    DemoteGuide {
+        master: MasterId,
+        index: usize,
+        spread: SpreadId,
+    },
     /// Takes the unlocked guides off one spread, or off every spread when none is named.
     ClearGuides {
         #[serde(default, skip_serializing_if = "Option::is_none")]

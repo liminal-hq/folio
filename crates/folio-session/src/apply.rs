@@ -12,7 +12,9 @@ use folio_model::{
 const DUPLICATE_OFFSET: f64 = 12.0;
 
 use crate::error::SessionError;
-use crate::masters::{apply_page_numbers, ensure_masters};
+use crate::masters::{
+    apply_page_numbers, can_promote, demote_guide, ensure_masters, page_using, promote_guide,
+};
 use crate::session::IdSource;
 
 /// What an intent will touch, worked out before anything changes, so it can be refused whole or
@@ -404,6 +406,28 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             check_guide_free(book, on, *index)?;
             Ok(by(on, None))
         }
+        Intent::PromoteGuide { spread: s, index } => {
+            let guide = *guide_at(book, &Surface::Spread(s.clone()), *index)?;
+            if guide.locked {
+                return Err(SessionError::GuideLocked(*index));
+            }
+            if !can_promote(book, spread(book, s)?, &guide) {
+                return Err(SessionError::CannotPromote);
+            }
+            Ok(one(s.clone(), None))
+        }
+        Intent::DemoteGuide {
+            master: m,
+            index,
+            spread: s,
+        } => {
+            let on = Surface::Master(m.clone());
+            check_guide_free(book, &on, *index)?;
+            if page_using(spread(book, s)?, m).is_none() {
+                return Err(SessionError::MasterNotOnSpread(m.0.clone(), s.0.clone()));
+            }
+            Ok(one(s.clone(), None))
+        }
         Intent::ClearGuides { spread: only } => {
             if let Some(s) = only {
                 spread(book, s)?;
@@ -635,6 +659,16 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                     guides.remove(index);
                 }
             }
+        }
+        Intent::PromoteGuide { spread: s, index } => {
+            promote_guide(book, &s, index);
+        }
+        Intent::DemoteGuide {
+            master: m,
+            index,
+            spread: s,
+        } => {
+            demote_guide(book, &m, index, &s);
         }
         Intent::ClearGuides { spread: only } => {
             for sp in book

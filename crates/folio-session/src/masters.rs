@@ -4,7 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    Align, Book, Frame, Master, MasterId, PageNumbers, Pt, Spread, SpreadKind, StyleOverrides,
+    Align, Axis, Book, Frame, Guide, Master, MasterId, PageNumbers, Pt, Spread, SpreadId,
+    SpreadKind, StyleOverrides,
 };
 use serde_json::json;
 
@@ -102,6 +103,151 @@ pub fn ensure_masters(book: &mut Book) {
         master_mut(book, VERSO, "B");
     }
     assign(book);
+}
+
+/// The master a guide is on the facing side of, when the book has both A and B: a position `local`
+/// on one is `trim width − local` on the other.
+fn facing(book: &Book, master: &MasterId) -> Option<MasterId> {
+    let has = |id: &str| book.master_pages.iter().any(|m| m.id.0 == id);
+    if !(has(RECTO) && has(VERSO)) {
+        return None;
+    }
+    match master.0.as_str() {
+        RECTO => Some(MasterId(VERSO.into())),
+        VERSO => Some(MasterId(RECTO.into())),
+        _ => None,
+    }
+}
+
+/// Whether `guide` on `spread` can go on every page: it is not on the cover, and a vertical one is over
+/// a page and not in the gutter or off the spread.
+pub fn can_promote(book: &Book, spread: &Spread, guide: &Guide) -> bool {
+    if spread.kind == SpreadKind::Cover {
+        return false;
+    }
+    match guide.axis {
+        Axis::Y => true,
+        Axis::X => over_page(book, spread, guide.pos.0).is_some(),
+    }
+}
+
+/// The page of `spread` that the position `x` (from the first page's left edge) is over, and its
+/// position on that page. The gutter, and anything off the spread, is over no page.
+fn over_page(book: &Book, spread: &Spread, x: f64) -> Option<(usize, f64)> {
+    let w = book.trim.w.0;
+    let pages = spread.pages.len();
+    if !x.is_finite() || x < 0.0 || x > w * pages as f64 {
+        return None;
+    }
+    let index = (x / w).floor() as usize;
+    if index >= pages {
+        return Some((pages - 1, w));
+    }
+    if index > 0 && (x - index as f64 * w).abs() < f64::EPSILON {
+        return None;
+    }
+    Some((index, x - index as f64 * w))
+}
+
+/// Moves the guide `index` of `spread` onto the masters its pages use (making them first when the
+/// book has none), where it shows on every page that uses them. Returns whether it could.
+pub fn promote_guide(book: &mut Book, spread: &SpreadId, index: usize) -> bool {
+    let Some(at) = book.spreads.iter().position(|s| &s.id == spread) else {
+        return false;
+    };
+    let Some(&guide) = book.spreads[at].guides.get(index) else {
+        return false;
+    };
+    if !can_promote(book, &book.spreads[at], &guide) {
+        return false;
+    }
+    ensure_masters(book);
+    let w = book.trim.w.0;
+    let pages = book.spreads[at].pages.clone();
+    let mut landings: Vec<(MasterId, f64)> = Vec::new();
+    match guide.axis {
+        Axis::Y => {
+            for page in &pages {
+                if let Some(m) = &page.master {
+                    landings.push((m.clone(), guide.pos.0));
+                }
+            }
+        }
+        Axis::X => {
+            let Some((i, local)) = over_page(book, &book.spreads[at], guide.pos.0) else {
+                return false;
+            };
+            if let Some(m) = &pages[i].master {
+                landings.push((m.clone(), local));
+                if let Some(other) = facing(book, m) {
+                    landings.push((other, w - local));
+                }
+            }
+        }
+    }
+    for (id, pos) in landings {
+        if let Some(master) = book.master_pages.iter_mut().find(|m| m.id == id) {
+            let same = |g: &Guide| g.axis == guide.axis && (g.pos.0 - pos).abs() < 1e-6;
+            if !master.guides.iter().any(same) {
+                master.guides.push(Guide {
+                    axis: guide.axis,
+                    pos: folio_model::Pt(pos),
+                    locked: false,
+                });
+            }
+        }
+    }
+    book.spreads[at].guides.remove(index);
+    true
+}
+
+/// The page of `spread` that uses `master`, first of them, if any.
+pub fn page_using(spread: &Spread, master: &MasterId) -> Option<usize> {
+    spread
+        .pages
+        .iter()
+        .position(|p| p.master.as_ref() == Some(master))
+}
+
+/// Moves the guide `index` of `master` back onto `spread`, where it shows on its own, and takes the
+/// mirrored copy off the facing master. Returns whether it could.
+pub fn demote_guide(book: &mut Book, master: &MasterId, index: usize, spread: &SpreadId) -> bool {
+    let Some(at) = book.spreads.iter().position(|s| &s.id == spread) else {
+        return false;
+    };
+    let Some(page) = page_using(&book.spreads[at], master) else {
+        return false;
+    };
+    let Some(m) = book.master_pages.iter_mut().find(|m| &m.id == master) else {
+        return false;
+    };
+    if index >= m.guides.len() {
+        return false;
+    }
+    let guide = m.guides.remove(index);
+    let w = book.trim.w.0;
+    let on_spread = match guide.axis {
+        Axis::X => guide.pos.0 + page as f64 * w,
+        Axis::Y => guide.pos.0,
+    };
+    if guide.axis == Axis::X {
+        if let Some(other) = facing(book, master) {
+            let mirrored = w - guide.pos.0;
+            if let Some(o) = book.master_pages.iter_mut().find(|m| m.id == other) {
+                if let Some(i) = o.guides.iter().position(|g| {
+                    g.axis == Axis::X && !g.locked && (g.pos.0 - mirrored).abs() < 1e-6
+                }) {
+                    o.guides.remove(i);
+                }
+            }
+        }
+    }
+    book.spreads[at].guides.push(Guide {
+        axis: guide.axis,
+        pos: folio_model::Pt(on_spread),
+        locked: false,
+    });
+    true
 }
 
 /// Gives the pages that have no master, or one of ours, the master their side uses.

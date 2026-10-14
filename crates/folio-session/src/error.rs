@@ -40,6 +40,10 @@ pub enum SessionError {
     NoSuchGuide(usize, String),
     #[error("guide {0} is locked")]
     GuideLocked(usize),
+    #[error("a guide in the gutter, off the pages or on the cover cannot go on every page")]
+    CannotPromote,
+    #[error("the master page `{0}` is not used on spread `{1}`")]
+    MasterNotOnSpread(String, String),
     #[error("a guide needs a position on the page")]
     BadGuide,
 }

@@ -1436,6 +1436,126 @@ fn making_the_masters_with_the_numbers_outside_makes_a_verso_too() {
     assert_eq!(ids, ["mst_a", "mst_b"]);
 }
 
+fn add_guide(s: &mut Session, at: &str, axis: Axis, pos: f64) {
+    s.apply(Intent::AddGuide {
+        on: Surface::Spread(spread(at)),
+        axis,
+        pos: Pt(pos),
+    })
+    .unwrap();
+}
+
+fn master_guides(s: &Session, id: &str) -> Vec<(Axis, f64)> {
+    master(s, id)
+        .map(|m| m.guides.iter().map(|g| (g.axis, g.pos.0)).collect())
+        .unwrap_or_default()
+}
+
+#[test]
+fn a_horizontal_guide_put_on_every_page_goes_to_the_masters_its_pages_use_and_leaves_the_spread() {
+    let mut s = session();
+    add_guide(&mut s, "sp_2", Axis::Y, 60.0);
+    s.apply(Intent::PromoteGuide {
+        spread: spread("sp_2"),
+        index: 0,
+    })
+    .unwrap();
+    assert!(guides(&s, 2).is_empty());
+    assert_eq!(master_guides(&s, "mst_a"), [(Axis::Y, 60.0)]);
+    // Both pages of the spread use master A, so it holds the guide once.
+    s.undo().unwrap();
+    assert_eq!(guides(&s, 2), [(Axis::Y, 60.0, false)]);
+    assert!(
+        master(&s, "mst_a").is_none(),
+        "the masters made for it are undone too"
+    );
+}
+
+#[test]
+fn a_vertical_guide_goes_to_the_master_of_the_page_it_is_over_and_is_mirrored_on_the_facing_one() {
+    let s = session();
+    let mut outside = s.book().clone();
+    outside.page_numbers = folio_model::PageNumbers::Outside;
+    let mut s = Session::new(outside);
+    let w = s.book().trim.w.0;
+    add_guide(&mut s, "sp_2", Axis::X, w + 30.0);
+    s.apply(Intent::PromoteGuide {
+        spread: spread("sp_2"),
+        index: 0,
+    })
+    .unwrap();
+    // The second page of a spread is a right-hand page, which uses master A.
+    assert_eq!(master_guides(&s, "mst_a"), [(Axis::X, 30.0)]);
+    assert_eq!(master_guides(&s, "mst_b"), [(Axis::X, w - 30.0)]);
+}
+
+#[test]
+fn a_guide_in_the_gutter_off_the_pages_on_the_cover_or_locked_is_not_put_on_every_page() {
+    let mut s = session();
+    let w = s.book().trim.w.0;
+    add_guide(&mut s, "sp_2", Axis::X, w);
+    add_guide(&mut s, "sp_2", Axis::X, 2.0 * w + 5.0);
+    add_guide(&mut s, "sp_cover", Axis::Y, 10.0);
+    add_guide(&mut s, "sp_2", Axis::Y, 12.0);
+    for (spread_id, index) in [("sp_2", 0), ("sp_2", 1), ("sp_cover", 0)] {
+        assert!(
+            matches!(
+                s.apply(Intent::PromoteGuide {
+                    spread: spread(spread_id),
+                    index
+                }),
+                Err(SessionError::CannotPromote)
+            ),
+            "{spread_id} {index}"
+        );
+    }
+    s.apply(Intent::LockGuide {
+        on: Surface::Spread(spread("sp_2")),
+        index: 2,
+        locked: true,
+    })
+    .unwrap();
+    assert!(matches!(
+        s.apply(Intent::PromoteGuide {
+            spread: spread("sp_2"),
+            index: 2
+        }),
+        Err(SessionError::GuideLocked(2))
+    ));
+}
+
+#[test]
+fn a_guide_put_back_on_one_spread_leaves_the_masters_and_lands_where_the_page_is() {
+    let s = session();
+    let mut outside = s.book().clone();
+    outside.page_numbers = folio_model::PageNumbers::Outside;
+    let mut s = Session::new(outside);
+    let w = s.book().trim.w.0;
+    add_guide(&mut s, "sp_2", Axis::X, w + 30.0);
+    s.apply(Intent::PromoteGuide {
+        spread: spread("sp_2"),
+        index: 0,
+    })
+    .unwrap();
+    s.apply(Intent::DemoteGuide {
+        master: folio_model::MasterId("mst_a".into()),
+        index: 0,
+        spread: spread("sp_2"),
+    })
+    .unwrap();
+    assert!(master_guides(&s, "mst_a").is_empty());
+    assert!(master_guides(&s, "mst_b").is_empty(), "the mirror goes too");
+    assert_eq!(guides(&s, 2), [(Axis::X, w + 30.0, false)]);
+    assert!(matches!(
+        s.apply(Intent::DemoteGuide {
+            master: folio_model::MasterId("mst_a".into()),
+            index: 0,
+            spread: spread("sp_2"),
+        }),
+        Err(SessionError::NoSuchGuide(0, _))
+    ));
+}
+
 #[test]
 fn a_copy_of_a_flowing_frame_is_not_another_slot_in_the_flow() {
     let mut s = session();
