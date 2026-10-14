@@ -47,9 +47,52 @@
 	font-variant-numeric: tabular-nums;
 }
 
+/* The rulers and the table: the rulers take no room when they are off. */
+.area {
+	flex: 1;
+	min-height: 0;
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr);
+}
+
+.area > :nth-child(1):not(.table) {
+	grid-column: 1;
+	grid-row: 1;
+}
+
+.area > [data-ruler='x'] {
+	grid-column: 2;
+	grid-row: 1;
+}
+
+.area > [data-ruler='y'] {
+	grid-column: 1;
+	grid-row: 2;
+}
+
+.corner {
+	display: grid;
+	place-items: center;
+	padding: 0;
+	border: 0;
+	border-right: 1px solid var(--folio-border-subtle);
+	border-bottom: 1px solid var(--folio-border-subtle);
+	background: var(--folio-bg-raised);
+	color: var(--folio-text-secondary);
+	font: inherit;
+	font-size: 9px;
+	cursor: pointer;
+}
+
+.corner:hover {
+	background: var(--folio-bg-hover);
+}
+
 /* The table the spread sits on: it scrolls when the spread is larger than the room. */
 .table {
-	flex: 1;
+	grid-column: 2;
+	grid-row: 2;
 	min-height: 0;
 	overflow: auto;
 	display: grid;

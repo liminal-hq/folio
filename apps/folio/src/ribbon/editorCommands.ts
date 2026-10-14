@@ -22,6 +22,8 @@ export interface EditorInput {
 	choices: StyleChoice[];
 	marks: Marks;
 	snap: boolean;
+	/** Whether the rulers show. */
+	rulers: boolean;
 }
 
 /** What the controls show: which can be used now, which are pressed, the numbers, the extra tabs. */
@@ -38,6 +40,7 @@ export type EditorAction =
 	| { kind: 'add'; shape: NewFrameKind | 'rect' | 'round' | 'ellipse' }
 	| { kind: 'marks'; marks: Partial<Marks> }
 	| { kind: 'snap' }
+	| { kind: 'rulers' }
 	| { kind: 'zoom'; zoom: 'in' | 'out' | 'fit' }
 	| { kind: 'page'; op: 'add' | 'duplicate' | 'remove' }
 	| { kind: 'choosePicture'; frame: string }
@@ -68,6 +71,8 @@ export function editorState(input: EditorInput): EditorState {
 		'grid',
 		'bleed',
 		'guides',
+		'rulers',
+		'rguides',
 		'snap',
 		'zoomIn',
 		'zoomOut',
@@ -78,6 +83,8 @@ export function editorState(input: EditorInput): EditorState {
 		grid: marks.columns || marks.baseline,
 		bleed: marks.bleed,
 		guides: marks.frameEdges,
+		rulers: input.rulers,
+		rguides: marks.guides,
 		snap,
 	};
 	const values: Record<string, number> = {};
@@ -87,6 +94,7 @@ export function editorState(input: EditorInput): EditorState {
 		available.add('dupPage');
 		if (input.spreadCount > 1) available.add('delPage');
 	}
+	if (spread.guides.some((g) => !g.locked)) available.add('rgClear');
 	if (selected.length > 0) available.add('lock');
 	if (selected.length > 0 && selected.every((f) => f.locked)) active.lock = true;
 	if (free(selected).length > 0) {
@@ -148,6 +156,12 @@ export function editorAction(
 		}
 		case 'snap':
 			return { kind: 'snap' };
+		case 'rulers':
+			return { kind: 'rulers' };
+		case 'rguides':
+			return { kind: 'marks', marks: { guides: !input.marks.guides } };
+		case 'rgClear':
+			return { kind: 'intents', intents: [{ type: 'ClearGuides', spread: spread.id }] };
 		case 'zoomIn':
 			return { kind: 'zoom', zoom: 'in' };
 		case 'zoomOut':
