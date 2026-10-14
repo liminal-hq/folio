@@ -1,0 +1,167 @@
+.card {
+	flex: none;
+	inline-size: var(--folio-inspector-width, 292px);
+	margin: 0 16px 16px 0;
+	padding: 12px 16px 16px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 12px;
+	background: var(--folio-bg-raised);
+	box-shadow: 0 4px 16px rgb(0 0 0 / 16%);
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	align-self: flex-start;
+	max-block-size: calc(100% - 16px);
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.title {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.badges {
+	display: flex;
+	gap: 4px;
+}
+
+.badge {
+	padding: 2px 8px;
+	border-radius: 999px;
+	background: var(--folio-bg-selected);
+	color: var(--folio-accent);
+	font-size: 11px;
+	font-weight: 600;
+}
+
+.facts {
+	display: grid;
+	gap: 6px;
+	margin: 0;
+}
+
+.row {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	font-size: 13px;
+}
+
+.row dt {
+	color: var(--folio-text-secondary);
+}
+
+.row dd {
+	margin: 0;
+	text-align: right;
+}
+
+.group {
+	display: grid;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	font-size: 13px;
+}
+
+.group legend {
+	margin-bottom: 6px;
+	padding: 0;
+	color: var(--folio-text-secondary);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.check {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-block-size: 28px;
+}
+
+.field {
+	display: grid;
+	gap: 6px;
+	font-size: 12px;
+	color: var(--folio-text-secondary);
+}
+
+.words {
+	box-sizing: border-box;
+	inline-size: 100%;
+	padding: 8px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 8px;
+	background: var(--folio-bg-window);
+	color: var(--folio-text-primary);
+	font: inherit;
+	font-size: 13px;
+	resize: vertical;
+}
+
+.note {
+	margin: 0;
+	color: var(--folio-text-muted);
+	font-size: 12px;
+}
+
+.chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.chip,
+.stepper button,
+.action {
+	min-block-size: 28px;
+	padding: 0 10px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 8px;
+	background: transparent;
+	color: var(--folio-text-primary);
+	font: inherit;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.chip:hover:not(:disabled),
+.stepper button:hover:not(:disabled),
+.action:hover:not(:disabled) {
+	background: var(--folio-bg-hover);
+}
+
+.chip[aria-pressed='true'] {
+	border-color: var(--folio-accent);
+	background: var(--folio-bg-selected);
+	color: var(--folio-accent);
+}
+
+.chip:disabled,
+.stepper button:disabled,
+.action:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.stepper {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.stepper output {
+	min-inline-size: 48px;
+	text-align: center;
+	color: var(--folio-text-primary);
+	font-variant-numeric: tabular-nums;
+}
