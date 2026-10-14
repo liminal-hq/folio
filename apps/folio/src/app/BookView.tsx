@@ -9,6 +9,7 @@ import type { OpenBookCopy } from '../books/booksStore';
 import { useBooks } from '../books/useBooks';
 import { frameIntents } from '../canvas/frameMenu';
 import { Shelf } from '../canvas/Shelf';
+import { shelfIntent } from '../canvas/shelfMenu';
 import { DEFAULT_MARKS, type Marks } from '../canvas/SpreadCanvas';
 import { Stage } from '../canvas/Stage';
 import { useSelection } from '../canvas/useSelection';
@@ -92,7 +93,32 @@ export function BookView({
 					apply={(intent) => void store.apply(intent)}
 				/>
 			</main>
-			<Shelf book={book} labels={labels} selected={shown} onSelect={setSpreadIndex} />
+			<Shelf
+				book={book}
+				labels={labels}
+				selected={shown}
+				onSelect={setSpreadIndex}
+				onAdd={() => {
+					// New pages go at the end of the book.
+					const last = book.spreads[book.spreads.length - 1]!;
+					void store.apply({ type: 'AddSpread', after: last.id, duplicate: false });
+					setSpreadIndex(book.spreads.length);
+				}}
+				onCommand={(command, index) => {
+					const intent = shelfIntent(command, book, index);
+					if (!intent) return;
+					void store.apply(intent);
+					if (command === 'duplicate' || command === 'moveRight') setSpreadIndex(index + 1);
+					else if (command === 'moveLeft') setSpreadIndex(index - 1);
+					else if (command === 'remove') setSpreadIndex(Math.max(0, index - 1));
+				}}
+				onMove={(from, to) => {
+					const moved = book.spreads[from];
+					if (!moved) return;
+					void store.apply({ type: 'MoveSpread', spread: moved.id, to });
+					setSpreadIndex(Math.max(1, to));
+				}}
+			/>
 		</>
 	);
 }

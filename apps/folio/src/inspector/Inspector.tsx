@@ -10,7 +10,7 @@ import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
 import type { TextFrame } from '@liminal-hq/folio-protocol/generated/TextFrame';
 import { Segmented } from '../app/Segmented';
-import { formatTrim, pageCount } from '../books/format';
+import { formatLength, formatTrim, pageCount } from '../books/format';
 import { plainTextOf } from '../canvas/TextEditor';
 import { spreadGeometry } from '../canvas/geometry';
 import type { Marks } from '../canvas/SpreadCanvas';
@@ -79,10 +79,7 @@ function BookSection({ book, kindLabel, units, marks, onMarks }: InspectorProps)
 					label={t('inspector.book.pages')}
 					value={pages === 1 ? t('status.pages.one') : t('status.pages.many', { count: pages })}
 				/>
-				<Row
-					label={t('inspector.book.bleed')}
-					value={`${Math.round((book.bleed / 72) * 100) / 100} in`}
-				/>
+				<Row label={t('inspector.book.bleed')} value={formatLength(book.bleed, units)} />
 			</dl>
 			<fieldset className={styles.group}>
 				<legend>{t('inspector.helpers')}</legend>

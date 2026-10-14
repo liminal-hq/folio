@@ -239,3 +239,20 @@ export const TrashIcon = () => (
 		<path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4" />
 	</Glyph>
 );
+
+export const MoveLeftIcon = () => (
+	<Glyph>
+		<path d="M13 8H3M7 4L3 8l4 4" />
+	</Glyph>
+);
+export const MoveRightIcon = () => (
+	<Glyph>
+		<path d="M3 8h10M9 4l4 4-4 4" />
+	</Glyph>
+);
+export const AddPagesIcon = () => (
+	<Glyph>
+		<path d="M3.5 1.5h6l3 3v10h-9z" />
+		<path d="M8 7v4M6 9h4" />
+	</Glyph>
+);

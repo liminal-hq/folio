@@ -49,3 +49,29 @@
 .label {
 	white-space: nowrap;
 }
+
+.list li[data-over='true'] {
+	border-inline-start: 2px solid var(--folio-accent);
+}
+
+.add {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	min-inline-size: 72px;
+	block-size: 64px;
+	margin-block-start: 6px;
+	border: 1px dashed var(--folio-border-subtle);
+	border-radius: 8px;
+	background: transparent;
+	color: var(--folio-text-secondary);
+	font: inherit;
+	font-size: 11px;
+	cursor: pointer;
+}
+
+.add:hover {
+	background: var(--folio-bg-hover);
+}

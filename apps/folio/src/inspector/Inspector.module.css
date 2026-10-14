@@ -165,3 +165,7 @@
 	color: var(--folio-text-primary);
 	font-variant-numeric: tabular-nums;
 }
+
+.check input {
+	accent-color: var(--folio-accent);
+}
