@@ -12,7 +12,7 @@ import type { MutableRefObject } from 'react';
 import { t } from '../i18n/messages';
 import { frameMenuItems, type FrameCommand } from './frameMenu';
 import { pageMenuItems, type PageCommand } from './pageMenu';
-import { fitZoom, spreadGeometry, type PlainRect } from './geometry';
+import { fitZoom, spreadGeometry } from './geometry';
 import { MarksMenu } from './MarksMenu';
 import {
 	DEFAULT_MARK_COLOURS,
@@ -24,6 +24,7 @@ import {
 import { SpreadCanvas } from './SpreadCanvas';
 import styles from './Stage.module.css';
 import { useElementSize } from './useElementSize';
+import type { FrameBoxMove } from './useFrameDrag';
 import { useStageZoom, type StageZoom } from './useStageZoom';
 
 export type ZoomApi = Pick<StageZoom, 'zoomIn' | 'zoomOut' | 'fit'>;
@@ -44,7 +45,7 @@ export interface StageProps {
 	images?: Record<string, string>;
 	selection?: string[];
 	onSelect?(ids: string[]): void;
-	onMove?(id: string, rect: PlainRect): Promise<void>;
+	onMove?(moves: FrameBoxMove[]): Promise<void>;
 	onCommand?(command: FrameCommand, ids: string[]): void;
 	onEditText?(id: string, text: string): void;
 	/** A choice from the page menu; `point` is where it was asked for, in points on the spread. */

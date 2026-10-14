@@ -282,3 +282,44 @@ describe('choosing a picture', () => {
 		expect(apply).toHaveBeenCalledWith({ type: 'SetImage', frame: 'i', asset: null, fit: 'fit' });
 	});
 });
+
+describe('the words box', () => {
+	it('keeps what was typed when another frame is chosen before it loses focus', () => {
+		const apply = vi.fn();
+		const view = render(
+			<Inspector
+				book={book}
+				styleFile={styleFile}
+				kindLabel="Picture book"
+				units="inches"
+				mode="easy"
+				spread={spread}
+				layout={null}
+				selected={[text()]}
+				marks={DEFAULT_MARKS}
+				onMarks={() => {}}
+				apply={apply}
+			/>,
+		);
+		fireEvent.change(screen.getByRole('textbox', { name: 'Words' }), {
+			target: { value: 'Half-typed' },
+		});
+		view.rerender(
+			<Inspector
+				book={book}
+				styleFile={styleFile}
+				kindLabel="Picture book"
+				units="inches"
+				mode="easy"
+				spread={spread}
+				layout={null}
+				selected={[]}
+				marks={DEFAULT_MARKS}
+				onMarks={() => {}}
+				apply={apply}
+			/>,
+		);
+		expect(apply).toHaveBeenCalledWith({ type: 'SetText', frame: 't', text: 'Half-typed' });
+		expect(apply).toHaveBeenCalledTimes(1);
+	});
+});

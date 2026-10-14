@@ -11,6 +11,15 @@ use crate::frame::{Fit, Frame, StyleOverrides};
 use crate::ids::{FrameId, PageId, SpreadId, StyleId};
 use crate::units::{Margins, Pt, Rect, Size};
 
+/// A frame and the box it is to have.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct FrameMove {
+    pub frame: FrameId,
+    #[serde(rename = "box")]
+    pub rect: Rect,
+}
+
 // ── Intents (UI → core) ──
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
@@ -21,6 +30,12 @@ pub enum Intent {
         frame: FrameId,
         #[serde(rename = "box")]
         rect: Rect,
+    },
+    /// Moves or resizes several frames together, as one change that merges with the next of the
+    /// same frames within the coalescing window, so a drag or a nudge of a selection is one undo step.
+    MoveFrames {
+        spread: SpreadId,
+        moves: Vec<FrameMove>,
     },
     /// Puts a copy of a frame on the same spread, a little down and to the right, in front.
     DuplicateFrame {

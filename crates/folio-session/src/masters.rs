@@ -41,12 +41,17 @@ fn number_frame(id: &str, x: f64, y: f64, align: &str) -> Frame {
 /// master. With no numbers there are no masters, and every page is without one.
 pub fn apply_page_numbers(book: &mut Book) {
     let mode = book.page_numbers;
-    book.master_pages.clear();
-    book.masters.clear();
+    let ours = |id: &MasterId| id.0 == RECTO || id.0 == VERSO;
+    // Masters that came from elsewhere (an import, a newer Folio) are not ours to remove.
+    book.master_pages.retain(|m| !ours(&m.id));
     if mode == PageNumbers::None {
         for page in book.spreads.iter_mut().flat_map(|s| s.pages.iter_mut()) {
-            page.master = None;
+            if page.master.as_ref().is_some_and(ours) {
+                page.master = None;
+            }
         }
+        prune_overrides(book);
+        book.masters = book.master_pages.iter().map(|m| m.id.clone()).collect();
         return;
     }
     let (w, h, bottom, outside) = (
@@ -80,6 +85,10 @@ pub fn apply_page_numbers(book: &mut Book) {
             .map(|i| is_recto(spread, i))
             .collect();
         for (page, recto) in spread.pages.iter_mut().zip(rectos) {
+            // A page the person gave another master keeps it.
+            if page.master.as_ref().is_some_and(|m| !ours(m)) {
+                continue;
+            }
             page.master = if cover {
                 None
             } else if mode == PageNumbers::Outside && !recto {
@@ -88,5 +97,25 @@ pub fn apply_page_numbers(book: &mut Book) {
                 Some(MasterId(RECTO.into()))
             };
         }
+    }
+    prune_overrides(book);
+}
+
+/// Forgets hidden master items that are no longer on the master their page uses, so a number hidden
+/// on a page that has since changed sides, or been through None and back, does not stay hidden.
+fn prune_overrides(book: &mut Book) {
+    let masters = &book.master_pages;
+    for spread in &mut book.spreads {
+        let pages = spread.pages.clone();
+        spread.master_overrides.retain_mut(|o| {
+            let on = pages
+                .iter()
+                .find(|p| p.id == o.page_id)
+                .and_then(|p| p.master.as_ref())
+                .and_then(|id| masters.iter().find(|m| &m.id == id));
+            o.hide
+                .retain(|f| on.is_some_and(|m| m.frames.iter().any(|mf| &mf.base().id == f)));
+            !o.hide.is_empty()
+        });
     }
 }

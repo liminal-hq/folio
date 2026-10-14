@@ -47,3 +47,44 @@ describe('useAssetUrls', () => {
 		expect(revoke).toHaveBeenCalledWith('blob:two');
 	});
 });
+
+describe('useAssetUrls across books and failures', () => {
+	it("gives the new book none of the old book's addresses", async () => {
+		let n = 0;
+		vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:${++n}`);
+		const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+		const fake = createFakeBooksClient();
+		const a = (await fake.client.newBook({})).summary.id;
+		const b = (await fake.client.newBook({})).summary.id;
+		const { result, rerender } = renderHook(
+			({ id }) => useAssetUrls(fake.client, id, ['assets/images/x.png']),
+			{ initialProps: { id: a } },
+		);
+		await waitFor(() => expect(result.current['assets/images/x.png']).toBe('blob:1'));
+		rerender({ id: b });
+		expect(result.current['assets/images/x.png']).toBeUndefined();
+		expect(revoke).toHaveBeenCalledWith('blob:1');
+		await waitFor(() => expect(result.current['assets/images/x.png']).toBe('blob:2'));
+	});
+
+	it('asks again for a picture it could not read, and makes no address after it closed', async () => {
+		let n = 0;
+		const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:${++n}`);
+		vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+		const fake = createFakeBooksClient();
+		const id = (await fake.client.newBook({})).summary.id;
+		fake.refuseNext('assetData', 'package', 'not there yet');
+		const { result, rerender, unmount } = renderHook(
+			({ assets }) => useAssetUrls(fake.client, id, assets),
+			{ initialProps: { assets: ['assets/images/y.png'] } },
+		);
+		await waitFor(() => expect(fake.calls.filter((c) => c.startsWith('assetData')).length).toBe(1));
+		expect(result.current).toEqual({});
+		// The same list again is not a new ask, but a changed list asks for what was missed.
+		rerender({ assets: ['assets/images/y.png', 'assets/images/z.png'] });
+		await waitFor(() => expect(result.current['assets/images/y.png']).toBeDefined());
+		const made = create.mock.calls.length;
+		unmount();
+		expect(create.mock.calls.length).toBe(made);
+	});
+});

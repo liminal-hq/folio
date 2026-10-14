@@ -117,3 +117,16 @@ describe('editing words in place', () => {
 		expect(screen.queryByRole('textbox')).toBeNull();
 	});
 });
+
+describe('editing when the frame goes away', () => {
+	it('keeps what was typed when the editor is closed without a blur', () => {
+		const onEditText = vi.fn();
+		const { unmount } = render(
+			<Harness frames={[text('a', [{ text: 'Once' }])]} onEditText={onEditText} />,
+		);
+		fireEvent.doubleClick(hit('a'));
+		fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Typed, then gone' } });
+		unmount();
+		expect(onEditText).toHaveBeenCalledWith('a', 'Typed, then gone');
+	});
+});

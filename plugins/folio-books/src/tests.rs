@@ -359,16 +359,14 @@ fn a_picture_file_goes_into_the_book_and_comes_back_by_its_path() {
         .id;
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("Otter.PNG");
-    std::fs::write(&file, b"not really a png, but bytes").unwrap();
+    let png = [b"\x89PNG\r\n\x1a\n".as_slice(), b"and some bytes"].concat();
+    std::fs::write(&file, &png).unwrap();
     let asset = books(&app).import_image(&id, &file).unwrap();
     assert!(
         asset.starts_with("assets/images/") && asset.ends_with(".png"),
         "{asset}"
     );
-    assert_eq!(
-        books(&app).asset_data(&id, &asset).unwrap(),
-        b"not really a png, but bytes"
-    );
+    assert_eq!(books(&app).asset_data(&id, &asset).unwrap(), png);
     // The same bytes are stored once.
     assert_eq!(books(&app).import_image(&id, &file).unwrap(), asset);
 }
@@ -397,4 +395,28 @@ fn a_file_that_is_not_a_picture_is_refused_with_a_typed_error() {
         books(&app).import_image("bk_none", &dir.path().join("a.png")),
         Err(Error::BadImage(_) | Error::NoSuchBook(_))
     ));
+}
+
+#[test]
+fn a_file_that_is_not_what_its_name_says_and_a_link_are_refused() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let dir = tempfile::tempdir().unwrap();
+    let renamed = dir.path().join("really-text.png");
+    std::fs::write(&renamed, b"just words").unwrap();
+    let refused = books(&app).import_image(&id, &renamed).unwrap_err();
+    assert_eq!(serde_json::to_value(&refused).unwrap()["kind"], "image");
+    #[cfg(unix)]
+    {
+        let real = dir.path().join("real.png");
+        std::fs::write(&real, b"\x89PNG\r\n\x1a\nbytes").unwrap();
+        let link = dir.path().join("link.png");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        assert!(books(&app).import_image(&id, &link).is_err());
+        assert!(books(&app).import_image(&id, &real).is_ok());
+    }
 }

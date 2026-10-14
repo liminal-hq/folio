@@ -28,8 +28,9 @@ export function useSpreadLayout(
 			.then((result) => {
 				if (current) setHeld({ key: `${bookId}/${spread}`, layout: result.layout });
 			})
-			.catch(() => {
-				// The book was closed, or this is not Tauri: keep what is drawn.
+			.catch((error: unknown) => {
+				// The book was closed, or this is not Tauri: keep what is drawn, and say why in the log.
+				console.warn(`Could not lay out spread ${spread}:`, error);
 			});
 		return () => {
 			current = false;

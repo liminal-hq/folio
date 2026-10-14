@@ -9,6 +9,7 @@ import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
 import type { TextFrame } from '@liminal-hq/folio-protocol/generated/TextFrame';
+import { useEffect, useRef } from 'react';
 import { Segmented } from '../app/Segmented';
 import { formatLength, formatTrim, pageCount } from '../books/format';
 import { plainTextOf } from '../canvas/TextEditor';
@@ -237,6 +238,50 @@ function PositionSection({
 	);
 }
 
+/**
+ * The words of a text frame in a box. What was typed is kept when the box loses focus, and also when
+ * it goes away without losing it (another frame was chosen), so a click elsewhere never drops it.
+ */
+function WordsBox({
+	frame,
+	words,
+	disabled,
+	apply,
+}: {
+	frame: string;
+	words: string | null;
+	disabled: boolean;
+	apply(intent: Intent): void;
+}) {
+	const box = useRef<HTMLTextAreaElement | null>(null);
+	const sent = useRef(false);
+	/** What is in the box, kept as it is typed because the box is gone by the time an unmount cleans up. */
+	const typed = useRef(words ?? '');
+	const keep = () => {
+		const text = typed.current;
+		if (sent.current || text === (words ?? '')) return;
+		sent.current = true;
+		apply({ type: 'SetText', frame, text });
+	};
+	const latest = useRef(keep);
+	latest.current = keep;
+	useEffect(() => () => latest.current(), []);
+	return (
+		<textarea
+			ref={box}
+			className={styles.words}
+			defaultValue={words ?? ''}
+			disabled={disabled}
+			rows={4}
+			onChange={(event) => {
+				typed.current = event.target.value;
+				sent.current = false;
+			}}
+			onBlur={keep}
+		/>
+	);
+}
+
 const ALIGNS = ['left', 'center', 'right', 'justify'] as const;
 
 function TextSection({ frame, props }: { frame: TextFrame; props: InspectorProps }) {
@@ -258,17 +303,12 @@ function TextSection({ frame, props }: { frame: TextFrame; props: InspectorProps
 			/>
 			<label className={styles.field}>
 				<span>{t('inspector.words')}</span>
-				<textarea
+				<WordsBox
 					key={`${frame.id}:${words}`}
-					className={styles.words}
-					defaultValue={words ?? ''}
+					frame={frame.id}
+					words={words}
 					disabled={words === null || frame.flow != null || frame.locked}
-					rows={4}
-					onBlur={(event) => {
-						if (event.target.value !== words) {
-							apply({ type: 'SetText', frame: frame.id, text: event.target.value });
-						}
-					}}
+					apply={apply}
 				/>
 			</label>
 			{words === null && <p className={styles.note}>{t('inspector.words.rich')}</p>}

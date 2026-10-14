@@ -44,7 +44,7 @@ function Harness({
 	onMove = async () => {},
 	onCommand = () => {},
 }: {
-	onMove?: (id: string, rect: PlainRect) => Promise<void>;
+	onMove?: (moves: { id: string; rect: PlainRect }[]) => Promise<void>;
 	onCommand?: (command: string, ids: string[]) => void;
 }) {
 	const [selection, setSelection] = useState<string[]>([]);
@@ -62,6 +62,9 @@ function Harness({
 		/>
 	);
 }
+
+const movesOf = (fn: { mock: { calls: unknown[][] } }, call = 0) =>
+	fn.mock.calls[call]![0] as { id: string; rect: PlainRect }[];
 
 const hit = (id: string) => document.querySelector(`[data-hit="${id}"]`)!;
 const px = (points: number) => points * PX_PER_POINT;
@@ -125,7 +128,7 @@ describe('moving', () => {
 		fireEvent.pointerMove(svg, { clientX: px(73), clientY: px(77), altKey: true });
 		fireEvent.pointerUp(svg);
 		await vi.waitFor(() => expect(onMove).toHaveBeenCalledTimes(1));
-		const [id, rect] = onMove.mock.calls[0]! as unknown as [string, PlainRect];
+		const { id, rect } = movesOf(onMove)[0]!;
 		expect(id).toBe('a');
 		expect(rect.x).toBeCloseTo(63);
 		expect(rect.y).toBeCloseTo(67);
@@ -154,7 +157,7 @@ describe('moving', () => {
 		expect(document.querySelector('[data-snap="x"]')).not.toBeNull();
 		fireEvent.pointerUp(svg);
 		await vi.waitFor(() => expect(onMove).toHaveBeenCalled());
-		expect((onMove.mock.calls[0]! as unknown as [string, PlainRect])[1].x).toBe(50);
+		expect(movesOf(onMove)[0]!.rect.x).toBe(50);
 	});
 
 	it('never moves a locked frame', () => {
@@ -176,13 +179,64 @@ describe('moving', () => {
 		const svg = screen.getByRole('group', { name: 'Page' });
 		fireEvent.pointerDown(hit('a'), { button: 0 });
 		fireEvent.keyDown(svg, { key: 'ArrowRight' });
-		expect(onMove).toHaveBeenLastCalledWith('a', { x: 51, y: 50, w: 100, h: 50 });
+		expect(onMove).toHaveBeenLastCalledWith([{ id: 'a', rect: { x: 51, y: 50, w: 100, h: 50 } }]);
 		fireEvent.keyDown(svg, { key: 'ArrowUp', shiftKey: true });
-		expect(onMove).toHaveBeenLastCalledWith('a', { x: 50, y: 40, w: 100, h: 50 });
+		// The second press builds on the first, which the book has not shown yet.
+		expect(onMove).toHaveBeenLastCalledWith([{ id: 'a', rect: { x: 51, y: 40, w: 100, h: 50 } }]);
 		fireEvent.keyDown(svg, { key: 'Delete' });
 		expect(onCommand).toHaveBeenCalledWith('delete', ['a']);
 		fireEvent.keyDown(svg, { key: 'd', ctrlKey: true });
 		expect(onCommand).toHaveBeenLastCalledWith('duplicate', ['a']);
+	});
+});
+
+describe('several frames and a lost pointer', () => {
+	it('moves the whole selection as one change', async () => {
+		const onMove = vi.fn(async () => {});
+		render(<Harness onMove={onMove} />);
+		stubBounds();
+		const svg = screen.getByRole('group', { name: 'Page' });
+		fireEvent.pointerDown(hit('a'), { button: 0 });
+		fireEvent.pointerUp(svg);
+		fireEvent.pointerDown(hit('b'), {
+			button: 0,
+			shiftKey: true,
+			clientX: px(210),
+			clientY: px(210),
+		});
+		fireEvent.pointerMove(svg, { clientX: px(230), clientY: px(210), altKey: true });
+		fireEvent.pointerUp(svg);
+		await vi.waitFor(() => expect(onMove).toHaveBeenCalledTimes(1));
+		const moves = movesOf(onMove);
+		expect(moves.map((m) => m.id).sort()).toEqual(['a', 'b']);
+		expect(moves.find((m) => m.id === 'a')!.rect.x).toBeCloseTo(70);
+	});
+
+	it('nudges a selection of several frames as one change too', () => {
+		const onMove = vi.fn(async () => {});
+		render(<Harness onMove={onMove} />);
+		const svg = screen.getByRole('group', { name: 'Page' });
+		fireEvent.pointerDown(hit('a'), { button: 0 });
+		fireEvent.pointerUp(svg);
+		fireEvent.pointerDown(hit('b'), { button: 0, shiftKey: true });
+		fireEvent.pointerUp(svg);
+		fireEvent.keyDown(svg, { key: 'ArrowDown' });
+		expect(onMove).toHaveBeenCalledTimes(1);
+		expect(movesOf(onMove)).toHaveLength(2);
+	});
+
+	it('drops a drag when the pointer is taken away, sending nothing', () => {
+		const onMove = vi.fn(async () => {});
+		render(<Harness onMove={onMove} />);
+		stubBounds();
+		const svg = screen.getByRole('group', { name: 'Page' });
+		fireEvent.pointerDown(hit('a'), { button: 0, clientX: px(60), clientY: px(60) });
+		fireEvent.pointerMove(svg, { clientX: px(90), clientY: px(90), altKey: true });
+		fireEvent.pointerCancel(svg);
+		// A later move with no button down must not carry on dragging.
+		fireEvent.pointerMove(svg, { clientX: px(150), clientY: px(150), altKey: true });
+		fireEvent.pointerUp(svg);
+		expect(onMove).not.toHaveBeenCalled();
 	});
 });
 
@@ -198,7 +252,7 @@ describe('resizing', () => {
 		fireEvent.pointerMove(svg, { clientX: px(180), clientY: px(120), altKey: true });
 		fireEvent.pointerUp(svg);
 		await vi.waitFor(() => expect(onMove).toHaveBeenCalled());
-		const rect = (onMove.mock.calls[0]! as unknown as [string, PlainRect])[1];
+		const rect = movesOf(onMove)[0]!.rect;
 		expect(rect.x).toBe(50);
 		expect(rect.w).toBeCloseTo(130);
 		expect(rect.h).toBeCloseTo(70);
