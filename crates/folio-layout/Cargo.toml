@@ -11,6 +11,12 @@ publish = false
 
 [dependencies]
 fontdb = { version = "0.24", default-features = false, features = ["std", "fs"] }
+hyphenation = { version = "0.8", default-features = false, features = ["embed_all"] }
 rustybuzz = "0.20"
 thiserror = { workspace = true }
 ttf-parser = "0.25"
+unicode-linebreak = "0.1"
+unicode-segmentation = "1"
+
+[dev-dependencies]
+proptest = "1"
