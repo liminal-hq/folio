@@ -192,6 +192,16 @@ export const RIBBON_LAYOUT: readonly LayoutTab[] = [
 				],
 			},
 			{
+				id: 'home.add',
+				items: [
+					{ id: 'text', large: true },
+					{ id: 'image', large: true },
+					{ id: 'table' },
+					{ id: 'shapeMenu', kind: 'menu', icon: 'round' },
+					{ id: 'bubble', icon: 'speech' },
+				],
+			},
+			{
 				id: 'home.editing',
 				items: [
 					{

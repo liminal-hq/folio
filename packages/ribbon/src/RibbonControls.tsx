@@ -62,25 +62,30 @@ export function RibbonControl(props: ControlProps) {
 
 	if (kind === 'select') {
 		return (
-			<select
-				className={styles.select}
-				style={
-					item.width
-						? ({ '--folio-ribbon-select-width': `${item.width}px` } as CSSProperties)
-						: undefined
-				}
-				aria-label={item.label}
-				disabled={item.disabled}
-				value={value === undefined ? '' : String(value)}
-				onChange={(e) => onValue(item, e.target.value)}
-				{...tipHandlers}
-			>
-				{(item.options ?? []).map(([v, l]) => (
-					<option key={v} value={v}>
-						{l}
-					</option>
-				))}
-			</select>
+			<span className={styles.selectWrap}>
+				<select
+					className={styles.select}
+					style={
+						item.width
+							? ({ '--folio-ribbon-select-width': `${item.width}px` } as CSSProperties)
+							: undefined
+					}
+					aria-label={item.label}
+					disabled={item.disabled}
+					value={value === undefined ? '' : String(value)}
+					onChange={(e) => onValue(item, e.target.value)}
+					{...tipHandlers}
+				>
+					{(item.options ?? []).map(([v, l]) => (
+						<option key={v} value={v}>
+							{l}
+						</option>
+					))}
+				</select>
+				<span className={styles.selectCaret} aria-hidden="true">
+					▾
+				</span>
+			</span>
 		);
 	}
 

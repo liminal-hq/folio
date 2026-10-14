@@ -162,7 +162,7 @@ export function Ribbon(props: RibbonProps) {
 							<div key={r} className={styles.row}>
 								{row.map((cluster, c) => (
 									<div key={c} className={styles.cluster}>
-										{cluster.map((item) => controls.control(item, labelled))}
+										{cluster.map((item) => controls.control(item, false))}
 									</div>
 								))}
 							</div>

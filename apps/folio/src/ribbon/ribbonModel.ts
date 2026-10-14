@@ -81,7 +81,10 @@ function toRibbonItem(
 		...(source.radio ? { radio: source.radio } : {}),
 	};
 	if (source.id === 'menubar') item.active = context.settings.interface.menuBar;
-	if (kind === 'select') item.options = [['', label(source.id)]];
+	if (kind === 'select') {
+		item.options = [['', t(`ribbon.value.${source.id}` as MessageKey)]];
+		item.width = source.id === 'font' ? 150 : 130;
+	}
 	if (source.id === 'size') Object.assign(item, { value: 12, min: 4, max: 96, step: 1 });
 	return item;
 }

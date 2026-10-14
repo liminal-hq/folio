@@ -48,8 +48,15 @@
 .tab:hover {
 	background: var(--folio-control-bg);
 }
+.tab {
+	align-self: center;
+	height: calc(var(--folio-ribbon-tab-height) - 6px);
+	border-bottom: 0;
+	border-radius: 5px;
+}
 .tab[aria-selected='true'] {
-	border-bottom-color: var(--folio-accent);
+	background: color-mix(in srgb, var(--folio-accent) 20%, transparent);
+	color: var(--folio-accent);
 	font-weight: 600;
 }
 .tab[data-contextual] {
@@ -95,6 +102,7 @@
 .modeOption[aria-checked='true'] {
 	background: var(--folio-bg-raised);
 	box-shadow: 0 0 0 1px var(--folio-border-subtle);
+	font-weight: 700;
 }
 
 .panel {
@@ -102,8 +110,7 @@
 	align-items: stretch;
 	min-height: var(--folio-ribbon-panel-height);
 	padding: 4px 8px;
-	background: var(--folio-bg-raised);
-	border-top: 1px solid var(--folio-border-subtle);
+	background: var(--folio-bg-chrome);
 	overflow-x: auto;
 }
 .panel[data-overlay] {
@@ -126,7 +133,7 @@
 	display: flex;
 	flex-direction: column;
 	justify-content: space-between;
-	padding: 0 8px;
+	padding: 0 10px;
 	border-right: 1px solid var(--folio-border-subtle);
 }
 .group:last-child {
@@ -157,6 +164,25 @@
 	display: flex;
 	align-items: center;
 }
+.cluster .button {
+	width: 28px;
+	height: 28px;
+	justify-content: center;
+	padding: 0;
+}
+.cluster .caret {
+	display: none;
+}
+.cluster .button[aria-haspopup] {
+	width: auto;
+	padding: 0 6px;
+}
+.cluster .button[aria-haspopup]::after {
+	content: '▾';
+	margin-left: 2px;
+	font-size: 9px;
+	opacity: 0.7;
+}
 .cluster {
 	display: flex;
 	align-items: center;
@@ -183,7 +209,7 @@
 	background: var(--folio-control-bg-hover);
 }
 .button:disabled {
-	opacity: 0.45;
+	opacity: 0.55;
 	cursor: default;
 }
 .button[data-pressed] {
@@ -237,21 +263,39 @@
 }
 
 /* `--folio-ribbon-select-width` is set per item from script. */
+.selectWrap {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+}
 .select {
+	appearance: none;
 	width: var(--folio-ribbon-select-width, auto);
-	height: 26px;
+	height: 28px;
+	padding: 0 22px 0 10px;
 	border: 1px solid var(--folio-border-subtle);
-	border-radius: 4px;
+	border-radius: 6px;
 	background: var(--folio-field-bg);
 	color: inherit;
 	font: inherit;
 }
+.select:disabled {
+	opacity: 0.6;
+}
+.selectCaret {
+	position: absolute;
+	right: 8px;
+	font-size: 10px;
+	opacity: 0.8;
+	pointer-events: none;
+}
 .stepper {
 	display: inline-flex;
 	align-items: center;
-	height: 26px;
+	height: 28px;
+	overflow: hidden;
 	border: 1px solid var(--folio-border-subtle);
-	border-radius: 4px;
+	border-radius: 6px;
 }
 .stepperButton {
 	appearance: none;
