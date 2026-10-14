@@ -131,6 +131,8 @@ pub fn new_book_with_ids(
         spreads,
         flows: Vec::new(),
         masters: Vec::new(),
+        master_pages: Vec::new(),
+        page_numbers: folio_model::PageNumbers::None,
         metadata: BookMetadata {
             isbn: Isbns {
                 paperback: Some(isbn.to_owned()).filter(|s| !s.is_empty()),

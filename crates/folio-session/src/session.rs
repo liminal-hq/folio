@@ -192,6 +192,9 @@ fn ops_between(before: &Delta, after: &Delta) -> Vec<PatchOp> {
             order: after.order.clone(),
         });
     }
+    if before.masters != after.masters {
+        ops.push(after.masters.op());
+    }
     if before.geometry != after.geometry {
         ops.push(PatchOp::SetGeometry {
             trim: after.geometry.trim,

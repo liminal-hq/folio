@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use folio_model::{Book, Grid, Margins, Pt, Size, Spread, SpreadId};
+use folio_model::{Book, Grid, Margins, Master, MasterId, PageNumbers, Pt, Size, Spread, SpreadId};
 
 use crate::patch::PatchOp;
 
@@ -43,12 +43,45 @@ impl Geometry {
     }
 }
 
+/// The master pages of a book.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Masters {
+    pub pages: Vec<Master>,
+    pub ids: Vec<MasterId>,
+    pub numbers: PageNumbers,
+}
+
+impl Masters {
+    pub fn of(book: &Book) -> Self {
+        Self {
+            pages: book.master_pages.clone(),
+            ids: book.masters.clone(),
+            numbers: book.page_numbers,
+        }
+    }
+
+    fn apply(&self, book: &mut Book) {
+        book.master_pages = self.pages.clone();
+        book.masters = self.ids.clone();
+        book.page_numbers = self.numbers;
+    }
+
+    pub fn op(&self) -> PatchOp {
+        PatchOp::SetMasters {
+            masters: self.pages.clone(),
+            ids: self.ids.clone(),
+            numbers: self.numbers,
+        }
+    }
+}
+
 /// How the touched part of a book was at one moment: the order of every spread, the geometry, and
 /// each touched spread (or `None` where it did not exist).
 #[derive(Debug, Clone)]
 pub struct Delta {
     pub order: Vec<SpreadId>,
     pub geometry: Geometry,
+    pub masters: Masters,
     pub spreads: Vec<(SpreadId, Option<Spread>)>,
 }
 
@@ -58,6 +91,7 @@ impl Delta {
         Self {
             order: book.spreads.iter().map(|s| s.id.clone()).collect(),
             geometry: Geometry::of(book),
+            masters: Masters::of(book),
             spreads: touched
                 .iter()
                 .map(|id| {
@@ -75,6 +109,7 @@ impl Delta {
         let mut ops = Vec::new();
         let was_order: Vec<SpreadId> = book.spreads.iter().map(|s| s.id.clone()).collect();
         let was_geometry = Geometry::of(book);
+        let was_masters = Masters::of(book);
 
         for (id, spread) in &self.spreads {
             match spread {
@@ -109,6 +144,10 @@ impl Delta {
         if was_geometry != self.geometry {
             self.geometry.apply(book);
             ops.push(self.geometry.op());
+        }
+        if was_masters != self.masters {
+            self.masters.apply(book);
+            ops.push(self.masters.op());
         }
         ops
     }

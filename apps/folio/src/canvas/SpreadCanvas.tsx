@@ -50,9 +50,17 @@ export interface SpreadCanvasProps {
 
 const INK = '#1c1b20';
 
-function Lines({ frame, layout }: { frame: Frame; layout: FrameLayout }) {
+function Lines({
+	id,
+	at,
+	layout,
+}: {
+	id: string;
+	at: { x: number; y: number };
+	layout: FrameLayout;
+}) {
 	return (
-		<g transform={`translate(${frame.box.x} ${frame.box.y})`} data-frame={frame.id}>
+		<g transform={`translate(${at.x} ${at.y})`} data-frame={id}>
 			{layout.lines.map((line, index) => (
 				<g key={index} transform={`translate(${line.x} ${line.baseline})`}>
 					{line.runs.map((run, i) => (
@@ -319,10 +327,15 @@ export function SpreadCanvas({
 							/>
 						)}
 						{byFrame.has(frame.id) && frame.id !== editing && (
-							<Lines frame={frame} layout={byFrame.get(frame.id)!} />
+							<Lines id={frame.id} at={frame.box} layout={byFrame.get(frame.id)!} />
 						)}
 					</g>
 				))}
+				{layout?.frames.map((laid) =>
+					laid.origin ? (
+						<Lines key={laid.frame} id={laid.frame} at={laid.origin} layout={laid} />
+					) : null,
+				)}
 				{marks.bleed && (
 					<path
 						data-mark="bleed"

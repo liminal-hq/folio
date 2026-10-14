@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::flow::Flow;
+use crate::frame::Frame;
 use crate::ids::{BookId, MasterId};
 use crate::spread::Spread;
 use crate::units::{Margins, Pt, Size};
@@ -62,12 +63,48 @@ pub struct Book {
     pub flows: Vec<Flow>,
     #[serde(default)]
     pub masters: Vec<MasterId>,
+    /// The master pages: frames that repeat on every page that uses them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub master_pages: Vec<Master>,
+    /// Where the page numbers go, kept so the masters can be made again when pages come and go.
+    #[serde(default, skip_serializing_if = "PageNumbers::is_none")]
+    pub page_numbers: PageNumbers,
     pub metadata: BookMetadata,
     /// Keys at the top of `book.json` that this version does not know, from imports or a newer
     /// version of Folio, kept as they were so a save does not lose them. The UI never sees them.
     #[serde(flatten, default, skip_serializing_if = "BTreeMap::is_empty")]
     #[ts(skip)]
     pub extensions: BTreeMap<String, serde_json::Value>,
+}
+
+/// A master page: frames drawn on every page that uses it, in the page's own coordinates (the
+/// origin is the top-left of its trim). Text in them may hold `{page}` and `{book.title}`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct Master {
+    pub id: MasterId,
+    pub name: String,
+    pub frames: Vec<Frame>,
+}
+
+/// Where the page numbers go.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(rename_all = "lowercase")]
+pub enum PageNumbers {
+    /// There are none.
+    #[default]
+    None,
+    /// In the middle of the bottom margin.
+    Centre,
+    /// In the bottom margin, at the outer edge of each page.
+    Outside,
+}
+
+impl PageNumbers {
+    pub fn is_none(&self) -> bool {
+        *self == PageNumbers::None
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]

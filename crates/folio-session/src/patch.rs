@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use folio_model::{Grid, Margins, Pt, Size, Spread, SpreadId};
+use folio_model::{Grid, Margins, Master, MasterId, PageNumbers, Pt, Size, Spread, SpreadId};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -18,6 +18,12 @@ pub enum PatchOp {
     RemoveSpread { id: SpreadId },
     /// The spreads, in order. Sent whenever the order changes.
     SetOrder { order: Vec<SpreadId> },
+    /// The master pages, which page numbers they make, and the ids in order.
+    SetMasters {
+        masters: Vec<Master>,
+        ids: Vec<MasterId>,
+        numbers: PageNumbers,
+    },
     /// The book's page geometry.
     SetGeometry {
         trim: Size,

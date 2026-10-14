@@ -7,9 +7,19 @@ import type { Flow } from "./Flow";
 import type { Grid } from "./Grid";
 import type { LayoutMode } from "./LayoutMode";
 import type { Margins } from "./Margins";
+import type { Master } from "./Master";
 import type { MasterId } from "./MasterId";
+import type { PageNumbers } from "./PageNumbers";
 import type { Pt } from "./Pt";
 import type { Size } from "./Size";
 import type { Spread } from "./Spread";
 
-export type Book = { schema: number, id: BookId, title: string, subtitle?: string | null, authors: Array<Contributor>, language: string, kind: BookKind, layout: LayoutMode, trim: Size, bleed: Pt, margins: Margins, adjustGutterForPageCount: boolean, grid: Grid, spreads: Array<Spread>, flows: Array<Flow>, masters: Array<MasterId>, metadata: BookMetadata, };
+export type Book = { schema: number, id: BookId, title: string, subtitle?: string | null, authors: Array<Contributor>, language: string, kind: BookKind, layout: LayoutMode, trim: Size, bleed: Pt, margins: Margins, adjustGutterForPageCount: boolean, grid: Grid, spreads: Array<Spread>, flows: Array<Flow>, masters: Array<MasterId>, 
+/**
+ * The master pages: frames that repeat on every page that uses them.
+ */
+masterPages?: Array<Master>, 
+/**
+ * Where the page numbers go, kept so the masters can be made again when pages come and go.
+ */
+pageNumbers?: PageNumbers, metadata: BookMetadata, };

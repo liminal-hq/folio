@@ -461,3 +461,131 @@ fn a_picture_at_the_fold_of_an_opener_needs_no_bleed_there() {
         .iter()
         .all(|p| p.kind != PreflightKind::PictureShortOfBleed));
 }
+
+fn with_numbers(book: &mut Book) {
+    let frame = text_frame(
+        "fr_pn",
+        "folio",
+        100.0,
+        500.0,
+        60.0,
+        18.0,
+        "{page} · {book.title}",
+    );
+    book.master_pages.push(folio_model::Master {
+        id: folio_model::MasterId("mst_a".into()),
+        name: "A".into(),
+        frames: vec![frame],
+    });
+    for spread in book
+        .spreads
+        .iter_mut()
+        .filter(|s| s.kind != SpreadKind::Cover)
+    {
+        for page in &mut spread.pages {
+            page.master = Some(folio_model::MasterId("mst_a".into()));
+        }
+    }
+}
+
+fn said(layout: &SpreadLayout, frame: &str) -> String {
+    layout
+        .frames
+        .iter()
+        .find(|f| f.frame.0 == frame)
+        .map(|f| {
+            f.lines
+                .iter()
+                .flat_map(|l| l.runs.iter().map(|r| r.text.clone()))
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .unwrap_or_default()
+}
+
+#[test]
+fn a_master_page_repeats_on_each_page_with_its_number_and_the_title_filled_in() {
+    let (mut book, styles) = sample(BookKind::Novel);
+    with_numbers(&mut book);
+    let title = book.title.clone();
+    let layout = lay(&book, &styles, 1);
+    let first = layout
+        .frames
+        .iter()
+        .find(|f| f.frame.0.starts_with("fr_pn@"))
+        .expect("the master frame is laid out");
+    let origin = first.origin.expect("a master frame says where it sits");
+    assert_eq!(origin.y, 500.0);
+    assert!(!first.lines.is_empty());
+    let text = said(&layout, &first.frame.0);
+    assert!(text.starts_with("1 "), "{text}");
+    assert!(
+        text.contains(&title.split(' ').next().unwrap().to_owned()),
+        "{text}"
+    );
+}
+
+#[test]
+fn the_second_page_of_a_pair_sits_a_page_across_and_has_the_next_number() {
+    let (mut book, styles) = sample(BookKind::Novel);
+    with_numbers(&mut book);
+    let spread = book
+        .spreads
+        .iter()
+        .position(|s| s.pages.len() == 2)
+        .expect("a spread of two pages");
+    let before: usize = book.spreads[..spread]
+        .iter()
+        .filter(|s| s.kind != SpreadKind::Cover)
+        .map(|s| s.pages.len())
+        .sum();
+    let width = book.trim.w.0;
+    let layout = lay(&book, &styles, spread);
+    let masters: Vec<_> = layout
+        .frames
+        .iter()
+        .filter(|f| f.frame.0.starts_with("fr_pn@"))
+        .collect();
+    assert_eq!(masters.len(), 2);
+    assert_eq!(
+        masters[1].origin.unwrap().x - masters[0].origin.unwrap().x,
+        width
+    );
+    assert!(said(&layout, &masters[0].frame.0).starts_with(&format!("{} ", before + 1)));
+    assert!(said(&layout, &masters[1].frame.0).starts_with(&format!("{} ", before + 2)));
+}
+
+#[test]
+fn a_hidden_master_item_is_left_off_that_page_only() {
+    let (mut book, styles) = sample(BookKind::Novel);
+    with_numbers(&mut book);
+    let spread = book
+        .spreads
+        .iter()
+        .position(|s| s.pages.len() == 2)
+        .expect("a spread of two pages");
+    let page = book.spreads[spread].pages[0].id.clone();
+    book.spreads[spread]
+        .master_overrides
+        .push(folio_model::MasterOverride {
+            page_id: page,
+            hide: vec![FrameId("fr_pn".into())],
+        });
+    let layout = lay(&book, &styles, spread);
+    assert_eq!(
+        layout
+            .frames
+            .iter()
+            .filter(|f| f.frame.0.starts_with("fr_pn@"))
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn the_cover_and_pages_without_a_master_have_no_master_frames() {
+    let (mut book, styles) = sample(BookKind::Novel);
+    with_numbers(&mut book);
+    let cover = lay(&book, &styles, 0);
+    assert!(cover.frames.iter().all(|f| f.origin.is_none()));
+}

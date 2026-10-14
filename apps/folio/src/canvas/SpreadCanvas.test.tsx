@@ -187,3 +187,47 @@ describe('pictures', () => {
 		expect(screen.getByRole('img', { name: 'Otter' })).toBeInTheDocument();
 	});
 });
+
+describe('master pages', () => {
+	it('draws the lines of a master frame where its origin puts them', () => {
+		const withMaster: SpreadLayout = {
+			spread: 's1',
+			preflight: [],
+			frames: [
+				{
+					frame: 'fr_pn@pg1',
+					overset: false,
+					origin: { x: 100, y: 300 },
+					lines: [
+						{
+							x: 0,
+							top: 0,
+							baseline: 10,
+							width: 10,
+							height: 12,
+							runs: [
+								{
+									text: '7',
+									x: 0,
+									width: 8,
+									family: 'Literata',
+									size: 10,
+									weight: 400,
+									italic: false,
+									tracking: 0,
+									hyphen: false,
+								},
+							],
+						},
+					],
+				},
+			],
+		};
+		const { container } = render(
+			<SpreadCanvas book={book} spread={spread} layout={withMaster} zoom={1} label="Page" />,
+		);
+		const group = container.querySelector('[data-frame="fr_pn@pg1"]')!;
+		expect(group).toHaveAttribute('transform', 'translate(100 300)');
+		expect(group).toHaveTextContent('7');
+	});
+});
