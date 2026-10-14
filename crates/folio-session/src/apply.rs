@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    Book, Frame, FrameId, InlineContent, Intent, Page, Pt, ReorderTo, Run, Spread, SpreadId,
+    Book, Frame, FrameId, Guide, InlineContent, Intent, Page, Pt, ReorderTo, Run, Spread, SpreadId,
     SpreadKind,
 };
 
@@ -153,6 +153,39 @@ fn check_geometry(
     Ok(())
 }
 
+/// How far from the page a guide may be put, in points: far enough for any bleed or pasteboard.
+const MAX_GUIDE: f64 = 100_000.0;
+
+fn check_guide_position(pos: Pt) -> Result<(), SessionError> {
+    if pos.0.is_finite() && pos.0.abs() <= MAX_GUIDE {
+        Ok(())
+    } else {
+        Err(SessionError::BadGuide)
+    }
+}
+
+fn guide_on<'a>(book: &'a Book, s: &SpreadId, index: usize) -> Result<&'a Guide, SessionError> {
+    spread(book, s)?
+        .guides
+        .get(index)
+        .ok_or_else(|| SessionError::NoSuchGuide(index, s.0.clone()))
+}
+
+fn check_guide_free(book: &Book, s: &SpreadId, index: usize) -> Result<(), SessionError> {
+    if guide_on(book, s, index)?.locked {
+        Err(SessionError::GuideLocked(index))
+    } else {
+        Ok(())
+    }
+}
+
+fn guide_mut<'a>(book: &'a mut Book, s: &SpreadId, index: usize) -> Option<&'a mut Guide> {
+    book.spreads
+        .iter_mut()
+        .find(|sp| &sp.id == s)
+        .and_then(|sp| sp.guides.get_mut(index))
+}
+
 /// Refuses a change to a frame that is locked or belongs to a master page.
 fn ensure_free(frame: &Frame) -> Result<(), SessionError> {
     let base = frame.base();
@@ -257,6 +290,46 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 return Err(SessionError::NoSuchFrame(frame.0.clone()));
             }
             Ok(one(s.clone(), None))
+        }
+        Intent::AddGuide { spread: s, pos, .. } => {
+            spread(book, s)?;
+            check_guide_position(*pos)?;
+            Ok(one(s.clone(), None))
+        }
+        Intent::MoveGuide {
+            spread: s,
+            index,
+            pos,
+        } => {
+            check_guide_position(*pos)?;
+            check_guide_free(book, s, *index)?;
+            Ok(one(s.clone(), None))
+        }
+        Intent::LockGuide {
+            spread: s, index, ..
+        } => {
+            guide_on(book, s, *index)?;
+            Ok(one(s.clone(), None))
+        }
+        Intent::RemoveGuide { spread: s, index } => {
+            check_guide_free(book, s, *index)?;
+            Ok(one(s.clone(), None))
+        }
+        Intent::ClearGuides { spread: named } => {
+            if let Some(s) = named {
+                spread(book, s)?;
+            }
+            Ok(Plan {
+                touched: book
+                    .spreads
+                    .iter()
+                    .filter(|sp| named.as_ref().is_none_or(|n| n == &sp.id))
+                    .filter(|sp| sp.guides.iter().any(|g| !g.locked))
+                    .map(|sp| sp.id.clone())
+                    .collect(),
+                new_spread: None,
+                merge: None,
+            })
         }
         Intent::SetText { frame, .. } => {
             check_text(book, frame)?;
@@ -471,6 +544,53 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                     }
                     (None, false) => {}
                 }
+            }
+        }
+        Intent::AddGuide {
+            spread: s,
+            axis,
+            pos,
+        } => {
+            if let Some(sp) = book.spreads.iter_mut().find(|sp| sp.id == s) {
+                sp.guides.push(Guide {
+                    axis,
+                    pos,
+                    locked: false,
+                });
+            }
+        }
+        Intent::MoveGuide {
+            spread: s,
+            index,
+            pos,
+        } => {
+            if let Some(g) = guide_mut(book, &s, index) {
+                g.pos = pos;
+            }
+        }
+        Intent::LockGuide {
+            spread: s,
+            index,
+            locked,
+        } => {
+            if let Some(g) = guide_mut(book, &s, index) {
+                g.locked = locked;
+            }
+        }
+        Intent::RemoveGuide { spread: s, index } => {
+            if let Some(sp) = book.spreads.iter_mut().find(|sp| sp.id == s) {
+                if index < sp.guides.len() {
+                    sp.guides.remove(index);
+                }
+            }
+        }
+        Intent::ClearGuides { spread: named } => {
+            for sp in book
+                .spreads
+                .iter_mut()
+                .filter(|sp| named.as_ref().is_none_or(|n| n == &sp.id))
+            {
+                sp.guides.retain(|g| g.locked);
             }
         }
         Intent::SetText { frame, text } => {

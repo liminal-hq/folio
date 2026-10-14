@@ -9,6 +9,7 @@ use ts_rs::TS;
 use crate::book::{Grid, PageNumbers};
 use crate::frame::{Fit, Frame, StyleOverrides};
 use crate::ids::{FrameId, PageId, SpreadId, StyleId};
+use crate::spread::Axis;
 use crate::units::{Margins, Pt, Rect, Size};
 
 /// A frame and the box it is to have.
@@ -67,6 +68,34 @@ pub enum Intent {
         page: PageId,
         frame: FrameId,
         hide: bool,
+    },
+    /// Puts a ruler guide on a spread.
+    AddGuide {
+        spread: SpreadId,
+        axis: Axis,
+        pos: Pt,
+    },
+    /// Moves a ruler guide, named by its place in the spread's list. A locked guide stays put.
+    MoveGuide {
+        spread: SpreadId,
+        index: usize,
+        pos: Pt,
+    },
+    /// Locks a ruler guide where it is, or frees it.
+    LockGuide {
+        spread: SpreadId,
+        index: usize,
+        locked: bool,
+    },
+    /// Takes a ruler guide off its spread. A locked guide stays.
+    RemoveGuide {
+        spread: SpreadId,
+        index: usize,
+    },
+    /// Takes the unlocked guides off one spread, or off every spread when none is named.
+    ClearGuides {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        spread: Option<SpreadId>,
     },
     SetText {
         frame: FrameId,
