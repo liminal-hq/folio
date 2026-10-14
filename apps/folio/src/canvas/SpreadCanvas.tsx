@@ -168,6 +168,24 @@ export function SpreadCanvas({
 				fill="var(--folio-paper)"
 				className={styles.paper}
 			/>
+			{spread.frames.map((frame) => (
+				<g key={frame.id}>
+					<Furniture frame={frame} />
+					{marks.frameEdges && (
+						<rect
+							data-mark="frame-edges"
+							x={frame.box.x}
+							y={frame.box.y}
+							width={frame.box.w}
+							height={frame.box.h}
+							fill="none"
+							stroke="#2f9e7a"
+							strokeWidth={0.5}
+						/>
+					)}
+					{byFrame.has(frame.id) && <Lines frame={frame} layout={byFrame.get(frame.id)!} />}
+				</g>
+			))}
 			{marks.bleed && (
 				<path
 					data-mark="bleed"
@@ -250,25 +268,6 @@ export function SpreadCanvas({
 								);
 							},
 						)}
-				</g>
-			))}
-
-			{spread.frames.map((frame) => (
-				<g key={frame.id}>
-					<Furniture frame={frame} />
-					{marks.frameEdges && (
-						<rect
-							data-mark="frame-edges"
-							x={frame.box.x}
-							y={frame.box.y}
-							width={frame.box.w}
-							height={frame.box.h}
-							fill="none"
-							stroke="#2f9e7a"
-							strokeWidth={0.5}
-						/>
-					)}
-					{byFrame.has(frame.id) && <Lines frame={frame} layout={byFrame.get(frame.id)!} />}
 				</g>
 			))}
 		</svg>
