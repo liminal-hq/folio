@@ -13,8 +13,14 @@ pub mod flow;
 pub mod fonts;
 pub mod hyphenate;
 pub mod paragraph;
+pub mod preflight;
 pub mod shape;
+pub mod spread;
+pub mod styles;
+pub mod wire;
 
 pub use error::LayoutError;
 pub use fonts::{Font, FontBook, FontRequest, Metrics, Resolved};
 pub use shape::{feature, shape, Glyph, Run, Shaped};
+pub use spread::Layouter;
+pub use styles::StyleSheet;

@@ -12,4 +12,4 @@ DIRS=(
   "plugins/window-effects/guest-js/bindings"
   "plugins/window-tearoff/guest-js/bindings"
 )
-CRATES=(folio-model folio-presets folio-protocol folio-session folio-settings tauri-plugin-folio-books tauri-plugin-window-effects tauri-plugin-window-tearoff)
+CRATES=(folio-layout folio-model folio-presets folio-protocol folio-session folio-settings tauri-plugin-folio-books tauri-plugin-window-effects tauri-plugin-window-tearoff)

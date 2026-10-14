@@ -1106,11 +1106,16 @@ dependencies = [
 name = "folio-layout"
 version = "0.1.0"
 dependencies = [
+ "folio-model",
+ "folio-presets",
  "fontdb",
  "hyphenation",
  "proptest",
  "rustybuzz",
+ "serde",
+ "serde_json",
  "thiserror 2.0.21",
+ "ts-rs",
  "ttf-parser",
  "unicode-linebreak",
  "unicode-segmentation",
