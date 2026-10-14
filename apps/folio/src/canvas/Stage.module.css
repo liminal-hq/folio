@@ -109,3 +109,22 @@
 	align-items: center;
 	gap: 8px;
 }
+
+/* The position that follows a guide as it is dragged. */
+.tag {
+	position: fixed;
+	z-index: 20;
+	padding: 2px 6px;
+	border-radius: 4px;
+	background: var(--folio-bg-raised);
+	color: var(--folio-text-primary);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	box-shadow: 0 1px 4px rgb(0 0 0 / 0.3);
+	pointer-events: none;
+}
+
+.tag[data-remove] {
+	background: var(--folio-danger);
+	color: #fff;
+}

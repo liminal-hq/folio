@@ -14,6 +14,7 @@ import { spreadGeometry } from '../canvas/geometry';
 import { defaultTextStyle, styleChoices } from '../inspector/styleChoices';
 import { Shelf } from '../canvas/Shelf';
 import { shelfIntent } from '../canvas/shelfMenu';
+import { guideIntents } from '../canvas/guides';
 import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../canvas/marksModel';
 import { Stage, type ZoomApi } from '../canvas/Stage';
 import { useSelection } from '../canvas/useSelection';
@@ -261,6 +262,14 @@ export function BookView({
 						snap={snap}
 						rulers={{ on: rulers.on, unit: rulers.units }}
 						onRulerUnit={(units) => void update({ rulers: { units } } as SettingsPatch)}
+						onAddGuide={(axis, pos) => apply({ type: 'AddGuide', spread: spread.id, axis, pos })}
+						onMoveGuide={(index, pos) =>
+							apply({ type: 'MoveGuide', spread: spread.id, index, pos })
+						}
+						onRemoveGuide={(index) => apply({ type: 'RemoveGuide', spread: spread.id, index })}
+						onGuideCommand={(command, index) => {
+							for (const intent of guideIntents(command, spread, index)) apply(intent);
+						}}
 						zoomApi={zoomApi}
 						images={images}
 						selection={selection}

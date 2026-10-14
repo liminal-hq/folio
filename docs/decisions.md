@@ -14,6 +14,7 @@ Product and engineering decisions for Folio. D-01 to D-07 and D-12 are defined w
 | D-12 | Grouped sidebar, tear-off panels, document tabs as windows                                                                                           | `spec/12-sidebar-windows.md` |
 | D-20 | Layout is Rust-owned and drawn by the UI from lines Rust positions                                                                                   | `docs/decisions.md`          |
 | D-19 | The ribbon is its own package, depending one-way on the chrome                                                                                       | `docs/decisions.md`          |
+| D-21 | Ruler guides belong to a spread, are stored in points, and are named by their place in its list                                                      | `docs/decisions.md`          |
 
 ## D-08 · Shared chrome and unpublished plugins are copied; published ones are dependencies
 
@@ -62,3 +63,7 @@ The six kinds, their sizes, styles and sample spreads are data in `crates/folio-
 ## D-19 · The ribbon is its own package
 
 `packages/ribbon` (`@liminal-hq/folio-ribbon`) holds the ribbon and nothing else: the chrome stays about windowing, and the ribbon knows nothing about books. Folio supplies a `RibbonModel` and handles `onCommand`. The ribbon depends one-way on the chrome for its dropdowns, so menus look and behave the same everywhere. Another Liminal app can take it without taking Folio.
+
+## D-21 · Ruler guides belong to a spread, are stored in points, and are named by their place in its list
+
+A guide is `{ axis, pos, locked }` on its spread, with `pos` in points like every other stored length, whatever unit the rulers show. It has no id: the intents `MoveGuide`, `LockGuide` and `RemoveGuide` name it by its index, which is safe because a guide's list changes only through those intents and each is one undo step. Rulers and guides are shown by settings (`rulers`, `marks.guides`), not by the book, so a book opens the way its reader left the rulers. A guide placed by dragging snaps to margins, frame edges and other guides, else to the unit's fine step (spec 04), and a locked guide refuses every change. Guides that belong to every page (master guides) are not built yet; the menu has no "Put on every page" until they are.

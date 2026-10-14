@@ -53,4 +53,28 @@ describe('Stage rulers', () => {
 		fireEvent.click(screen.getByText('Millimetres'));
 		expect(onRulerUnit).toHaveBeenCalledWith('millimetres');
 	});
+
+	it("opens a guide's menu and runs what is chosen on that guide", () => {
+		const onGuideCommand = vi.fn();
+		const guided = {
+			...spread,
+			guides: [{ axis: 'x', pos: 20, locked: false }],
+		} as unknown as Spread;
+		const { container } = render(
+			<Stage
+				book={book}
+				spread={guided}
+				label="Cover"
+				layout={null}
+				onSelect={() => {}}
+				onGuideCommand={onGuideCommand}
+			/>,
+		);
+		fireEvent.contextMenu(container.querySelector('[data-guide-hit="0"]')!, {
+			clientX: 50,
+			clientY: 60,
+		});
+		fireEvent.click(screen.getByText('Lock'));
+		expect(onGuideCommand).toHaveBeenCalledWith('lock', 0);
+	});
 });
