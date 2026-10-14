@@ -47,10 +47,25 @@ export function overRuler(
 	return axis === 'x' ? pointer.x < stage.left : pointer.y < stage.top;
 }
 
-export type GuideCommand = 'lock' | 'unlock' | 'delete' | 'clearSpread' | 'clearAll';
+export type GuideCommand =
+	| 'lock'
+	| 'unlock'
+	| 'delete'
+	| 'clearSpread'
+	| 'clearAll'
+	/** Moves a spread's guide onto the masters, so it shows on every page. */
+	| 'promote'
+	/** Moves a master's guide back onto one spread. */
+	| 'demote';
 
 /** The intents a choice from a guide's menu makes. */
-export function guideIntents(command: GuideCommand, spread: Spread, index: number): Intent[] {
+export function guideIntents(
+	command: GuideCommand,
+	spread: Spread,
+	index: number,
+	/** The spread a master's guide goes back onto, while a master is edited. */
+	demoteTo: string | null = null,
+): Intent[] {
 	const on = { on: surfaceOf(spread) };
 	// A master's guides are cleared one at a time for now.
 	const master = isMasterSpread(spread);
@@ -65,5 +80,13 @@ export function guideIntents(command: GuideCommand, spread: Spread, index: numbe
 			return master ? [] : [{ type: 'ClearGuides', spread: spread.id }];
 		case 'clearAll':
 			return master ? [] : [{ type: 'ClearGuides' }];
+		case 'promote':
+			return master ? [] : [{ type: 'PromoteGuide', spread: spread.id, index }];
+		case 'demote': {
+			const surface = surfaceOf(spread);
+			return 'master' in surface && demoteTo
+				? [{ type: 'DemoteGuide', master: surface.master, index, spread: demoteTo }]
+				: [];
+		}
 	}
 }

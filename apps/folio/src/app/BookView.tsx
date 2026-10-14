@@ -149,6 +149,9 @@ export function BookView({
 	}, [editing]);
 	if (!spread || !input) return null;
 	const surface = surfaceOf(spread);
+	const shownSpread = book.spreads[shown];
+	const demoteTo =
+		master && shownSpread?.pages.some((p) => p.master === editing) ? shownSpread.id : null;
 	const masterName = book.masterPages?.find((m) => m.id === editing)?.name ?? '';
 
 	const apply = (intent: Intent) => void store.apply(intent);
@@ -324,7 +327,7 @@ export function BookView({
 						onMoveGuide={(index, pos) => apply({ type: 'MoveGuide', on: surface, index, pos })}
 						onRemoveGuide={(index) => apply({ type: 'RemoveGuide', on: surface, index })}
 						onGuideCommand={(command, index) => {
-							for (const intent of guideIntents(command, spread, index)) apply(intent);
+							for (const intent of guideIntents(command, spread, index, demoteTo)) apply(intent);
 						}}
 						zoomApi={zoomApi}
 						images={images}
@@ -348,6 +351,7 @@ export function BookView({
 						}
 						onEditText={(frame, text) => void store.apply({ type: 'SetText', frame, text })}
 						editableMasters={settings.mode === 'expert'}
+						demoteTo={demoteTo}
 						onPageCommand={(command, point) => {
 							const kinds: Record<string, NewFrameKind> = {
 								addText: 'text',

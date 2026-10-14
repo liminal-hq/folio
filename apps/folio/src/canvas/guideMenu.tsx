@@ -22,7 +22,14 @@ const Mark = () => (
 	</svg>
 );
 
-export function guideMenuItems(guide: Guide): MenuItem[] {
+export interface GuideMenuContext {
+	/** The guide can go on every page. */
+	canPromote?: boolean;
+	/** The guide is a master's and can go back onto the spread on show. */
+	canDemote?: boolean;
+}
+
+export function guideMenuItems(guide: Guide, context: GuideMenuContext = {}): MenuItem[] {
 	return [
 		{
 			type: 'action',
@@ -30,6 +37,28 @@ export function guideMenuItems(guide: Guide): MenuItem[] {
 			label: t(guide.locked ? 'guide.unlock' : 'guide.lock'),
 			icon: <Mark />,
 		},
+		...(context.canPromote !== undefined
+			? [
+					{
+						type: 'action',
+						id: 'promote',
+						label: t('guide.promote'),
+						icon: <Mark />,
+						disabled: !context.canPromote,
+					} as MenuItem,
+				]
+			: []),
+		...(context.canDemote !== undefined
+			? [
+					{
+						type: 'action',
+						id: 'demote',
+						label: t('guide.demote'),
+						icon: <Mark />,
+						disabled: !context.canDemote,
+					} as MenuItem,
+				]
+			: []),
 		{ type: 'separator' },
 		{ type: 'action', id: 'clearSpread', label: t('guide.clearSpread'), icon: <Mark /> },
 		{ type: 'action', id: 'clearAll', label: t('guide.clearAll'), icon: <Mark /> },
@@ -46,4 +75,4 @@ export function guideMenuItems(guide: Guide): MenuItem[] {
 }
 
 export const isGuideCommand = (id: string): id is GuideCommand =>
-	['lock', 'unlock', 'delete', 'clearSpread', 'clearAll'].includes(id);
+	['lock', 'unlock', 'delete', 'clearSpread', 'clearAll', 'promote', 'demote'].includes(id);

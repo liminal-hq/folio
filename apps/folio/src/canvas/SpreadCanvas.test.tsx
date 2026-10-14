@@ -308,6 +308,30 @@ describe('master pages', () => {
 			expect(horizontal).toHaveAttribute('stroke-dasharray');
 		});
 
+		it("draws a master's guides on its page in the margin colour, out of the pointer's way", () => {
+			const withMaster = {
+				...book,
+				masterPages: [
+					{
+						id: 'mst_a',
+						name: 'A',
+						frames: [],
+						guides: [{ axis: 'x', pos: 30, locked: false }],
+					},
+				],
+			} as unknown as Book;
+			const onMaster = {
+				...guided,
+				pages: [{ id: 'p1', master: 'mst_a' }],
+			} as unknown as Spread;
+			const { container } = render(
+				<SpreadCanvas book={withMaster} spread={onMaster} layout={null} zoom={1} label="Page" />,
+			);
+			const line = container.querySelector('[data-master-guide="mst_a"]')!;
+			expect(line).toHaveAttribute('x1', '30');
+			expect(line).toHaveAttribute('pointer-events', 'none');
+		});
+
 		it('draws none when the guides mark is off', () => {
 			const { container } = render(canvas({ marks: { ...DEFAULT_MARKS, guides: false } }));
 			expect(container.querySelector('[data-guide]')).toBeNull();

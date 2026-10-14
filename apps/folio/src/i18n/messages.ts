@@ -173,6 +173,8 @@ export const messages = {
 	'guide.menu': 'Ruler guide',
 	'guide.lock': 'Lock',
 	'guide.unlock': 'Unlock',
+	'guide.promote': 'Put on every page',
+	'guide.demote': 'Only on this spread',
 	'guide.delete': 'Delete',
 	'guide.clearSpread': 'Clear guides on this spread',
 	'guide.clearAll': 'Clear all guides',

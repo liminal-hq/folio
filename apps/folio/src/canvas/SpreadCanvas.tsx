@@ -15,6 +15,7 @@ import { PX_PER_POINT, spreadGeometry, type PlainRect } from './geometry';
 import type { FrameCommand } from './frameMenu';
 import { canEditText, TextEditor } from './TextEditor';
 import { DEFAULT_MARK_COLOURS, DEFAULT_MARKS, type MarkColours, type Marks } from './marksModel';
+import { masterGuidesOn } from './masterGuides';
 import { masterFurniture } from './masterItems';
 import { HANDLES, type Handle } from './snap';
 import type { GuideAxis } from './guides';
@@ -232,6 +233,7 @@ export function SpreadCanvas({
 	const svg = useRef<SVGSVGElement | null>(null);
 	const geometry = spreadGeometry(book, spread);
 	const { bounds } = geometry;
+	const masterGuides = masterGuidesOn(book, spread);
 	const scale = zoom * PX_PER_POINT;
 	const drag = useFrameDrag({
 		svg,
@@ -240,7 +242,12 @@ export function SpreadCanvas({
 		scale,
 		selection,
 		snap,
-		guides: marks.guides ? spread.guides.map((g) => ({ axis: g.axis, pos: g.pos })) : [],
+		guides: marks.guides
+			? [
+					...spread.guides.map((g) => ({ axis: g.axis, pos: g.pos })),
+					...masterGuides.map((g) => ({ axis: g.axis, pos: g.pos })),
+				]
+			: [],
 		onSelect,
 		onMove,
 		onCommand,
@@ -468,6 +475,24 @@ export function SpreadCanvas({
 						))}
 					</g>
 				)}
+				{marks.guides &&
+					masterGuides.map((guide, i) => {
+						const vertical = guide.axis === 'x';
+						const page = geometry.pages[guide.page]!.trim;
+						return (
+							<line
+								key={`master-${i}`}
+								data-master-guide={guide.master}
+								x1={vertical ? guide.pos : page.x}
+								x2={vertical ? guide.pos : page.x + page.w}
+								y1={vertical ? bounds.y : guide.pos}
+								y2={vertical ? bounds.y + bounds.h : guide.pos}
+								stroke={colours.margins}
+								strokeWidth={1 / scale}
+								pointerEvents="none"
+							/>
+						);
+					})}
 				{marks.guides &&
 					spread.guides.map((guide, index) => {
 						if (guideDrag?.index === index) return null;
