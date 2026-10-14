@@ -20,13 +20,18 @@ fn log_level() -> log::LevelFilter {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    #[allow(unused_mut)]
+    let mut builder = tauri::Builder::default()
         // `tauri-plugin-log`'s own `plugin:log|log` command is what `src/services/logger.ts`
         // forwards the webview's `console.*` calls into, so forwarded messages land in the same
         // stdout stream and log file as native `log::info!()` calls.
         .plugin(
             tauri_plugin_log::Builder::default()
                 .level(log_level())
+                // The debug-only MCP bridge's websocket internals are extremely chatty at `Trace`
+                // (every handshake read and write poll) and drown out everything else.
+                .level_for("tungstenite", log::LevelFilter::Warn)
+                .level_for("tokio_tungstenite", log::LevelFilter::Warn)
                 .format(|out, message, record| {
                     out.finish(format_args!(
                         "[{}][{}][{}] {}",
@@ -45,7 +50,17 @@ pub fn run() {
         .setup(|app| {
             windows::open_or_focus(app.handle(), WindowKind::Main)?;
             Ok(())
-        })
+        });
+
+    // Lets an agent drive and screenshot the running app during development. Not on Windows, where
+    // the bridge does not yet compile against Tauri's `windows` crate (see `Cargo.toml`), and
+    // never in a release build.
+    #[cfg(all(debug_assertions, not(windows)))]
+    {
+        builder = builder.plugin(tauri_plugin_mcp_bridge::init());
+    }
+
+    builder
         .run(tauri::generate_context!())
         .expect("error while running the Folio application");
 }

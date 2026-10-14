@@ -29,3 +29,11 @@ chrono = "0.4"
 
 [dev-dependencies]
 tauri = { workspace = true, features = ["test"] }
+
+# Debug-only automation bridge, registered under `#[cfg(all(debug_assertions, not(windows)))]` in
+# `src/lib.rs`. It must be a normal dependency (dev-dependencies are not available to the lib
+# target) even though release builds never activate it. It is left out on Windows: 0.13.0 depends on
+# `webview2-com` 0.38 while Tauri 2.12 uses 0.39, so the two do not compile together there. Drop the
+# `cfg` once a bridge release matches Tauri's `windows` crate.
+[target.'cfg(not(windows))'.dependencies]
+tauri-plugin-mcp-bridge = "0.13"

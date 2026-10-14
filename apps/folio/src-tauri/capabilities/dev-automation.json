@@ -1,0 +1,8 @@
+{
+	"$schema": "../gen/schemas/desktop-schema.json",
+	"identifier": "dev-automation",
+	"description": "Lets the debug-only MCP bridge drive the app's windows. The bridge is registered only in debug builds and is not built on Windows (see Cargo.toml), so this capability grants nothing in a release build and does not apply there.",
+	"windows": ["main", "about", "preferences", "book-tools"],
+	"platforms": ["linux", "macOS"],
+	"permissions": ["mcp-bridge:default"]
+}
