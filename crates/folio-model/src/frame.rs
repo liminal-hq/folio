@@ -9,7 +9,7 @@ use ts_rs::TS;
 use crate::ids::{FlowId, FrameId, MasterId, StyleId};
 use crate::units::{Pt, Rect};
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum Frame {
@@ -23,6 +23,15 @@ pub enum Frame {
     },
 }
 impl Frame {
+    pub fn base_mut(&mut self) -> &mut FrameBase {
+        match self {
+            Frame::Text(f) => &mut f.base,
+            Frame::Image(f) => &mut f.base,
+            Frame::Shape(f) => &mut f.base,
+            Frame::Group { base, .. } => base,
+        }
+    }
+
     pub fn base(&self) -> &FrameBase {
         match self {
             Frame::Text(f) => &f.base,
@@ -33,7 +42,7 @@ impl Frame {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase")]
 pub struct FrameBase {
@@ -51,7 +60,7 @@ pub struct FrameBase {
     pub description: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase")]
 pub struct TextFrame {
@@ -73,12 +82,12 @@ fn one() -> u8 {
     1
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct InlineContent {
     pub inline: Vec<Run>,
 }
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Run {
     pub text: String,
@@ -89,14 +98,14 @@ pub struct Run {
     #[serde(default)]
     pub italic: bool,
 }
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct FlowSlot {
     pub id: FlowId,
     pub index: u32,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct StyleOverrides {
     pub size: Option<Pt>,
@@ -114,7 +123,7 @@ pub enum Align {
     Justify,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase")]
 pub struct ImageFrame {
@@ -124,7 +133,7 @@ pub struct ImageFrame {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub placeholder_label: Option<String>,
 }
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct ImageRef {
     pub asset: Option<String>,
@@ -132,7 +141,7 @@ pub struct ImageRef {
     pub focus: (f64, f64),
     pub crop: Option<Rect>,
 }
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
 pub enum Fit {
@@ -142,7 +151,7 @@ pub enum Fit {
     Manual,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct ShapeFrame {
     #[serde(flatten)]
@@ -151,7 +160,7 @@ pub struct ShapeFrame {
     pub fill: Option<String>,
     pub style: Option<StyleId>,
 }
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
 pub enum Shape {

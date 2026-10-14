@@ -12,7 +12,7 @@ use crate::ids::{FrameId, SpreadId, StyleId};
 use crate::units::{Margins, Pt, Rect, Size};
 
 // ── Intents (UI → core) ──
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(tag = "type")]
 pub enum Intent {
@@ -65,7 +65,7 @@ pub enum Intent {
         grid: Option<Grid>,
     },
 }
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
 pub enum ReorderTo {

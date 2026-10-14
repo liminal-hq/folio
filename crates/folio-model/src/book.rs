@@ -35,7 +35,7 @@ pub enum LayoutMode {
     Flowing,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase")]
 pub struct Book {
@@ -67,13 +67,13 @@ pub struct Book {
     pub extensions: BTreeMap<String, serde_json::Value>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Contributor {
     pub name: String,
     pub role: ContributorRole,
 }
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
 pub enum ContributorRole {
@@ -83,21 +83,21 @@ pub enum ContributorRole {
     Translator,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Grid {
     pub columns: u8,
     pub gutter: Pt,
     pub baseline: Option<Baseline>,
 }
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Baseline {
     pub increment: Pt,
     pub offset: Pt,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct BookMetadata {
     pub isbn: Isbns,
@@ -105,7 +105,7 @@ pub struct BookMetadata {
     #[serde(default)]
     pub keywords: Vec<String>,
 }
-#[derive(Clone, Debug, Default, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Isbns {
     pub paperback: Option<String>,

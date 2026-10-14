@@ -21,7 +21,7 @@ pub enum SpreadKind {
     Closer,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase")]
 pub struct Spread {
@@ -35,13 +35,13 @@ pub struct Spread {
     #[serde(default)]
     pub master_overrides: Vec<MasterOverride>,
 }
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Page {
     pub id: PageId,
     pub master: Option<MasterId>,
 }
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Guide {
     pub axis: Axis,
@@ -55,7 +55,7 @@ pub enum Axis {
     X,
     Y,
 }
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase")]
 pub struct MasterOverride {

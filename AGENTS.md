@@ -204,7 +204,7 @@ Cargo workspace + **Bun workspaces**, matching Waypoint, Jar and Cadence. The ap
 - `apps/folio` — the Tauri app: React/TypeScript frontend in `src/`, and `src-tauri/` as a thin composition root that registers plugins and wires crates together.
 - `packages/chrome` — the shared React chrome (title bar, window menu, context menu, dialogs, settings shell), copied from Waypoint with Folio's `--folio-*` tokens, with no domain imports.
 - `packages/protocol` — the TypeScript types `ts-rs` generates from the Rust wire types (types only, never hand-edited).
-- `crates/*` — pure Rust, no `tauri` dependency: `folio-model`, `folio-package`, `folio-protocol`, `folio-settings` and the planned `folio-layout`, `folio-export`, `folio-import`, `folio-color`, `folio-jax`.
+- `crates/*` — pure Rust, no `tauri` dependency: `folio-model`, `folio-package`, `folio-protocol`, `folio-session`, `folio-settings` and the planned `folio-layout`, `folio-export`, `folio-import`, `folio-color`, `folio-jax`.
 - `plugins/*` — Tauri plugins, each a Rust crate plus a `guest-js` package: `folio-settings` (domain) and copies of the unpublished reusable plugins `window-tearoff` and `window-effects`.
 - `spec/` — the product and architecture specification. `docs/` — decisions and developer docs. `design/` — the Claude Design prototype files, reference only. `site/` — the public documentation site (Astro Starlight, deployed to GitHub Pages).
 - `scripts/` — repo tooling (`check-headers.sh` and the other checks).

@@ -1,0 +1,115 @@
+// A snapshot of the parts of a book an intent touches, to undo and redo with
+//
+// (c) Copyright 2026 Liminal HQ, Scott Morris
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+use folio_model::{Book, Grid, Margins, Pt, Size, Spread, SpreadId};
+
+use crate::patch::PatchOp;
+
+/// The page geometry of a book.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Geometry {
+    pub trim: Size,
+    pub margins: Margins,
+    pub bleed: Pt,
+    pub grid: Grid,
+}
+
+impl Geometry {
+    pub fn of(book: &Book) -> Self {
+        Self {
+            trim: book.trim,
+            margins: book.margins,
+            bleed: book.bleed,
+            grid: book.grid.clone(),
+        }
+    }
+
+    fn apply(&self, book: &mut Book) {
+        book.trim = self.trim;
+        book.margins = self.margins;
+        book.bleed = self.bleed;
+        book.grid = self.grid.clone();
+    }
+
+    fn op(&self) -> PatchOp {
+        PatchOp::SetGeometry {
+            trim: self.trim,
+            margins: self.margins,
+            bleed: self.bleed,
+            grid: self.grid.clone(),
+        }
+    }
+}
+
+/// How the touched part of a book was at one moment: the order of every spread, the geometry, and
+/// each touched spread (or `None` where it did not exist).
+#[derive(Debug, Clone)]
+pub struct Delta {
+    pub order: Vec<SpreadId>,
+    pub geometry: Geometry,
+    pub spreads: Vec<(SpreadId, Option<Spread>)>,
+}
+
+impl Delta {
+    /// Captures `touched` and the book-wide parts.
+    pub fn capture(book: &Book, touched: &[SpreadId]) -> Self {
+        Self {
+            order: book.spreads.iter().map(|s| s.id.clone()).collect(),
+            geometry: Geometry::of(book),
+            spreads: touched
+                .iter()
+                .map(|id| {
+                    (
+                        id.clone(),
+                        book.spreads.iter().find(|s| &s.id == id).cloned(),
+                    )
+                })
+                .collect(),
+        }
+    }
+
+    /// Puts the book back as this snapshot has it, and says what that changed.
+    pub fn restore(&self, book: &mut Book) -> Vec<PatchOp> {
+        let mut ops = Vec::new();
+        let was_order: Vec<SpreadId> = book.spreads.iter().map(|s| s.id.clone()).collect();
+        let was_geometry = Geometry::of(book);
+
+        for (id, spread) in &self.spreads {
+            match spread {
+                Some(spread) => {
+                    match book.spreads.iter_mut().find(|s| &s.id == id) {
+                        Some(slot) => *slot = spread.clone(),
+                        None => book.spreads.push(spread.clone()),
+                    }
+                    ops.push(PatchOp::SetSpread {
+                        spread: spread.clone(),
+                    });
+                }
+                None => {
+                    book.spreads.retain(|s| &s.id != id);
+                    ops.push(PatchOp::RemoveSpread { id: id.clone() });
+                }
+            }
+        }
+        // Put the spreads in the snapshot's order; any left over (there should be none) keep their place at the end.
+        let rank = |id: &SpreadId| {
+            self.order
+                .iter()
+                .position(|o| o == id)
+                .unwrap_or(usize::MAX)
+        };
+        book.spreads.sort_by_key(|s| rank(&s.id));
+        if was_order != self.order {
+            ops.push(PatchOp::SetOrder {
+                order: self.order.clone(),
+            });
+        }
+        if was_geometry != self.geometry {
+            self.geometry.apply(book);
+            ops.push(self.geometry.op());
+        }
+        ops
+    }
+}

@@ -9,7 +9,7 @@ use ts_rs::TS;
 use crate::units::{Pt, Rect, Size};
 
 // ── Export maths ──
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
 pub enum Paper {
@@ -27,7 +27,7 @@ pub fn spine_factor(p: Paper) -> f64 {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct CoverMaths {
     pub spine: Pt,

@@ -8,7 +8,7 @@ use ts_rs::TS;
 
 use crate::ids::{FlowId, FrameId};
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase")]
 pub struct Flow {
