@@ -8,6 +8,9 @@ import { shelfLabels } from '../books/shelfLabels';
 import type { OpenBookCopy } from '../books/booksStore';
 import { useBooks } from '../books/useBooks';
 import { frameIntents } from '../canvas/frameMenu';
+import { boxAt, newFrame, type NewFrameKind } from '../canvas/newFrames';
+import { spreadGeometry } from '../canvas/geometry';
+import { defaultTextStyle, styleChoices } from '../inspector/styleChoices';
 import { Shelf } from '../canvas/Shelf';
 import { shelfIntent } from '../canvas/shelfMenu';
 import { DEFAULT_MARKS, type Marks } from '../canvas/SpreadCanvas';
@@ -69,6 +72,36 @@ export function BookView({
 							})
 						}
 						onEditText={(frame, text) => void store.apply({ type: 'SetText', frame, text })}
+						onPageCommand={(command, point) => {
+							const kinds: Record<string, NewFrameKind> = {
+								addText: 'text',
+								addPicture: 'picture',
+								addNote: 'note',
+							};
+							const kind = kinds[command];
+							if (kind) {
+								const pages = spreadGeometry(book, spread).pages;
+								const page =
+									pages.find((p) => point.x >= p.trim.x && point.x <= p.trim.x + p.trim.w) ??
+									pages[0]!;
+								const choices = styleChoices(copy.styles);
+								const style = defaultTextStyle(choices);
+								const frame = newFrame(kind, boxAt(kind, point, page.trim), style);
+								void store.apply({ type: 'AddFrame', spread: spread.id, frame });
+								select([frame.id]);
+							} else if (command === 'addPages') {
+								void store.apply({ type: 'AddSpread', after: spread.id, duplicate: false });
+								setSpreadIndex(shown + 1);
+							} else if (command === 'duplicateSpread') {
+								void store.apply({ type: 'AddSpread', after: spread.id, duplicate: true });
+								setSpreadIndex(shown + 1);
+							} else if (command === 'toggleMargins') {
+								setMarks({ ...marks, margins: !marks.margins });
+							} else if (command === 'toggleGrid') {
+								const on = !(marks.columns || marks.baseline);
+								setMarks({ ...marks, columns: on, baseline: on });
+							}
+						}}
 						onCommand={(command, ids) => {
 							for (const frameId of ids) {
 								const target = spread.frames.find((f) => f.id === frameId);

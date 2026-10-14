@@ -20,3 +20,11 @@ export function styleChoices(styles: unknown): StyleChoice[] {
 		size: typeof def.sizePt === 'number' ? def.sizePt : null,
 	}));
 }
+
+/** The style a new text box starts in: the book's running text (`body`, or a picture book's `story`). */
+export function defaultTextStyle(choices: StyleChoice[]): string {
+	for (const id of ['body', 'story']) {
+		if (choices.some((c) => c.id === id)) return id;
+	}
+	return choices[0]?.id ?? 'body';
+}

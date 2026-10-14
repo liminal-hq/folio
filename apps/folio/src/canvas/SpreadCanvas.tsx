@@ -49,6 +49,8 @@ export interface SpreadCanvasProps {
 	onCommand?(command: FrameCommand, ids: string[]): void;
 	/** The context menu was asked for on a frame, at these viewport coordinates. */
 	onFrameMenu?(frame: Frame, at: { x: number; y: number }): void;
+	/** The menu was asked for on the bare page: where on screen, and where on the spread in points. */
+	onPageMenu?(at: { x: number; y: number }, point: { x: number; y: number }): void;
 	/** New words for a text frame, after it was edited in place. */
 	onEditText?(id: string, text: string): void;
 	/** The accessible name of the page area. */
@@ -183,6 +185,7 @@ export function SpreadCanvas({
 	onCommand,
 	onFrameMenu,
 	onEditText,
+	onPageMenu,
 }: SpreadCanvasProps) {
 	const svg = useRef<SVGSVGElement | null>(null);
 	const geometry = spreadGeometry(book, spread);
@@ -264,6 +267,18 @@ export function SpreadCanvas({
 					fill="var(--folio-paper)"
 					className={styles.paper}
 					onPointerDown={editable ? drag.onBackgroundPointerDown : undefined}
+					onContextMenu={(event) => {
+						event.preventDefault();
+						onSelect?.([]);
+						const box = svg.current?.getBoundingClientRect();
+						onPageMenu?.(
+							{ x: event.clientX, y: event.clientY },
+							{
+								x: bounds.x + (event.clientX - (box?.left ?? 0)) / scale,
+								y: bounds.y + (event.clientY - (box?.top ?? 0)) / scale,
+							},
+						);
+					}}
 				/>
 				{frames.map((frame) => (
 					<g key={frame.id}>

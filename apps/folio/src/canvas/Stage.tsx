@@ -10,8 +10,9 @@ import { ContextMenu } from '@liminal-hq/folio-chrome/ContextMenu';
 import { useState } from 'react';
 import { t } from '../i18n/messages';
 import { frameMenuItems, type FrameCommand } from './frameMenu';
+import { pageMenuItems, type PageCommand } from './pageMenu';
 import { fitZoom, spreadGeometry, type PlainRect } from './geometry';
-import { SpreadCanvas, type Marks } from './SpreadCanvas';
+import { DEFAULT_MARKS, SpreadCanvas, type Marks } from './SpreadCanvas';
 import styles from './Stage.module.css';
 import { useElementSize } from './useElementSize';
 import { useStageZoom } from './useStageZoom';
@@ -28,6 +29,8 @@ export interface StageProps {
 	onMove?(id: string, rect: PlainRect): Promise<void>;
 	onCommand?(command: FrameCommand, ids: string[]): void;
 	onEditText?(id: string, text: string): void;
+	/** A choice from the page menu; `point` is where it was asked for, in points on the spread. */
+	onPageCommand?(command: PageCommand, point: { x: number; y: number }): void;
 }
 
 export function Stage({
@@ -41,12 +44,17 @@ export function Stage({
 	onMove,
 	onCommand,
 	onEditText,
+	onPageCommand,
 }: StageProps) {
 	const [ref, size] = useElementSize<HTMLDivElement>();
 	const geometry = spreadGeometry(book, spread);
 	const zoom = useStageZoom(fitZoom(geometry.bounds, size));
 	const percent = Math.round(zoom.zoom * 100);
 	const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+	const [pageMenu, setPageMenu] = useState<{
+		at: { x: number; y: number };
+		point: { x: number; y: number };
+	} | null>(null);
 	const chosen = spread.frames.filter((f) => selection?.includes(f.id));
 
 	return (
@@ -87,6 +95,7 @@ export function Stage({
 						onMove={onMove}
 						onCommand={onCommand}
 						onEditText={onEditText}
+						onPageMenu={(at, point) => setPageMenu({ at, point })}
 						onFrameMenu={(_, at) => setMenu(at)}
 					/>
 				</div>
@@ -104,6 +113,19 @@ export function Stage({
 						);
 					}}
 					onClose={() => setMenu(null)}
+				/>
+			)}
+			{pageMenu && (
+				<ContextMenu
+					items={pageMenuItems(marks ?? DEFAULT_MARKS, spread.kind !== 'cover')}
+					position={pageMenu.at}
+					ariaLabel={t('page.menu')}
+					onSelect={(item) => {
+						const { point } = pageMenu;
+						setPageMenu(null);
+						onPageCommand?.(item.id as PageCommand, point);
+					}}
+					onClose={() => setPageMenu(null)}
 				/>
 			)}
 		</>
