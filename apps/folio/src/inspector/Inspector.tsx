@@ -33,6 +33,8 @@ export interface InspectorProps {
 	marks: Marks;
 	onMarks(next: Marks): void;
 	apply(intent: Intent): void;
+	/** Asks for a picture file and puts it in the frame. */
+	choosePicture?(frame: string): void;
 }
 
 const MARK_ROWS: { key: keyof Marks; label: string }[] = [
@@ -322,6 +324,7 @@ function TextSection({ frame, props }: { frame: TextFrame; props: InspectorProps
 
 function PictureSection({ frame, props }: { frame: Frame; props: InspectorProps }) {
 	const { book, spread, apply } = props;
+	const hasPicture = frame.type === 'image' && !!frame.image.asset;
 	const stretch = () => {
 		const geometry = spreadGeometry(book, spread);
 		const centre = frame.box.x + frame.box.w / 2;
@@ -350,10 +353,31 @@ function PictureSection({ frame, props }: { frame: Frame; props: InspectorProps 
 						: t('inspector.badge.placeholder'),
 				]}
 			/>
-			<p className={styles.note}>{t('inspector.picture.none')}</p>
-			<button type="button" className={styles.action} disabled title={t('menu.unavailable')}>
+			{!hasPicture && <p className={styles.note}>{t('inspector.picture.none')}</p>}
+			<button
+				type="button"
+				className={styles.action}
+				disabled={frame.locked || !props.choosePicture}
+				onClick={() => props.choosePicture?.(frame.id)}
+			>
 				{t('inspector.picture.choose')}
 			</button>
+			{hasPicture && (
+				<div className={styles.field}>
+					<span>{t('inspector.picture.fit')}</span>
+					<Segmented
+						label={t('inspector.picture.fit')}
+						value={frame.type === 'image' && frame.image.fit === 'fit' ? 'fit' : 'fill'}
+						options={[
+							{ value: 'fill', label: t('inspector.picture.fill') },
+							{ value: 'fit', label: t('inspector.picture.inside') },
+						]}
+						onChange={(fit) =>
+							!frame.locked && apply({ type: 'SetImage', frame: frame.id, asset: null, fit })
+						}
+					/>
+				</div>
+			)}
 			<button type="button" className={styles.action} disabled={frame.locked} onClick={stretch}>
 				{t('inspector.picture.stretch')}
 			</button>

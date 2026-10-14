@@ -24,7 +24,13 @@ const spread = {
 	pages: [{ id: 'p1', master: null }],
 	frames: [
 		{ type: 'text', id: 't1', box: rect, rotation: 0, locked: false },
-		{ type: 'image', id: 'i1', box: { x: 0, y: 50, w: 100, h: 50 }, placeholderLabel: 'Otter' },
+		{
+			type: 'image',
+			id: 'i1',
+			box: { x: 0, y: 50, w: 100, h: 50 },
+			image: { asset: null, fit: 'fill', focus: [0.5, 0.5], crop: null },
+			placeholderLabel: 'Otter',
+		},
 	],
 	guides: [],
 	masterOverrides: [],
@@ -135,5 +141,48 @@ describe('SpreadCanvas', () => {
 			/>,
 		);
 		expect(container.querySelector('[data-mark]')).toBeNull();
+	});
+});
+
+describe('pictures', () => {
+	const pictureSpread = {
+		id: 's2',
+		kind: 'single',
+		pages: [{ id: 'p', master: null }],
+		frames: [
+			{
+				type: 'image',
+				id: 'i1',
+				box: { x: 10, y: 10, w: 80, h: 60 },
+				image: { asset: 'assets/images/a.png', fit: 'fit', focus: [0.5, 0.5], crop: null },
+				placeholderLabel: 'Otter',
+			},
+		],
+		guides: [],
+		masterOverrides: [],
+	} as unknown as Spread;
+
+	it('draws the picture once it has been read, fitted as asked', () => {
+		const { container } = render(
+			<SpreadCanvas
+				book={book}
+				spread={pictureSpread}
+				layout={null}
+				zoom={1}
+				label="Page"
+				images={{ 'assets/images/a.png': 'blob:abc' }}
+			/>,
+		);
+		const image = container.querySelector('image')!;
+		expect(image).toHaveAttribute('href', 'blob:abc');
+		expect(image).toHaveAttribute('preserveAspectRatio', 'xMidYMid meet');
+	});
+
+	it('keeps the placeholder until the picture has been read', () => {
+		const { container } = render(
+			<SpreadCanvas book={book} spread={pictureSpread} layout={null} zoom={1} label="Page" />,
+		);
+		expect(container.querySelector('image')).toBeNull();
+		expect(screen.getByRole('img', { name: 'Otter' })).toBeInTheDocument();
 	});
 });

@@ -24,6 +24,7 @@ export interface StageProps {
 	label: string;
 	layout: SpreadLayout | null;
 	marks?: Marks;
+	images?: Record<string, string>;
 	selection?: string[];
 	onSelect?(ids: string[]): void;
 	onMove?(id: string, rect: PlainRect): Promise<void>;
@@ -39,6 +40,7 @@ export function Stage({
 	label,
 	layout,
 	marks,
+	images,
 	selection,
 	onSelect,
 	onMove,
@@ -90,6 +92,7 @@ export function Stage({
 						zoom={zoom.zoom}
 						label={t('region.stage')}
 						marks={marks}
+						images={images}
 						selection={selection}
 						onSelect={onSelect}
 						onMove={onMove}

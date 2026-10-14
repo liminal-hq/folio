@@ -5,9 +5,11 @@
 
 import type { SpreadLayoutResult } from '@liminal-hq/folio-protocol/generated/SpreadLayoutResult';
 import {
+	assetData,
 	applyIntent,
 	closeBook,
 	defaultSavePath,
+	importImage,
 	layoutSpread,
 	listBooks,
 	newBook,
@@ -50,6 +52,10 @@ export interface BooksClient {
 	redo(id: string): Promise<Patch | null>;
 	/** The spread's text shaped and broken into lines, from the book at the revision it carries. */
 	layoutSpread(id: string, spread: string): Promise<SpreadLayoutResult>;
+	/** Reads a picture file into the book; resolves to its path inside the book. */
+	importImage(id: string, path: string): Promise<string>;
+	/** One of the book's pictures as raw bytes. */
+	assetData(id: string, asset: string): Promise<ArrayBuffer>;
 	/** Resolves to the function that stops listening. */
 	subscribe(listener: BooksListener): Promise<() => void>;
 }
@@ -67,6 +73,8 @@ export const tauriBooksClient: BooksClient = {
 	undo,
 	redo,
 	layoutSpread,
+	importImage,
+	assetData,
 	async subscribe(listener) {
 		const stops = await Promise.all([
 			onPatch((event) => listener.onPatch(event)),

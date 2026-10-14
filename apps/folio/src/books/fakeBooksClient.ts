@@ -259,6 +259,16 @@ export function createFakeBooksClient(): FakeBooks {
 				.map((f) => ({ frame: f.id, lines: [], overset: false }));
 			return { revision: h.snapshot.revision, layout: { spread, frames, preflight: [] } };
 		},
+		async importImage(id, path) {
+			await call('importImage', [id, path]);
+			find(id);
+			return `assets/images/${path.split('/').pop() ?? 'picture'}`;
+		},
+		async assetData(id, asset) {
+			await call('assetData', [id, asset]);
+			find(id);
+			return new Uint8Array([137, 80, 78, 71]).buffer;
+		},
 		async subscribe(listener) {
 			await call('subscribe');
 			listeners.add(listener);
