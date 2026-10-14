@@ -1,0 +1,14 @@
+.editor {
+	position: absolute;
+	box-sizing: border-box;
+	margin: 0;
+	padding-right: 0;
+	padding-bottom: 0;
+	border: 0;
+	outline: 2px solid var(--folio-accent);
+	outline-offset: 0;
+	resize: none;
+	background: color-mix(in srgb, var(--folio-paper) 92%, transparent);
+	color: var(--folio-ink);
+	overflow: hidden;
+}

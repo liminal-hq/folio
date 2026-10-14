@@ -8,11 +8,12 @@ import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { FrameLayout } from '@liminal-hq/folio-protocol/generated/FrameLayout';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import styles from './SpreadCanvas.module.css';
 import './fonts.css';
 import { PX_PER_POINT, spreadGeometry, type PlainRect } from './geometry';
 import type { FrameCommand } from './frameMenu';
+import { canEditText, TextEditor } from './TextEditor';
 import { HANDLES, type Handle } from './snap';
 import { movable, useFrameDrag } from './useFrameDrag';
 
@@ -48,6 +49,8 @@ export interface SpreadCanvasProps {
 	onCommand?(command: FrameCommand, ids: string[]): void;
 	/** The context menu was asked for on a frame, at these viewport coordinates. */
 	onFrameMenu?(frame: Frame, at: { x: number; y: number }): void;
+	/** New words for a text frame, after it was edited in place. */
+	onEditText?(id: string, text: string): void;
 	/** The accessible name of the page area. */
 	label: string;
 }
@@ -179,6 +182,7 @@ export function SpreadCanvas({
 	onMove,
 	onCommand,
 	onFrameMenu,
+	onEditText,
 }: SpreadCanvasProps) {
 	const svg = useRef<SVGSVGElement | null>(null);
 	const geometry = spreadGeometry(book, spread);
@@ -198,224 +202,269 @@ export function SpreadCanvas({
 		drag.preview[f.id] ? ({ ...f, box: drag.preview[f.id] } as Frame) : f,
 	);
 	const editable = onSelect !== undefined;
+	const [editing, setEditing] = useState<string | null>(null);
+	const editedFrame = frames.find((f) => f.id === editing);
+	const startEditing = (frame: Frame) => {
+		if (onEditText && frame.type === 'text' && canEditText(frame)) setEditing(frame.id);
+	};
 	const byFrame = new Map(layout?.frames.map((f) => [f.frame, f]));
 	const grid = book.grid;
 
 	return (
-		<svg
-			ref={svg}
-			className={styles.spread}
-			tabIndex={editable ? 0 : undefined}
-			onKeyDown={editable ? drag.onKeyDown : undefined}
-			onPointerMove={editable ? drag.onPointerMove : undefined}
-			onPointerUp={editable ? drag.onPointerUp : undefined}
-			role="group"
-			aria-label={label}
-			width={bounds.w * scale}
-			height={bounds.h * scale}
-			viewBox={`${bounds.x} ${bounds.y} ${bounds.w} ${bounds.h}`}
-		>
-			<defs>
-				<pattern
-					id="folio-bleed-hatch"
-					width="6"
-					height="6"
-					patternUnits="userSpaceOnUse"
-					patternTransform="rotate(45)"
-				>
-					<line x1="0" y1="0" x2="0" y2="6" stroke="#d9534f" strokeOpacity="0.35" strokeWidth="1" />
-				</pattern>
-			</defs>
-
-			<rect
-				x={bounds.x}
-				y={bounds.y}
-				width={bounds.w}
-				height={bounds.h}
-				fill="var(--folio-paper)"
-				className={styles.paper}
-				onPointerDown={editable ? drag.onBackgroundPointerDown : undefined}
-			/>
-			{frames.map((frame) => (
-				<g key={frame.id}>
-					<Furniture frame={frame} />
-					{marks.frameEdges && (
-						<rect
-							data-mark="frame-edges"
-							x={frame.box.x}
-							y={frame.box.y}
-							width={frame.box.w}
-							height={frame.box.h}
-							fill="none"
-							stroke="#2f9e7a"
-							strokeWidth={0.5}
+		<div className={styles.frame}>
+			<svg
+				ref={svg}
+				className={styles.spread}
+				tabIndex={editable ? 0 : undefined}
+				onKeyDown={
+					editable
+						? (event) => {
+								const only =
+									selection.length === 1 ? frames.find((f) => f.id === selection[0]) : undefined;
+								if (event.key === 'Enter' && only) {
+									event.preventDefault();
+									startEditing(only);
+								} else drag.onKeyDown(event);
+							}
+						: undefined
+				}
+				onPointerMove={editable ? drag.onPointerMove : undefined}
+				onPointerUp={editable ? drag.onPointerUp : undefined}
+				role="group"
+				aria-label={label}
+				width={bounds.w * scale}
+				height={bounds.h * scale}
+				viewBox={`${bounds.x} ${bounds.y} ${bounds.w} ${bounds.h}`}
+			>
+				<defs>
+					<pattern
+						id="folio-bleed-hatch"
+						width="6"
+						height="6"
+						patternUnits="userSpaceOnUse"
+						patternTransform="rotate(45)"
+					>
+						<line
+							x1="0"
+							y1="0"
+							x2="0"
+							y2="6"
+							stroke="#d9534f"
+							strokeOpacity="0.35"
+							strokeWidth="1"
 						/>
-					)}
-					{byFrame.has(frame.id) && <Lines frame={frame} layout={byFrame.get(frame.id)!} />}
-				</g>
-			))}
-			{marks.bleed && (
-				<path
-					data-mark="bleed"
-					fillRule="evenodd"
-					fill="url(#folio-bleed-hatch)"
-					d={`M${bounds.x} ${bounds.y}h${bounds.w}v${bounds.h}h${-bounds.w}z M0 0v${geometry.height}h${geometry.width}v${-geometry.height}z`}
+					</pattern>
+				</defs>
+
+				<rect
+					x={bounds.x}
+					y={bounds.y}
+					width={bounds.w}
+					height={bounds.h}
+					fill="var(--folio-paper)"
+					className={styles.paper}
+					onPointerDown={editable ? drag.onBackgroundPointerDown : undefined}
 				/>
-			)}
-
-			{geometry.pages.map((page, index) => (
-				<g key={index} data-page={index}>
-					<rect
-						x={page.trim.x}
-						y={page.trim.y}
-						width={page.trim.w}
-						height={page.trim.h}
-						fill="none"
-						stroke={INK}
-						strokeOpacity={0.25}
-						strokeWidth={0.5}
-					/>
-					{marks.margins && (
-						<rect
-							data-mark="margins"
-							x={page.safe.x}
-							y={page.safe.y}
-							width={page.safe.w}
-							height={page.safe.h}
-							fill="none"
-							stroke="#5b7fd6"
-							strokeOpacity={0.7}
-							strokeWidth={0.5}
-							strokeDasharray="3 2"
-						/>
-					)}
-					{marks.columns &&
-						grid.columns > 1 &&
-						Array.from({ length: grid.columns }, (_, c) => {
-							const width = (page.safe.w - grid.gutter * (grid.columns - 1)) / grid.columns;
-							return (
-								<rect
-									key={c}
-									data-mark="columns"
-									x={page.safe.x + c * (width + grid.gutter)}
-									y={page.safe.y}
-									width={width}
-									height={page.safe.h}
-									fill="#ff8a1f"
-									fillOpacity={0.07}
-									stroke="#ff8a1f"
-									strokeOpacity={0.4}
-									strokeWidth={0.4}
-								/>
-							);
-						})}
-					{marks.baseline &&
-						grid.baseline &&
-						grid.baseline.increment > 0 &&
-						Array.from(
-							{
-								length: Math.max(
-									0,
-									Math.floor((page.safe.h - grid.baseline.offset) / grid.baseline.increment) + 1,
-								),
-							},
-							(_, row) => {
-								const yy = page.safe.y + grid.baseline!.offset + row * grid.baseline!.increment;
-								return (
-									<line
-										key={row}
-										data-mark="baseline"
-										x1={page.safe.x}
-										x2={page.safe.x + page.safe.w}
-										y1={yy}
-										y2={yy}
-										stroke="#d95fa0"
-										strokeOpacity={0.45}
-										strokeWidth={0.3}
-									/>
-								);
-							},
+				{frames.map((frame) => (
+					<g key={frame.id}>
+						<Furniture frame={frame} />
+						{marks.frameEdges && (
+							<rect
+								data-mark="frame-edges"
+								x={frame.box.x}
+								y={frame.box.y}
+								width={frame.box.w}
+								height={frame.box.h}
+								fill="none"
+								stroke="#2f9e7a"
+								strokeWidth={0.5}
+							/>
 						)}
-				</g>
-			))}
-			{editable && (
-				<g role="listbox" aria-multiselectable="true" aria-label={label}>
-					{frames.map((frame) => (
-						<rect
-							key={frame.id}
-							role="option"
-							aria-selected={selection.includes(frame.id)}
-							aria-label={frameLabel(frame)}
-							data-hit={frame.id}
-							x={frame.box.x}
-							y={frame.box.y}
-							width={frame.box.w}
-							height={frame.box.h}
-							fill="transparent"
-							style={{ cursor: movable(frame) ? 'move' : 'default' }}
-							onPointerDown={(event) => drag.onFramePointerDown(event, frame)}
-							onContextMenu={(event) => {
-								event.preventDefault();
-								if (!selection.includes(frame.id)) onSelect?.([frame.id]);
-								onFrameMenu?.(frame, { x: event.clientX, y: event.clientY });
-							}}
-						/>
-					))}
-				</g>
-			)}
-			{frames
-				.filter((f) => selection.includes(f.id))
-				.map((frame) => (
-					<g key={frame.id} data-selected={frame.id} pointerEvents="none">
-						<rect
-							x={frame.box.x}
-							y={frame.box.y}
-							width={frame.box.w}
-							height={frame.box.h}
-							fill="none"
-							stroke="var(--folio-accent)"
-							strokeWidth={1.5 / scale}
-							strokeDasharray={frame.locked ? `${4 / scale} ${3 / scale}` : undefined}
-						/>
+						{byFrame.has(frame.id) && frame.id !== editing && (
+							<Lines frame={frame} layout={byFrame.get(frame.id)!} />
+						)}
 					</g>
 				))}
-			{selection.length === 1 &&
-				frames
-					.filter((f) => f.id === selection[0] && movable(f))
-					.map((frame) =>
-						HANDLES.map((handle) => {
-							const at = handlePosition(frame.box, handle);
-							const size = HANDLE_PX / scale;
-							return (
-								<rect
-									key={handle}
-									data-handle={handle}
-									x={at.x - size / 2}
-									y={at.y - size / 2}
-									width={size}
-									height={size}
-									fill="#fff"
-									stroke="var(--folio-accent)"
-									strokeWidth={1.5 / scale}
-									style={{ cursor: CURSORS[handle] }}
-									onPointerDown={(event) => drag.onHandlePointerDown(event, frame.id, handle)}
-								/>
-							);
-						}),
-					)}
-			{drag.lines.map((line, i) => (
-				<line
-					key={i}
-					data-snap={line.axis}
-					x1={line.axis === 'x' ? line.pos : bounds.x}
-					x2={line.axis === 'x' ? line.pos : bounds.x + bounds.w}
-					y1={line.axis === 'y' ? line.pos : bounds.y}
-					y2={line.axis === 'y' ? line.pos : bounds.y + bounds.h}
-					stroke="#e0368f"
-					strokeWidth={1 / scale}
-					pointerEvents="none"
+				{marks.bleed && (
+					<path
+						data-mark="bleed"
+						fillRule="evenodd"
+						fill="url(#folio-bleed-hatch)"
+						d={`M${bounds.x} ${bounds.y}h${bounds.w}v${bounds.h}h${-bounds.w}z M0 0v${geometry.height}h${geometry.width}v${-geometry.height}z`}
+					/>
+				)}
+
+				{geometry.pages.map((page, index) => (
+					<g key={index} data-page={index}>
+						<rect
+							x={page.trim.x}
+							y={page.trim.y}
+							width={page.trim.w}
+							height={page.trim.h}
+							fill="none"
+							stroke={INK}
+							strokeOpacity={0.25}
+							strokeWidth={0.5}
+						/>
+						{marks.margins && (
+							<rect
+								data-mark="margins"
+								x={page.safe.x}
+								y={page.safe.y}
+								width={page.safe.w}
+								height={page.safe.h}
+								fill="none"
+								stroke="#5b7fd6"
+								strokeOpacity={0.7}
+								strokeWidth={0.5}
+								strokeDasharray="3 2"
+							/>
+						)}
+						{marks.columns &&
+							grid.columns > 1 &&
+							Array.from({ length: grid.columns }, (_, c) => {
+								const width = (page.safe.w - grid.gutter * (grid.columns - 1)) / grid.columns;
+								return (
+									<rect
+										key={c}
+										data-mark="columns"
+										x={page.safe.x + c * (width + grid.gutter)}
+										y={page.safe.y}
+										width={width}
+										height={page.safe.h}
+										fill="#ff8a1f"
+										fillOpacity={0.07}
+										stroke="#ff8a1f"
+										strokeOpacity={0.4}
+										strokeWidth={0.4}
+									/>
+								);
+							})}
+						{marks.baseline &&
+							grid.baseline &&
+							grid.baseline.increment > 0 &&
+							Array.from(
+								{
+									length: Math.max(
+										0,
+										Math.floor((page.safe.h - grid.baseline.offset) / grid.baseline.increment) + 1,
+									),
+								},
+								(_, row) => {
+									const yy = page.safe.y + grid.baseline!.offset + row * grid.baseline!.increment;
+									return (
+										<line
+											key={row}
+											data-mark="baseline"
+											x1={page.safe.x}
+											x2={page.safe.x + page.safe.w}
+											y1={yy}
+											y2={yy}
+											stroke="#d95fa0"
+											strokeOpacity={0.45}
+											strokeWidth={0.3}
+										/>
+									);
+								},
+							)}
+					</g>
+				))}
+				{editable && (
+					<g role="listbox" aria-multiselectable="true" aria-label={label}>
+						{frames.map((frame) => (
+							<rect
+								key={frame.id}
+								role="option"
+								aria-selected={selection.includes(frame.id)}
+								aria-label={frameLabel(frame)}
+								data-hit={frame.id}
+								x={frame.box.x}
+								y={frame.box.y}
+								width={frame.box.w}
+								height={frame.box.h}
+								fill="transparent"
+								style={{ cursor: movable(frame) ? 'move' : 'default' }}
+								onPointerDown={(event) => drag.onFramePointerDown(event, frame)}
+								onDoubleClick={() => startEditing(frame)}
+								onContextMenu={(event) => {
+									event.preventDefault();
+									if (!selection.includes(frame.id)) onSelect?.([frame.id]);
+									onFrameMenu?.(frame, { x: event.clientX, y: event.clientY });
+								}}
+							/>
+						))}
+					</g>
+				)}
+				{frames
+					.filter((f) => selection.includes(f.id))
+					.map((frame) => (
+						<g key={frame.id} data-selected={frame.id} pointerEvents="none">
+							<rect
+								x={frame.box.x}
+								y={frame.box.y}
+								width={frame.box.w}
+								height={frame.box.h}
+								fill="none"
+								stroke="var(--folio-accent)"
+								strokeWidth={1.5 / scale}
+								strokeDasharray={frame.locked ? `${4 / scale} ${3 / scale}` : undefined}
+							/>
+						</g>
+					))}
+				{selection.length === 1 &&
+					frames
+						.filter((f) => f.id === selection[0] && movable(f))
+						.map((frame) =>
+							HANDLES.map((handle) => {
+								const at = handlePosition(frame.box, handle);
+								const size = HANDLE_PX / scale;
+								return (
+									<rect
+										key={handle}
+										data-handle={handle}
+										x={at.x - size / 2}
+										y={at.y - size / 2}
+										width={size}
+										height={size}
+										fill="#fff"
+										stroke="var(--folio-accent)"
+										strokeWidth={1.5 / scale}
+										style={{ cursor: CURSORS[handle] }}
+										onPointerDown={(event) => drag.onHandlePointerDown(event, frame.id, handle)}
+									/>
+								);
+							}),
+						)}
+				{drag.lines.map((line, i) => (
+					<line
+						key={i}
+						data-snap={line.axis}
+						x1={line.axis === 'x' ? line.pos : bounds.x}
+						x2={line.axis === 'x' ? line.pos : bounds.x + bounds.w}
+						y1={line.axis === 'y' ? line.pos : bounds.y}
+						y2={line.axis === 'y' ? line.pos : bounds.y + bounds.h}
+						stroke="#e0368f"
+						strokeWidth={1 / scale}
+						pointerEvents="none"
+					/>
+				))}
+			</svg>
+			{editedFrame?.type === 'text' && (
+				<TextEditor
+					frame={editedFrame}
+					layout={byFrame.get(editedFrame.id)}
+					scale={scale}
+					at={{
+						x: (editedFrame.box.x - bounds.x) * scale,
+						y: (editedFrame.box.y - bounds.y) * scale,
+					}}
+					onCommit={(text) => {
+						setEditing(null);
+						if (text !== null) onEditText?.(editedFrame.id, text);
+						svg.current?.focus();
+					}}
 				/>
-			))}
-		</svg>
+			)}
+		</div>
 	);
 }

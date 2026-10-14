@@ -26,6 +26,7 @@ export interface StageProps {
 	onSelect?(ids: string[]): void;
 	onMove?(id: string, rect: PlainRect): Promise<void>;
 	onCommand?(command: FrameCommand, ids: string[]): void;
+	onEditText?(id: string, text: string): void;
 }
 
 export function Stage({
@@ -37,6 +38,7 @@ export function Stage({
 	onSelect,
 	onMove,
 	onCommand,
+	onEditText,
 }: StageProps) {
 	const [ref, size] = useElementSize<HTMLDivElement>();
 	const geometry = spreadGeometry(book, spread);
@@ -81,6 +83,7 @@ export function Stage({
 						onSelect={onSelect}
 						onMove={onMove}
 						onCommand={onCommand}
+						onEditText={onEditText}
 						onFrameMenu={(_, at) => setMenu(at)}
 					/>
 				</div>

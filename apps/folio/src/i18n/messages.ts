@@ -121,6 +121,7 @@ export const messages = {
 	'status.unsaved': 'Unsaved changes',
 	'status.notSaved': 'Not saved yet',
 	'stage.spread': 'Spread {label}',
+	'stage.edit.text': 'Edit the words',
 	'frame.duplicate': 'Duplicate',
 	'frame.front': 'Bring to front',
 	'frame.back': 'Send to back',

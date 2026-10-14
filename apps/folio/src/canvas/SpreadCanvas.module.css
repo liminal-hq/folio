@@ -19,3 +19,8 @@
 	outline: 2px solid var(--folio-accent);
 	outline-offset: 4px;
 }
+
+.frame {
+	position: relative;
+	flex: none;
+}
