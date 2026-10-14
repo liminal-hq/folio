@@ -257,25 +257,29 @@ impl<R: Runtime> Books<R> {
             .ok_or_else(|| Error::NoSuchBook(id.into()))
     }
 
-    /// Lays out one spread of a book at the revision it is at now. The book is held still while it
-    /// is laid out, so the answer and its revision agree.
+    /// Lays out one spread of a book at the revision it is at now. The book is copied under the lock
+    /// and laid out after it is let go, so the answer and its revision agree and a long layout never
+    /// holds up another command.
     pub fn layout_spread(&self, id: &str, spread: &str) -> Result<SpreadLayoutResult, Error> {
+        let (book, styles, revision) = {
+            let inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            (
+                open.session.book().clone(),
+                StyleSheet::from_value(open.package.styles()),
+                open.session.revision(),
+            )
+        };
         let fonts = self.fonts.get_or_init(FontBook::with_system_fonts);
-        let inner = locked(&self.inner);
-        let open = inner
-            .books
-            .iter()
-            .find(|b| b.id == id)
-            .ok_or_else(|| Error::NoSuchBook(id.into()))?;
-        let styles = StyleSheet::from_value(open.package.styles());
-        let layouter = Layouter::new(open.session.book(), &styles, fonts);
+        let layouter = Layouter::new(&book, &styles, fonts);
         let layout = layouter
             .layout_spread(&SpreadId(spread.to_string()))?
             .ok_or_else(|| Error::NoSuchSpread(spread.to_string()))?;
-        Ok(SpreadLayoutResult {
-            revision: open.session.revision(),
-            layout,
-        })
+        Ok(SpreadLayoutResult { revision, layout })
     }
 
     /// Applies an intent to a book, tells every window, and answers with what changed.

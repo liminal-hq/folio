@@ -213,7 +213,10 @@ pub fn flow(
             for line in &laid.lines {
                 let mut top = cursor;
                 let mut baseline = top + half_leading(line) + line.ascent;
-                if let Some((increment, offset)) = options.baseline_grid {
+                if let Some((increment, offset)) = options
+                    .baseline_grid
+                    .filter(|(increment, _)| *increment > 0.0)
+                {
                     let absolute = column.y + baseline - offset;
                     let snapped = (absolute / increment - 1e-9).ceil() * increment + offset;
                     let shift = snapped - (column.y + baseline);
@@ -238,6 +241,14 @@ pub fn flow(
                         fit = 0;
                     }
                 }
+            }
+            let later_is_roomier = columns[col + 1..]
+                .iter()
+                .any(|c| c.height > column.height + 1e-6);
+            if fit == 0 && y == 0.0 && !placed.is_empty() && !later_is_roomier {
+                // The rules want more room than this column has even when empty, and no later column
+                // has more: keep what fits, since moving the paragraph on would never help.
+                fit = placed.len();
             }
             if fit == 0 && y == 0.0 {
                 // Nothing fits even at the top of an empty column: more room will not help.

@@ -304,3 +304,30 @@ fn text_ranges_point_into_the_joined_text() {
     let range = out.lines[0].text.clone();
     assert_eq!(&out.text[range], "Counting the stars");
 }
+
+#[test]
+fn a_blank_poem_line_knows_where_it_sits_in_the_text() {
+    let poem = "First verse\n\nSecond verse";
+    let spans = [Span::new(poem, style())];
+    let out = layout(&spans, 300.0, |s| s.wrap = Wrap::Preserve);
+    assert_eq!(out.lines[1].text, 12..12);
+}
+
+#[test]
+fn a_no_break_space_keeps_its_words_together() {
+    let text = "aaa\u{a0}bbb\u{a0}ccc\u{a0}ddd\u{a0}eee\u{a0}fff\u{a0}ggg";
+    let spans = [Span::new(text, style())];
+    let out = layout(&spans, 40.0, |s| s.hyphenate = false);
+    // One unbreakable word, wider than the measure, rather than seven short lines.
+    assert_eq!(out.lines.len(), 1);
+}
+
+#[test]
+fn a_word_with_punctuation_is_still_hyphenated() {
+    let plain = [Span::new("extraordinarily", style())];
+    let comma = [Span::new("extraordinarily,", style())];
+    let quoted = [Span::new("(extraordinarily)", style())];
+    assert!(layout(&plain, 60.0, |_| {}).lines.len() >= 2);
+    assert!(layout(&comma, 60.0, |_| {}).lines.len() >= 2);
+    assert!(layout(&quoted, 60.0, |_| {}).lines.len() >= 2);
+}

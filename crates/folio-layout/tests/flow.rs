@@ -264,3 +264,50 @@ fn the_continuation_starts_where_the_last_line_left_off() {
     assert!(second[0].offset > 0);
     assert_eq!(of_frame(&out, 0)[0].offset, 0);
 }
+
+#[test]
+fn a_poem_split_after_a_blank_line_is_not_repeated() {
+    let options = FlowOptions {
+        orphans: 1,
+        widows: 1,
+        ..FlowOptions::default()
+    };
+    let mut poem = StoryParagraph::new(vec![Span::new(
+        "one one\ntwo two\n\nthree three\nfour four",
+        style(),
+    )]);
+    poem.wrap = folio_layout::paragraph::Wrap::Preserve;
+    // Room for three lines in the first frame: the blank line is the last one placed.
+    let frames = [FrameBox::new(200.0, 48.0), FrameBox::new(200.0, 400.0)];
+    let out = run(&[poem], &frames, &options);
+    let said = text_of(&out);
+    assert_eq!(said.matches("one").count(), 2, "{said}");
+    assert_eq!(said.matches("three").count(), 2, "{said}");
+}
+
+#[test]
+fn a_frame_with_room_for_one_line_still_shows_it() {
+    // A caption box a line deep, and a paragraph of several lines: the orphan rule cannot be met,
+    // and no later frame has more room, so the first line is drawn instead of nothing.
+    let out = run(
+        &[paragraph(2)],
+        &[FrameBox::new(150.0, 18.0)],
+        &FlowOptions::default(),
+    );
+    assert_eq!(out.lines.len(), 1);
+    assert!(out.overset);
+}
+
+#[test]
+fn a_zero_baseline_increment_means_no_grid() {
+    let options = FlowOptions {
+        baseline_grid: Some((0.0, 0.0)),
+        ..FlowOptions::default()
+    };
+    let out = run(&[paragraph(1)], &[FrameBox::new(300.0, 400.0)], &options);
+    assert!(!out.lines.is_empty());
+    assert!(out
+        .lines
+        .iter()
+        .all(|l| l.top.is_finite() && l.baseline.is_finite()));
+}
