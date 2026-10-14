@@ -14,24 +14,9 @@ import './fonts.css';
 import { PX_PER_POINT, spreadGeometry, type PlainRect } from './geometry';
 import type { FrameCommand } from './frameMenu';
 import { canEditText, TextEditor } from './TextEditor';
+import { DEFAULT_MARK_COLOURS, DEFAULT_MARKS, type MarkColours, type Marks } from './marksModel';
 import { HANDLES, type Handle } from './snap';
 import { movable, useFrameDrag } from './useFrameDrag';
-
-export interface Marks {
-	bleed: boolean;
-	margins: boolean;
-	columns: boolean;
-	baseline: boolean;
-	frameEdges: boolean;
-}
-
-export const DEFAULT_MARKS: Marks = {
-	bleed: true,
-	margins: true,
-	columns: false,
-	baseline: false,
-	frameEdges: false,
-};
 
 export interface SpreadCanvasProps {
 	book: Book;
@@ -41,6 +26,8 @@ export interface SpreadCanvasProps {
 	/** 1 is 100%. */
 	zoom: number;
 	marks?: Marks;
+	/** The colour of each mark. */
+	colours?: MarkColours;
 	/** The ids of the selected frames. The canvas is read-only without `onSelect`. */
 	selection?: string[];
 	/** Whether dragging snaps; on unless said otherwise. */
@@ -210,6 +197,7 @@ export function SpreadCanvas({
 	layout,
 	zoom,
 	marks = DEFAULT_MARKS,
+	colours = DEFAULT_MARK_COLOURS,
 	label,
 	selection = [],
 	snap = true,
@@ -287,7 +275,7 @@ export function SpreadCanvas({
 							y1="0"
 							x2="0"
 							y2="6"
-							stroke="#d9534f"
+							stroke={colours.bleed}
 							strokeOpacity="0.35"
 							strokeWidth="1"
 						/>
@@ -326,7 +314,7 @@ export function SpreadCanvas({
 								width={frame.box.w}
 								height={frame.box.h}
 								fill="none"
-								stroke="#2f9e7a"
+								stroke={colours.frameEdges}
 								strokeWidth={0.5}
 							/>
 						)}
@@ -364,7 +352,7 @@ export function SpreadCanvas({
 								width={page.safe.w}
 								height={page.safe.h}
 								fill="none"
-								stroke="#5b7fd6"
+								stroke={colours.margins}
 								strokeOpacity={0.7}
 								strokeWidth={0.5}
 								strokeDasharray="3 2"
@@ -382,9 +370,9 @@ export function SpreadCanvas({
 										y={page.safe.y}
 										width={width}
 										height={page.safe.h}
-										fill="#ff8a1f"
+										fill={colours.columns}
 										fillOpacity={0.07}
-										stroke="#ff8a1f"
+										stroke={colours.columns}
 										strokeOpacity={0.4}
 										strokeWidth={0.4}
 									/>
@@ -410,7 +398,7 @@ export function SpreadCanvas({
 											x2={page.safe.x + page.safe.w}
 											y1={yy}
 											y2={yy}
-											stroke="#d95fa0"
+											stroke={colours.baseline}
 											strokeOpacity={0.45}
 											strokeWidth={0.3}
 										/>

@@ -9,7 +9,7 @@ import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { DEFAULT_MARKS } from '../canvas/SpreadCanvas';
+import { DEFAULT_MARKS } from '../canvas/marksModel';
 import { Inspector, type InspectorProps } from './Inspector';
 
 const book = {

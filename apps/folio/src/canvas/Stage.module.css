@@ -60,3 +60,9 @@
 	margin: auto;
 	padding: 32px;
 }
+
+.tools {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}

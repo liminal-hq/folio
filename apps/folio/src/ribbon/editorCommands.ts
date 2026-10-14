@@ -7,7 +7,7 @@ import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
-import type { Marks } from '../canvas/SpreadCanvas';
+import type { Marks } from '../canvas/marksModel';
 import type { NewFrameKind } from '../canvas/newFrames';
 import type { StyleChoice } from '../inspector/styleChoices';
 import { effectiveSize, withOverrides } from '../inspector/textFacts';
