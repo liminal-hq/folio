@@ -10,8 +10,11 @@ import type { WindowKind } from '@liminal-hq/folio-protocol/generated/WindowKind
 import { AppWindowChrome } from './app/AppWindowChrome';
 import { MainScreen } from './app/MainScreen';
 import { windowKindFromLabel } from './app/windowKind';
+import { SettingsProvider } from './settings/SettingsProvider';
+import { tauriSettingsClient } from './settings/settingsClient';
 import { initLogger } from './services/logger';
 import { applyPlatform } from './theme/platform';
+import { ThemeRoot } from './theme/ThemeRoot';
 import './theme/tokens.css';
 
 // A plain switch on the window kind: each webview hosts exactly one screen, so there is no
@@ -36,6 +39,10 @@ applyPlatform();
 
 createRoot(document.getElementById('root')!).render(
 	<StrictMode>
-		<AppWindowChrome>{screenFor(windowKindFromLabel(label))}</AppWindowChrome>
+		<SettingsProvider client={tauriSettingsClient}>
+			<ThemeRoot>
+				<AppWindowChrome>{screenFor(windowKindFromLabel(label))}</AppWindowChrome>
+			</ThemeRoot>
+		</SettingsProvider>
 	</StrictMode>,
 );

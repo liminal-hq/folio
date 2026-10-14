@@ -139,3 +139,8 @@ body {
 	user-select: none;
 	cursor: default;
 }
+
+/* Larger controls (Preferences → Interface): 44px targets instead of 28px. */
+:root[data-larger-controls='true'] {
+	--folio-hit-target: 44px;
+}

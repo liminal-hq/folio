@@ -4,6 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 mod app_info;
+mod settings;
+mod storage;
 mod windows;
 
 use folio_protocol::WindowKind;
@@ -44,8 +46,11 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_system_appearance::init())
         .plugin(tauri_plugin_window_manager::init())
+        // After the store plugin it saves through.
+        .plugin(tauri_plugin_folio_settings::init_with(settings::storage))
         .invoke_handler(tauri::generate_handler![app_info::app_info])
         .setup(|app| {
             windows::open_or_focus(app.handle(), WindowKind::Main)?;

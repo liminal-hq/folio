@@ -2,8 +2,10 @@
 members = [
   "crates/folio-model",
   "crates/folio-protocol",
+  "crates/folio-settings",
   "apps/folio/src-tauri",
   "crates/wayland-toplevel-drag",
+  "plugins/folio-settings",
   "plugins/window-effects",
   "plugins/window-tearoff",
 ]

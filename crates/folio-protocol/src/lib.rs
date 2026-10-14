@@ -6,7 +6,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 mod app_info;
+mod status;
 mod window;
 
 pub use app_info::*;
+pub use status::*;
 pub use window::*;

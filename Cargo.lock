@@ -976,14 +976,19 @@ version = "0.0.0"
 dependencies = [
  "chrono",
  "folio-protocol",
+ "folio-settings",
  "log",
+ "serde_json",
  "tauri",
  "tauri-build",
+ "tauri-plugin-folio-settings",
  "tauri-plugin-log",
  "tauri-plugin-mcp-bridge",
  "tauri-plugin-os",
+ "tauri-plugin-store",
  "tauri-plugin-system-appearance",
  "tauri-plugin-window-manager",
+ "tempfile",
 ]
 
 [[package]]
@@ -1001,6 +1006,18 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "ts-rs",
+]
+
+[[package]]
+name = "folio-settings"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
  "ts-rs",
 ]
 
@@ -3882,6 +3899,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-folio-settings"
+version = "0.1.0"
+dependencies = [
+ "folio-protocol",
+ "folio-settings",
+ "log",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "tauri-plugin-log"
 version = "2.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3950,6 +3981,22 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "tauri-plugin-store"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3c6fdaac41e60f2313a440fa1776f3a5fdd16800ff967915e9800985b680822"
+dependencies = [
+ "dunce",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

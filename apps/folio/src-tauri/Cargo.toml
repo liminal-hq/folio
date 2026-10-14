@@ -20,15 +20,20 @@ tauri-build = { workspace = true }
 tauri = { workspace = true }
 tauri-plugin-log = "2"
 tauri-plugin-os = "2"
+tauri-plugin-store = "2"
 # Published reusable plugins: registry dependencies, never copies (decision D-08).
 tauri-plugin-system-appearance = "0.1"
 tauri-plugin-window-manager = "0.1"
 folio-protocol = { path = "../../../crates/folio-protocol" }
+folio-settings = { path = "../../../crates/folio-settings" }
+tauri-plugin-folio-settings = { path = "../../../plugins/folio-settings" }
+serde_json = { workspace = true }
 log = { workspace = true }
 chrono = "0.4"
 
 [dev-dependencies]
 tauri = { workspace = true, features = ["test"] }
+tempfile = "3"
 
 # Debug-only automation bridge, registered under `#[cfg(all(debug_assertions, not(windows)))]` in
 # `src/lib.rs`. It must be a normal dependency (dev-dependencies are not available to the lib

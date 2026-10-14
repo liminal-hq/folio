@@ -1,0 +1,3 @@
+[default]
+description = "Default permissions for the folio-settings plugin"
+permissions = ["allow-get-status", "allow-get-settings", "allow-update-settings", "allow-reset-settings"]
