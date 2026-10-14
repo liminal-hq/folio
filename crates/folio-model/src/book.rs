@@ -13,6 +13,9 @@ use crate::ids::{BookId, MasterId};
 use crate::spread::Spread;
 use crate::units::{Margins, Pt, Size};
 
+/// The `book.json` schema version this build writes (and the newest it reads).
+pub const SCHEMA_VERSION: u32 = 1;
+
 /// The kind of book, which selects a preset bundle of trim, bleed, grid, styles and export defaults.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
@@ -113,9 +116,38 @@ pub struct Isbns {
     pub ebook: Option<String>,
 }
 
+impl Book {
+    /// The number of pages in the book, not counting the cover, which a printer counts apart.
+    pub fn page_count(&self) -> usize {
+        self.spreads
+            .iter()
+            .filter(|s| s.kind != crate::spread::SpreadKind::Cover)
+            .map(|s| s.pages.len())
+            .sum()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_page_count_leaves_out_the_cover() {
+        let book: Book = serde_json::from_value(serde_json::json!({
+            "schema": 1, "id": "b", "title": "T", "authors": [], "language": "en", "kind": "picture",
+            "layout": "fixed", "trim": { "w": 1, "h": 1 }, "bleed": 0,
+            "margins": { "top": 0, "bottom": 0, "inside": 0, "outside": 0 },
+            "grid": { "columns": 1, "gutter": 0, "baseline": null },
+            "spreads": [
+                { "id": "c", "kind": "cover", "pages": [{ "id": "p0", "master": null }], "frames": [] },
+                { "id": "a", "kind": "opener", "pages": [{ "id": "p1", "master": null }], "frames": [] },
+                { "id": "b", "kind": "spread", "pages": [{ "id": "p2", "master": null }, { "id": "p3", "master": null }], "frames": [] }
+            ],
+            "metadata": { "isbn": { "paperback": null, "hardcover": null, "ebook": null }, "description": "" }
+        }))
+        .unwrap();
+        assert_eq!(book.page_count(), 3);
+    }
 
     #[test]
     fn kinds_use_lowercase_names() {

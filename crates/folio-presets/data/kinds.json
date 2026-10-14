@@ -1,0 +1,637 @@
+{
+	"picture": {
+		"label": "Picture book",
+		"sub": "Fixed layout · pictures lead",
+		"sampleTitle": "The Otter Who Couldn't Sleep",
+		"trims": ["8.5 × 8.5 in", "8 × 10 in", "10 × 8 in", "8.5 × 11 in"],
+		"marginIn": 0.5,
+		"bleedIn": 0.125,
+		"columns": 6,
+		"flowing": false,
+		"defaultPages": 32,
+		"folios": false,
+		"styles": ["story", "storyC", "display", "byline", "caption"],
+		"spreads": [
+			{
+				"name": "Cover",
+				"single": true,
+				"frames": [
+					{
+						"type": "image",
+						"x": -0.125,
+						"y": -0.125,
+						"w": 8.75,
+						"h": 8.75,
+						"tint": "p",
+						"label": "Cover illustration — Pip on a lily pad, moonlight"
+					},
+					{
+						"type": "text",
+						"x": 0.75,
+						"y": 0.85,
+						"w": 7,
+						"h": 2,
+						"style": "display",
+						"text": "The Otter Who Couldn't Sleep"
+					},
+					{
+						"type": "text",
+						"x": 0.75,
+						"y": 7.35,
+						"w": 7,
+						"h": 0.6,
+						"style": "byline",
+						"text": "Written and illustrated by Mom"
+					}
+				]
+			},
+			{
+				"frames": [
+					{
+						"type": "image",
+						"x": -0.125,
+						"y": -0.125,
+						"w": 8.625,
+						"h": 8.75,
+						"tint": "c",
+						"label": "Reeds at dusk, the river slowing"
+					},
+					{
+						"type": "text",
+						"x": 9.25,
+						"y": 0.9,
+						"w": 6.75,
+						"h": 2.6,
+						"style": "story",
+						"text": "Down by the reeds, where the river slows to a whisper, lived a small otter named Pip."
+					},
+					{
+						"type": "image",
+						"x": 10.25,
+						"y": 4.1,
+						"w": 4.75,
+						"h": 3.6,
+						"tint": "o",
+						"label": "Pip peeking out of the den"
+					}
+				]
+			},
+			{
+				"frames": [
+					{
+						"type": "image",
+						"x": -0.125,
+						"y": -0.125,
+						"w": 17.25,
+						"h": 5.9,
+						"tint": "r",
+						"label": "The moon rising over the whole river — runs across the gutter"
+					},
+					{
+						"type": "text",
+						"x": 0.75,
+						"y": 6.3,
+						"w": 6.75,
+						"h": 1.6,
+						"style": "story",
+						"text": "Every night the moon rose, round as a river stone."
+					},
+					{
+						"type": "text",
+						"x": 9.25,
+						"y": 6.3,
+						"w": 6.75,
+						"h": 1.6,
+						"style": "story",
+						"text": "And every night, Pip lay awake, counting ripples."
+					}
+				]
+			},
+			{
+				"frames": [
+					{
+						"type": "text",
+						"x": 0.75,
+						"y": 2.8,
+						"w": 7,
+						"h": 2.4,
+						"style": "storyC",
+						"text": "“Maybe,” said Grandmother Heron, “you are counting the wrong thing.”"
+					},
+					{
+						"type": "image",
+						"x": 8.5,
+						"y": -0.125,
+						"w": 8.625,
+						"h": 8.75,
+						"tint": "g",
+						"label": "Grandmother Heron, standing on one leg"
+					}
+				]
+			}
+		]
+	},
+	"novel": {
+		"label": "Novel",
+		"sub": "Flowing text · reflows on e-readers",
+		"sampleTitle": "Tea at the Lighthouse",
+		"trims": ["5 × 8 in", "5.25 × 8 in", "5.5 × 8.5 in", "6 × 9 in"],
+		"marginIn": 0.625,
+		"bleedIn": 0,
+		"columns": 1,
+		"flowing": true,
+		"defaultPages": 248,
+		"folios": true,
+		"runningHead": "The keeper's kettle",
+		"styles": ["body", "h1", "label", "epigraph", "title", "byline"],
+		"spreads": [
+			{
+				"name": "Title page",
+				"single": true,
+				"frames": [
+					{
+						"type": "text",
+						"x": 0.625,
+						"y": 2.2,
+						"w": 3.75,
+						"h": 1.6,
+						"style": "title",
+						"text": "Tea at the Lighthouse"
+					},
+					{
+						"type": "text",
+						"x": 0.625,
+						"y": 3.9,
+						"w": 3.75,
+						"h": 0.4,
+						"style": "byline",
+						"text": "A novel"
+					},
+					{
+						"type": "text",
+						"x": 0.625,
+						"y": 6.6,
+						"w": 3.75,
+						"h": 0.4,
+						"style": "byline",
+						"text": "Mom"
+					}
+				]
+			},
+			{
+				"opener": true,
+				"frames": [
+					{
+						"type": "text",
+						"x": 0.875,
+						"y": 2.6,
+						"w": 3.25,
+						"h": 1.4,
+						"style": "epigraph",
+						"text": "“The sea keeps its own hours, and so, in time, will you.”\n— from the keeper's log"
+					},
+					{
+						"type": "text",
+						"x": 5.625,
+						"y": 1.5,
+						"w": 3.75,
+						"h": 0.35,
+						"style": "label",
+						"text": "Chapter one"
+					},
+					{
+						"type": "text",
+						"x": 5.625,
+						"y": 1.85,
+						"w": 3.75,
+						"h": 0.7,
+						"style": "h1",
+						"text": "The keeper's kettle"
+					},
+					{
+						"type": "text",
+						"x": 5.625,
+						"y": 2.9,
+						"w": 3.75,
+						"h": 4.45,
+						"style": "body",
+						"text": "Mara had kept the light at Gannet Point for eleven winters, and in all that time the kettle had never once failed to sing. It was a dented thing, older than the lamp, and it sat on the iron stove like a hen that refused to be moved.\n\nOn the morning the letter came, it was quiet. She noticed the silence before she noticed the envelope: a square of cream paper tucked under the door, damp at one corner, addressed in a hand she had not seen since she was nineteen."
+					}
+				]
+			},
+			{
+				"frames": [
+					{
+						"type": "text",
+						"x": 0.625,
+						"y": 0.75,
+						"w": 3.75,
+						"h": 6.6,
+						"style": "body",
+						"text": "She did not open it straight away. There were the windows to wipe, and the brass to rub, and the log to fill in with the same small numbers she wrote every day: wind from the south-west, sea moderate, visibility good. Habit is a kind of shelter, her father used to say. You build it a brick at a time, and one day you find you are living inside it.\n\nBy noon the fog had come in thick enough to lean on. Mara lit the lamp early, as the rules allowed, and sat with the letter on her knee while the beam turned slow circles above her head."
+					},
+					{
+						"type": "text",
+						"x": 5.625,
+						"y": 0.75,
+						"w": 3.75,
+						"h": 6.6,
+						"style": "body",
+						"text": "Inside was a single line. I am coming home on the Thursday boat, if you will have me. No name, but there did not need to be one. Only one person had ever written sevens with a bar through the middle, and only one person had ever left without saying goodbye.\n\nShe read it four times. Then she got up, filled the old kettle, and set it on the stove — and for the first time that morning, it began, very softly, to sing."
+					}
+				]
+			}
+		]
+	},
+	"textbook": {
+		"label": "Textbook",
+		"sub": "Grid, figures, callouts",
+		"sampleTitle": "Watercolour Basics",
+		"trims": ["8.5 × 11 in", "8 × 10 in", "7 × 10 in"],
+		"marginIn": 0.75,
+		"bleedIn": 0.125,
+		"columns": 12,
+		"flowing": false,
+		"defaultPages": 96,
+		"folios": true,
+		"styles": ["h1big", "h1", "h2", "bodyL", "caption", "callout", "label"],
+		"spreads": [
+			{
+				"frames": [
+					{
+						"type": "text",
+						"x": 0.75,
+						"y": 0.75,
+						"w": 7,
+						"h": 0.35,
+						"style": "label",
+						"text": "Lesson 3 · Wet on wet"
+					},
+					{
+						"type": "text",
+						"x": 0.75,
+						"y": 1.15,
+						"w": 7,
+						"h": 1.1,
+						"style": "h1big",
+						"text": "Letting colour move on its own"
+					},
+					{
+						"type": "text",
+						"x": 0.75,
+						"y": 2.5,
+						"w": 3.42,
+						"h": 4.6,
+						"style": "bodyL",
+						"text": "Wet-on-wet painting means laying colour onto paper that is already damp. The water does half the work: pigment blooms outward, edges soften, and two colours meet without a hard line between them.\n\nIt can feel like losing control. That is the point. You are setting up the conditions, then letting the paper answer."
+					},
+					{
+						"type": "image",
+						"x": 4.33,
+						"y": 2.5,
+						"w": 3.42,
+						"h": 3,
+						"tint": "c",
+						"label": "Figure 3.1 — a sky bloom, thirty seconds after the first wash"
+					},
+					{
+						"type": "text",
+						"x": 4.33,
+						"y": 5.6,
+						"w": 3.42,
+						"h": 0.6,
+						"style": "caption",
+						"text": "Figure 3.1 · Ultramarine dropped into a damp sky. Notice the soft, feathered edge."
+					},
+					{
+						"type": "text",
+						"x": 0.75,
+						"y": 7.5,
+						"w": 7,
+						"h": 1.3,
+						"style": "callout",
+						"text": "Try this · Wet a postcard-sized sheet edge to edge. Wait until the shine just leaves the surface, then touch in one colour and watch for a full minute before adding another."
+					},
+					{
+						"type": "text",
+						"x": 9.25,
+						"y": 0.75,
+						"w": 7,
+						"h": 0.5,
+						"style": "h2",
+						"text": "What you'll need"
+					},
+					{
+						"type": "text",
+						"x": 9.25,
+						"y": 1.3,
+						"w": 3.42,
+						"h": 3,
+						"style": "bodyL",
+						"text": "• Cold-pressed paper, 300 gsm\n• A large round brush, size 12\n• Two jars of clean water\n• Ultramarine, burnt sienna, and a yellow you love"
+					},
+					{
+						"type": "image",
+						"x": 12.83,
+						"y": 1.3,
+						"w": 3.42,
+						"h": 3,
+						"tint": "o",
+						"label": "Photo — palette and brushes laid out"
+					},
+					{
+						"type": "text",
+						"x": 9.25,
+						"y": 4.8,
+						"w": 7,
+						"h": 0.5,
+						"style": "h2",
+						"text": "Step by step"
+					},
+					{
+						"type": "text",
+						"x": 9.25,
+						"y": 5.35,
+						"w": 7,
+						"h": 3.6,
+						"style": "bodyL",
+						"text": "1. Wet the whole sheet with clean water using the big brush.\n2. Tilt the board so a little water gathers at one edge.\n3. Load the brush with ultramarine and touch it in near the top.\n4. Let it travel. Resist the urge to tidy it.\n5. While it's still damp, drop in sienna low on the page for a horizon."
+					}
+				]
+			},
+			{
+				"frames": [
+					{
+						"type": "image",
+						"x": 0.75,
+						"y": 0.75,
+						"w": 7,
+						"h": 5,
+						"tint": "p",
+						"label": "Three skies side by side — early, middle and late in the drying"
+					},
+					{
+						"type": "text",
+						"x": 0.75,
+						"y": 5.9,
+						"w": 7,
+						"h": 0.5,
+						"style": "caption",
+						"text": "Figure 3.2 · The same wash at three moments. Timing is everything."
+					},
+					{
+						"type": "text",
+						"x": 9.25,
+						"y": 0.75,
+						"w": 7,
+						"h": 0.6,
+						"style": "h1",
+						"text": "Common surprises"
+					},
+					{
+						"type": "text",
+						"x": 9.25,
+						"y": 1.55,
+						"w": 7,
+						"h": 5,
+						"style": "bodyL",
+						"text": "Cauliflowers — those frilly blooms — happen when wetter paint meets drier paper. They are not mistakes; plenty of painters chase them on purpose.\n\nIf colour disappears as it dries, you are not alone. Watercolour lightens by about a third. Go a little bolder than feels right."
+					}
+				]
+			}
+		]
+	},
+	"illustrated": {
+		"label": "Illustrated",
+		"sub": "Cookbook, garden, craft",
+		"sampleTitle": "Recipes from the Lake House",
+		"trims": ["7 × 10 in", "8 × 10 in", "8.25 × 8.25 in"],
+		"marginIn": 0.625,
+		"bleedIn": 0.125,
+		"columns": 6,
+		"flowing": true,
+		"defaultPages": 144,
+		"folios": true,
+		"styles": ["h1big", "h2", "bodyL", "caption", "label"],
+		"spreads": [
+			{
+				"frames": [
+					{
+						"type": "image",
+						"x": -0.125,
+						"y": -0.125,
+						"w": 7.125,
+						"h": 10.25,
+						"tint": "o",
+						"label": "Photo — blueberry buckle, still warm from the oven"
+					},
+					{
+						"type": "text",
+						"x": 7.625,
+						"y": 0.9,
+						"w": 5.75,
+						"h": 0.35,
+						"style": "label",
+						"text": "Summer · Baking"
+					},
+					{
+						"type": "text",
+						"x": 7.625,
+						"y": 1.3,
+						"w": 5.75,
+						"h": 1,
+						"style": "h1big",
+						"text": "Blueberry buckle"
+					},
+					{
+						"type": "text",
+						"x": 7.625,
+						"y": 2.35,
+						"w": 5.75,
+						"h": 0.4,
+						"style": "caption",
+						"text": "Serves 8 · 1 hour · Best the same day"
+					},
+					{
+						"type": "text",
+						"x": 7.625,
+						"y": 3,
+						"w": 2.5,
+						"h": 0.4,
+						"style": "h2",
+						"text": "You'll need"
+					},
+					{
+						"type": "text",
+						"x": 7.625,
+						"y": 3.45,
+						"w": 2.5,
+						"h": 4.5,
+						"style": "bodyL",
+						"text": "2 cups flour\n2 tsp baking powder\n½ tsp salt\n½ cup butter, soft\n¾ cup sugar\n1 egg\n½ cup milk\n2 cups blueberries"
+					},
+					{
+						"type": "text",
+						"x": 10.5,
+						"y": 3,
+						"w": 2.875,
+						"h": 0.4,
+						"style": "h2",
+						"text": "Method"
+					},
+					{
+						"type": "text",
+						"x": 10.5,
+						"y": 3.45,
+						"w": 2.875,
+						"h": 5.8,
+						"style": "bodyL",
+						"text": "Heat the oven to 375 °F and butter a square pan. Whisk the flour, baking powder and salt. Cream the butter and sugar until pale, beat in the egg, then fold in the flour and milk in turns.\n\nFold in the berries, spread in the pan, and scatter the crumb on top. Bake 40 to 45 minutes, until a skewer comes out clean."
+					}
+				]
+			},
+			{
+				"frames": [
+					{
+						"type": "text",
+						"x": 0.625,
+						"y": 0.9,
+						"w": 5.75,
+						"h": 1,
+						"style": "h1big",
+						"text": "Lake tea, iced"
+					},
+					{
+						"type": "text",
+						"x": 0.625,
+						"y": 1.95,
+						"w": 5.75,
+						"h": 0.4,
+						"style": "caption",
+						"text": "Makes one big jug · 10 minutes, plus chilling"
+					},
+					{
+						"type": "text",
+						"x": 0.625,
+						"y": 2.6,
+						"w": 5.75,
+						"h": 4,
+						"style": "bodyL",
+						"text": "Steep four bags of black tea in two cups of just-boiled water for five minutes. Stir in honey while it is hot, then top up with cold water, lemon slices and a handful of mint from the porch pots."
+					},
+					{
+						"type": "image",
+						"x": 7,
+						"y": -0.125,
+						"w": 7.125,
+						"h": 10.25,
+						"tint": "c",
+						"label": "Photo — the jug on the dock rail, lake behind"
+					}
+				]
+			}
+		]
+	},
+	"poetry": {
+		"label": "Poetry",
+		"sub": "Generous white space",
+		"sampleTitle": "Small Hours",
+		"trims": ["5.5 × 8.5 in", "5 × 8 in", "6 × 9 in"],
+		"marginIn": 0.875,
+		"bleedIn": 0,
+		"columns": 1,
+		"flowing": true,
+		"defaultPages": 80,
+		"folios": true,
+		"styles": ["h1", "poem", "epigraph", "caption"],
+		"spreads": [
+			{
+				"frames": [
+					{
+						"type": "text",
+						"x": 0.875,
+						"y": 1.2,
+						"w": 3.75,
+						"h": 0.6,
+						"style": "h1",
+						"text": "Porch light"
+					},
+					{
+						"type": "text",
+						"x": 0.875,
+						"y": 2.1,
+						"w": 3.75,
+						"h": 5.2,
+						"style": "poem",
+						"text": "Someone left it on for me\nthe way you leave a word\nunsaid but kept —\n\nmoths at the glass\nlike small grey letters\nno one sent,\n\nand the step\nthat always creaks\nstill creaking,\nstill here."
+					},
+					{
+						"type": "text",
+						"x": 6.375,
+						"y": 1.2,
+						"w": 3.75,
+						"h": 0.6,
+						"style": "h1",
+						"text": "Inventory"
+					},
+					{
+						"type": "text",
+						"x": 6.375,
+						"y": 2.1,
+						"w": 3.75,
+						"h": 5.2,
+						"style": "poem",
+						"text": "Two cups, one chipped.\nA radio that only finds\nthe weather.\n\nThe coat you wore\nto every funeral\nand both weddings.\n\nThis house,\nwhich remembers you\nbetter than I do\nsome mornings."
+					}
+				]
+			}
+		]
+	},
+	"memoir": {
+		"label": "Memoir with photos",
+		"sub": "Text with photo spreads",
+		"sampleTitle": "The Year We Built the Porch",
+		"trims": ["6 × 9 in", "5.5 × 8.5 in", "7 × 10 in"],
+		"marginIn": 0.75,
+		"bleedIn": 0.125,
+		"columns": 6,
+		"flowing": true,
+		"defaultPages": 212,
+		"folios": true,
+		"runningHead": "Summer, 1998",
+		"styles": ["body", "caption", "h1", "label"],
+		"spreads": [
+			{
+				"frames": [
+					{
+						"type": "image",
+						"x": -0.125,
+						"y": -0.125,
+						"w": 6.125,
+						"h": 6.3,
+						"tint": "g",
+						"label": "Photo — the porch frame, summer 1998"
+					},
+					{
+						"type": "text",
+						"x": 0.75,
+						"y": 6.5,
+						"w": 4.5,
+						"h": 0.7,
+						"style": "caption",
+						"text": "The frame went up in a single weekend. The roof took the rest of the summer."
+					},
+					{
+						"type": "text",
+						"x": 6.75,
+						"y": 0.85,
+						"w": 4.5,
+						"h": 7.4,
+						"style": "body",
+						"text": "Your grandfather measured everything twice and still cut the first post too short. He laughed about it for years — said the porch had a lean because it was listening for us coming up the road.\n\nWe built it on weekends, with whatever lumber the yard had left over and a borrowed level that was never returned. The neighbours came by with lemonade and opinions, in roughly equal measure."
+					}
+				]
+			}
+		]
+	}
+}

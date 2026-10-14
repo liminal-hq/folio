@@ -1036,6 +1036,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "folio-presets"
+version = "0.1.0"
+dependencies = [
+ "folio-model",
+ "folio-package",
+ "folio-session",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "ts-rs",
+ "uuid",
+]
+
+[[package]]
 name = "folio-protocol"
 version = "0.1.0"
 dependencies = [

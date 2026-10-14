@@ -1,0 +1,23 @@
+[package]
+name = "folio-presets"
+version = "0.1.0"
+description = "What a new book starts from: the six kinds, their sizes and styles, and the sample pages"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+folio-model = { path = "../folio-model" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+ts-rs = { workspace = true }
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+folio-package = { path = "../folio-package" }
+folio-session = { path = "../folio-session" }
+tempfile = "3"
