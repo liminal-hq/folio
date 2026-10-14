@@ -12,7 +12,7 @@ Printed covers are **one sheet**: back · spine · front, joined for printing. F
 | Inside covers | inside front · inside back | none | Hardcover endpapers / inside covers. Separate frame list |
 | eBook | front only, with a 1600 × 2560 px crop window (1 : 1.6) | — | Exports the eBook cover image from the front panel. Everything outside the crop is dimmed |
 
-Geometry comes from `FOLIO_LIB.coverGeo(K, pages, paper, mode, perPage)` and mirrors `paperback_cover()` in `types/project.rs`.
+Geometry comes from `FOLIO_LIB.coverGeo(K, pages, paper, mode, perPage)` and mirrors `paperback_cover()` in `crates/folio-model`.
 
 ## Panel-relative frames (D-11)
 

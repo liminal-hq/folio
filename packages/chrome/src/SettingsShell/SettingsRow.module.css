@@ -1,0 +1,232 @@
+.row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px 16px;
+	box-sizing: border-box;
+	min-block-size: calc(var(--folio-control-height) + 2 * var(--folio-settings-row-padding));
+	padding: var(--folio-settings-row-padding) 14px;
+}
+
+.text {
+	display: flex;
+	flex: 1 1 220px;
+	flex-direction: column;
+	gap: 2px;
+	min-inline-size: 0;
+}
+
+.label {
+	line-height: 1.3;
+}
+
+.description {
+	color: var(--folio-text-secondary);
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.reason {
+	color: var(--folio-text-muted);
+	font-size: 12px;
+	font-style: italic;
+	line-height: 1.4;
+}
+
+.error {
+	color: var(--folio-danger);
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1.4;
+}
+
+.control {
+	display: flex;
+	flex: none;
+	align-items: center;
+	max-inline-size: 100%;
+}
+
+.off .label,
+.off .description,
+.off .control {
+	opacity: 0.55;
+}
+
+.field {
+	box-sizing: border-box;
+	min-block-size: var(--folio-control-height);
+	max-inline-size: 100%;
+	padding: 0 8px;
+	color: var(--folio-text-primary);
+	background: var(--folio-field-bg);
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	font: inherit;
+}
+
+.field:focus-visible,
+.switch:focus-visible,
+.segment:focus-visible,
+.button:focus-visible,
+.linkRow:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: 2px;
+}
+
+.numberWrap {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.number {
+	inline-size: 88px;
+	text-align: end;
+}
+
+.unit {
+	color: var(--folio-text-muted);
+}
+
+.switch {
+	position: relative;
+	box-sizing: border-box;
+	inline-size: 40px;
+	block-size: 22px;
+	padding: 0;
+	background: var(--folio-switch-off);
+	border: 0;
+	border-radius: 11px;
+	cursor: default;
+	transition: background var(--folio-dialog-motion);
+}
+
+/* Taller hit area in touch mode without growing the drawn track. */
+.switch::before {
+	content: '';
+	position: absolute;
+	inset-block: calc((22px - var(--folio-control-height)) / 2);
+	inset-inline: -4px;
+}
+
+.switch[aria-checked='true'] {
+	background: var(--folio-accent);
+}
+
+.thumb {
+	position: absolute;
+	inset-block-start: 2px;
+	inset-inline-start: 2px;
+	inline-size: 18px;
+	block-size: 18px;
+	background: var(--folio-switch-thumb);
+	border-radius: 50%;
+	transition: inset-inline-start var(--folio-dialog-motion);
+}
+
+.switch[aria-checked='true'] .thumb {
+	inset-inline-start: 20px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.switch,
+	.thumb {
+		transition: none;
+	}
+}
+
+.segments {
+	display: inline-flex;
+	padding: 2px;
+	background: var(--folio-field-bg);
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 8px;
+}
+
+.segment {
+	box-sizing: border-box;
+	min-block-size: calc(var(--folio-control-height) - 4px);
+	padding: 0 12px;
+	color: var(--folio-text-secondary);
+	background: transparent;
+	border: 0;
+	border-radius: 6px;
+	font: inherit;
+	cursor: default;
+}
+
+.segment:disabled {
+	opacity: 0.45;
+}
+
+.segmentOn {
+	color: var(--folio-accent-contrast);
+	background: var(--folio-accent);
+}
+
+.button {
+	box-sizing: border-box;
+	min-block-size: var(--folio-control-height);
+	padding: 0 14px;
+	color: var(--folio-text-primary);
+	background: var(--folio-control-bg);
+	border: 1px solid transparent;
+	border-radius: 6px;
+	font: inherit;
+	cursor: default;
+}
+
+.button:hover:not(:disabled) {
+	background: var(--folio-control-bg-hover);
+}
+
+.buttonDanger {
+	color: var(--folio-danger);
+}
+
+.linkRow {
+	flex-wrap: nowrap;
+	color: inherit;
+	text-decoration: none;
+}
+
+a.linkRow:hover {
+	background: var(--folio-control-bg);
+}
+
+.chevron {
+	flex: none;
+	color: var(--folio-text-muted);
+}
+
+.linkRow .chevron:dir(rtl) {
+	transform: scaleX(-1);
+}
+
+.sliderWrap {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.slider {
+	box-sizing: border-box;
+	inline-size: 180px;
+	min-block-size: var(--folio-control-height);
+	margin: 0;
+	accent-color: var(--folio-accent);
+}
+
+.slider:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: 2px;
+}
+
+.sliderValue {
+	min-inline-size: 3.5ch;
+	color: var(--folio-text-secondary);
+	text-align: end;
+	font-variant-numeric: tabular-nums;
+}

@@ -141,7 +141,7 @@ Capitalisation in the UI: sentence case for app actions and labels, Title Case f
 
 ### MCP Automation Bridge
 
-An agent driving the running app (screenshots, DOM snapshots, JS eval, simulated input) uses the `tauri-mcp-server` MCP tool, which talks to `tauri-plugin-mcp-bridge` — a debug-only plugin registered under `#[cfg(all(debug_assertions, not(windows)))]` that never exists in release builds. Start the app with `bun run tauri:dev`, **not** plain `tauri dev`: `tauri:dev` merges `src-tauri/tauri.conf.dev.json`, which sets `"withGlobalTauri": true`, the global the bridge's JS-eval callback needs. Production configuration never sets it. Without it, `webview_execute_js`, screenshots, DOM snapshots and `webview_wait_for` silently time out while non-JS calls keep working. Folio is multi-window, so target windows by label. `tauri:dev` also sets `WEBKIT_DISABLE_DMABUF_RENDERER=1`: on Wayland with WebKitGTK the undocked Web Inspector renders black without it. It is a development-only workaround; leave it in the script rather than exporting it in a shell profile, and re-test without it when WebKitGTK is upgraded.
+An agent driving the running app (screenshots, DOM snapshots, JS eval, simulated input) uses the `tauri-mcp-server` MCP tool, which talks to `tauri-plugin-mcp-bridge` — a debug-only plugin registered under `#[cfg(all(debug_assertions, not(windows)))]` that never exists in release builds. Start the app with `bun run tauri:dev`, **not** plain `tauri dev`: `tauri:dev` merges `src-tauri/tauri.conf.dev.json`, which sets `"withGlobalTauri": true`, the global the bridge's JS-eval callback needs. Production configuration never sets it. Without it, `webview_execute_js`, screenshots, DOM snapshots and `webview_wait_for` silently time out while non-JS calls keep working. Folio is multi-window, so target windows by label. Do not set `WEBKIT_DISABLE_DMABUF_RENDERER=1` in the script: with WebKitGTK 2.54 it forces the old software path, and a frameless transparent window then repaints only the regions that changed and drops the rest of the page. Leave the DMABUF renderer on, and re-test if the Web Inspector renders black on Wayland.
 
 ### Logging
 
@@ -203,10 +203,11 @@ Cargo workspace + **Bun workspaces**, matching Waypoint, Jar and Cadence. The ap
 
 - `apps/folio` — the Tauri app: React/TypeScript frontend in `src/`, and `src-tauri/` as a thin composition root that registers plugins and wires crates together.
 - `packages/chrome` — the shared React chrome (title bar, window menu, context menu, dialogs, settings shell), copied from Waypoint with Folio's `--folio-*` tokens, with no domain imports.
+- `packages/ribbon` — the data-driven ribbon toolbar (tabs, groups, controls, Easy/Expert filtering, tooltips, keyboard), with no domain imports; it depends one-way on `packages/chrome` for its menus.
 - `packages/protocol` — the TypeScript types `ts-rs` generates from the Rust wire types (types only, never hand-edited).
-- `crates/*` — pure Rust, no `tauri` dependency: `folio-model`, `folio-settings` and the planned `folio-package`, `folio-layout`, `folio-export`, `folio-import`, `folio-color`, `folio-jax`.
-- `plugins/*` — Tauri plugins, each a Rust crate plus a `guest-js` package: `folio-settings` (domain) and copies of the unpublished reusable plugins `window-tearoff` and `window-effects`.
-- `spec/` — the product and architecture specification. `docs/` — decisions and developer docs. `design/` — the Claude Design prototype files, reference only. `site/` — the public documentation site.
+- `crates/*` — pure Rust, no `tauri` dependency: `folio-model`, `folio-package`, `folio-presets`, `folio-protocol`, `folio-session`, `folio-settings` and the planned `folio-layout`, `folio-export`, `folio-import`, `folio-color`, `folio-jax`.
+- `plugins/*` — Tauri plugins, each a Rust crate plus a `guest-js` package: `folio-books` and `folio-settings` (domain) and copies of the unpublished reusable plugins `window-tearoff` and `window-effects`.
+- `spec/` — the product and architecture specification. `docs/` — decisions and developer docs. `design/` — the Claude Design prototype files, reference only. `site/` — the public documentation site (Astro Starlight, deployed to GitHub Pages).
 - `scripts/` — repo tooling (`check-headers.sh` and the other checks).
 - `.github/` — workflows, `dependabot.yml`, `release.yml` (changelog categories).
 

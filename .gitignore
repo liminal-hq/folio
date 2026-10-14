@@ -31,3 +31,6 @@ plugins/*/permissions/schemas/
 
 # Claude Code scheduled task lock
 .claude/scheduled_tasks.lock
+
+# Astro
+site/.astro/

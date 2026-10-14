@@ -18,3 +18,7 @@ plugins/*/api-iife.js
 plugins/*/guest-js/bindings
 packages/protocol/src/generated
 site/.astro
+site/dist
+site/.astro
+site/src/content
+apps/folio/src/books/fixtures

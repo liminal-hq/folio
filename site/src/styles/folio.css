@@ -1,0 +1,16 @@
+/*
+ * Folio's colours for the documentation site: the warm ember accent over Starlight's neutral
+ * scale, so the manual reads as part of the app. Light and dark follow the reader's system.
+ */
+:root {
+	--sl-color-accent-low: #3a1a0a;
+	--sl-color-accent: #c2410c;
+	--sl-color-accent-high: #fdba74;
+	--sl-font: system-ui, 'Segoe UI', sans-serif;
+}
+
+:root[data-theme='light'] {
+	--sl-color-accent-low: #fde7d6;
+	--sl-color-accent: #c2410c;
+	--sl-color-accent-high: #7c2d12;
+}

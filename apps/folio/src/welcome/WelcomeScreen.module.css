@@ -1,0 +1,162 @@
+.screen {
+	flex: 1;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 320px;
+	gap: 32px;
+	min-block-size: 0;
+	padding: 32px 40px;
+	overflow: auto;
+	background: var(--folio-bg-stage);
+	color: var(--folio-text-primary);
+}
+
+.main {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	min-inline-size: 0;
+}
+
+.greeting {
+	margin: 0;
+	color: var(--folio-text-secondary);
+	font-size: 14px;
+}
+
+.heading {
+	margin: 0;
+	font-size: 28px;
+	font-weight: 700;
+}
+
+.kinds {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 10px;
+}
+
+.setup {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 16px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 12px;
+	background: var(--folio-bg-raised);
+}
+
+.question {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.label {
+	color: var(--folio-text-secondary);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.start {
+	align-self: flex-start;
+	min-block-size: var(--folio-hit-target);
+	padding: 0 20px;
+	border: 0;
+	border-radius: 8px;
+	background: var(--folio-accent);
+	color: var(--folio-accent-fg);
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.start:hover:not(:disabled) {
+	filter: brightness(1.08);
+}
+
+.start:disabled {
+	opacity: 0.6;
+	cursor: default;
+}
+
+.start:focus-visible,
+.row:focus-visible,
+.action:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: 2px;
+}
+
+.problem {
+	margin: 0;
+	padding: 8px 12px;
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--folio-danger) 14%, transparent);
+	color: var(--folio-text-primary);
+}
+
+.side {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+	min-inline-size: 0;
+}
+
+.sideHeading {
+	margin: 0 0 8px;
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.list {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.row,
+.action {
+	display: flex;
+	flex-direction: column;
+	inline-size: 100%;
+	min-block-size: var(--folio-hit-target);
+	padding: 6px 10px;
+	border: 1px solid transparent;
+	border-radius: 8px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-align: start;
+	cursor: pointer;
+}
+
+.row:hover,
+.action:hover:not(:disabled) {
+	background: var(--folio-bg-hover);
+}
+
+.action:disabled {
+	color: var(--folio-text-muted);
+	cursor: default;
+}
+
+.rowName {
+	font-weight: 600;
+}
+
+.rowFolder,
+.muted,
+.reason {
+	overflow: hidden;
+	color: var(--folio-text-muted);
+	font-size: 12px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.muted {
+	margin: 0;
+	white-space: normal;
+}

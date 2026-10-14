@@ -1,0 +1,135 @@
+// The plugin's commands: new, open, save and close books, and change them with intents
+//
+// (c) Copyright 2026 Liminal HQ, Scott Morris
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+use std::path::PathBuf;
+
+use folio_model::Intent;
+use folio_presets::{KindInfo, NewBookSpec};
+use folio_protocol::PluginStatus;
+use folio_session::Patch;
+use tauri::{Runtime, State, WebviewWindow};
+
+use crate::error::Error;
+use crate::state::Books;
+use crate::wire::{BookSnapshot, BookSummary};
+
+/// Reports that books work. They need nothing from the system, so this is always available.
+#[tauri::command]
+pub async fn get_status() -> PluginStatus {
+    PluginStatus::available(vec!["books".to_owned(), "events".to_owned()])
+}
+
+/// The six kinds of book and the sizes each comes in.
+#[tauri::command]
+pub async fn presets<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+) -> Result<Vec<KindInfo>, Error> {
+    Ok(books.presets())
+}
+
+/// Where Save as… should start for a book with this title.
+#[tauri::command]
+pub async fn default_save_path<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    title: String,
+) -> Result<String, Error> {
+    Ok(books
+        .default_save_path(&title)
+        .to_string_lossy()
+        .into_owned())
+}
+
+/// Starts a new book from the choices in `spec`. Nothing is written until it is saved.
+#[tauri::command]
+pub async fn new_book<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    spec: NewBookSpec,
+) -> Result<BookSnapshot, Error> {
+    books.new_book(&spec)
+}
+
+/// Opens a `.folio` file, or returns the book if it is already open.
+#[tauri::command]
+pub async fn open_book<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    path: String,
+) -> Result<BookSnapshot, Error> {
+    books.open(&PathBuf::from(path))
+}
+
+/// Saves a book to `path`, or to where it already is when `path` is left out.
+#[tauri::command]
+pub async fn save_book<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+    path: Option<String>,
+) -> Result<BookSummary, Error> {
+    books.save(&id, path.map(PathBuf::from).as_deref())
+}
+
+/// Closes a book. It does not ask about unsaved changes; the window does that first.
+#[tauri::command]
+pub async fn close_book<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+) -> Result<(), Error> {
+    books.close(&id)
+}
+
+/// The open books, oldest first.
+#[tauri::command]
+pub async fn list_books<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+) -> Result<Vec<BookSummary>, Error> {
+    Ok(books.list())
+}
+
+/// An open book in full, with the revision it is at.
+#[tauri::command]
+pub async fn snapshot<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+) -> Result<BookSnapshot, Error> {
+    books.snapshot(&id)
+}
+
+/// Applies an intent and answers with the patch; every window is also sent it as an event.
+#[tauri::command]
+pub async fn apply_intent<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+    intent: Intent,
+) -> Result<Patch, Error> {
+    books.apply(&id, intent)
+}
+
+/// Undoes the last step; `null` when there is nothing to undo.
+#[tauri::command]
+pub async fn undo<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+) -> Result<Option<Patch>, Error> {
+    books.undo(&id)
+}
+
+/// Redoes the last undone step; `null` when there is nothing to redo.
+#[tauri::command]
+pub async fn redo<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+) -> Result<Option<Patch>, Error> {
+    books.redo(&id)
+}

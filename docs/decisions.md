@@ -2,16 +2,17 @@
 
 Product and engineering decisions for Folio. D-01 to D-07 and D-12 are defined where they arise in `spec/` and are listed here so they can be found in one place. New decisions are added here first.
 
-| ID | Decision | Where |
-|---|---|---|
-| D-01 | Easy and Expert modes; chosen on the welcome screen, remembered per user, never removes data | `spec/01-product.md` |
-| D-02 | The document model lives in Rust and is the source of truth; the UI sends intents and receives patches | `spec/02-architecture.md` |
-| D-03 | Window chrome comes from the shared Liminal chrome package (title bar, app menu button, window menu, context menu) | `spec/02-architecture.md` |
-| D-04 | Theming follows the system colour scheme and accent; book pages are never themed. Tokens are Folio's own (`--folio-*`, `data-folio-theme`), see D-09 | `spec/02-architecture.md` |
-| D-05 | `.folio` schema is an integer with migrations on open; files are never rewritten silently | `spec/03-project-format.md` |
-| D-06 | App menu in the title bar's start slot; menu bar hidden by default | `spec/06-ui.md` |
-| D-07 | Ribbon and classic toolbar both ship; the user picks | `spec/06-ui.md` |
-| D-12 | Grouped sidebar, tear-off panels, document tabs as windows | `spec/12-sidebar-windows.md` |
+| ID   | Decision                                                                                                                                             | Where                        |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| D-01 | Easy and Expert modes; chosen on the welcome screen, remembered per user, never removes data                                                         | `spec/01-product.md`         |
+| D-02 | The document model lives in Rust and is the source of truth; the UI sends intents and receives patches                                               | `spec/02-architecture.md`    |
+| D-03 | Window chrome comes from the shared Liminal chrome package (title bar, app menu button, window menu, context menu)                                   | `spec/02-architecture.md`    |
+| D-04 | Theming follows the system colour scheme and accent; book pages are never themed. Tokens are Folio's own (`--folio-*`, `data-folio-theme`), see D-09 | `spec/02-architecture.md`    |
+| D-05 | `.folio` schema is an integer with migrations on open; files are never rewritten silently                                                            | `spec/03-project-format.md`  |
+| D-06 | App menu in the title bar's start slot; menu bar hidden by default                                                                                   | `spec/06-ui.md`              |
+| D-07 | Ribbon and classic toolbar both ship; the user picks                                                                                                 | `spec/06-ui.md`              |
+| D-12 | Grouped sidebar, tear-off panels, document tabs as windows                                                                                           | `spec/12-sidebar-windows.md` |
+| D-19 | The ribbon is its own package, depending one-way on the chrome                                                                                       | `docs/decisions.md`          |
 
 ## D-08 · Shared chrome and unpublished plugins are copied; published ones are dependencies
 
@@ -40,3 +41,19 @@ App-wide preferences (mode, theme, units, toolbar and sidebar layout, window geo
 ## D-15 · Documentation site
 
 The public documentation and manual are built with Astro Starlight and deployed to GitHub Pages, with a hand-built landing page.
+
+## D-16 · Books are sessions in Rust, and windows are views onto them
+
+Every open book is a `folio-session` over its `folio-package`, held by the `folio-books` plugin. A window asks for a book, sends intents, and applies the patches and events it hears; nothing but Rust changes a book. Any window can show any open book, and undo is shared per book (spec 12).
+
+## D-17 · A new book lives in memory until it is first saved
+
+New writes nothing. Save and Save as… ask for a place, starting at `~/Books/<Title>/<Title>.folio` (`Documents\Books` on Windows). A book never saved asks about its changes on close only once it has been touched, so starting a book and closing it again costs nothing.
+
+## D-18 · Presets and sample pages are Rust-owned data
+
+The six kinds, their sizes, styles and sample spreads are data in `crates/folio-presets`, written once from the design prototype and owned there since. The UI asks Rust for them and keeps no copy. `NewBookSpec` carries every field the New book wizard asks for, so the wizard window is only a screen over it.
+
+## D-19 · The ribbon is its own package
+
+`packages/ribbon` (`@liminal-hq/folio-ribbon`) holds the ribbon and nothing else: the chrome stays about windowing, and the ribbon knows nothing about books. Folio supplies a `RibbonModel` and handles `onCommand`. The ribbon depends one-way on the chrome for its dropdowns, so menus look and behave the same everywhere. Another Liminal app can take it without taking Folio.
