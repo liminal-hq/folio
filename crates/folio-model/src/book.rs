@@ -60,9 +60,10 @@ pub struct Book {
     #[serde(default)]
     pub masters: Vec<MasterId>,
     pub metadata: BookMetadata,
-    /// Unknown data from imports / newer versions, preserved verbatim.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    #[ts(type = "Record<string, unknown>")]
+    /// Keys at the top of `book.json` that this version does not know, from imports or a newer
+    /// version of Folio, kept as they were so a save does not lose them. The UI never sees them.
+    #[serde(flatten, default, skip_serializing_if = "BTreeMap::is_empty")]
+    #[ts(skip)]
     pub extensions: BTreeMap<String, serde_json::Value>,
 }
 

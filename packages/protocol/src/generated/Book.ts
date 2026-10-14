@@ -12,8 +12,4 @@ import type { Pt } from "./Pt";
 import type { Size } from "./Size";
 import type { Spread } from "./Spread";
 
-export type Book = { schema: number, id: BookId, title: string, subtitle?: string | null, authors: Array<Contributor>, language: string, kind: BookKind, layout: LayoutMode, trim: Size, bleed: Pt, margins: Margins, adjustGutterForPageCount: boolean, grid: Grid, spreads: Array<Spread>, flows: Array<Flow>, masters: Array<MasterId>, metadata: BookMetadata, 
-/**
- * Unknown data from imports / newer versions, preserved verbatim.
- */
-extensions?: Record<string, unknown>, };
+export type Book = { schema: number, id: BookId, title: string, subtitle?: string | null, authors: Array<Contributor>, language: string, kind: BookKind, layout: LayoutMode, trim: Size, bleed: Pt, margins: Margins, adjustGutterForPageCount: boolean, grid: Grid, spreads: Array<Spread>, flows: Array<Flow>, masters: Array<MasterId>, metadata: BookMetadata, };

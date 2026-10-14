@@ -85,13 +85,15 @@ fn defaults_fill_what_a_file_leaves_out_and_the_result_is_stable() {
 }
 
 #[test]
-fn data_from_a_newer_version_is_kept_under_extensions() {
+fn a_key_from_a_newer_version_is_kept_and_written_back() {
     let mut value = sample();
-    value["extensions"] = json!({ "futureThing": { "answer": 42 } });
+    value["futureThing"] = json!({ "answer": 42 });
     let book: Book = serde_json::from_value(value).unwrap();
     assert_eq!(book.extensions["futureThing"]["answer"], 42);
     let written = serde_json::to_value(&book).unwrap();
-    assert_eq!(written["extensions"]["futureThing"]["answer"], 42);
+    assert_eq!(written["futureThing"]["answer"], 42);
+    // The keys the model knows are not duplicated into the leftovers.
+    assert!(!book.extensions.contains_key("title"));
 }
 
 #[test]

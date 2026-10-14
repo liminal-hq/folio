@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "crates/folio-model",
+  "crates/folio-package",
   "crates/folio-protocol",
   "crates/folio-settings",
   "apps/folio/src-tauri",
