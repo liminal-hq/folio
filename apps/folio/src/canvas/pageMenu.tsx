@@ -17,6 +17,8 @@ export type PageCommand =
 	| 'duplicateSpread'
 	| 'toggleMargins'
 	| 'toggleGrid'
+	/** `editMaster:<master>` opens that master page to edit. */
+	| `editMaster:${string}`
 	/** `hideMaster:<page>:<frame>` hides a master item on one page; `showMaster:…` shows it again. */
 	| `${'hideMaster' | 'showMaster'}:${string}:${string}`;
 
@@ -38,6 +40,7 @@ export function pageMenuItems(
 	marks: Marks,
 	canDuplicate: boolean,
 	masterItems: MasterItem[] = [],
+	editMaster: { id: string; name: string } | null = null,
 ): MenuItem[] {
 	return [
 		{ type: 'action', id: 'addText', label: t('page.addText'), icon: <Box /> },
@@ -60,7 +63,17 @@ export function pageMenuItems(
 			label: t('page.showGrid'),
 			checked: marks.columns || marks.baseline,
 		},
-		...(masterItems.length > 0 ? [{ type: 'separator' } as const] : []),
+		...(masterItems.length > 0 || editMaster ? [{ type: 'separator' } as const] : []),
+		...(editMaster
+			? [
+					{
+						type: 'action',
+						id: `editMaster:${editMaster.id}`,
+						label: t('page.editMaster', { name: editMaster.name }),
+						icon: <Box />,
+					} as MenuItem,
+				]
+			: []),
 		...masterItems.map((item): MenuItem => ({
 			type: 'action',
 			id: `${item.hidden ? 'showMaster' : 'hideMaster'}:${item.page}:${item.frame}`,

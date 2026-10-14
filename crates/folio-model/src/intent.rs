@@ -71,6 +71,9 @@ pub enum Intent {
     SetPageNumbers {
         position: PageNumbers,
     },
+    /// Makes master page A (and B when the page numbers are outside) if the book has none, and gives
+    /// every page after the cover without a master the one its side uses, so a master can be edited.
+    EnsureMasters,
     /// Hides a master page's frame on one page, or shows it again.
     HideMasterItem {
         spread: SpreadId,

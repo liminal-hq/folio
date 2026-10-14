@@ -6,7 +6,7 @@
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import { describe, expect, it } from 'vitest';
-import { masterFurniture, masterItemsAt, pageAt } from './masterItems';
+import { masterAt, masterFurniture, masterItemsAt, pageAt } from './masterItems';
 
 const number = (id: string) => ({
 	type: 'text',
@@ -110,5 +110,14 @@ describe('masterFurniture', () => {
 			['bar@p1', 1],
 			['rule@p2', 105],
 		]);
+	});
+});
+
+describe('masterAt', () => {
+	it('names the master of the page under the point, or none for a page without one', () => {
+		expect(masterAt(book, spread, { x: 20 })).toEqual({ id: 'mst_b', name: 'Verso' });
+		expect(masterAt(book, spread, { x: 150 })).toEqual({ id: 'mst_a', name: 'Recto' });
+		const bare = { ...spread, pages: [{ id: 'p1', master: null }] } as unknown as Spread;
+		expect(masterAt(book, bare, { x: 20 })).toBeNull();
 	});
 });

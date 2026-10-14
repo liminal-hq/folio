@@ -12,7 +12,7 @@ use folio_model::{
 const DUPLICATE_OFFSET: f64 = 12.0;
 
 use crate::error::SessionError;
-use crate::masters::apply_page_numbers;
+use crate::masters::{apply_page_numbers, ensure_masters};
 use crate::session::IdSource;
 
 /// What an intent will touch, worked out before anything changes, so it can be refused whole or
@@ -354,6 +354,11 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 merge: None,
             })
         }
+        Intent::EnsureMasters => Ok(Plan {
+            touched: book.spreads.iter().map(|s| s.id.clone()).collect(),
+            new_spread: None,
+            merge: None,
+        }),
         Intent::SetPageNumbers { .. } => Ok(Plan {
             touched: book.spreads.iter().map(|s| s.id.clone()).collect(),
             new_spread: None,
@@ -571,6 +576,7 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 }
             }
         }
+        Intent::EnsureMasters => ensure_masters(book),
         Intent::SetPageNumbers { position } => {
             book.page_numbers = position;
             apply_page_numbers(book);

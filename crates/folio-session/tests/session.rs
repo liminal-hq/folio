@@ -1392,6 +1392,51 @@ fn guides_on_a_master_are_added_moved_locked_and_removed() {
 }
 
 #[test]
+fn making_the_masters_gives_a_book_without_page_numbers_a_master_for_every_page_after_the_cover() {
+    let mut s = session();
+    assert!(s.book().master_pages.is_empty());
+    s.apply(Intent::EnsureMasters).unwrap();
+    assert_eq!(s.book().master_pages.len(), 1);
+    assert_eq!(s.book().master_pages[0].id.0, "mst_a");
+    for spread in &s.book().spreads {
+        for page in &spread.pages {
+            assert_eq!(
+                page.master.is_some(),
+                spread.kind != SpreadKind::Cover,
+                "{:?}",
+                spread.kind
+            );
+        }
+    }
+    // Asking again changes nothing, and one undo takes the masters back.
+    let revision = s.revision();
+    assert!(s.apply(Intent::EnsureMasters).unwrap().ops.is_empty());
+    assert_eq!(s.revision(), revision);
+    s.undo().unwrap();
+    assert!(s.book().master_pages.is_empty());
+}
+
+#[test]
+fn making_the_masters_with_the_numbers_outside_makes_a_verso_too() {
+    let mut s = session();
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::None,
+    })
+    .unwrap();
+    let mut outside = s.book().clone();
+    outside.page_numbers = folio_model::PageNumbers::Outside;
+    let mut s = Session::new(outside);
+    s.apply(Intent::EnsureMasters).unwrap();
+    let ids: Vec<_> = s
+        .book()
+        .master_pages
+        .iter()
+        .map(|m| m.id.0.clone())
+        .collect();
+    assert_eq!(ids, ["mst_a", "mst_b"]);
+}
+
+#[test]
 fn a_copy_of_a_flowing_frame_is_not_another_slot_in_the_flow() {
     let mut s = session();
     s.apply(Intent::DuplicateFrame {

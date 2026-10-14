@@ -104,7 +104,7 @@ export function editorState(input: EditorInput): EditorState {
 		if (spread.guides.some((g) => !g.locked)) available.add('rgClear');
 	}
 	if (input.master) active.master = true;
-	if (input.master || spread.pages.some((p) => p.master)) available.add('master');
+	available.add('master');
 	if (selected.length > 0) available.add('lock');
 	if (selected.length > 0 && selected.every((f) => f.locked)) active.lock = true;
 	if (free(selected).length > 0) {

@@ -215,6 +215,18 @@ export function BookView({
 		});
 	};
 
+	/**
+	 * Opens the master the page at `index` uses for editing, making the book's masters first when it
+	 * has none (`index` is -1 when no page has one).
+	 */
+	const editMasterOf = async (index: number) => {
+		const named = index === -1 ? null : masterOfPage(spread, index);
+		if (named === null) {
+			await store.apply({ type: 'EnsureMasters' });
+			setEditing('mst_a');
+		} else setEditing(named);
+	};
+
 	const perform = (action: EditorAction) => {
 		switch (action.kind) {
 			case 'intents':
@@ -253,10 +265,7 @@ export function BookView({
 				break;
 			case 'editMaster': {
 				if (editing !== null) setEditing(null);
-				else {
-					const first = spread.pages.findIndex((p) => p.master);
-					setEditing(first === -1 ? null : masterOfPage(spread, first));
-				}
+				else void editMasterOf(spread.pages.findIndex((p) => p.master));
 				break;
 			}
 		}
@@ -338,6 +347,7 @@ export function BookView({
 							)
 						}
 						onEditText={(frame, text) => void store.apply({ type: 'SetText', frame, text })}
+						editableMasters={settings.mode === 'expert'}
 						onPageCommand={(command, point) => {
 							const kinds: Record<string, NewFrameKind> = {
 								addText: 'text',
@@ -346,6 +356,8 @@ export function BookView({
 							};
 							const kind = kinds[command];
 							if (kind) addFrame(kind, point);
+							else if (command.startsWith('editMaster:'))
+								setEditing(command.slice('editMaster:'.length));
 							else if (master) return;
 							else if (command === 'addPages') {
 								apply({ type: 'AddSpread', after: spread.id, duplicate: false });

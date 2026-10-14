@@ -17,7 +17,8 @@ import { fitZoom, PX_PER_POINT, spreadGeometry } from './geometry';
 import { guideMenuItems, isGuideCommand } from './guideMenu';
 import type { GuideAxis, GuideCommand } from './guides';
 import { MarksMenu } from './MarksMenu';
-import { masterItemsAt } from './masterItems';
+import { masterAt, masterItemsAt } from './masterItems';
+import { isMasterSpread } from './masterView';
 import {
 	DEFAULT_MARK_COLOURS,
 	DEFAULT_MARKS,
@@ -71,6 +72,8 @@ export interface StageProps {
 	onEditText?(id: string, text: string): void;
 	/** A choice from the page menu; `point` is where it was asked for, in points on the spread. */
 	onPageCommand?(command: PageCommand, point: { x: number; y: number }): void;
+	/** Whether the page menu offers to edit the master page under the pointer (Expert). */
+	editableMasters?: boolean;
 }
 
 export function Stage({
@@ -98,6 +101,7 @@ export function Stage({
 	onCommand,
 	onEditText,
 	onPageCommand,
+	editableMasters = false,
 }: StageProps) {
 	const [ref, size] = useElementSize<HTMLDivElement>();
 	const geometry = spreadGeometry(book, spread);
@@ -308,6 +312,9 @@ export function Stage({
 						marks ?? DEFAULT_MARKS,
 						spread.kind !== 'cover',
 						masterItemsAt(book, spread, pageMenu.point),
+						editableMasters && !isMasterSpread(spread)
+							? masterAt(book, spread, pageMenu.point)
+							: null,
 					)}
 					position={pageMenu.at}
 					ariaLabel={t('page.menu')}

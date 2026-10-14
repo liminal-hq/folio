@@ -30,6 +30,16 @@ describe('pageMenuItems', () => {
 		});
 	});
 
+	it('offers to edit the master the page uses, and says which', () => {
+		const rows = pageMenuItems(DEFAULT_MARKS, true, [], { id: 'mst_a', name: 'A' });
+		expect(rows.find((r) => r.id === 'editMaster:mst_a')).toMatchObject({
+			type: 'action',
+			label: 'Edit master page A',
+		});
+		const without = pageMenuItems(DEFAULT_MARKS, true, [], null);
+		expect(without.some((r) => String(r.id).startsWith('editMaster'))).toBe(false);
+	});
+
 	it('adds nothing for a page with no master items', () => {
 		const rows = pageMenuItems(DEFAULT_MARKS, true);
 		expect(rows.some((r) => String(r.id).includes('Master'))).toBe(false);

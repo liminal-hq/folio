@@ -55,14 +55,10 @@ describe('editorState', () => {
 		expect(editorState(input([], { spreadCount: 1 })).available.has('delPage')).toBe(false);
 	});
 
-	it('offers the master pages only where a page has one, and shows them pressed while one is edited', () => {
-		const plain = editorState(input());
-		expect(plain.available.has('master')).toBe(false);
-		const withMaster = input([], {
-			spread: { ...spread(), pages: [{ id: 'p1', master: 'mst_a' }] } as unknown as Spread,
-		});
-		expect(editorState(withMaster).available.has('master')).toBe(true);
-		expect(editorAction('master', undefined, withMaster)).toEqual({ kind: 'editMaster' });
+	it('offers the master pages on any spread, and asks to edit them with the master button', () => {
+		const plain = input();
+		expect(editorState(plain).available.has('master')).toBe(true);
+		expect(editorAction('master', undefined, plain)).toEqual({ kind: 'editMaster' });
 	});
 
 	it('keeps page operations and guide clearing for the spreads, and not for a master page', () => {

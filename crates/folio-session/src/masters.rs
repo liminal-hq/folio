@@ -93,6 +93,17 @@ fn is_empty(master: &Master) -> bool {
     master.frames.is_empty() && master.guides.is_empty()
 }
 
+/// Makes master A, and master B when the numbers are outside, if they are missing, and gives every
+/// page after the cover that has no master the one its side uses. Run when something first needs a
+/// master: editing one, or a guide on every page.
+pub fn ensure_masters(book: &mut Book) {
+    master_mut(book, RECTO, "A");
+    if book.page_numbers == PageNumbers::Outside {
+        master_mut(book, VERSO, "B");
+    }
+    assign(book);
+}
+
 /// Gives the pages that have no master, or one of ours, the master their side uses.
 fn assign(book: &mut Book) {
     let outside = book.page_numbers == PageNumbers::Outside;

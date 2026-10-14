@@ -60,6 +60,17 @@ export function masterFurniture(book: Book, spread: Spread): Frame[] {
 	return out;
 }
 
+/** The master the page under `point` uses, or `null` when it has none. */
+export function masterAt(
+	book: Book,
+	spread: Spread,
+	point: { x: number },
+): { id: string; name: string } | null {
+	const page = spread.pages[pageAt(book, spread, point)];
+	const master = page?.master ? book.masterPages?.find((m) => m.id === page.master) : undefined;
+	return master ? { id: master.id, name: master.name } : null;
+}
+
 /** The master items of the page under `point`, each with whether this page hides it. */
 export function masterItemsAt(book: Book, spread: Spread, point: { x: number }): MasterItem[] {
 	const page = spread.pages[pageAt(book, spread, point)];

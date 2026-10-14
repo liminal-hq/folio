@@ -133,6 +133,7 @@ export const messages = {
 	'page.duplicateSpread': 'Duplicate spread',
 	'page.showMargins': 'Show margins',
 	'page.showGrid': 'Show grid',
+	'page.editMaster': 'Edit master page {name}',
 	'page.hideMaster': 'Hide {name} on this page',
 	'page.showMaster': 'Show {name} on this page',
 	'master.item.pageNumber': 'the page number',
