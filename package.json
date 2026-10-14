@@ -5,10 +5,13 @@
 	"workspaces": [
 		"apps/*",
 		"packages/*",
-		"plugins/*"
+		"plugins/*",
+		"site"
 	],
 	"scripts": {
 		"dev": "bun run --cwd apps/folio dev",
+		"site:dev": "bun run --cwd site dev",
+		"site:build": "bun run --cwd site build",
 		"tauri": "bun run --cwd apps/folio tauri",
 		"tauri:dev": "bun run --cwd apps/folio tauri:dev",
 		"build": "bun run --cwd apps/folio build",

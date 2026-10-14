@@ -1,0 +1,291 @@
+---
+// The landing page: what Folio is, who it is for, and where to read more
+//
+// (c) Copyright 2026 Liminal HQ, Scott Morris
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+const features = [
+	{
+		title: 'Easy or Expert',
+		body: 'Easy talks in plain language and hides what you do not need. Expert shows everything — bleed, baseline grids, master pages and PDF/X. Switching never removes anything.',
+	},
+	{
+		title: 'Books of every kind',
+		body: 'Picture books, novels, textbooks, cookbooks, poetry and memoirs with photos, each starting from the right trim size, bleed, grid and styles.',
+	},
+	{
+		title: 'To Kindle, Kobo and print',
+		body: 'One button makes EPUB for Kindle and Kobo, KDP-ready interior and cover PDFs, and a PDF for your print shop — after a check that tells you how to fix anything that is off.',
+	},
+	{
+		title: 'Covers that do the maths',
+		body: 'Spine width from your page count and paper, a barcode-safe area, and the bleed and wrap for paperback, hardcover and dust jacket.',
+	},
+	{
+		title: 'Yours to keep',
+		body: 'A .folio file is an open zip of your words and your original pictures. Nothing leaves your computer unless you export it, and there is no account.',
+	},
+	{
+		title: 'Jax, if you want him',
+		body: 'An optional otter who offers gentle tips, a checklist for each page, and answers to “how do I…?” from a model that runs on your own computer.',
+	},
+];
+---
+
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="description" content="Folio is a local-first book layout app for Linux and Windows 11. Books, laid out by hand, without the hard parts." />
+		<link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
+		<title>Folio</title>
+	</head>
+	<body>
+		<header class="top">
+			<a class="brand" href={`${base}/`}>
+				<img src={`${base}/favicon.svg`} alt="" width="28" height="28" />
+				<span>Folio</span>
+			</a>
+			<nav aria-label="Main">
+				<a href={`${base}/manual/`}>Manual</a>
+				<a href="https://github.com/liminal-hq/folio">GitHub</a>
+			</nav>
+		</header>
+
+		<main>
+			<section class="hero">
+				<h1>Folio</h1>
+				<p class="tagline">Books, laid out by hand, without the hard parts.</p>
+				<p class="lede">
+					A local-first book layout app for Linux and Windows 11. Make a picture book, a family
+					memoir or a recipe collection, and send it to Amazon, Kobo or your print shop.
+				</p>
+				<div class="actions">
+					<a class="button primary" href={`${base}/manual/`}>Read the manual</a>
+					<a class="button" href="https://github.com/liminal-hq/folio">View on GitHub</a>
+				</div>
+				<p class="status">
+					<strong>Early development.</strong> The design is written and the app is being built from the
+					window outwards. There is nothing to download yet.
+				</p>
+			</section>
+
+			<section class="features" aria-labelledby="features-title">
+				<h2 id="features-title">What Folio is for</h2>
+				<ul>
+					{
+						features.map((feature) => (
+							<li>
+								<h3>{feature.title}</h3>
+								<p>{feature.body}</p>
+							</li>
+						))
+					}
+				</ul>
+			</section>
+
+			<section class="platforms" aria-labelledby="platforms-title">
+				<h2 id="platforms-title">Where it runs</h2>
+				<p>
+					Windows 11, and Linux with GNOME, KDE Plasma or Cinnamon on Wayland or X11. Folio follows
+					your desktop's light or dark setting and its window buttons. macOS is not planned for the
+					first release.
+				</p>
+			</section>
+		</main>
+
+		<footer>
+			<p>
+				Part of <a href="https://liminal-hq.github.io/">Liminal HQ</a>. Licensed under the Apache
+				License 2.0 or the MIT licence, at your option.
+			</p>
+		</footer>
+	</body>
+</html>
+
+<style is:global>
+	:root {
+		color-scheme: dark light;
+		--bg: #100d0b;
+		--bg-raised: #1c1714;
+		--border: #3d342e;
+		--text: #f5efe9;
+		--muted: #b9aea4;
+		--accent: #f97316;
+		--accent-high: #fdba74;
+		--accent-fg: #1c1917;
+		--wordmark: linear-gradient(90deg, #f7e2ba, #f19b18 45%, #cf5d22);
+	}
+
+	@media (prefers-color-scheme: light) {
+		:root {
+			--bg: #fbf9f7;
+			--bg-raised: #ffffff;
+			--border: #d9d3cd;
+			--text: #211d1a;
+			--muted: #57504a;
+			--accent: #c2410c;
+			--accent-high: #7c2d12;
+			--accent-fg: #ffffff;
+			--wordmark: linear-gradient(90deg, #7c2d12, #c2410c 55%, #ea580c);
+		}
+	}
+
+	body {
+		margin: 0;
+		background: var(--bg);
+		color: var(--text);
+		font-family: system-ui, 'Segoe UI', sans-serif;
+		line-height: 1.55;
+	}
+
+	a {
+		color: var(--accent-high);
+	}
+
+	.top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		max-width: 64rem;
+		margin: 0 auto;
+		padding: 1rem 1.5rem;
+	}
+
+	.brand {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.6rem;
+		color: var(--text);
+		font-weight: 700;
+		text-decoration: none;
+	}
+
+	.top nav {
+		display: flex;
+		gap: 1.25rem;
+	}
+
+	main {
+		max-width: 64rem;
+		margin: 0 auto;
+		padding: 0 1.5rem 3rem;
+	}
+
+	.hero {
+		padding: 4rem 0 3rem;
+	}
+
+	.hero h1 {
+		margin: 0;
+		font-size: clamp(3rem, 9vw, 5.5rem);
+		line-height: 1;
+		letter-spacing: -0.03em;
+		background: var(--wordmark);
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
+	}
+
+	.tagline {
+		margin: 0.75rem 0 0;
+		font-size: clamp(1.25rem, 3vw, 1.75rem);
+		font-weight: 500;
+	}
+
+	.lede {
+		max-width: 40rem;
+		color: var(--muted);
+		font-size: 1.1rem;
+	}
+
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		margin: 1.5rem 0;
+	}
+
+	.button {
+		display: inline-block;
+		padding: 0.65rem 1.25rem;
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		color: var(--text);
+		font-weight: 600;
+		text-decoration: none;
+	}
+
+	.button:hover {
+		border-color: var(--accent);
+	}
+
+	.button.primary {
+		border-color: var(--accent);
+		background: var(--accent);
+		color: var(--accent-fg);
+	}
+
+	.status {
+		max-width: 40rem;
+		padding: 0.75rem 1rem;
+		border: 1px solid var(--border);
+		border-radius: 0.75rem;
+		background: var(--bg-raised);
+		color: var(--muted);
+	}
+
+	.features h2,
+	.platforms h2 {
+		font-size: 1.5rem;
+	}
+
+	.features ul {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+		gap: 1rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.features li {
+		padding: 1.25rem;
+		border: 1px solid var(--border);
+		border-radius: 0.75rem;
+		background: var(--bg-raised);
+	}
+
+	.features h3 {
+		margin: 0 0 0.4rem;
+		font-size: 1.1rem;
+	}
+
+	.features p {
+		margin: 0;
+		color: var(--muted);
+	}
+
+	.platforms p {
+		max-width: 44rem;
+		color: var(--muted);
+	}
+
+	footer {
+		max-width: 64rem;
+		margin: 0 auto;
+		padding: 1.5rem;
+		border-top: 1px solid var(--border);
+		color: var(--muted);
+		font-size: 0.9rem;
+	}
+
+	a:focus-visible,
+	.button:focus-visible {
+		outline: 2px solid var(--accent-high);
+		outline-offset: 3px;
+	}
+</style>
