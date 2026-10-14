@@ -203,3 +203,39 @@ export function AppMarkIcon({ size = 18 }: { size?: number }) {
 		</svg>
 	);
 }
+
+export const DuplicateIcon = () => (
+	<Glyph>
+		<rect x="5.5" y="5.5" width="8" height="8" rx="1.2" />
+		<path d="M10.5 3.5v-1a1 1 0 0 0-1-1h-7a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h1" />
+	</Glyph>
+);
+export const BringToFrontIcon = () => (
+	<Glyph>
+		<rect x="1.5" y="1.5" width="8" height="8" rx="1.2" />
+		<rect x="6.5" y="6.5" width="8" height="8" rx="1.2" fill="currentColor" fillOpacity="0.25" />
+	</Glyph>
+);
+export const SendToBackIcon = () => (
+	<Glyph>
+		<rect x="1.5" y="1.5" width="8" height="8" rx="1.2" fill="currentColor" fillOpacity="0.25" />
+		<rect x="6.5" y="6.5" width="8" height="8" rx="1.2" />
+	</Glyph>
+);
+export const LockIcon = () => (
+	<Glyph>
+		<rect x="3" y="7" width="10" height="7" rx="1.4" />
+		<path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
+	</Glyph>
+);
+export const UnlockIcon = () => (
+	<Glyph>
+		<rect x="3" y="7" width="10" height="7" rx="1.4" />
+		<path d="M5.5 7V5a2.5 2.5 0 0 1 4.8-1" />
+	</Glyph>
+);
+export const TrashIcon = () => (
+	<Glyph>
+		<path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4" />
+	</Glyph>
+);

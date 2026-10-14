@@ -6,7 +6,10 @@
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
+import { ContextMenu } from '@liminal-hq/folio-chrome/ContextMenu';
+import { useState } from 'react';
 import { t } from '../i18n/messages';
+import { frameMenuItems, type FrameCommand } from './frameMenu';
 import { fitZoom, spreadGeometry, type PlainRect } from './geometry';
 import { SpreadCanvas } from './SpreadCanvas';
 import styles from './Stage.module.css';
@@ -22,7 +25,7 @@ export interface StageProps {
 	selection?: string[];
 	onSelect?(ids: string[]): void;
 	onMove?(id: string, rect: PlainRect): Promise<void>;
-	onDelete?(ids: string[]): void;
+	onCommand?(command: FrameCommand, ids: string[]): void;
 }
 
 export function Stage({
@@ -33,12 +36,14 @@ export function Stage({
 	selection,
 	onSelect,
 	onMove,
-	onDelete,
+	onCommand,
 }: StageProps) {
 	const [ref, size] = useElementSize<HTMLDivElement>();
 	const geometry = spreadGeometry(book, spread);
 	const zoom = useStageZoom(fitZoom(geometry.bounds, size));
 	const percent = Math.round(zoom.zoom * 100);
+	const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+	const chosen = spread.frames.filter((f) => selection?.includes(f.id));
 
 	return (
 		<>
@@ -75,10 +80,26 @@ export function Stage({
 						selection={selection}
 						onSelect={onSelect}
 						onMove={onMove}
-						onDelete={onDelete}
+						onCommand={onCommand}
+						onFrameMenu={(_, at) => setMenu(at)}
 					/>
 				</div>
 			</div>
+			{menu && chosen.length > 0 && (
+				<ContextMenu
+					items={frameMenuItems(chosen)}
+					position={menu}
+					ariaLabel={t('frame.menu')}
+					onSelect={(item) => {
+						setMenu(null);
+						onCommand?.(
+							item.id as FrameCommand,
+							chosen.map((f) => f.id),
+						);
+					}}
+					onClose={() => setMenu(null)}
+				/>
+			)}
 		</>
 	);
 }

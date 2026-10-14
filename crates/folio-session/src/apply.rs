@@ -4,8 +4,12 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    Book, Frame, FrameId, InlineContent, Intent, Page, ReorderTo, Run, Spread, SpreadId, SpreadKind,
+    Book, Frame, FrameId, InlineContent, Intent, Page, Pt, ReorderTo, Run, Spread, SpreadId,
+    SpreadKind,
 };
+
+/// How far, in points, a duplicated frame sits from the one it was copied from.
+const DUPLICATE_OFFSET: f64 = 12.0;
 
 use crate::error::SessionError;
 use crate::session::IdSource;
@@ -103,7 +107,11 @@ pub fn plan(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             spread: s, frame, ..
         } => {
             let found = spread(book, s)?;
-            find(&found.frames, frame).ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
+            let target = find(&found.frames, frame)
+                .ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
+            if target.base().locked {
+                return Err(SessionError::Locked(frame.0.clone()));
+            }
             Ok(one(s.clone(), Some(MergeKey::Move(frame.clone()))))
         }
         Intent::SetText { frame, .. } => {
@@ -153,7 +161,21 @@ pub fn plan(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         }
         Intent::DeleteFrame { spread: s, frame } => {
             let found = spread(book, s)?;
-            find(&found.frames, frame).ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
+            let target = find(&found.frames, frame)
+                .ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
+            if target.base().locked {
+                return Err(SessionError::Locked(frame.0.clone()));
+            }
+            Ok(one(s.clone(), None))
+        }
+        Intent::DuplicateFrame { spread: s, frame }
+        | Intent::LockFrame {
+            spread: s, frame, ..
+        } => {
+            let found = spread(book, s)?;
+            if !found.frames.iter().any(|f| &f.base().id == frame) {
+                return Err(SessionError::NotOnSpread(frame.0.clone(), s.0.clone()));
+            }
             Ok(one(s.clone(), None))
         }
         Intent::Reorder {
@@ -279,6 +301,34 @@ pub fn run(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
         Intent::DeleteFrame { spread: s, frame } => {
             if let Some(sp) = book.spreads.iter_mut().find(|sp| sp.id == s) {
                 remove(&mut sp.frames, &frame);
+            }
+        }
+        Intent::DuplicateFrame { spread: s, frame } => {
+            if let Some(sp) = book.spreads.iter_mut().find(|sp| sp.id == s) {
+                if let Some(source) = sp.frames.iter().find(|f| f.base().id == frame) {
+                    let mut copy = renewed(source, ids);
+                    let base = copy.base_mut();
+                    base.rect.x = Pt(base.rect.x.0 + DUPLICATE_OFFSET);
+                    base.rect.y = Pt(base.rect.y.0 + DUPLICATE_OFFSET);
+                    // A copy is the user's own: it is neither locked nor tied to a master.
+                    base.locked = false;
+                    base.from_master = None;
+                    sp.frames.push(copy);
+                }
+            }
+        }
+        Intent::LockFrame {
+            spread: s,
+            frame,
+            locked,
+        } => {
+            if let Some(f) = book
+                .spreads
+                .iter_mut()
+                .find(|sp| sp.id == s)
+                .and_then(|sp| find_mut(&mut sp.frames, &frame))
+            {
+                f.base_mut().locked = locked;
             }
         }
         Intent::Reorder {

@@ -42,10 +42,10 @@ const spread = {
 
 function Harness({
 	onMove = async () => {},
-	onDelete = () => {},
+	onCommand = () => {},
 }: {
 	onMove?: (id: string, rect: PlainRect) => Promise<void>;
-	onDelete?: (ids: string[]) => void;
+	onCommand?: (command: string, ids: string[]) => void;
 }) {
 	const [selection, setSelection] = useState<string[]>([]);
 	return (
@@ -58,7 +58,7 @@ function Harness({
 			selection={selection}
 			onSelect={setSelection}
 			onMove={onMove}
-			onDelete={onDelete}
+			onCommand={onCommand}
 		/>
 	);
 }
@@ -171,8 +171,8 @@ describe('moving', () => {
 
 	it('nudges by one point, or ten with Shift, and deletes', () => {
 		const onMove = vi.fn(async () => {});
-		const onDelete = vi.fn();
-		render(<Harness onMove={onMove} onDelete={onDelete} />);
+		const onCommand = vi.fn();
+		render(<Harness onMove={onMove} onCommand={onCommand} />);
 		const svg = screen.getByRole('group', { name: 'Page' });
 		fireEvent.pointerDown(hit('a'), { button: 0 });
 		fireEvent.keyDown(svg, { key: 'ArrowRight' });
@@ -180,7 +180,9 @@ describe('moving', () => {
 		fireEvent.keyDown(svg, { key: 'ArrowUp', shiftKey: true });
 		expect(onMove).toHaveBeenLastCalledWith('a', { x: 50, y: 40, w: 100, h: 50 });
 		fireEvent.keyDown(svg, { key: 'Delete' });
-		expect(onDelete).toHaveBeenCalledWith(['a']);
+		expect(onCommand).toHaveBeenCalledWith('delete', ['a']);
+		fireEvent.keyDown(svg, { key: 'd', ctrlKey: true });
+		expect(onCommand).toHaveBeenLastCalledWith('duplicate', ['a']);
 	});
 });
 
@@ -200,5 +202,33 @@ describe('resizing', () => {
 		expect(rect.x).toBe(50);
 		expect(rect.w).toBeCloseTo(130);
 		expect(rect.h).toBeCloseTo(70);
+	});
+});
+
+describe('the frame menu', () => {
+	it('asks for the menu on the frame pressed with the right button, selecting it first', () => {
+		const onFrameMenu = vi.fn();
+		const Wrapper = () => {
+			const [selection, setSelection] = useState<string[]>([]);
+			return (
+				<SpreadCanvas
+					book={book}
+					spread={spread}
+					layout={null}
+					zoom={1}
+					label="Page"
+					selection={selection}
+					onSelect={setSelection}
+					onFrameMenu={onFrameMenu}
+				/>
+			);
+		};
+		render(<Wrapper />);
+		fireEvent.contextMenu(hit('b'), { clientX: 30, clientY: 40 });
+		expect(hit('b')).toHaveAttribute('aria-selected', 'true');
+		expect(onFrameMenu).toHaveBeenCalledWith(expect.objectContaining({ id: 'b' }), {
+			x: 30,
+			y: 40,
+		});
 	});
 });

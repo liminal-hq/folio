@@ -9,6 +9,7 @@ import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 import { formatTrim, pageCount } from '../books/format';
 import { shelfLabels } from '../books/shelfLabels';
+import { frameIntents } from '../canvas/frameMenu';
 import { Shelf } from '../canvas/Shelf';
 import { Stage } from '../canvas/Stage';
 import { useSelection } from '../canvas/useSelection';
@@ -126,16 +127,15 @@ export function MainScreen({ client = tauriAppInfoClient }: { client?: AppInfoCl
 											box: { x: box.x, y: box.y, w: box.w, h: box.h },
 										})
 									}
-									onDelete={(ids) =>
-										ids.forEach(
-											(id) =>
-												void booksStore.apply({
-													type: 'DeleteFrame',
-													spread: spread.id,
-													frame: id,
-												}),
-										)
-									}
+									onCommand={(command, ids) => {
+										for (const id of ids) {
+											const target = spread.frames.find((f) => f.id === id);
+											if (!target) continue;
+											for (const intent of frameIntents(command, spread.id, target)) {
+												void booksStore.apply(intent);
+											}
+										}
+									}}
 								/>
 							)}
 							<aside className={styles.inspector} aria-label={t('region.inspector')}>

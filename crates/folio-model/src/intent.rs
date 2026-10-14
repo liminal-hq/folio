@@ -22,6 +22,17 @@ pub enum Intent {
         #[serde(rename = "box")]
         rect: Rect,
     },
+    /// Puts a copy of a frame on the same spread, a little down and to the right, in front.
+    DuplicateFrame {
+        spread: SpreadId,
+        frame: FrameId,
+    },
+    /// Locks a frame against moving and deleting, or lets it go again.
+    LockFrame {
+        spread: SpreadId,
+        frame: FrameId,
+        locked: bool,
+    },
     SetText {
         frame: FrameId,
         text: String,

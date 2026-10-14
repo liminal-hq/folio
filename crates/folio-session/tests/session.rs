@@ -622,3 +622,65 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
         "the patch cases are out of date: run `UPDATE_FIXTURES=1 cargo test -p folio-session` and commit the file"
     );
 }
+
+#[test]
+fn a_duplicate_is_a_new_frame_beside_the_first_and_undoes_away() {
+    let mut s = session();
+    s.apply(Intent::DuplicateFrame {
+        spread: spread("sp_1"),
+        frame: frame("fr_pic"),
+    })
+    .unwrap();
+    let frames = &s.book().spreads[1].frames;
+    assert_eq!(frames.len(), 4);
+    let copy = frames.last().unwrap().base();
+    assert_eq!(copy.id.0, "fr_new1");
+    assert_eq!((copy.rect.x.0, copy.rect.y.0), (12.0, 12.0));
+    assert_eq!(copy.rect.w.0, 100.0);
+    s.undo().unwrap();
+    assert_eq!(s.book().spreads[1].frames.len(), 3);
+}
+
+#[test]
+fn a_locked_frame_cannot_be_moved_or_deleted_until_it_is_unlocked() {
+    let mut s = session();
+    let lock = |locked| Intent::LockFrame {
+        spread: spread("sp_1"),
+        frame: frame("fr_pic"),
+        locked,
+    };
+    s.apply(lock(true)).unwrap();
+    assert_eq!(
+        s.apply(move_pic(40.0)).unwrap_err(),
+        SessionError::Locked("fr_pic".into())
+    );
+    assert_eq!(
+        s.apply(Intent::DeleteFrame {
+            spread: spread("sp_1"),
+            frame: frame("fr_pic"),
+        })
+        .unwrap_err(),
+        SessionError::Locked("fr_pic".into())
+    );
+    assert_eq!(pic_x(&s), 0.0);
+    s.apply(lock(false)).unwrap();
+    s.apply(move_pic(40.0)).unwrap();
+    assert_eq!(pic_x(&s), 40.0);
+}
+
+#[test]
+fn a_copy_of_a_locked_frame_is_not_locked() {
+    let mut s = session();
+    s.apply(Intent::LockFrame {
+        spread: spread("sp_1"),
+        frame: frame("fr_pic"),
+        locked: true,
+    })
+    .unwrap();
+    s.apply(Intent::DuplicateFrame {
+        spread: spread("sp_1"),
+        frame: frame("fr_pic"),
+    })
+    .unwrap();
+    assert!(!s.book().spreads[1].frames.last().unwrap().base().locked);
+}
