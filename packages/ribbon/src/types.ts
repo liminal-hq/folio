@@ -71,3 +71,8 @@ export interface RibbonCommand {
 export type RibbonMode = 'easy' | 'expert';
 export type RibbonVariant = 'full' | 'simplified' | 'collapsed';
 export type RibbonDensity = 'comfortable' | 'compact';
+
+/** The classic toolbar: one row of icon buttons in groups, split by hairlines. */
+export interface ToolbarModel {
+	groups: RibbonItem[][];
+}

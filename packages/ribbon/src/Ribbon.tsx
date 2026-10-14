@@ -3,12 +3,10 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { ContextMenu } from '@liminal-hq/folio-chrome/ContextMenu';
-import type { MenuItem, SelectableMenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
 import { Fragment, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { defaultRibbonLabels, type RibbonLabels } from './labels';
 import styles from './Ribbon.module.css';
-import { RibbonControl } from './RibbonControls';
+import { RibbonModeSwitch } from './RibbonModeSwitch';
 import type {
 	RibbonCommand,
 	RibbonDensity,
@@ -16,10 +14,9 @@ import type {
 	RibbonItem,
 	RibbonMode,
 	RibbonModel,
-	RibbonValue,
 	RibbonVariant,
 } from './types';
-import { useRibbonTooltip } from './useRibbonTooltip';
+import { useRibbonControls } from './useRibbonControls';
 import { visibleTabs } from './visibleTabs';
 
 export interface RibbonProps {
@@ -34,14 +31,6 @@ export interface RibbonProps {
 	density?: RibbonDensity;
 	showLabels?: boolean;
 	labels?: Partial<RibbonLabels>;
-}
-
-interface OpenMenu {
-	/** The item that opened the menu, or `null` for the File button. */
-	item: RibbonItem | null;
-	items: MenuItem[];
-	x: number;
-	y: number;
 }
 
 /** Splits items into columns of `perColumn` small buttons; large buttons and other controls stand alone. */
@@ -84,11 +73,7 @@ export function Ribbon(props: RibbonProps) {
 		showLabels = true,
 	} = props;
 	const labels = { ...defaultRibbonLabels, ...props.labels };
-	const tooltip = useRibbonTooltip();
 	const [tabState, setTabState] = useState<string | null>(null);
-	const [toggles, setToggles] = useState<Record<string, boolean>>({});
-	const [values, setValues] = useState<Record<string, RibbonValue>>({});
-	const [menu, setMenu] = useState<OpenMenu | null>(null);
 	const [open, setOpen] = useState(false);
 	const [pinned, setPinned] = useState(false);
 	const tabsRef = useRef<HTMLDivElement>(null);
@@ -102,7 +87,15 @@ export function Ribbon(props: RibbonProps) {
 	const panelShown = !collapsed || open || pinned;
 	const labelled = showLabels && !simplified && density === 'comfortable';
 
+	const peers = useMemo(
+		() =>
+			model.tabs.flatMap((tab) =>
+				tab.groups.flatMap((group) => [...(group.items ?? []), ...(group.rows ?? []).flat(2)]),
+			),
+		[model],
+	);
 	const emit = (command: RibbonCommand) => onCommand(command);
+	const controls = useRibbonControls(peers, labels, emit);
 
 	const pickTab = (id: string) => {
 		setTabState(id);
@@ -145,7 +138,7 @@ export function Ribbon(props: RibbonProps) {
 
 	/** Esc closes a dropped-down collapsed ribbon and returns to the tab, from anywhere inside it. */
 	const onRootKeys = (event: KeyboardEvent) => {
-		if (event.key !== 'Escape' || event.defaultPrevented || menu) return;
+		if (event.key !== 'Escape' || event.defaultPrevented) return;
 		const inPanel = panelRef.current?.contains(document.activeElement);
 		if (collapsed && open) setOpen(false);
 		else if (!inPanel) return;
@@ -153,84 +146,11 @@ export function Ribbon(props: RibbonProps) {
 		tabsRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus();
 	};
 
-	const toggleOn = (item: RibbonItem) => item.active ?? toggles[item.id] ?? false;
-	const valueOf = (item: RibbonItem) => item.value ?? values[item.id];
-
-	const onPress = (item: RibbonItem, anchor: HTMLElement) => {
-		const kind = item.kind ?? 'button';
-		if (kind === 'menu') {
-			const rect = anchor.getBoundingClientRect();
-			setMenu({
-				item,
-				x: rect.left,
-				y: rect.bottom,
-				items: (item.options ?? []).map(([value, label]) => ({
-					type: 'action',
-					id: value,
-					label,
-				})),
-			});
-			return;
-		}
-		if (kind === 'toggle') {
-			const next = !toggleOn(item);
-			setToggles((prev) => {
-				const out = { ...prev, [item.id]: next };
-				if (item.radio && next) {
-					for (const tab of model.tabs)
-						for (const group of tab.groups) {
-							const peers = [...(group.items ?? []), ...(group.rows ?? []).flat(2)];
-							for (const peer of peers)
-								if (peer.radio === item.radio && peer.id !== item.id) out[peer.id] = false;
-						}
-				}
-				return out;
-			});
-			emit({ id: item.id, value: next, item });
-			return;
-		}
-		emit({ id: item.id, item });
-	};
-
-	const onValue = (item: RibbonItem, value: RibbonValue) => {
-		setValues((prev) => ({ ...prev, [item.id]: value }));
-		emit({ id: item.id, value, item });
-	};
-
 	const openFile = (anchor: HTMLElement) => {
 		const items = model.file?.items;
-		if (!items || items.length === 0) {
-			emit({ id: 'file' });
-			return;
-		}
-		const rect = anchor.getBoundingClientRect();
-		setMenu({
-			item: null,
-			x: rect.left,
-			y: rect.bottom,
-			items: items.map(([value, label]) => ({ type: 'action', id: value, label })),
-		});
+		if (!model.file || !items || items.length === 0) emit({ id: 'file' });
+		else controls.openFile(anchor, model.file.label, items);
 	};
-
-	const onMenuSelect = (picked: SelectableMenuItem) => {
-		if (menu?.item) emit({ id: menu.item.id, value: picked.id, item: menu.item });
-		else emit({ id: 'file', value: picked.id });
-		setMenu(null);
-	};
-
-	const control = (item: RibbonItem) => (
-		<RibbonControl
-			key={item.id}
-			item={item}
-			showLabel={labelled}
-			tooltip={tooltip}
-			pressed={toggleOn(item)}
-			value={valueOf(item)}
-			labels={labels}
-			onPress={onPress}
-			onValue={onValue}
-		/>
-	);
 
 	const perColumn = density === 'compact' ? 2 : 3;
 	const renderGroup = (group: RibbonGroup) => (
@@ -242,7 +162,7 @@ export function Ribbon(props: RibbonProps) {
 							<div key={r} className={styles.row}>
 								{row.map((cluster, c) => (
 									<div key={c} className={styles.cluster}>
-										{cluster.map(control)}
+										{cluster.map((item) => controls.control(item, labelled))}
 									</div>
 								))}
 							</div>
@@ -251,7 +171,7 @@ export function Ribbon(props: RibbonProps) {
 				) : (
 					columns(group.items ?? [], perColumn).map((col, i) => (
 						<div key={i} className={styles.column}>
-							{col.map(control)}
+							{col.map((item) => controls.control(item, labelled))}
 						</div>
 					))
 				)}
@@ -330,20 +250,11 @@ export function Ribbon(props: RibbonProps) {
 							{pinned ? labels.unpin : labels.pin}
 						</button>
 					)}
-					<div role="radiogroup" aria-label={labels.mode} className={styles.mode}>
-						{(['easy', 'expert'] as const).map((m) => (
-							<button
-								key={m}
-								type="button"
-								role="radio"
-								aria-checked={mode === m}
-								className={styles.modeOption}
-								onClick={() => mode !== m && emit({ id: 'mode', value: m })}
-							>
-								{m === 'easy' ? labels.modeEasy : labels.modeExpert}
-							</button>
-						))}
-					</div>
+					<RibbonModeSwitch
+						mode={mode}
+						labels={labels}
+						onChange={(next) => emit({ id: 'mode', value: next })}
+					/>
 				</div>
 			</div>
 			{!simplified && panelShown && active && (
@@ -359,16 +270,7 @@ export function Ribbon(props: RibbonProps) {
 					{active.groups.map(renderGroup)}
 				</div>
 			)}
-			{tooltip.node}
-			{menu && (
-				<ContextMenu
-					items={menu.items}
-					position={{ x: menu.x, y: menu.y }}
-					ariaLabel={menu.item?.label ?? model.file?.label}
-					onSelect={onMenuSelect}
-					onClose={() => setMenu(null)}
-				/>
-			)}
+			{controls.overlays}
 		</div>
 	);
 }

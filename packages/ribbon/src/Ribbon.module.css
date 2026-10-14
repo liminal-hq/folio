@@ -306,3 +306,29 @@
 .tooltipDesc {
 	color: var(--folio-text-secondary);
 }
+
+.classic {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-height: 44px;
+	padding: 0 8px;
+	background: var(--folio-bg-chrome);
+	color: var(--folio-text-primary);
+	border-bottom: 1px solid var(--folio-border-subtle);
+	font-size: 12px;
+	overflow-x: auto;
+}
+.classicGroup {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding-right: 6px;
+	border-right: 1px solid var(--folio-border-subtle);
+}
+.classic .small {
+	width: 30px;
+	height: 30px;
+	justify-content: center;
+	padding: 0;
+}

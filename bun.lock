@@ -17,6 +17,7 @@
         "@liminal-hq/folio-plugin-books": "workspace:*",
         "@liminal-hq/folio-plugin-settings": "workspace:*",
         "@liminal-hq/folio-protocol": "workspace:*",
+        "@liminal-hq/folio-ribbon": "workspace:*",
         "@liminal-hq/plugin-system-appearance": "^0.1.0",
         "@liminal-hq/plugin-window-manager": "^0.1.0",
         "@tauri-apps/api": "^2.10.1",

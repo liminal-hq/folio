@@ -2,6 +2,7 @@
 
 A data-driven ribbon toolbar for Liminal HQ desktop apps. It knows nothing about books: an app hands it a `RibbonModel` (tabs → groups → items, see `spec/components/ribbon.md`) and a mode, and gets `onCommand({ id, value, item })` back for every press, toggle, menu pick, select and stepper change, plus `tab` and `mode` (and `file` for the File button's menu).
 
+- **Classic toolbar:** `ClassicToolbar` draws a `ToolbarModel` (groups of icon buttons) in one 44 px row with the mode switch and an `end` slot, using the same controls, tooltips and menus.
 - **Variants:** `full`, `simplified` (one row) and `collapsed` (tabs only, click to drop the panel over the page, Pin to keep it open), in `comfortable` or `compact` density, with or without labels.
 - **Easy and Expert:** items and groups marked `expert` are hidden in Easy mode (`visibleTabs`). Contextual tabs show only while the app lists them in `contextual`.
 - **State:** toggles and values are kept by the ribbon unless the app sets `active` or `value` on the item, which then owns it. Toggles sharing a `radio` key are mutually exclusive.

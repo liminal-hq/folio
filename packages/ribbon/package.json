@@ -39,10 +39,11 @@
 		"!src/test"
 	],
 	"exports": {
+		"./ClassicToolbar": "./src/ClassicToolbar.tsx",
 		"./Ribbon": "./src/Ribbon.tsx",
-		"./types": "./src/types.ts",
 		"./labels": "./src/labels.ts",
-		"./visibleTabs": "./src/visibleTabs.ts",
-		"./package.json": "./package.json"
+		"./package.json": "./package.json",
+		"./types": "./src/types.ts",
+		"./visibleTabs": "./src/visibleTabs.ts"
 	}
 }
