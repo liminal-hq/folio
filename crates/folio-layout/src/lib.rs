@@ -9,6 +9,7 @@
 
 pub mod breaker;
 pub mod error;
+pub mod flow;
 pub mod fonts;
 pub mod hyphenate;
 pub mod paragraph;
