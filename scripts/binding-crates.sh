@@ -8,7 +8,8 @@
 # and its crate to CRATES whenever a crate or plugin starts exporting bindings. A domain plugin's
 # wire types go to the protocol's generated folder, so it is in CRATES only.
 DIRS=(
+  "packages/protocol/src/generated"
   "plugins/window-effects/guest-js/bindings"
   "plugins/window-tearoff/guest-js/bindings"
 )
-CRATES=(tauri-plugin-window-effects tauri-plugin-window-tearoff)
+CRATES=(folio-model folio-protocol tauri-plugin-window-effects tauri-plugin-window-tearoff)

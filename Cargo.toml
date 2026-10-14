@@ -1,5 +1,8 @@
 [workspace]
 members = [
+  "crates/folio-model",
+  "crates/folio-protocol",
+  "apps/folio/src-tauri",
   "crates/wayland-toplevel-drag",
   "plugins/window-effects",
   "plugins/window-tearoff",

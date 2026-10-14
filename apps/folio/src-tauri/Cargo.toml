@@ -1,0 +1,31 @@
+[package]
+name = "folio"
+version = "0.0.0"
+description = "A local-first book layout app"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "folio_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { workspace = true }
+
+[dependencies]
+tauri = { workspace = true }
+tauri-plugin-log = "2"
+tauri-plugin-os = "2"
+# Published reusable plugins: registry dependencies, never copies (decision D-08).
+tauri-plugin-system-appearance = "0.1"
+tauri-plugin-window-manager = "0.1"
+folio-protocol = { path = "../../../crates/folio-protocol" }
+log = { workspace = true }
+chrono = "0.4"
+
+[dev-dependencies]
+tauri = { workspace = true, features = ["test"] }
