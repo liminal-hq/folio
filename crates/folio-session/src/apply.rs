@@ -30,6 +30,7 @@ pub struct Plan {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MergeKey {
     Move(FrameId),
+    Moves(Vec<FrameId>),
     Text(FrameId),
     Style(FrameId),
 }
@@ -96,6 +97,74 @@ fn every_id(frame: &Frame, out: &mut Vec<FrameId>) {
     }
 }
 
+/// The largest bleed, in points, a book may ask for (a quarter of an inch is usual).
+const MAX_BLEED: f64 = 72.0;
+
+/// Refuses page geometry that cannot be laid out: lengths that are not finite or are negative, a
+/// page with no size, margins that leave no room for text, and a column count the grid cannot draw.
+fn check_geometry(
+    book: &Book,
+    trim: Option<folio_model::Size>,
+    margins: Option<folio_model::Margins>,
+    bleed: Option<folio_model::Pt>,
+    grid: Option<&folio_model::Grid>,
+) -> Result<(), SessionError> {
+    let bad = |what: &str| Err(SessionError::BadGeometry(what.to_owned()));
+    let trim = trim.unwrap_or(book.trim);
+    let margins = margins.unwrap_or(book.margins);
+    if ![trim.w.0, trim.h.0]
+        .iter()
+        .all(|v| v.is_finite() && *v > 0.0)
+    {
+        return bad("the page needs a size above zero");
+    }
+    let parts = [
+        margins.top.0,
+        margins.bottom.0,
+        margins.inside.0,
+        margins.outside.0,
+    ];
+    if !parts.iter().all(|v| v.is_finite() && *v >= 0.0) {
+        return bad("margins cannot be negative");
+    }
+    if margins.inside.0 + margins.outside.0 >= trim.w.0
+        || margins.top.0 + margins.bottom.0 >= trim.h.0
+    {
+        return bad("the margins leave no room on the page");
+    }
+    if let Some(bleed) = bleed {
+        if !bleed.0.is_finite() || !(0.0..=MAX_BLEED).contains(&bleed.0) {
+            return bad("the bleed must be between 0 and 1 in");
+        }
+    }
+    if let Some(grid) = grid {
+        if !grid.gutter.0.is_finite() || grid.gutter.0 < 0.0 {
+            return bad("the column gutter cannot be negative");
+        }
+        if !(1..=12).contains(&grid.columns) {
+            return bad("a grid has between 1 and 12 columns");
+        }
+        if let Some(b) = &grid.baseline {
+            if !(b.increment.0.is_finite() && b.increment.0 > 0.0 && b.offset.0.is_finite()) {
+                return bad("the baseline grid needs an increment above zero");
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Refuses a change to a frame that is locked or belongs to a master page.
+fn ensure_free(frame: &Frame) -> Result<(), SessionError> {
+    let base = frame.base();
+    if base.locked {
+        return Err(SessionError::Locked(base.id.0.clone()));
+    }
+    if base.from_master.is_some() {
+        return Err(SessionError::FromMaster(base.id.0.clone()));
+    }
+    Ok(())
+}
+
 /// Works out what `intent` touches, or says why it cannot be done.
 pub fn plan(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, SessionError> {
     let mut made = plan_one(book, intent, ids)?;
@@ -128,12 +197,22 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             let found = spread(book, s)?;
             let target = find(&found.frames, frame)
                 .ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
-            if target.base().locked {
-                return Err(SessionError::Locked(frame.0.clone()));
-            }
+            ensure_free(target)?;
             Ok(one(s.clone(), Some(MergeKey::Move(frame.clone()))))
         }
-        Intent::SetImage { frame, .. } => {
+        Intent::MoveFrames { spread: s, moves } => {
+            let found = spread(book, s)?;
+            let mut named = Vec::new();
+            for m in moves {
+                let target = find(&found.frames, &m.frame)
+                    .ok_or_else(|| SessionError::NoSuchFrame(m.frame.0.clone()))?;
+                ensure_free(target)?;
+                named.push(m.frame.clone());
+            }
+            named.sort_by(|a, b| a.0.cmp(&b.0));
+            Ok(one(s.clone(), Some(MergeKey::Moves(named))))
+        }
+        Intent::SetImage { frame, asset, .. } => {
             let found = book
                 .spreads
                 .iter()
@@ -142,8 +221,13 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             let Frame::Image(_) = found else {
                 return Err(SessionError::NotImage(frame.0.clone()));
             };
-            if found.base().locked {
-                return Err(SessionError::Locked(frame.0.clone()));
+            ensure_free(found)?;
+            if let Some(asset) = asset {
+                let inside = asset.starts_with("assets/images/")
+                    && !asset.split('/').any(|part| part == ".." || part.is_empty());
+                if !inside {
+                    return Err(SessionError::BadAsset(asset.clone()));
+                }
             }
             Ok(one(spread_of(book, frame)?, None))
         }
@@ -191,12 +275,19 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             if !styled {
                 return Err(SessionError::NotText(frame.0.clone()));
             }
+            if let Some(found) = book.spreads.iter().find_map(|sp| find(&sp.frames, frame)) {
+                ensure_free(found)?;
+            }
             Ok(one(on, None))
         }
         Intent::OverrideStyle { frame, .. } => {
             check_text(book, frame).or_else(|e| match e {
                 // Overrides sit on a frame whose words come from a flow too.
-                SessionError::FlowText(_) => Ok(()),
+                SessionError::FlowText(_) => book
+                    .spreads
+                    .iter()
+                    .find_map(|sp| find(&sp.frames, frame))
+                    .map_or(Ok(()), ensure_free),
                 other => Err(other),
             })?;
             Ok(one(
@@ -223,9 +314,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             let found = spread(book, s)?;
             let target = find(&found.frames, frame)
                 .ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
-            if target.base().locked {
-                return Err(SessionError::Locked(frame.0.clone()));
-            }
+            ensure_free(target)?;
             Ok(one(s.clone(), None))
         }
         Intent::DuplicateFrame { spread: s, frame }
@@ -242,9 +331,12 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             spread: s, frame, ..
         } => {
             let found = spread(book, s)?;
-            if !found.frames.iter().any(|f| &f.base().id == frame) {
-                return Err(SessionError::NotOnSpread(frame.0.clone(), s.0.clone()));
-            }
+            let target = found
+                .frames
+                .iter()
+                .find(|f| &f.base().id == frame)
+                .ok_or_else(|| SessionError::NotOnSpread(frame.0.clone(), s.0.clone()))?;
+            ensure_free(target)?;
             Ok(one(s.clone(), None))
         }
         Intent::AddSpread { after, .. } => {
@@ -276,11 +368,19 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 merge: None,
             })
         }
-        Intent::SetBookGeometry { .. } => Ok(Plan {
-            touched: Vec::new(),
-            new_spread: None,
-            merge: None,
-        }),
+        Intent::SetBookGeometry {
+            trim,
+            margins,
+            bleed,
+            grid,
+        } => {
+            check_geometry(book, *trim, *margins, *bleed, grid.as_ref())?;
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                merge: None,
+            })
+        }
     }
 }
 
@@ -421,6 +521,15 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 remove(&mut sp.frames, &frame);
             }
         }
+        Intent::MoveFrames { spread: s, moves } => {
+            if let Some(sp) = book.spreads.iter_mut().find(|sp| sp.id == s) {
+                for m in moves {
+                    if let Some(f) = find_mut(&mut sp.frames, &m.frame) {
+                        f.base_mut().rect = m.rect;
+                    }
+                }
+            }
+        }
         Intent::DuplicateFrame { spread: s, frame } => {
             if let Some(sp) = book.spreads.iter_mut().find(|sp| sp.id == s) {
                 if let Some(source) = sp.frames.iter().find(|f| f.base().id == frame) {
@@ -431,6 +540,10 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                     // A copy is the user's own: it is neither locked nor tied to a master.
                     base.locked = false;
                     base.from_master = None;
+                    // A copy is not another slot in the source's flow.
+                    if let Frame::Text(t) = &mut copy {
+                        t.flow = None;
+                    }
                     sp.frames.push(copy);
                 }
             }
@@ -547,6 +660,10 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             if let Some(grid) = grid {
                 book.grid = grid;
             }
+            // The page numbers sit by the margins, so a new page or margin moves them.
+            if !book.page_numbers.is_none() {
+                apply_page_numbers(book);
+            }
         }
     }
 }
@@ -560,7 +677,7 @@ pub fn check_text(book: &Book, frame: &FrameId) -> Result<(), SessionError> {
         .ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
     match found {
         Frame::Text(t) if t.flow.is_some() => Err(SessionError::FlowText(frame.0.clone())),
-        Frame::Text(_) => Ok(()),
+        Frame::Text(_) => ensure_free(found),
         _ => Err(SessionError::NotText(frame.0.clone())),
     }
 }

@@ -844,3 +844,281 @@ fn a_master_item_is_hidden_on_one_page_and_shown_again() {
         SessionError::NoSuchFrame("fr_other".into())
     );
 }
+
+fn rect_at(x: f64, y: f64) -> Rect {
+    Rect {
+        x: Pt(x),
+        y: Pt(y),
+        w: Pt(100.0),
+        h: Pt(100.0),
+    }
+}
+
+fn two_moves(x: f64) -> Intent {
+    Intent::MoveFrames {
+        spread: spread("sp_1"),
+        moves: vec![
+            folio_model::FrameMove {
+                frame: frame("fr_pic"),
+                rect: rect_at(x, 0.0),
+            },
+            folio_model::FrameMove {
+                frame: frame("fr_text"),
+                rect: rect_at(x, 150.0),
+            },
+        ],
+    }
+}
+
+#[test]
+fn moving_several_frames_together_is_one_undo_step_even_across_a_drag() {
+    let mut s = session();
+    let t0 = Instant::now();
+    s.apply_at(two_moves(10.0), t0).unwrap();
+    s.apply_at(two_moves(20.0), t0 + Duration::from_millis(100))
+        .unwrap();
+    s.apply_at(two_moves(30.0), t0 + Duration::from_millis(200))
+        .unwrap();
+    assert_eq!(pic_x(&s), 30.0);
+    s.undo().unwrap();
+    assert_eq!(
+        pic_x(&s),
+        0.0,
+        "one undo takes the whole drag back, for every frame"
+    );
+    assert!(s.undo().is_none());
+}
+
+#[test]
+fn a_locked_frame_is_held_against_every_change_not_only_moving() {
+    let mut s = session();
+    s.apply(Intent::LockFrame {
+        spread: spread("sp_1"),
+        frame: frame("fr_text"),
+        locked: true,
+    })
+    .unwrap();
+    let locked = || SessionError::Locked("fr_text".into());
+    assert_eq!(
+        s.apply(Intent::SetText {
+            frame: frame("fr_text"),
+            text: "x".into()
+        })
+        .unwrap_err(),
+        locked()
+    );
+    assert_eq!(
+        s.apply(Intent::SetStyle {
+            frame: frame("fr_text"),
+            style: StyleId("title".into())
+        })
+        .unwrap_err(),
+        locked()
+    );
+    assert_eq!(
+        s.apply(Intent::Reorder {
+            spread: spread("sp_1"),
+            frame: frame("fr_text"),
+            to: ReorderTo::Front
+        })
+        .unwrap_err(),
+        locked()
+    );
+    assert_eq!(
+        s.apply(Intent::MoveFrames {
+            spread: spread("sp_1"),
+            moves: vec![folio_model::FrameMove {
+                frame: frame("fr_text"),
+                rect: rect_at(1.0, 1.0)
+            }]
+        })
+        .unwrap_err(),
+        locked()
+    );
+}
+
+#[test]
+fn a_picture_must_be_one_of_the_books_own_assets() {
+    let mut s = session();
+    for bad in [
+        "/etc/passwd",
+        "assets/images/../../x.png",
+        "assets/fonts/a.ttf",
+        "",
+    ] {
+        assert_eq!(
+            s.apply(Intent::SetImage {
+                frame: frame("fr_pic"),
+                asset: Some(bad.into()),
+                fit: None
+            })
+            .unwrap_err(),
+            SessionError::BadAsset(bad.into()),
+            "{bad}"
+        );
+    }
+}
+
+#[test]
+fn page_geometry_that_cannot_be_laid_out_is_refused() {
+    let mut s = session();
+    let geometry =
+        |trim: Option<Size>, margins: Option<Margins>, bleed: Option<Pt>| Intent::SetBookGeometry {
+            trim,
+            margins,
+            bleed,
+            grid: None,
+        };
+    let margins = |top, bottom, inside, outside| Margins {
+        top: Pt(top),
+        bottom: Pt(bottom),
+        inside: Pt(inside),
+        outside: Pt(outside),
+    };
+    assert!(matches!(
+        s.apply(geometry(None, Some(margins(-1.0, 36.0, 36.0, 36.0)), None)),
+        Err(SessionError::BadGeometry(_))
+    ));
+    assert!(matches!(
+        s.apply(geometry(
+            None,
+            Some(margins(36.0, 36.0, 400.0, 300.0)),
+            None
+        )),
+        Err(SessionError::BadGeometry(_))
+    ));
+    assert!(matches!(
+        s.apply(geometry(None, None, Some(Pt(f64::NAN)))),
+        Err(SessionError::BadGeometry(_))
+    ));
+    assert!(matches!(
+        s.apply(geometry(None, None, Some(Pt(500.0)))),
+        Err(SessionError::BadGeometry(_))
+    ));
+    assert!(matches!(
+        s.apply(geometry(
+            Some(Size {
+                w: Pt(0.0),
+                h: Pt(100.0)
+            }),
+            None,
+            None
+        )),
+        Err(SessionError::BadGeometry(_))
+    ));
+    assert!(matches!(
+        s.apply(Intent::SetBookGeometry {
+            trim: None,
+            margins: None,
+            bleed: None,
+            grid: Some(Grid {
+                columns: 13,
+                gutter: Pt(0.0),
+                baseline: None
+            })
+        }),
+        Err(SessionError::BadGeometry(_))
+    ));
+    assert_eq!(s.revision(), 0);
+    s.apply(geometry(
+        None,
+        Some(margins(10.0, 10.0, 10.0, 10.0)),
+        Some(Pt(9.0)),
+    ))
+    .unwrap();
+}
+
+#[test]
+fn page_numbers_follow_a_change_of_margins_and_forget_what_was_hidden_when_they_are_rebuilt() {
+    let mut s = session();
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::Centre,
+    })
+    .unwrap();
+    let number_y = |s: &Session| match &s.book().master_pages[0].frames[0] {
+        Frame::Text(t) => t.base.rect.y.0,
+        _ => unreachable!(),
+    };
+    let before = number_y(&s);
+    s.apply(Intent::SetBookGeometry {
+        trim: None,
+        margins: Some(Margins {
+            top: Pt(36.0),
+            bottom: Pt(90.0),
+            inside: Pt(36.0),
+            outside: Pt(36.0),
+        }),
+        bleed: None,
+        grid: None,
+    })
+    .unwrap();
+    assert!(
+        number_y(&s) < before,
+        "a taller bottom margin moves the number up with it"
+    );
+
+    s.apply(Intent::HideMasterItem {
+        spread: spread("sp_1"),
+        page: folio_model::PageId("pg_1".into()),
+        frame: frame("fr_pn_a"),
+        hide: true,
+    })
+    .unwrap();
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::None,
+    })
+    .unwrap();
+    assert!(s.book().spreads[1].master_overrides.is_empty());
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::Centre,
+    })
+    .unwrap();
+    assert!(
+        s.book().spreads[1].master_overrides.is_empty(),
+        "the number is back on every page"
+    );
+}
+
+#[test]
+fn the_same_page_numbers_again_change_nothing_and_a_master_from_elsewhere_is_kept() {
+    let mut with_master = book();
+    with_master.master_pages.push(
+        serde_json::from_value(json!({
+            "id": "mst_theirs", "name": "Theirs", "frames": []
+        }))
+        .unwrap(),
+    );
+    let mut s = Session::new(with_master);
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::Centre,
+    })
+    .unwrap();
+    let revision = s.revision();
+    let patch = s
+        .apply(Intent::SetPageNumbers {
+            position: folio_model::PageNumbers::Centre,
+        })
+        .unwrap();
+    assert!(patch.ops.is_empty());
+    assert_eq!(s.revision(), revision);
+    assert!(s.book().master_pages.iter().any(|m| m.id.0 == "mst_theirs"));
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::None,
+    })
+    .unwrap();
+    assert_eq!(s.book().master_pages.len(), 1);
+}
+
+#[test]
+fn a_copy_of_a_flowing_frame_is_not_another_slot_in_the_flow() {
+    let mut s = session();
+    s.apply(Intent::DuplicateFrame {
+        spread: spread("sp_1"),
+        frame: frame("fr_flowed"),
+    })
+    .unwrap();
+    match s.book().spreads[1].frames.last().unwrap() {
+        Frame::Text(t) => assert!(t.flow.is_none()),
+        _ => unreachable!(),
+    }
+}
