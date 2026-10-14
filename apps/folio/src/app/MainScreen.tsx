@@ -9,7 +9,11 @@ import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 import { formatTrim, pageCount } from '../books/format';
 import { shelfLabels } from '../books/shelfLabels';
-import { useActiveBook, useBooksSelector } from '../books/useBooks';
+import { Shelf } from '../canvas/Shelf';
+import { Stage } from '../canvas/Stage';
+import { useSelection } from '../canvas/useSelection';
+import { useSpreadLayout } from '../canvas/useSpreadLayout';
+import { useActiveBook, useBooks, useBooksSelector } from '../books/useBooks';
 import { APP_MENU_MNEMONICS } from '../commands/appMenuModel';
 import { t } from '../i18n/messages';
 import { FolioToolbar } from '../ribbon/FolioToolbar';
@@ -59,6 +63,22 @@ export function MainScreen({ client = tauriAppInfoClient }: { client?: AppInfoCl
 	const active = useActiveBook();
 	const kinds = useBooksSelector((s) => s.kinds);
 	const menuBar = settings.interface.menuBar;
+	const { client: booksClient, store: booksStore } = useBooks();
+	const [spreadIndex, setSpreadIndex] = useState(0);
+	const spreads = active?.copy.book.spreads ?? [];
+	const shown = Math.max(0, Math.min(spreadIndex, spreads.length - 1));
+	const spread = spreads[shown] ?? null;
+	const labels = active ? shelfLabels(active.copy.book) : [];
+	const layout = useSpreadLayout(
+		booksClient,
+		active?.summary.id ?? '',
+		active && spread ? spread.id : null,
+		active?.copy.revision ?? 0,
+	);
+	const [selection, select] = useSelection(
+		spread?.id ?? null,
+		spread?.frames.map((f) => f.id) ?? [],
+	);
 	const inspectorWidth = { '--folio-inspector-width': `${settings.interface.sidebarWidth}px` };
 
 	const kindLabel = active
@@ -90,30 +110,45 @@ export function MainScreen({ client = tauriAppInfoClient }: { client?: AppInfoCl
 					<>
 						<FolioToolbar available={menu.available} run={menu.run} />
 						<main className={styles.body} style={inspectorWidth as CSSProperties}>
-							<div className={styles.stageHeader}>
-								<h1 className={styles.stageTitle}>{t('region.stage')}</h1>
-							</div>
-							<div className={styles.canvas}>
-								<section className={styles.paper} aria-label={t('region.stage')}>
-									<p className={styles.muted}>
-										{t('region.stage.book', { title: active.summary.title })}
-									</p>
-								</section>
-							</div>
+							{spread && (
+								<Stage
+									book={active.copy.book}
+									spread={spread}
+									label={labels[shown] ?? ''}
+									layout={layout}
+									selection={selection}
+									onSelect={select}
+									onMove={(id, box) =>
+										booksStore.apply({
+											type: 'MoveFrame',
+											spread: spread.id,
+											frame: id,
+											box: { x: box.x, y: box.y, w: box.w, h: box.h },
+										})
+									}
+									onDelete={(ids) =>
+										ids.forEach(
+											(id) =>
+												void booksStore.apply({
+													type: 'DeleteFrame',
+													spread: spread.id,
+													frame: id,
+												}),
+										)
+									}
+								/>
+							)}
 							<aside className={styles.inspector} aria-label={t('region.inspector')}>
 								<h2 className={styles.inspectorTitle}>{t('region.inspector')}</h2>
 								<p className={styles.muted}>{t('region.inspector.empty')}</p>
 							</aside>
 						</main>
-						<section className={styles.shelf} aria-label={t('region.shelf')}>
-							<ul className={styles.chips} aria-label={t('region.shelf.spreads')}>
-								{shelfLabels(active.copy.book).map((label, index) => (
-									<li key={index} className={styles.chip}>
-										{label}
-									</li>
-								))}
-							</ul>
-						</section>
+						<Shelf
+							book={active.copy.book}
+							labels={labels}
+							selected={shown}
+							onSelect={setSpreadIndex}
+						/>
 					</>
 				)}
 				<footer className={styles.status} aria-label={t('status.bar')}>

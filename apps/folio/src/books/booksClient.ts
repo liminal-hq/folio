@@ -3,10 +3,12 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import type { SpreadLayoutResult } from '@liminal-hq/folio-protocol/generated/SpreadLayoutResult';
 import {
 	applyIntent,
 	closeBook,
 	defaultSavePath,
+	layoutSpread,
 	listBooks,
 	newBook,
 	onBooksChanged,
@@ -46,6 +48,8 @@ export interface BooksClient {
 	apply(id: string, intent: Intent): Promise<Patch>;
 	undo(id: string): Promise<Patch | null>;
 	redo(id: string): Promise<Patch | null>;
+	/** The spread's text shaped and broken into lines, from the book at the revision it carries. */
+	layoutSpread(id: string, spread: string): Promise<SpreadLayoutResult>;
 	/** Resolves to the function that stops listening. */
 	subscribe(listener: BooksListener): Promise<() => void>;
 }
@@ -62,6 +66,7 @@ export const tauriBooksClient: BooksClient = {
 	apply: applyIntent,
 	undo,
 	redo,
+	layoutSpread,
 	async subscribe(listener) {
 		const stops = await Promise.all([
 			onPatch((event) => listener.onPatch(event)),
