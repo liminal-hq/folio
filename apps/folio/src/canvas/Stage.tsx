@@ -14,6 +14,7 @@ import { frameMenuItems, type FrameCommand } from './frameMenu';
 import { pageMenuItems, type PageCommand } from './pageMenu';
 import { fitZoom, spreadGeometry } from './geometry';
 import { MarksMenu } from './MarksMenu';
+import { masterItemsAt } from './masterItems';
 import {
 	DEFAULT_MARK_COLOURS,
 	DEFAULT_MARKS,
@@ -156,7 +157,11 @@ export function Stage({
 			)}
 			{pageMenu && (
 				<ContextMenu
-					items={pageMenuItems(marks ?? DEFAULT_MARKS, spread.kind !== 'cover')}
+					items={pageMenuItems(
+						marks ?? DEFAULT_MARKS,
+						spread.kind !== 'cover',
+						masterItemsAt(book, spread, pageMenu.point),
+					)}
 					position={pageMenu.at}
 					ariaLabel={t('page.menu')}
 					onSelect={(item) => {
