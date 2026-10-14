@@ -33,11 +33,17 @@ export interface RibbonTooltip {
 	node: ReactNode;
 }
 
+/** An anchor can carry a tooltip while it is mounted and enabled. */
+function usable(anchor: HTMLElement): boolean {
+	return anchor.isConnected && !(anchor as HTMLButtonElement).disabled;
+}
+
 export function useRibbonTooltip(): RibbonTooltip {
 	const [shown, setShown] = useState<Shown | null>(null);
 	const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const lastClosed = useRef(Number.NEGATIVE_INFINITY);
 	const open = useRef(false);
+	const anchorRef = useRef<HTMLElement | null>(null);
 
 	const clear = useCallback(() => {
 		if (timer.current !== null) clearTimeout(timer.current);
@@ -48,15 +54,20 @@ export function useRibbonTooltip(): RibbonTooltip {
 		clear();
 		if (open.current) lastClosed.current = Date.now();
 		open.current = false;
+		anchorRef.current = null;
 		setShown(null);
 	}, [clear]);
 
 	const show = useCallback(
 		(item: RibbonItem, anchor: HTMLElement) => {
 			clear();
+			if (!usable(anchor)) return;
 			const warm = open.current || Date.now() - lastClosed.current < WARM_WINDOW_MS;
 			timer.current = setTimeout(
 				() => {
+					timer.current = null;
+					if (!usable(anchor)) return;
+					anchorRef.current = anchor;
 					const rect = anchor.getBoundingClientRect();
 					open.current = true;
 					setShown({ item, x: rect.left + rect.width / 2, y: rect.bottom + 6 });
@@ -68,6 +79,28 @@ export function useRibbonTooltip(): RibbonTooltip {
 	);
 
 	useEffect(() => clear, [clear]);
+
+	// A tooltip must be dismissable without moving the pointer or focus (WCAG 1.4.13), and must not
+	// outlive its anchor: Esc, or the anchor being removed or disabled, closes it.
+	useEffect(() => {
+		const onKey = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') hide();
+		};
+		document.addEventListener('keydown', onKey, true);
+		const watcher = new MutationObserver(() => {
+			if (anchorRef.current && !usable(anchorRef.current)) hide();
+		});
+		watcher.observe(document.body, {
+			childList: true,
+			subtree: true,
+			attributes: true,
+			attributeFilter: ['disabled'],
+		});
+		return () => {
+			document.removeEventListener('keydown', onKey, true);
+			watcher.disconnect();
+		};
+	}, [hide]);
 
 	const node = shown && (
 		<div

@@ -7,6 +7,8 @@
 export interface RibbonLabels {
 	/** Accessible name of the ribbon. */
 	ribbon: string;
+	/** Accessible name of the toolbar of controls inside the active tab's panel. */
+	toolbar: string;
 	/** Accessible name of the row of tabs. */
 	tabs: string;
 	/** Accessible name of the Easy and Expert switch. */
@@ -23,6 +25,7 @@ export interface RibbonLabels {
 
 export const defaultRibbonLabels: RibbonLabels = {
 	ribbon: 'Ribbon',
+	toolbar: 'Ribbon controls',
 	tabs: 'Ribbon tabs',
 	mode: 'How do you like to work?',
 	modeEasy: 'Easy',

@@ -5,7 +5,15 @@
 
 import { ContextMenu } from '@liminal-hq/folio-chrome/ContextMenu';
 import type { MenuItem, SelectableMenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
-import { Fragment, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import {
+	Fragment,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	type FocusEvent,
+	type KeyboardEvent,
+} from 'react';
 import { defaultRibbonLabels, type RibbonLabels } from './labels';
 import styles from './Ribbon.module.css';
 import { RibbonControl } from './RibbonControls';
@@ -97,6 +105,13 @@ export function Ribbon(props: RibbonProps) {
 	const tabs = useMemo(() => visibleTabs(model, mode, contextual), [model, mode, contextual]);
 	const wanted = props.tab ?? tabState;
 	const active = tabs.find((t) => t.id === wanted) ?? tabs[0];
+	// A remembered tab that has gone (a contextual tab whose subject was deselected) is forgotten,
+	// so it is not restored the next time it reappears.
+	const stale =
+		props.tab === undefined && tabState !== null && !tabs.some((t) => t.id === tabState);
+	useEffect(() => {
+		if (stale) setTabState(null);
+	}, [stale]);
 	const collapsed = variant === 'collapsed';
 	const simplified = variant === 'simplified';
 	const panelShown = !collapsed || open || pinned;
@@ -104,10 +119,11 @@ export function Ribbon(props: RibbonProps) {
 
 	const emit = (command: RibbonCommand) => onCommand(command);
 
-	const pickTab = (id: string) => {
+	/** Moving across tabs with the arrows only selects; activating a tab also drops the panel down or closes it. */
+	const pickTab = (id: string, activate: boolean) => {
 		setTabState(id);
 		emit({ id: 'tab', value: id });
-		if (collapsed) setOpen(id !== active?.id || !open);
+		if (collapsed && activate) setOpen(id !== active?.id || !open);
 	};
 
 	const onTabKeys = (event: KeyboardEvent) => {
@@ -130,7 +146,21 @@ export function Ribbon(props: RibbonProps) {
 		event.preventDefault();
 		buttons[next]?.focus();
 		const id = tabs[next]?.id;
-		if (id) pickTab(id);
+		if (id) pickTab(id, false);
+	};
+
+	// Roving tabindex: one control in the panel is a Tab stop, the arrows move it.
+	const roving = useRef<HTMLElement | null>(null);
+	useEffect(() => {
+		const all = focusables(panelRef.current);
+		const stop = roving.current && all.includes(roving.current) ? roving.current : all[0];
+		for (const el of all) el.tabIndex = el === stop ? 0 : -1;
+	});
+	const onPanelFocus = (event: FocusEvent<HTMLElement>) => {
+		const target = event.target as HTMLElement;
+		if (!focusables(panelRef.current).includes(target)) return;
+		roving.current = target;
+		for (const el of focusables(panelRef.current)) el.tabIndex = el === target ? 0 : -1;
 	};
 
 	const onPanelKeys = (event: KeyboardEvent) => {
@@ -153,10 +183,12 @@ export function Ribbon(props: RibbonProps) {
 		tabsRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus();
 	};
 
-	const toggleOn = (item: RibbonItem) => item.active ?? toggles[item.id] ?? false;
-	const valueOf = (item: RibbonItem) => item.value ?? values[item.id];
+	/** Ribbon-kept state is keyed by tab, group and id, so two controls sharing an id do not share state. */
+	const keyOf = (tabId: string, groupId: string, item: RibbonItem) =>
+		`${tabId}/${groupId}/${item.id}`;
+	const toggleOn = (key: string, item: RibbonItem) => item.active ?? toggles[key] ?? false;
 
-	const onPress = (item: RibbonItem, anchor: HTMLElement) => {
+	const onPress = (key: string, item: RibbonItem, anchor: HTMLElement) => {
 		const kind = item.kind ?? 'button';
 		if (kind === 'menu') {
 			const rect = anchor.getBoundingClientRect();
@@ -173,15 +205,17 @@ export function Ribbon(props: RibbonProps) {
 			return;
 		}
 		if (kind === 'toggle') {
-			const next = !toggleOn(item);
+			const next = !toggleOn(key, item);
 			setToggles((prev) => {
-				const out = { ...prev, [item.id]: next };
+				const out = { ...prev, [key]: next };
 				if (item.radio && next) {
 					for (const tab of model.tabs)
 						for (const group of tab.groups) {
 							const peers = [...(group.items ?? []), ...(group.rows ?? []).flat(2)];
-							for (const peer of peers)
-								if (peer.radio === item.radio && peer.id !== item.id) out[peer.id] = false;
+							for (const peer of peers) {
+								const peerKey = keyOf(tab.id, group.id, peer);
+								if (peer.radio === item.radio && peerKey !== key) out[peerKey] = false;
+							}
 						}
 				}
 				return out;
@@ -192,8 +226,8 @@ export function Ribbon(props: RibbonProps) {
 		emit({ id: item.id, item });
 	};
 
-	const onValue = (item: RibbonItem, value: RibbonValue) => {
-		setValues((prev) => ({ ...prev, [item.id]: value }));
+	const onValue = (key: string, item: RibbonItem, value: RibbonValue) => {
+		setValues((prev) => ({ ...prev, [key]: value }));
 		emit({ id: item.id, value, item });
 	};
 
@@ -218,19 +252,25 @@ export function Ribbon(props: RibbonProps) {
 		setMenu(null);
 	};
 
-	const control = (item: RibbonItem) => (
-		<RibbonControl
-			key={item.id}
-			item={item}
-			showLabel={labelled}
-			tooltip={tooltip}
-			pressed={toggleOn(item)}
-			value={valueOf(item)}
-			labels={labels}
-			onPress={onPress}
-			onValue={onValue}
-		/>
-	);
+	const control = (group: RibbonGroup) => {
+		const Rendered = (item: RibbonItem) => {
+			const key = keyOf(active?.id ?? '', group.id, item);
+			return (
+				<RibbonControl
+					key={item.id}
+					item={item}
+					showLabel={labelled}
+					tooltip={tooltip}
+					pressed={toggleOn(key, item)}
+					value={item.value ?? values[key]}
+					labels={labels}
+					onPress={(i, anchor) => onPress(key, i, anchor)}
+					onValue={(i, value) => onValue(key, i, value)}
+				/>
+			);
+		};
+		return Rendered;
+	};
 
 	const perColumn = density === 'compact' ? 2 : 3;
 	const renderGroup = (group: RibbonGroup) => (
@@ -242,7 +282,7 @@ export function Ribbon(props: RibbonProps) {
 							<div key={r} className={styles.row}>
 								{row.map((cluster, c) => (
 									<div key={c} className={styles.cluster}>
-										{cluster.map(control)}
+										{cluster.map(control(group))}
 									</div>
 								))}
 							</div>
@@ -251,7 +291,7 @@ export function Ribbon(props: RibbonProps) {
 				) : (
 					columns(group.items ?? [], perColumn).map((col, i) => (
 						<div key={i} className={styles.column}>
-							{col.map(control)}
+							{col.map(control(group))}
 						</div>
 					))
 				)}
@@ -264,7 +304,7 @@ export function Ribbon(props: RibbonProps) {
 
 	return (
 		<div
-			role="toolbar"
+			role="group"
 			aria-label={labels.ribbon}
 			className={styles.ribbon}
 			data-variant={variant}
@@ -300,7 +340,7 @@ export function Ribbon(props: RibbonProps) {
 							tabIndex={tab.id === active?.id ? 0 : -1}
 							className={styles.tab}
 							data-contextual={tab.contextual ? '' : undefined}
-							onClick={() => pickTab(tab.id)}
+							onClick={() => pickTab(tab.id, true)}
 						>
 							{tab.label}
 						</button>
@@ -309,9 +349,10 @@ export function Ribbon(props: RibbonProps) {
 				{simplified && (
 					<div
 						className={styles.inlinePanel}
-						role="group"
-						aria-label={active?.label}
+						role="toolbar"
+						aria-label={labels.toolbar}
 						onKeyDown={onPanelKeys}
+						onFocus={onPanelFocus}
 						ref={panelRef}
 					>
 						{active?.groups.map((group) => (
@@ -355,8 +396,11 @@ export function Ribbon(props: RibbonProps) {
 					className={styles.panel}
 					data-overlay={collapsed && !pinned ? '' : undefined}
 					onKeyDown={onPanelKeys}
+					onFocus={onPanelFocus}
 				>
-					{active.groups.map(renderGroup)}
+					<div role="toolbar" aria-label={labels.toolbar} className={styles.toolbar}>
+						{active.groups.map(renderGroup)}
+					</div>
 				</div>
 			)}
 			{tooltip.node}

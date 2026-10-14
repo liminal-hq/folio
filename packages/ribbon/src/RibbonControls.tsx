@@ -72,7 +72,10 @@ export function RibbonControl(props: ControlProps) {
 				aria-label={item.label}
 				disabled={item.disabled}
 				value={value === undefined ? '' : String(value)}
-				onChange={(e) => onValue(item, e.target.value)}
+				onChange={(e) => {
+					tooltip.hide();
+					onValue(item, e.target.value);
+				}}
 				{...tipHandlers}
 			>
 				{(item.options ?? []).map(([v, l]) => (
@@ -127,8 +130,14 @@ export function RibbonControl(props: ControlProps) {
 			aria-haspopup={kind === 'menu' ? 'menu' : undefined}
 			data-pressed={kind === 'toggle' && pressed ? '' : undefined}
 			disabled={item.disabled}
-			onMouseDown={keepFocus}
-			onClick={(e) => onPress(item, e.currentTarget)}
+			onMouseDown={(e) => {
+				tooltip.hide();
+				keepFocus(e);
+			}}
+			onClick={(e) => {
+				tooltip.hide();
+				onPress(item, e.currentTarget);
+			}}
 			{...tipHandlers}
 		>
 			<Glyph d={item.d} px={large ? 22 : 14} swatch={item.swatch} />
