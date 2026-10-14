@@ -5,6 +5,7 @@
 
 mod app_info;
 mod com;
+mod recents;
 mod settings;
 mod storage;
 mod windows;
@@ -52,15 +53,18 @@ pub fn run() {
         )
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_system_appearance::init())
         .plugin(tauri_plugin_window_manager::init())
         // After the store plugin it saves through.
         .plugin(tauri_plugin_folio_settings::init_with(settings::storage))
+        .plugin(tauri_plugin_folio_books::init())
         .invoke_handler(tauri::generate_handler![
             app_info::app_info,
             windows::open_window
         ])
         .setup(|app| {
+            recents::wire(app.handle());
             windows::open_or_focus(app.handle(), WindowKind::Main)?;
             Ok(())
         });

@@ -1,0 +1,16 @@
+[default]
+description = "Default permissions for the folio-books plugin"
+permissions = [
+  "allow-get-status",
+  "allow-presets",
+  "allow-default-save-path",
+  "allow-new-book",
+  "allow-open-book",
+  "allow-save-book",
+  "allow-close-book",
+  "allow-list-books",
+  "allow-snapshot",
+  "allow-apply-intent",
+  "allow-undo",
+  "allow-redo",
+]

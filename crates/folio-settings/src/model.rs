@@ -190,6 +190,16 @@ impl Settings {
     }
 }
 
+/// `path` put at the front of `recent`, with any earlier copy removed and the list kept to
+/// `RECENT_BOOKS_MAX`: the order the recents list is shown in.
+pub fn push_recent(recent: &[String], path: &str) -> Vec<String> {
+    let mut list = Vec::with_capacity(recent.len() + 1);
+    list.push(path.to_owned());
+    list.extend(recent.iter().filter(|p| p.as_str() != path).cloned());
+    list.truncate(RECENT_BOOKS_MAX);
+    list
+}
+
 /// RFC 7386 merge.
 fn merge(target: &mut Value, patch: &Value) {
     let Value::Object(changes) = patch else {
@@ -294,6 +304,17 @@ mod tests {
             .patched(&json!({ "mode": "wizard" }))
             .unwrap_err();
         assert!(matches!(err, SettingsError::Malformed(_)));
+    }
+
+    #[test]
+    fn a_recent_book_goes_to_the_front_once_and_the_list_stays_short() {
+        let list = push_recent(&["/a".into(), "/b".into(), "/c".into()], "/b");
+        assert_eq!(list, ["/b", "/a", "/c"]);
+        let full: Vec<String> = (0..RECENT_BOOKS_MAX).map(|n| format!("/book{n}")).collect();
+        let list = push_recent(&full, "/new");
+        assert_eq!(list.len(), RECENT_BOOKS_MAX);
+        assert_eq!(list[0], "/new");
+        assert!(!list.contains(&format!("/book{}", RECENT_BOOKS_MAX - 1)));
     }
 
     #[test]

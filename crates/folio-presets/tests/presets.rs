@@ -58,11 +58,14 @@ fn every_kind_at_every_size_makes_a_book_that_survives_a_save_and_opens_in_a_ses
             assert_eq!(made.book.spreads[0].kind, SpreadKind::Cover);
 
             let file = dir.path().join(format!("{:?}-{trim}.folio", info.kind));
+            let original = made.book.clone();
             let mut package = Package::new(made.book);
             *package.styles_mut() = made.styles;
             *package.settings_mut() = made.settings;
             package.save(&file, &SaveOptions::default()).unwrap();
             let reopened = Package::open(&file).unwrap();
+            // Nothing is lost or nudged by writing and reading: lengths come back to the last bit.
+            assert_eq!(reopened.book(), &original);
             let session = Session::new(reopened.book().clone());
             assert!(!session.book().spreads.is_empty());
         }

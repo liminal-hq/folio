@@ -14,11 +14,13 @@
       "version": "0.0.0",
       "dependencies": {
         "@liminal-hq/folio-chrome": "workspace:*",
+        "@liminal-hq/folio-plugin-books": "workspace:*",
         "@liminal-hq/folio-plugin-settings": "workspace:*",
         "@liminal-hq/folio-protocol": "workspace:*",
         "@liminal-hq/plugin-system-appearance": "^0.1.0",
         "@liminal-hq/plugin-window-manager": "^0.1.0",
         "@tauri-apps/api": "^2.10.1",
+        "@tauri-apps/plugin-dialog": "^2",
         "@tauri-apps/plugin-log": "^2.8.0",
         "@tauri-apps/plugin-os": "^2.3.2",
         "react": "^19.1.0",
@@ -68,6 +70,20 @@
     "packages/protocol": {
       "name": "@liminal-hq/folio-protocol",
       "version": "0.0.0",
+    },
+    "plugins/folio-books": {
+      "name": "@liminal-hq/folio-plugin-books",
+      "version": "0.0.0",
+      "dependencies": {
+        "@liminal-hq/folio-protocol": "workspace:*",
+        "@tauri-apps/api": "^2.10.0",
+      },
+      "devDependencies": {
+        "@rollup/plugin-typescript": "^12.1.4",
+        "rollup": "^4.59.1",
+        "tslib": "^2.8.1",
+        "typescript": "^5.9.3",
+      },
     },
     "plugins/folio-settings": {
       "name": "@liminal-hq/folio-plugin-settings",
@@ -337,6 +353,8 @@
 
     "@liminal-hq/folio-chrome": ["@liminal-hq/folio-chrome@workspace:packages/chrome"],
 
+    "@liminal-hq/folio-plugin-books": ["@liminal-hq/folio-plugin-books@workspace:plugins/folio-books"],
+
     "@liminal-hq/folio-plugin-settings": ["@liminal-hq/folio-plugin-settings@workspace:plugins/folio-settings"],
 
     "@liminal-hq/folio-protocol": ["@liminal-hq/folio-protocol@workspace:packages/protocol"],
@@ -472,6 +490,8 @@
     "@tauri-apps/cli-win32-ia32-msvc": ["@tauri-apps/cli-win32-ia32-msvc@2.12.2", "", { "os": "win32", "cpu": "ia32" }, "sha512-zODJo9l3TbNBM+GrO/yPqGeELNMK5cjIc+QHh1WQc3l8tD+jDZGTQyYuAxViCsM6Uh5uWJ//RnCZG9LXrvsXww=="],
 
     "@tauri-apps/cli-win32-x64-msvc": ["@tauri-apps/cli-win32-x64-msvc@2.12.2", "", { "os": "win32", "cpu": "x64" }, "sha512-cQXI2ZaZmwBDt0XATCqASVanYizxkEE3ceQVlVHXaQ51HzsQUWA04c9Nz7LrrY2lgAu3jFMyat+8Yz3Z2R2qBA=="],
+
+    "@tauri-apps/plugin-dialog": ["@tauri-apps/plugin-dialog@2.8.2", "", { "dependencies": { "@tauri-apps/api": "^2.12.0" } }, "sha512-LFqp8OTx0bHOwhKRhMMDyRDlo/2IO5XxoOclpf8+yvjAfM2ytVdbB6tk63dBlicsR8pRw38maj/GxrU6cW8mXw=="],
 
     "@tauri-apps/plugin-log": ["@tauri-apps/plugin-log@2.10.1", "", { "dependencies": { "@tauri-apps/api": "^2.12.0" } }, "sha512-QYgxDunUZP+Cd3ev+8ItOc3Q6uUFkEhRHdTolxUtlC/8SGsc5IyVjGgFclprkAx736HUCUYfh2vqUr3qwNfTTw=="],
 
@@ -1370,6 +1390,8 @@
     "@babel/helper-compilation-targets/lru-cache": ["lru-cache@5.1.1", "", { "dependencies": { "yallist": "^3.0.2" } }, "sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w=="],
 
     "@babel/helper-compilation-targets/semver": ["semver@6.3.1", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA=="],
+
+    "@liminal-hq/folio-plugin-books/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@liminal-hq/folio-plugin-settings/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 

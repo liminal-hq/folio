@@ -12,8 +12,9 @@ mod model;
 mod storage;
 
 pub use model::{
-    ColourMode, InterfaceSettings, JaxHelp, Mode, Settings, SettingsError, SettingsSnapshot,
-    SidebarLayout, ToolbarLayout, Units, RECENT_BOOKS_MAX, SIDEBAR_WIDTH_MAX, SIDEBAR_WIDTH_MIN,
+    push_recent, ColourMode, InterfaceSettings, JaxHelp, Mode, Settings, SettingsError,
+    SettingsSnapshot, SidebarLayout, ToolbarLayout, Units, RECENT_BOOKS_MAX, SIDEBAR_WIDTH_MAX,
+    SIDEBAR_WIDTH_MIN,
 };
 pub use storage::{
     KeyValue, MemoryStorage, Persistence, SettingsDocument, SettingsStorage, StorageError,
