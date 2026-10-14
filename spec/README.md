@@ -1,0 +1,46 @@
+# Folio — specification
+
+> Books, laid out by hand, without the hard parts.
+
+Folio is a local-first desktop book layout app from Liminal HQ. It sits somewhere between Scribus and a friendly word processor. In **Easy** mode, someone who has never heard of bleed can make a picture book and send it to Amazon. **Expert** mode exposes everything: baseline grids, master pages, PDF/X and colour profiles.
+
+- **Stack:** Tauri 2 · React 19 + TypeScript (Vite) · Rust core crates
+- **Targets:** Linux (GNOME, KDE Plasma, Cinnamon; Wayland first, X11 supported) and Windows 11. macOS is not a v1 target.
+- **Licence:** Apache-2.0 OR MIT
+- **Theming:** warm stone, Folio's own `--folio-*` tokens (D-09), following the system colour scheme. Chrome is copied from Waypoint's `@liminal-hq/waypoint-chrome` as `@liminal-hq/folio-chrome` (D-08).
+
+## Documents
+
+| # | File | What it settles |
+|---|---|---|
+| 01 | [product.md](01-product.md) | Who it's for, book kinds, Easy vs Expert, feature list, non-goals |
+| 02 | [architecture.md](02-architecture.md) | Workspace layout, Rust crates, Tauri commands, chrome crate reuse, threading |
+| 03 | [project-format.md](03-project-format.md) | The `.folio` package: an ODF-style zip, its manifest, schema and versioning |
+| 04 | [layout-engine.md](04-layout-engine.md) | Units, spreads, frames, master pages, text flow, grid, snapping and guides |
+| 05 | [export.md](05-export.md) | EPUB 3 (reflowable and fixed), KEPUB, Kindle via KDP, print PDF/X, KDP cover maths, preflight |
+| 06 | [ui.md](06-ui.md) | Window chrome, app menu, optional menu bar, ribbon vs classic toolbar, shelf, inspector, native menus |
+| 07 | [jax.md](07-jax.md) | Jax the 3D otter: model, moods, guidance, and the local ONNX help model |
+| 09 | [text-tools.md](09-text-tools.md) | Home Font/Paragraph groups, mini toolbar, runs model, Easy vs Expert granularity, find & replace, footnotes |
+| 10 | [covers.md](10-covers.md) | Cover sheet: paperback, hardcover, dust jacket, inside covers, eBook crop; panel-relative frames; live spine; barcode guard |
+| 11 | [tools.md](11-tools.md) | Backgrounds, shapes, bubbles, text wrap, picture tools, tables, ornaments, multi-select/align/group/layers, spread templates |
+| 12 | [sidebar-windows.md](12-sidebar-windows.md) | Grouped sidebar + 10 panels, resize/collapse/tear-off, document tabs as windows, 8 toolbar and 6 sidebar layouts |
+| — | [features/](features/README.md) | 40 per-feature specs across 8 areas (structure, typesetting, pictures, proofing, publishing, series, accessibility, picture-book) |
+| 08 | [import.md](08-import.md) | DOCX, Google Docs, ODT, RTF/Pages, Markdown, paste, Scribus, IDML, EPUB |
+| — | [types/project.ts](types/project.ts) · [types/project.rs](types/project.rs) | The document model, mirrored in TypeScript and Rust (`ts-rs` generates the TS from Rust) |
+
+## Prototype ↔ spec map
+
+| Prototype piece | Spec |
+|---|---|
+| `Folio.dc.html`: welcome, editor, cover sheet, sidebar, export (v1 kept as `Folio v1.dc.html`) | 01, 04–06, 09–12 |
+| `folio-lib.js`: runs, cover geometry, shape paths, backgrounds, templates | 09–11 |
+| `folio-data.js`: sample books, styles, ribbon model, help library | 04, 06, 07 |
+| `jax3d.js`: extruded otter | 07 |
+| `Folio Board.dc.html`: examples board + working prototype | — |
+
+## Conventions
+
+- Canadian English throughout: colour, centre, organise, licence (noun), favourite.
+- No all-caps titles, headings or labels. Sentence case for app actions, Title Case for window titles.
+- Internal lengths are stored in **points** (1/72 in). The UI shows inches or millimetres.
+- Decisions are recorded inline as **D-nn** so they can be lifted into `docs/decisions.md`.

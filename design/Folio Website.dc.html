@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/colours.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/waypoint.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/base.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/styles.css">
+  <script src="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/_ds_bundle.js"></script>
+  <style>html,body{margin:0;background:#050507}a{color:#ffaa40;text-decoration:none}a:hover{color:#ffc36e}</style>
+</helmet>
+<div style="min-height:100vh;background:#050507;color:#e0e0e0;font-family:var(--font-body);position:relative;overflow-x:hidden;">
+  <div style="position:absolute;inset:0 0 auto 0;height:900px;pointer-events:none;background:radial-gradient(ellipse 60% 50% at 15% 10%, rgba(167,139,250,0.14), transparent 70%), radial-gradient(ellipse 50% 45% at 90% 30%, rgba(244,63,94,0.10), transparent 70%), radial-gradient(ellipse 60% 40% at 50% 85%, rgba(255,170,64,0.08), transparent 70%);"></div>
+
+  <sc-if value="{{ hdBar }}">
+  <header style="position:sticky;top:0;z-index:10;background:rgba(5,5,7,0.78);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,0.08);">
+    <div style="max-width:1200px;margin:0 auto;padding:0 2rem;height:64px;display:flex;align-items:center;gap:28px;box-sizing:border-box;">
+      <button onClick="{{ goHome }}" style="display:flex;align-items:center;gap:10px;border:none;background:transparent;color:#fff;cursor:pointer;padding:0;"><svg width="22" height="22" viewBox="0 0 16 16" style="fill:rgba(255,170,64,0.22);stroke:#ffaa40;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round;"><path d="M3 2.5h8a2 2 0 012 2v9.5H5a2 2 0 01-2-2zM3 11.5a2 2 0 012-2h8"></path></svg><span style="font-family:var(--font-heading);font-size:20px;font-weight:700;letter-spacing:-0.02em;">Folio</span></button>
+      <nav style="display:flex;gap:4px;flex:1;"><sc-for list="{{ topNav }}" as="n"><button onClick="{{ n.onClick }}" style="{{ n.style }}" style-hover="color:#fff">{{ n.label }}</button></sc-for></nav>
+      <a href="https://github.com/liminal-hq" style="font-size:14px;color:#b4bfce;">GitHub</a>
+      <x-import component-from-global-scope="LiminalHQDesignSystem_6cba27.Button" variant="primary" on-click="{{ goDownload }}" hint-size="120px,36px">Download</x-import>
+    </div>
+  </header>
+  </sc-if>
+
+  <sc-if value="{{ hdIsland }}">
+  <header style="position:sticky;top:14px;z-index:10;display:flex;justify-content:center;padding:14px 1rem 0;pointer-events:none;">
+    <div style="pointer-events:auto;display:flex;align-items:center;gap:6px;padding:6px 6px 6px 14px;border-radius:999px;background:rgba(20,20,25,0.62);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,0.12);box-shadow:0 10px 30px rgba(0,0,0,0.45);">
+      <button onClick="{{ goHome }}" style="display:flex;align-items:center;gap:8px;border:none;background:transparent;color:#fff;cursor:pointer;padding:0 10px 0 0;margin-right:4px;border-right:1px solid rgba(255,255,255,0.1);"><svg width="22" height="22" viewBox="0 0 16 16" style="fill:rgba(255,170,64,0.22);stroke:#ffaa40;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round;"><path d="M3 2.5h8a2 2 0 012 2v9.5H5a2 2 0 01-2-2zM3 11.5a2 2 0 012-2h8"></path></svg><span style="font-family:var(--font-heading);font-size:17px;font-weight:700;">Folio</span></button>
+      <sc-for list="{{ islandNav }}" as="n"><button onClick="{{ n.onClick }}" style="{{ n.style }}" style-hover="color:#fff;background:rgba(255,255,255,0.06)">{{ n.label }}</button></sc-for>
+      <span style="width:1px;height:22px;background:rgba(255,255,255,0.1);margin:0 4px;"></span>
+      <a href="https://github.com/liminal-hq" title="GitHub" style="width:34px;height:34px;border-radius:17px;display:flex;align-items:center;justify-content:center;color:#b4bfce;"><svg width="16" height="16" viewBox="0 0 16 16" style="fill:currentColor;"><path d="M8 .5a7.5 7.5 0 00-2.4 14.6c.4.1.5-.2.5-.4v-1.3c-2.1.5-2.5-.9-2.5-.9-.4-.9-.9-1.1-.9-1.1-.7-.5 0-.5 0-.5.8.1 1.2.8 1.2.8.7 1.2 1.8.8 2.2.6.1-.5.3-.8.5-1-1.7-.2-3.4-.8-3.4-3.7 0-.8.3-1.5.8-2-.1-.2-.3-1 .1-2 0 0 .6-.2 2.1.8a7 7 0 013.8 0c1.4-1 2.1-.8 2.1-.8.4 1 .2 1.8.1 2 .5.5.8 1.2.8 2 0 2.9-1.8 3.5-3.4 3.7.3.2.5.7.5 1.4v2.1c0 .2.1.5.6.4A7.5 7.5 0 008 .5z"></path></svg></a>
+      <button onClick="{{ goDownload }}" style="height:36px;padding:0 18px;border:none;border-radius:999px;background:#ffaa40;color:#0a0a0c;font:inherit;font-size:14px;font-weight:600;cursor:pointer;" style-hover="background:#ffc36e;box-shadow:0 0 16px rgba(255,170,64,0.35)">Download</button>
+    </div>
+  </header>
+  </sc-if>
+
+  <sc-if value="{{ hdWindow }}">
+  <header style="position:sticky;top:0;z-index:10;background:#1c1917;border-bottom:1px solid #3a3531;box-shadow:0 8px 24px rgba(0,0,0,0.35);font-family:system-ui,sans-serif;">
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;height:40px;padding:0 10px;background:#292524;">
+      <div style="display:flex;align-items:center;gap:4px;"><button onClick="{{ toggleWinMenu }}" style="background:transparent;display:flex;align-items:center;gap:7px;height:28px;padding:0 9px;border:none;border-radius:6px;color:#f5f1ed;font:inherit;font-size:13px;font-weight:600;cursor:pointer;" style-hover="background:#332e2b"><svg width="22" height="22" viewBox="0 0 16 16" style="fill:rgba(255,170,64,0.22);stroke:#ffaa40;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round;"><path d="M3 2.5h8a2 2 0 012 2v9.5H5a2 2 0 01-2-2zM3 11.5a2 2 0 012-2h8"></path></svg><span>Folio</span><svg width="11" height="11" viewBox="0 0 16 16" style="fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;opacity:0.7;"><path d="M4 6l4 4 4-4"></path></svg></button></div>
+      <span style="font-size:13px;color:#f5f1ed;white-space:nowrap;">{{ winTitle }} <span style="color:#9a918a;">— folio.liminalhq.ca</span></span>
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;"><a href="https://github.com/liminal-hq" style="font-size:12.5px;color:#c9c1ba;">GitHub</a><button onClick="{{ goDownload }}" style="height:26px;padding:0 12px;border:none;border-radius:6px;background:#f97316;color:#1c1917;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;" style-hover="background:#fb923c">Download</button><div style="display:flex;gap:6px;margin-left:6px;"><span style="width:22px;height:22px;border-radius:50%;background:rgba(245,241,237,0.06);"></span><span style="width:22px;height:22px;border-radius:50%;background:rgba(245,241,237,0.06);"></span><span style="width:22px;height:22px;border-radius:50%;background:rgba(245,241,237,0.06);"></span></div></div>
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:2px;height:34px;padding:0 10px;">
+      <sc-for list="{{ winTabs }}" as="t"><button onClick="{{ t.onClick }}" style="{{ t.style }}" style-hover="color:#f5f1ed"><span style="{{ t.dot }}"></span>{{ t.label }}</button></sc-for>
+      <button onClick="{{ goDownload }}" title="New book (download)" style="width:26px;height:26px;margin-bottom:4px;border:none;border-radius:6px;background:transparent;color:#9a918a;font:inherit;font-size:16px;cursor:pointer;" style-hover="background:#332e2b;color:#f5f1ed">+</button>
+    </div>
+    <sc-if value="{{ winMenuOpen }}"><div style="position:absolute;left:10px;top:38px;width:240px;padding:4px;border-radius:8px;background:#292524;border:1px solid #3a3531;box-shadow:0 8px 24px rgba(0,0,0,0.45);z-index:20;"><sc-for list="{{ winMenu }}" as="m"><sc-if value="{{ m.sep }}"><div style="height:1px;background:#3a3531;margin:4px 0;"></div></sc-if><sc-if value="{{ m.item }}"><button onClick="{{ m.onClick }}" style="display:flex;align-items:center;justify-content:space-between;width:100%;height:28px;padding:0 8px;border:none;border-radius:6px;background:transparent;color:#f5f1ed;font:inherit;font-size:13px;cursor:pointer;text-align:left;" style-hover="background:#f97316;color:#1c1917"><span>{{ m.label }}</span><span style="font-family:var(--font-mono);font-size:11px;opacity:0.7;">{{ m.key }}</span></button></sc-if></sc-for></div></sc-if>
+  </header>
+  </sc-if>
+
+  <sc-if value="{{ hdRibbon }}">
+  <header style="position:sticky;top:0;z-index:10;background:rgba(12,12,16,0.92);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,0.08);">
+    <div style="max-width:1200px;margin:0 auto;padding:0 2rem;box-sizing:border-box;">
+      <div style="display:flex;align-items:center;gap:4px;height:44px;">
+        <button onClick="{{ goHome }}" style="display:flex;align-items:center;gap:8px;border:none;background:transparent;color:#fff;cursor:pointer;padding:0;margin-right:14px;"><svg width="22" height="22" viewBox="0 0 16 16" style="fill:rgba(255,170,64,0.22);stroke:#ffaa40;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round;"><path d="M3 2.5h8a2 2 0 012 2v9.5H5a2 2 0 01-2-2zM3 11.5a2 2 0 012-2h8"></path></svg><span style="font-family:var(--font-heading);font-size:18px;font-weight:700;">Folio</span></button>
+        <sc-for list="{{ ribTabs }}" as="t"><button onClick="{{ t.onClick }}" style="{{ t.style }}" style-hover="color:#fff">{{ t.label }}</button></sc-for>
+        <div style="flex:1;"></div>
+        <a href="https://github.com/liminal-hq" style="font-size:13px;color:#b4bfce;margin-right:12px;">GitHub</a>
+        <button onClick="{{ goDownload }}" style="height:28px;padding:0 14px;border:none;border-radius:6px;background:#ffaa40;color:#0a0a0c;font:inherit;font-size:13px;font-weight:600;cursor:pointer;" style-hover="background:#ffc36e">Download</button>
+      </div>
+      <div style="display:flex;align-items:stretch;height:62px;padding-bottom:4px;overflow-x:auto;">
+        <sc-for list="{{ ribGroups }}" as="g"><div style="display:flex;flex-direction:column;padding:0 10px;border-right:1px solid rgba(255,255,255,0.08);flex-shrink:0;"><div style="display:flex;gap:2px;flex:1;align-items:center;"><sc-for list="{{ g.items }}" as="it"><button onClick="{{ it.onClick }}" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 10px;border:none;border-radius:7px;background:transparent;color:#c9c1ba;font:inherit;font-size:13px;cursor:pointer;white-space:nowrap;" style-hover="background:rgba(255,255,255,0.06);color:#fff"><svg width="16" height="16" viewBox="0 0 16 16" style="{{ g.svgStyle }}"><path d="{{ it.d }}"></path></svg>{{ it.label }}</button></sc-for></div><span style="font-size:11px;color:#7c8796;text-align:center;">{{ g.label }}</span></div></sc-for>
+      </div>
+    </div>
+  </header>
+  </sc-if>
+
+  <sc-if value="{{ hdMast }}">
+  <header style="position:relative;z-index:10;padding:2.2rem 2rem 0;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;">
+    <span style="font-size:12px;color:#7c8796;letter-spacing:0.06em;font-variant:small-caps;">liminal hq presents</span>
+    <button onClick="{{ goHome }}" style="display:flex;align-items:center;gap:14px;border:none;background:transparent;color:#fff;cursor:pointer;padding:0;"><svg width="40" height="40" viewBox="0 0 16 16" style="fill:rgba(255,170,64,0.22);stroke:#ffaa40;stroke-width:1.1;stroke-linecap:round;stroke-linejoin:round;"><path d="M3 2.5h8a2 2 0 012 2v9.5H5a2 2 0 01-2-2zM3 11.5a2 2 0 012-2h8"></path></svg><span style="font-family:var(--font-heading);font-size:54px;font-weight:700;letter-spacing:-0.04em;line-height:1;">Folio</span></button>
+    <div style="display:flex;align-items:center;gap:18px;width:min(1100px,100%);margin-top:6px;"><span style="flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18));"></span><span style="font-size:13px;color:#b4bfce;font-style:italic;font-family:Georgia,serif;">Books, laid out by hand · Vol. 0.2 · Linux &amp; Windows 11</span><span style="flex:1;height:1px;background:linear-gradient(270deg,transparent,rgba(255,255,255,0.18));"></span></div>
+  </header>
+  <div style="position:sticky;top:0;z-index:9;background:rgba(5,5,7,0.82);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,0.08);border-top:1px solid rgba(255,255,255,0.08);margin-top:14px;">
+    <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:4px;height:46px;padding:0 2rem;box-sizing:border-box;">
+      <sc-for list="{{ mastNav }}" as="n"><button onClick="{{ n.onClick }}" style="{{ n.style }}" style-hover="color:#fff">{{ n.label }}</button></sc-for>
+      <span style="width:1px;height:18px;background:rgba(255,255,255,0.12);margin:0 10px;"></span>
+      <button onClick="{{ goDownload }}" style="height:30px;padding:0 14px;border:1px solid rgba(255,170,64,0.6);border-radius:999px;background:transparent;color:#ffaa40;font:inherit;font-size:13px;font-weight:600;cursor:pointer;" style-hover="background:#ffaa40;color:#0a0a0c">Download</button>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+    <main style="position:relative;">
+      <section style="max-width:1200px;margin:0 auto;padding:6rem 2rem 3rem;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;text-align:center;gap:22px;">
+        <span style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:linear-gradient(90deg, rgba(167,139,250,0.18), rgba(244,63,94,0.18));border:1px solid rgba(255,255,255,0.1);font-size:13px;color:#e2e8f0;white-space:nowrap;">Free · open source · Linux and Windows 11</span>
+        <h1 style="margin:0;font-family:var(--font-heading);font-size:clamp(40px, 6vw, 76px);font-weight:700;letter-spacing:-0.03em;line-height:1.02;background:linear-gradient(to right, #fff 25%, #ffaa40, #f43f5e);-webkit-background-clip:text;background-clip:text;color:transparent;max-width:960px;text-wrap:balance;">Books, laid out by hand, without the hard parts.</h1>
+        <p style="margin:0;font-size:19px;font-weight:300;line-height:1.6;color:#b4bfce;max-width:720px;text-wrap:pretty;">Folio is a book layout app for picture books, novels, cookbooks, textbooks, poetry and memoirs. Make it once — then send it to Amazon in paperback, to Kindle and Kobo as an eBook, or to your local printer.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;">
+          <x-import component-from-global-scope="LiminalHQDesignSystem_6cba27.Button" variant="primary" on-click="{{ goDownload }}" hint-size="190px,42px">Download for Windows 11</x-import>
+          <x-import component-from-global-scope="LiminalHQDesignSystem_6cba27.Button" variant="secondary" on-click="{{ goDownload }}" hint-size="170px,42px">Download for Linux</x-import>
+          <x-import component-from-global-scope="LiminalHQDesignSystem_6cba27.Button" variant="ghost" on-click="{{ goWalk }}" hint-size="150px,42px">Take the tour →</x-import>
+        </div>
+        <div style="width:100%;max-width:1100px;margin-top:2rem;border-radius:16px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08);aspect-ratio:16/10;position:relative;background:#1c1917;">
+          <div style="position:absolute;inset:0;width:1440px;height:900px;transform-origin:0 0;" ref="{{ heroRef }}"><dc-import name="Folio" kind="picture" theme="dark" platform="win11" jax-open="{{ false }}" sel-id="i2" hint-size="1440px,900px" style="width:1440px;height:900px;display:block;"></dc-import></div>
+        </div>
+        <span style="font-size:13px;color:#7c8796;">That's the real app — click around. Everything you see works.</span>
+      </section>
+
+      <section style="max-width:1200px;margin:0 auto;padding:4rem 2rem;box-sizing:border-box;display:flex;flex-direction:column;gap:2rem;">
+        <div style="display:flex;flex-direction:column;gap:10px;max-width:720px;"><span style="font-size:13px;color:#ffaa40;font-weight:600;">Made for every kind of book</span><h2 style="margin:0;font-family:var(--font-heading);font-size:40px;font-weight:700;letter-spacing:-0.02em;color:#fff;">Start from a book that already looks right</h2><p style="margin:0;font-size:16px;line-height:1.6;color:#b4bfce;">Each kind comes with its own sizes, margins, styles and sample spreads, so your first page isn't a blank one.</p></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:16px;">
+          <sc-for list="{{ kinds }}" as="k"><div style="padding:1.5rem;border-radius:16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.1);display:flex;flex-direction:column;gap:10px;" style-hover="border-color:#a78bfa"><div style="{{ k.art }}"><div style="{{ k.p0 }}"><sc-for list="{{ k.k0 }}" as="x"><div style="{{ x }}"></div></sc-for></div><div style="{{ k.p1 }}"><sc-for list="{{ k.k1 }}" as="x"><div style="{{ x }}"></div></sc-for></div></div><span style="font-family:var(--font-heading);font-size:19px;font-weight:600;color:#fff;">{{ k.t }}</span><span style="font-size:14px;line-height:1.55;color:#b4bfce;">{{ k.b }}</span></div></sc-for>
+        </div>
+      </section>
+
+      <section style="max-width:1200px;margin:0 auto;padding:4rem 2rem;box-sizing:border-box;display:flex;flex-direction:column;gap:2rem;">
+        <div style="display:flex;flex-direction:column;gap:10px;max-width:720px;"><span style="font-size:13px;color:#22d3ee;font-weight:600;">What's inside</span><h2 style="margin:0;font-family:var(--font-heading);font-size:40px;font-weight:700;letter-spacing:-0.02em;color:#fff;">Easy when you want it. Every number when you need it.</h2></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(340px, 1fr));gap:16px;">
+          <sc-for list="{{ features }}" as="f"><button onClick="{{ f.onClick }}" style="text-align:left;padding:1.6rem;border-radius:16px;background:rgba(20,20,25,0.4);border:1px solid rgba(255,255,255,0.1);display:flex;flex-direction:column;gap:10px;color:inherit;font:inherit;cursor:pointer;" style-hover="border-color:#ffaa40;background:rgba(30,30,38,0.7)"><span style="{{ f.icon }}"><svg width="20" height="20" viewBox="0 0 16 16" style="fill:none;stroke:currentColor;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round;"><path d="{{ f.d }}"></path></svg></span><span style="font-family:var(--font-heading);font-size:18px;font-weight:600;color:#fff;">{{ f.t }}</span><span style="font-size:14px;line-height:1.6;color:#b4bfce;">{{ f.b }}</span><span style="font-size:13px;color:#ffaa40;">Read the manual →</span></button></sc-for>
+        </div>
+      </section>
+
+      <section style="max-width:1200px;margin:0 auto;padding:4rem 2rem;box-sizing:border-box;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(340px, 1fr));gap:3rem;align-items:center;padding:3rem;border-radius:24px;background:linear-gradient(160deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.1);">
+          <div style="display:flex;flex-direction:column;gap:14px;"><span style="font-family:var(--font-mono);font-size:13px;color:#e25d75;">jax · 🦦 otter break</span><h2 style="margin:0;font-family:var(--font-heading);font-size:36px;font-weight:700;letter-spacing:-0.02em;color:#fff;">Meet Jax. He helps if you ask.</h2><p style="margin:0;font-size:16px;line-height:1.65;color:#b4bfce;text-wrap:pretty;">A small 3D otter who lives on the status bar. He can walk you through your first book, check each page, or answer “how do I…?” — right on your computer, nothing sent anywhere. Or he can just go fishing. He never pops up uninvited.</p><div style="display:flex;gap:10px;flex-wrap:wrap;"><sc-for list="{{ jaxBits }}" as="j"><span style="padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,0.12);font-size:13px;color:#e2e8f0;">{{ j }}</span></sc-for></div></div>
+          <div style="display:flex;justify-content:center;"><div ref="{{ jaxRef }}" style="width:260px;height:260px;border-radius:24px;background:radial-gradient(circle at 50% 78%, rgba(255,180,84,0.3), transparent 70%);"></div></div>
+        </div>
+      </section>
+
+      <section style="max-width:1200px;margin:0 auto;padding:4rem 2rem;box-sizing:border-box;display:flex;flex-direction:column;gap:2rem;">
+        <div style="display:flex;flex-direction:column;gap:10px;max-width:760px;"><span style="font-size:13px;color:#f43f5e;font-weight:600;">One book, every format</span><h2 style="margin:0;font-family:var(--font-heading);font-size:40px;font-weight:700;letter-spacing:-0.02em;color:#fff;">Press Export once</h2><p style="margin:0;font-size:16px;line-height:1.6;color:#b4bfce;">Folio checks your book gently first — pictures too small, words in the margins — then makes every file in one go.</p></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:12px;">
+          <sc-for list="{{ exports }}" as="e"><div style="padding:1.2rem;border-radius:14px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.1);display:flex;flex-direction:column;gap:6px;"><span style="font-family:var(--font-heading);font-size:16px;font-weight:600;color:#fff;">{{ e.t }}</span><span style="font-family:var(--font-mono);font-size:12px;color:#7c8796;">{{ e.f }}</span></div></sc-for>
+        </div>
+      </section>
+
+      <section style="max-width:1200px;margin:0 auto;padding:4rem 2rem 6rem;box-sizing:border-box;display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:16px;">
+        <sc-for list="{{ principles }}" as="p"><div style="padding:2rem;border-radius:16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.1);display:flex;flex-direction:column;gap:12px;" style-hover="transform:translateY(-5px)"><span style="width:40px;height:40px;border-radius:10px;background:rgba(255,170,64,0.12);display:flex;align-items:center;justify-content:center;font-size:20px;">{{ p.e }}</span><span style="font-family:var(--font-heading);font-size:19px;font-weight:600;color:#fff;">{{ p.t }}</span><span style="font-size:14px;line-height:1.6;color:#b4bfce;">{{ p.b }}</span></div></sc-for>
+      </section>
+
+      <section ref="{{ dlRef }}" style="max-width:1200px;margin:0 auto;padding:0 2rem 6rem;box-sizing:border-box;">
+        <div style="padding:3rem;border-radius:24px;border:1px solid rgba(255,170,64,0.35);background:radial-gradient(ellipse at 90% 0%, rgba(255,170,64,0.12), transparent 60%), rgba(20,20,25,0.5);display:flex;flex-direction:column;gap:20px;">
+          <h2 style="margin:0;font-family:var(--font-heading);font-size:36px;font-weight:700;letter-spacing:-0.02em;color:#fff;">Download Folio</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:12px;">
+            <sc-for list="{{ downloads }}" as="d"><div style="padding:1.2rem 1.4rem;border-radius:14px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);display:flex;flex-direction:column;gap:6px;"><span style="font-family:var(--font-heading);font-size:17px;font-weight:600;color:#fff;">{{ d.t }}</span><span style="font-size:13px;color:#b4bfce;">{{ d.b }}</span><span style="font-family:var(--font-mono);font-size:12px;color:#7c8796;">{{ d.f }}</span></div></sc-for>
+          </div>
+          <span style="font-size:13px;color:#7c8796;">Version 0.2 · Apache-2.0 OR MIT · <button onClick="{{ goInstall }}" style="border:none;background:none;color:#ffaa40;font:inherit;cursor:pointer;padding:0;">Install guide →</button></span>
+        </div>
+      </section>
+    </main>
+  </sc-if>
+
+  <sc-if value="{{ isManual }}" hint-placeholder-val="{{ false }}">
+    <main style="position:relative;max-width:1280px;margin:0 auto;padding:2.5rem 2rem 6rem;box-sizing:border-box;display:grid;grid-template-columns:270px minmax(0,1fr);gap:3rem;">
+      <aside style="position:sticky;top:88px;align-self:start;display:flex;flex-direction:column;gap:16px;max-height:calc(100vh - 110px);overflow:auto;">
+        <input value="{{ q }}" onChange="{{ onQ }}" placeholder="Search the manual" style="height:36px;padding:0 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.03);color:#e0e0e0;font:inherit;font-size:14px;outline:none;" style-focus="border-color:#ffaa40">
+        <sc-for list="{{ toc }}" as="g">
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <span style="font-size:12px;font-weight:600;color:#7c8796;padding:0 10px 4px;">{{ g.t }}</span>
+            <sc-for list="{{ g.items }}" as="it"><button onClick="{{ it.onClick }}" style="{{ it.style }}" style-hover="color:#fff;background:rgba(255,255,255,0.04)">{{ it.t }}</button></sc-for>
+          </div>
+        </sc-for>
+      </aside>
+      <article style="min-width:0;display:flex;flex-direction:column;gap:18px;max-width:820px;">
+        <span style="font-size:13px;color:#7c8796;">{{ page.crumb }}</span>
+        <h1 style="margin:0;font-family:var(--font-heading);font-size:44px;font-weight:700;letter-spacing:-0.02em;color:#fff;line-height:1.1;">{{ page.t }}</h1>
+        <sc-if value="{{ page.isJax }}">
+          <div style="display:flex;align-items:center;gap:22px;padding:18px 22px;border-radius:16px;background:linear-gradient(160deg, rgba(226,93,117,0.10), rgba(255,255,255,0.02));border:1px solid rgba(226,93,117,0.3);">
+            <div ref="{{ manJaxRef }}" onClick="{{ nextMood }}" title="Click Jax for another pose" style="width:180px;height:180px;flex-shrink:0;border-radius:18px;background:radial-gradient(circle at 50% 78%, rgba(255,180,84,0.3), transparent 70%);cursor:pointer;"></div>
+            <div style="display:flex;flex-direction:column;gap:8px;min-width:0;">
+              <span style="font-family:var(--font-mono);font-size:13px;color:#e25d75;">jax · {{ jaxCap }}</span>
+              <span style="font-size:15px;line-height:1.55;color:#d6dbe2;text-wrap:pretty;">{{ jaxWhen }}</span>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;"><sc-for list="{{ moodChips }}" as="m"><button onClick="{{ m.onClick }}" style="{{ m.style }}" style-hover="border-color:#e25d75;color:#fff">{{ m.label }}</button></sc-for></div>
+            </div>
+          </div>
+        </sc-if>
+        <p style="margin:0;font-size:18px;font-weight:300;line-height:1.6;color:#b4bfce;text-wrap:pretty;">{{ page.lede }}</p>
+        <sc-for list="{{ page.blocks }}" as="b">
+          <sc-if value="{{ b.isH }}"><h2 style="margin:22px 0 0;font-family:var(--font-heading);font-size:24px;font-weight:600;color:#fff;">{{ b.t }}</h2></sc-if>
+          <sc-if value="{{ b.isP }}"><p style="margin:0;font-size:16px;line-height:1.7;color:#d6dbe2;text-wrap:pretty;">{{ b.t }}</p></sc-if>
+          <sc-if value="{{ b.isTip }}"><div style="{{ b.style }}"><span style="{{ b.labelStyle }}">{{ b.label }}</span><span style="font-size:15px;line-height:1.6;color:#e2e8f0;">{{ b.t }}</span></div></sc-if>
+          <sc-if value="{{ b.isSteps }}"><ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;"><sc-for list="{{ b.items }}" as="s"><li style="display:flex;gap:14px;align-items:flex-start;"><span style="width:28px;height:28px;flex-shrink:0;border-radius:14px;background:rgba(255,170,64,0.14);color:#ffaa40;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:13px;font-weight:600;">{{ s.n }}</span><span style="font-size:16px;line-height:1.6;color:#d6dbe2;padding-top:2px;">{{ s.t }}</span></li></sc-for></ol></sc-if>
+          <sc-if value="{{ b.isKeys }}"><div style="display:flex;flex-direction:column;border:1px solid rgba(255,255,255,0.1);border-radius:12px;overflow:hidden;"><sc-for list="{{ b.items }}" as="k"><div style="display:flex;justify-content:space-between;gap:16px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.06);font-size:14.5px;"><span style="color:#d6dbe2;">{{ k.a }}</span><span style="font-family:var(--font-mono);font-size:13px;color:#ffaa40;">{{ k.k }}</span></div></sc-for></div></sc-if>
+          <sc-if value="{{ b.isFig }}"><figure style="margin:6px 0;display:flex;flex-direction:column;gap:8px;"><div style="width:100%;aspect-ratio:16/10;border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,0.1);position:relative;background:#1c1917;"><div style="position:absolute;inset:0;width:1440px;height:900px;transform:scale(0.5694);transform-origin:0 0;"><dc-import name="Folio" dc-props="{{ b.props }}" hint-size="1440px,900px" style="width:1440px;height:900px;display:block;"></dc-import></div></div><figcaption style="font-size:13px;color:#7c8796;">{{ b.cap }}</figcaption></figure></sc-if>
+          <sc-if value="{{ b.isTable }}"><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;"><sc-for list="{{ b.items }}" as="c"><div style="padding:14px 16px;border-radius:12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.1);display:flex;flex-direction:column;gap:4px;"><span style="font-size:15px;font-weight:600;color:#fff;">{{ c.a }}</span><span style="font-size:14px;line-height:1.55;color:#b4bfce;">{{ c.b }}</span></div></sc-for></div></sc-if>
+        </sc-for>
+        <div style="display:flex;justify-content:space-between;gap:12px;margin-top:28px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.08);">
+          <sc-if value="{{ page.hasPrev }}"><button onClick="{{ page.prev }}" style="display:flex;flex-direction:column;gap:2px;align-items:flex-start;padding:12px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:inherit;font:inherit;cursor:pointer;" style-hover="border-color:#ffaa40"><span style="font-size:12px;color:#7c8796;">← Previous</span><span style="font-size:15px;color:#fff;">{{ page.prevT }}</span></button></sc-if>
+          <div style="flex:1;"></div>
+          <sc-if value="{{ page.hasNext }}"><button onClick="{{ page.next }}" style="display:flex;flex-direction:column;gap:2px;align-items:flex-end;padding:12px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:inherit;font:inherit;cursor:pointer;" style-hover="border-color:#ffaa40"><span style="font-size:12px;color:#7c8796;">Next →</span><span style="font-size:15px;color:#fff;">{{ page.nextT }}</span></button></sc-if>
+        </div>
+      </article>
+    </main>
+  </sc-if>
+
+  <footer style="border-top:1px solid rgba(255,255,255,0.14);padding:2.5rem 2rem;">
+    <div style="max-width:1200px;margin:0 auto;display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between;font-size:13px;color:#7c8796;">
+      <span><span style="font-variant:small-caps;letter-spacing:0.08em;color:#b4bfce;">liminal hq</span> · Digital tools for the spaces in between.</span>
+      <span>Folio is Apache-2.0 OR MIT · Designed &amp; Coded in Canada 🍁</span>
+    </div>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;header&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;island&quot;,&quot;bar&quot;,&quot;window&quot;,&quot;ribbon&quot;,&quot;masthead&quot;],&quot;default&quot;:&quot;island&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;manual&quot;],&quot;default&quot;:&quot;home&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;page&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;}}">
+const I = { book: 'M3 2.5h8a2 2 0 012 2v9.5H5a2 2 0 01-2-2zM3 11.5a2 2 0 012-2h8', snap: 'M5 1.5v13M1.5 10.5h13', text: 'M3 3.5h10M8 3.5v9.5M6 13h4', image: 'M2 3h12v10H2zM2 11l3.5-3.5 3 3 2-2L14 12M11 5a1 1 0 110 2 1 1 0 010-2z', cover: 'M3.5 1.5h9v13h-9zM6 5h4M6 7.5h4', export: 'M8 10V2M5 5l3-3 3 3M3 9v5h10V9', reader: 'M4 1.5h8v13H4zM6 4h4M6 6h4M6 8h3M7 12.5h2', tools: 'M2 2.5h5.5v5.5H2zM9 2.5h5v3H9zM9 7h5v6.5H9zM2 9.5h5.5v4H2z', jax: 'M8 1.5a6.5 6.5 0 110 13 6.5 6.5 0 010-13zM6.2 6.2a1.9 1.9 0 113 1.5c-.6.4-1.2.8-1.2 1.6M8 11.3v.2' };
+const tip = (t, label, tone) => ({ isTip: true, t, label: label || 'Tip', tone: tone || 'orange' });
+const P = (t) => ({ isP: true, t }), H = (t) => ({ isH: true, t }), S = (...items) => ({ isSteps: true, items: items.map((t, i) => ({ n: String(i + 1), t })) }), K = (...rows) => ({ isKeys: true, items: rows.map(([a, k]) => ({ a, k })) }), FIG = (cap, props) => ({ isFig: true, cap, props: Object.assign({ theme: 'dark', platform: 'win11', jaxOpen: false }, props) }), T = (...rows) => ({ isTable: true, items: rows.map(([a, b]) => ({ a, b })) });
+const MANUAL = [
+  ['Getting started', [
+    ['install', 'Install Folio', 'Folio runs on Windows 11 and on Linux — GNOME, KDE Plasma and Cinnamon.', [H('Windows 11'), S('Download Folio-Setup.exe from the Download section.', 'Double-click it. Windows may ask if you trust Liminal HQ — choose Yes.', 'Folio appears in the Start menu. Pin it to the taskbar if you like.'), H('Linux'), S('Download the Flatpak, AppImage, .deb or .rpm — whichever your system uses.', 'Flatpak: open it with your software centre, or run flatpak install folio.flatpak.', 'Folio follows your desktop\'s light or dark theme and its window buttons.'), tip('Folio never needs an account or the internet. Your books stay on your computer unless you export them.', 'Good to know', 'cyan')]],
+    ['first-book', 'Your first book', 'From opening the app to a finished spread in about ten minutes.', [S('Open Folio. The welcome screen asks what you\'re making — pick a kind, like Picture book.', 'Choose a book size. The common Amazon sizes are listed for each kind.', 'Choose Easy or Expert. Easy is a great place to start; you can switch any time.', 'Decide whether Jax should help. “Yes, walk me through it” gives you a step-by-step guide.', 'Press Start. You\'ll see sample pages — change their words and pictures to make them yours.'), FIG('The welcome screen: what you\'re making, how you like to work, and whether Jax helps.', { screen: 'welcome' }), tip('Everything saves itself. Folio also keeps a recovery copy inside your book file.')]],
+    ['modes', 'Easy and Expert', 'Two ways to work with the same book. Switch at the top right of the toolbar.', [T(['Easy', 'Plain words. Styles by name, Smaller / Bigger instead of point sizes, formatting applies to the whole box.'], ['Expert', 'Every number: positions in inches or millimetres, single-word styling, master pages, layers, PDF/X and colour profiles.']), tip('Easy never throws anything away. Settings made in Expert keep working when you switch back.')]],
+  ]],
+  ['Walkthrough', [
+    ['w-layout', '1 · Lay out a spread', 'Drag things on the page; Folio helps them line up.', [P('Click a picture or text box to select it, then drag. Thin cyan lines appear when it lines up with a margin, the middle of the page, or another box — let go and it snaps there.'), S('Drag from the middle to move.', 'Drag a corner to resize. Hold Shift to keep the shape.', 'Hold Alt while dragging to ignore the guides.', 'Use the arrow keys to nudge; add Shift to move ten times further.'), FIG('A picture-book spread with a picture selected.', { kind: 'picture', selId: 'i2' }), tip('Pink dashed line: the bleed. Pictures that touch the edge should reach it. Purple dashed lines: safe margins — keep words inside them.')]],
+    ['w-words', '2 · Write and style the words', 'Type straight onto the page and style it like a word processor.', [S('Double-click a text box to start typing.', 'Use the Home tab for font, size, bold, italic, colour, alignment, lists and line spacing.', 'A small toolbar floats above the box while you type — the most-used tools, close at hand.', 'Press Esc or click the page when you\'re done.'), FIG('Typing with the mini toolbar.', { kind: 'picture', editId: 'p1', mode: 'expert', theme: 'light' }), tip('In Easy, styling applies to the whole box. In Expert, select a word first to style just that word.')]],
+    ['w-pages', '3 · Pages and templates', 'Add, reorder and design whole spreads.', [P('Every spread sits in the shelf along the bottom. Click one to open it, or drag it to a new place — an orange line shows where it will land.'), S('Press + Add pages at the end of the shelf for two new pages.', 'Or choose Insert → Spread templates for a ready-made layout sized to your book.', 'Right-click a thumbnail to duplicate or remove it.'), FIG('Spread templates, sized for this book.', { kind: 'picture', tplOpen: true })]],
+    ['w-pictures', '4 · Pictures, shapes and backgrounds', 'Make the page look the way you imagine.', [P('Select a picture and a Picture tab appears in the ribbon: replace, crop, rotate, flip, border, rounded corners, filters, and how words wrap around it.'), S('Insert → Shapes and Bubbles for speech bubbles, notes and lines.', 'Insert → Table for recipe ingredients or lesson worksheets.', 'Pages → Page background for a colour, texture, gradient or picture behind the page.'), FIG('Picture tools on a memoir page.', { kind: 'memoir', selId: 'mp', tab: 'picture', theme: 'light' })]],
+    ['w-cover', '5 · Make the cover', 'Back, spine and front — printed as one sheet.', [P('The Cover is always first in the shelf. It shows the back, spine and front together. The spine gets wider as you add pages, and everything on the front slides along with it.'), S('Click the title, blurb or art to change them.', 'Use the switcher to see Paperback, Hardcover, Dust jacket, Inside covers or the eBook crop.', 'Choose ISBN barcode… to make a real barcode, or let Amazon add one.'), FIG('A dust jacket: flaps, back, spine and front.', { kind: 'novel', onCover: true, coverMode: 'jacket' }), tip('The white box on the back is where the barcode goes. Folio warns you if anything drifts into it.', 'Barcode area', 'rose')]],
+    ['w-preview', '6 · Check it on a Kindle', 'See your book the way readers will.', [P('Above the page, switch between Print, Kindle and Kobo. Novels and memoirs reflow like a real e-reader; use the A / A buttons to try bigger text. Picture books show in a device frame, exactly as designed.'), FIG('A novel on a Kindle.', { kind: 'novel', target: 'kindle' })]],
+    ['w-export', '7 · Export for Amazon, Kobo and print', 'One button makes every file.', [S('Press Export book (Ctrl+E).', 'Tick where it\'s going: Kindle, Kobo, KDP paperback, hardcover, a PDF for your local printer, or a PDF for sharing.', 'Read the “Before you send it” checks. Each one says how to fix it.', 'Press Export. The files land in your Books folder.'), FIG('Export with the KDP cover diagram and checks.', { kind: 'picture', exportOpen: true, exTarget: 'paperback', theme: 'light' }), tip('Amazon asks for three files for a paperback and eBook: the inside pages, the cover, and the EPUB. Folio makes all three.')]],
+  ]],
+  ['Using Folio', [
+    ['d-window', 'The Folio window', 'What each part of the window is for.', [T(['Folio menu', 'Top left. New, open, save, export, book tools and interface options. The classic menu bar is hidden until you want it (F10).'], ['Document tabs', 'Every open book. Drag one down to give it its own window.'], ['Ribbon or toolbar', 'Home, Insert, Pages, Layout, View, Export — plus Picture, Shape and Table tabs when one is selected.'], ['Sidebar', 'Properties of whatever is selected, and Pages. Expert adds Design, Structure and Book.'], ['Page shelf', 'Cover first, then every spread. Jax sits beside it when he\'s open.'], ['Status bar', 'Book size and pages, snapping, saved state — and Jax\'s perch.']), tip('View → Interface lets you pick from eight toolbar layouts and six sidebar layouts.')]],
+    ['d-marks', 'Page marks and guides', 'The coloured lines on the page — and how to change them.', [T(['Pink dashed', 'Bleed. Anything past it is trimmed off.'], ['Purple dashed', 'Safe margins. Keep words inside.'], ['Orange columns', 'The column grid, when it\'s on.'], ['Cyan lines', 'Smart guides while you drag, and the baseline grid.'], ['Orange folds', 'The spine on a cover.'], ['Rose box', 'The barcode area on the back cover.']), P('The Marks button above the page turns each one on or off and lets you pick its colour. Marks never print.')]],
+    ['d-styles', 'Text and styles', 'Named styles keep a whole book consistent.', [P('Every text box uses a style — Story text, Heading, Caption, Body. Change a style and every box using it follows. Expert\'s Design panel lists all the styles, how often each is used, and lets you apply them with a click.'), tip('Typesetting checks (Book tools) find boxes that drifted from their style, and fix them in one go.')]],
+    ['d-jax', 'Jax', 'An optional helper. He never interrupts.', [T(['Tip', 'A gentle hint about what you\'re doing.'], ['This page', 'A checklist for the current spread.'], ['Guide', 'A step-by-step walk through your whole book.'], ['Ask', '“How do I…?” — answered from Folio\'s help, on your computer.']), P('Click Jax on the status bar to open or close him, or press Ctrl+J. Turn him off completely in Preferences.')]],
+    ['d-tools', 'Book tools', 'Eight workbenches for finishing touches.', [P('Folio menu → Book tools opens: Book structure (title page, contents, copyright, index), Typesetting checks, Pictures, Proofing (comments, home printing, read-aloud), Publishing helpers (upload checklist, royalties, launch plan), Series and editions, Accessibility, and Picture-book extras.')]],
+    ['d-files', '.folio files', 'Your book is a single, open file.', [P('A .folio file is a zip you can always unpack: your words as plain text and Markdown, your original pictures, and the layout as readable JSON. Nothing is locked away.'), tip('Back up your Books folder like any other documents. A .folio from today will open in future versions.', 'Peace of mind', 'cyan')]],
+    ['d-keys', 'Keyboard shortcuts', 'The ones worth learning.', [K(['Undo · Redo', 'Ctrl+Z · Ctrl+Shift+Z'], ['Bold · Italic · Underline', 'Ctrl+B · Ctrl+I · Ctrl+U'], ['Duplicate', 'Ctrl+D'], ['Group · Ungroup', 'Ctrl+G · Ctrl+Shift+G'], ['Select everything on the spread', 'Ctrl+A'], ['Edit the selected text', 'Enter'], ['Stop editing · deselect', 'Esc'], ['Nudge · nudge ×10', 'Arrows · Shift+arrows'], ['Find & replace', 'Ctrl+F'], ['Export book', 'Ctrl+E'], ['Show or hide Jax', 'Ctrl+J'], ['Menu bar', 'F10'], ['Zoom in · out · fit', 'Ctrl+= · Ctrl+− · Ctrl+0'])]],
+  ]],
+];
+const MOODS = [['wave', '👋 oh hi', 'Waves when you open his panel, or when you pet him.'], ['writing', '✏️ taking notes', 'Scribbles along while you type in a text box.'], ['checking', '🔍 checking every page', 'Sweeps a magnifying glass while Export checks your book.'], ['printing', '🖨️ printing a tiny proof', 'Runs a little printer while your files are being made.'], ['party', '🎉 it worked!', 'Hat, confetti and a spin when your export finishes.'], ['thumbsup', '👍 looking good', 'A thumbs up when a page passes its checklist.'], ['stuck', '🤔 hmm', 'Scratches his head when you press “I\'m lost”.'], ['fishing', '🎣 fishin\' for typos', 'One of his idle hobbies when nothing\'s happening.'], ['tea', '🍵 tea break', 'Another idle hobby. He sips every few seconds.'], ['flipping', '📖 flipping ahead', 'Turns the pages of his little book.'], ['nap', '😴 zzz… floating', 'After 45 seconds of quiet he floats on his back for a nap.']];
+const FLAT = []; MANUAL.forEach(([g, items]) => items.forEach((it) => FLAT.push({ g, id: it[0], t: it[1], lede: it[2], blocks: it[3] })));
+class Component extends DCLogic {
+  heroRef = React.createRef(); jaxRef = React.createRef(); dlRef = React.createRef(); manJaxRef = React.createRef();
+  state = { mood: 'wave', moodAuto: true, view: (this.props && this.props.view) || 'home', page: (this.props && this.props.page) || 'install', q: '', winMenu: false };
+  componentDidMount() {
+    this.fit = () => { const el = this.heroRef.current; if (el && el.parentElement) el.style.transform = 'scale(' + (el.parentElement.clientWidth / 1440) + ')'; };
+    this.ro = new ResizeObserver(this.fit); this.tick = setInterval(() => { const el = this.heroRef.current; if (el && el.parentElement && !el.__obs) { el.__obs = 1; this.ro.observe(el.parentElement); this.fit(); } this.mountJax(); this.mountMan(); }, 400);
+  }
+  mountMan() { const h = this.manJaxRef.current; if (h && h !== this.manHost) { if (this.man) this.man.dispose(); this.manHost = h; import(new URL('jax3d.js', document.baseURI).href).then((m) => m.mountJax(h, { size: 180, fps: 30 })).then((j) => { if (this.manHost !== h) return j.dispose(); this.man = j; j.setMood(this.state.mood || 'wave'); clearInterval(this.ml); this.ml = setInterval(() => { if (this.state.moodAuto) this.setMood(MOODS[(MOODS.findIndex((x) => x[0] === this.state.mood) + 1) % MOODS.length][0], true); }, 4200); }).catch(() => {}); } else if (!h && this.manHost) { if (this.man) this.man.dispose(); clearInterval(this.ml); this.man = null; this.manHost = null; } }
+  setMood(m, auto) { this.setState({ mood: m, moodAuto: !!auto || this.state.moodAuto && auto !== false }); if (this.man) this.man.setMood(m); }
+  componentWillUnmount() { clearInterval(this.ml); if (this.man) this.man.dispose(); clearInterval(this.tick); this.ro && this.ro.disconnect(); if (this.jax) this.jax.dispose(); }
+  mountJax() { const h = this.jaxRef.current; if (h && h !== this.jaxHost) { if (this.jax) this.jax.dispose(); this.jaxHost = h; import(new URL('jax3d.js', document.baseURI).href).then((m) => m.mountJax(h, { size: 260, fps: 30 })).then((j) => { this.jax = j; j.setMood('fishing'); this.jl = setInterval(() => j.setMood(['fishing', 'tea', 'flipping', 'wave', 'chill'][Math.floor(Math.random() * 5)]), 6000); }).catch(() => {}); } else if (!h && this.jaxHost) { if (this.jax) this.jax.dispose(); clearInterval(this.jl); this.jax = null; this.jaxHost = null; } }
+  goDl() { const st = this.state; if (st.view !== 'home') this.setState({ view: 'home' }); setTimeout(() => { const el = this.dlRef.current; if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' }); }, 60); }
+  go(view, page) { this.setState(Object.assign({ view }, page ? { page } : {})); try { window.scrollTo({ top: 0 }); } catch (e) {} }
+  renderVals() {
+    const st = this.state, navBtn = (on) => ({ height: 36, padding: '0 14px', border: 'none', borderRadius: 999, background: on ? 'rgba(255,170,64,0.12)' : 'transparent', color: on ? '#ffaa40' : '#b4bfce', font: 'inherit', fontSize: 14, fontWeight: 500, cursor: 'pointer' });
+    const isWalk = st.view === 'manual' && st.page.indexOf('w-') === 0, isDocs = st.view === 'manual' && !isWalk;
+    const ql = st.q.trim().toLowerCase(), match = (it) => !ql || (it.t + ' ' + it.lede + ' ' + it.blocks.map((b) => b.t || '').join(' ')).toLowerCase().includes(ql);
+    const idx = Math.max(0, FLAT.findIndex((p) => p.id === st.page)), cur = FLAT[idx];
+    const TONE = { orange: ['#ffaa40', 'rgba(255,170,64,0.08)'], cyan: ['#22d3ee', 'rgba(34,211,238,0.07)'], rose: ['#f43f5e', 'rgba(244,63,94,0.07)'] };
+    return {
+      heroRef: this.heroRef, jaxRef: this.jaxRef, dlRef: this.dlRef,
+      isHome: st.view === 'home', isManual: st.view === 'manual',
+      topNav: [['Home', () => this.go('home'), st.view === 'home'], ['Walkthrough', () => this.go('manual', 'w-layout'), isWalk], ['Manual', () => this.go('manual', 'install'), isDocs]].map(([label, onClick, on]) => ({ label, onClick, style: navBtn(on) })),
+      ...(() => { const hd = this.props.header || 'island', navs = [['Home', () => this.go('home'), st.view === 'home', '#ffaa40'], ['Walkthrough', () => this.go('manual', 'w-layout'), isWalk, '#22d3ee'], ['Manual', () => this.go('manual', 'install'), isDocs, '#a78bfa']];
+        const tab = (on) => ({ display: 'flex', alignItems: 'center', gap: 8, height: 30, padding: '0 14px', minWidth: 150, boxSizing: 'border-box', border: '1px solid ' + (on ? '#3a3531' : 'transparent'), borderBottom: 'none', borderRadius: '8px 8px 0 0', marginBottom: -1, background: on ? '#050507' : 'transparent', color: on ? '#f5f1ed' : '#c9c1ba', font: 'inherit', fontSize: 12.5, cursor: 'pointer' });
+        const go = (f) => () => { this.setState({ winMenu: false }); f(); };
+        return { hdBar: hd === 'bar', hdIsland: hd === 'island', hdWindow: hd === 'window', hdRibbon: hd === 'ribbon', hdMast: hd === 'masthead',
+          islandNav: navs.map(([l, f, on]) => ({ label: l, onClick: f, style: { height: 36, padding: '0 14px', border: 'none', borderRadius: 999, background: on ? 'rgba(255,255,255,0.1)' : 'transparent', color: on ? '#fff' : '#b4bfce', font: 'inherit', fontSize: 14, fontWeight: 500, cursor: 'pointer' } })),
+          winTitle: st.view === 'home' ? 'Folio — Home' : FLAT[Math.max(0, FLAT.findIndex((p) => p.id === st.page))].t, winMenuOpen: st.winMenu, winMenuBg: st.winMenu ? '#332e2b' : 'transparent', toggleWinMenu: () => this.setState({ winMenu: !st.winMenu }),
+          winTabs: navs.map(([l, f, on, c]) => ({ label: l, onClick: f, style: tab(on), dot: { width: 8, height: 8, borderRadius: 2, background: c } })),
+          winMenu: [{ item: true, label: 'Home', key: 'Alt+H', onClick: go(() => this.go('home')) }, { item: true, label: 'Take the walkthrough', key: '', onClick: go(() => this.go('manual', 'w-layout')) }, { item: true, label: 'Open the manual', key: 'F1', onClick: go(() => this.go('manual', 'install')) }, { sep: true }, { item: true, label: 'Download for Windows 11', key: '', onClick: go(() => this.goDl()) }, { item: true, label: 'Download for Linux', key: '', onClick: go(() => this.goDl()) }, { sep: true }, { item: true, label: 'Keyboard shortcuts', key: 'Ctrl+?', onClick: go(() => this.go('manual', 'd-keys')) }, { item: true, label: 'About Liminal HQ', key: '', onClick: go(() => { location.href = 'https://liminalhq.ca'; }) }],
+          ribTabs: navs.map(([l, f, on]) => ({ label: l, onClick: f, style: { height: 28, padding: '0 12px', border: 'none', borderRadius: 6, background: on ? 'rgba(255,170,64,0.12)' : 'transparent', color: on ? '#ffaa40' : '#b4bfce', font: 'inherit', fontSize: 13, fontWeight: on ? 600 : 500, cursor: 'pointer' } })),
+          ribGroups: [['Start', '#ffaa40', [['Install', 'install', 'M8 2v8M5 7l3 3 3-3M3 11v3h10v-3'], ['First book', 'first-book', 'M3 2.5h8a2 2 0 012 2v9.5H5a2 2 0 01-2-2zM8 5v4M6 7h4']]], ['Make', '#22d3ee', [['Lay out', 'w-layout', 'M5 1.5v13M1.5 10.5h13'], ['Words', 'w-words', 'M3 3.5h10M8 3.5v9.5M6 13h4'], ['Pictures', 'w-pictures', 'M2 3h12v10H2zM2 11l3.5-3.5 3 3 2-2L14 12']]], ['Finish', '#f43f5e', [['Cover', 'w-cover', 'M3.5 1.5h9v13h-9zM6 5h4M6 7.5h4'], ['Kindle', 'w-preview', 'M4 1.5h8v13H4zM6 4h4M6 6h4'], ['Export', 'w-export', 'M8 10V2M5 5l3-3 3 3M3 9v5h10V9']]], ['Help', '#a78bfa', [['Jax', 'd-jax', 'M8 1.5a6.5 6.5 0 110 13 6.5 6.5 0 010-13z'], ['Shortcuts', 'd-keys', 'M1.5 4h13v8h-13zM4 6.5h1M7 6.5h1M10 6.5h2M4 9.5h8']]]].map(([label, colour, items]) => ({ label, colour, svgStyle: { fill: 'none', stroke: colour, strokeWidth: 1.3, strokeLinecap: 'round', strokeLinejoin: 'round' }, items: items.map(([l, page, d]) => ({ label: l, d, onClick: () => this.go('manual', page) })) })),
+          mastNav: navs.map(([l, f, on]) => ({ label: l, onClick: f, style: { height: 32, padding: '0 14px', border: 'none', borderBottom: '2px solid ' + (on ? '#ffaa40' : 'transparent'), background: 'transparent', color: on ? '#fff' : '#b4bfce', font: 'inherit', fontSize: 14, fontWeight: 500, cursor: 'pointer' } })) }; })(),
+      goHome: () => this.go('home'), goWalk: () => this.go('manual', 'w-layout'), goInstall: () => this.go('manual', 'install'),
+      goDownload: () => this.goDl(),
+      _gd: () => { if (st.view !== 'home') this.setState({ view: 'home' }); setTimeout(() => { const el = this.dlRef.current; if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' }); }, 60); },
+      kinds: (() => {
+        const PAPER = '#fbfaf6', sh = '0 4px 14px rgba(0,0,0,0.4)', pg = (x) => Object.assign({ position: 'relative', width: 84, height: 70, background: PAPER, boxShadow: sh, overflow: 'hidden' }, x || {});
+        const lines = (w, h, l, t, gap) => ({ position: 'absolute', left: l, top: t, width: w, height: h, backgroundImage: 'repeating-linear-gradient(to bottom, #a8a29e 0 1px, transparent 1px ' + (gap || 6) + 'px)' });
+        const blk = (l, t, w, h, c, r) => ({ position: 'absolute', left: l, top: t, width: w, height: h, background: c, borderRadius: r || 0 });
+        const K = [
+          ['Picture books', 'Fixed layouts, pictures to the edge, big friendly words. Spreads that run across the gutter.', [pg({ background: '#bae6fd' }), pg()], [[], [blk(14, 10, 56, 6, '#57534e', 1), blk(14, 20, 44, 6, '#57534e', 1), blk(22, 36, 40, 26, '#fed7aa', 3)]]],
+          ['Novels', 'Flowing chapters, running heads, page numbers that look after themselves.', [pg(), pg()], [[lines(58, 50, 13, 12, 5)], [blk(22, 10, 40, 4, '#44403c', 1), lines(58, 40, 13, 22, 5)]]],
+          ['Textbooks', 'Grids, figures, captions, callouts and worksheets.', [pg(), pg()], [[blk(10, 8, 50, 6, '#44403c', 1), lines(30, 40, 10, 20, 5), blk(44, 20, 30, 24, '#bbf7d0', 2), blk(10, 56, 64, 9, '#fed7aa', 2)], [blk(10, 8, 64, 24, '#ddd6fe', 2), lines(64, 30, 10, 38, 5)]]],
+          ['Cookbooks and crafts', 'Recipe pages with ingredients, methods and full-page photos.', [pg({ background: '#fed7aa' }), pg()], [[], [blk(10, 8, 50, 7, '#44403c', 1), lines(22, 42, 10, 22, 5), lines(36, 42, 38, 22, 5)]]],
+          ['Poetry', 'Generous white space, and lines that never re-wrap.', [pg(), pg()], [[blk(38, 30, 8, 8, '#a8a29e', 4)], [blk(26, 12, 32, 5, '#44403c', 1), lines(34, 34, 25, 24, 7)]]],
+          ['Memoirs', 'Your words with family photos and captions.', [pg(), pg()], [[blk(0, 0, 84, 46, '#bbf7d0'), lines(56, 12, 14, 52, 5)], [lines(58, 52, 13, 10, 5)]]],
+        ];
+        return K.map(([t, b, pages, kids]) => ({ t, b, art: { position: 'relative', height: 110, borderRadius: 10, background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, p0: pages[0], p1: Object.assign({}, pages[1], { boxShadow: sh + ', inset 1px 0 0 rgba(0,0,0,0.12)' }), k0: kids[0], k1: kids[1] }));
+      })(),
+      features: [['snap', 'Snaps into place', 'Drag anything and it lines up with margins, the centre and its neighbours. Undo anything, any time.', 'w-layout', '#22d3ee'], ['text', 'Real text tools', 'Fonts, sizes, lists, drop caps, find & replace — and a little toolbar that floats right where you\'re typing.', 'w-words', '#a78bfa'], ['cover', 'Covers that fit', 'Back, spine and front on one sheet. The spine sizes itself; the ISBN barcode is made for you.', 'w-cover', '#f43f5e'], ['reader', 'See it on a Kindle', 'Preview your book on Kindle and Kobo before anyone else does.', 'w-preview', '#60a5fa'], ['tools', 'Templates and tools', '23 spread templates, plus workbenches for contents pages, typesetting checks, proofing and publishing.', 'd-tools', '#2ec66a'], ['export', 'Every format at once', 'Kindle, Kobo, KDP paperback and hardcover, print-shop PDF/X and a PDF for sharing.', 'w-export', '#ffaa40']].map(([ic, t, b, page, col]) => ({ t, b, d: I[ic], onClick: () => this.go('manual', page), icon: { width: 40, height: 40, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: col + '1f', color: col } })),
+      jaxBits: ['Walk me through it', 'Check this page', 'How do I…?', 'Just chill'],
+      exports: [['Kindle', 'EPUB for KDP'], ['Kobo', 'EPUB 3 + KEPUB'], ['KDP paperback', 'interior + cover PDF'], ['KDP hardcover', 'case-laminate cover'], ['Local printer', 'PDF/X-4 with bleed'], ['Sharing', 'light PDF']].map(([t, f]) => ({ t, f })),
+      principles: [['💾', 'Local first', 'Folio works offline, with no account. Jax\'s answers are worked out on your computer.'], ['🛡️', 'Yours to keep', 'A .folio is an open zip of plain files. You can always get your words and pictures back out.'], ['🧶', 'Calm by design', 'No pop-ups, no nagging, no red alarms. Gentle checks with a fix for each one.']].map(([e, t, b]) => ({ e, t, b })),
+      downloads: [['Windows 11', 'Installer, signed', 'Folio-0.2-Setup.exe · 48 MB'], ['Linux · Flatpak', 'Recommended for GNOME and KDE', 'ca.liminalhq.Folio.flatpak'], ['Linux · AppImage, .deb, .rpm', 'For everything else', 'folio-0.2-x86_64.AppImage']].map(([t, b, f]) => ({ t, b, f })),
+      q: st.q, onQ: (e) => this.setState({ q: e.target.value }),
+      toc: MANUAL.map(([g]) => ({ t: g, items: FLAT.filter((p) => p.g === g && match(p)).map((p) => ({ t: p.t, onClick: () => this.go('manual', p.id), style: { textAlign: 'left', padding: '7px 10px', border: 'none', borderRadius: 8, background: p.id === st.page ? 'rgba(255,170,64,0.1)' : 'transparent', color: p.id === st.page ? '#ffaa40' : '#b4bfce', font: 'inherit', fontSize: 14, cursor: 'pointer', borderLeft: '2px solid ' + (p.id === st.page ? '#ffaa40' : 'transparent') } })) })).filter((g) => g.items.length),
+      manJaxRef: this.manJaxRef, jaxCap: (MOODS.find((x) => x[0] === st.mood) || MOODS[0])[1], jaxWhen: (MOODS.find((x) => x[0] === st.mood) || MOODS[0])[2], nextMood: () => this.setMood(MOODS[(MOODS.findIndex((x) => x[0] === st.mood) + 1) % MOODS.length][0], false),
+      moodChips: MOODS.map(([m, cap]) => ({ label: cap.split(' ')[0] + ' ' + m, onClick: () => this.setMood(m, false), style: { height: 26, padding: '0 10px', borderRadius: 13, border: '1px solid ' + (st.mood === m ? '#e25d75' : 'rgba(255,255,255,0.14)'), background: st.mood === m ? 'rgba(226,93,117,0.15)' : 'transparent', color: st.mood === m ? '#fff' : '#b4bfce', font: 'inherit', fontSize: 12, cursor: 'pointer' } })),
+      page: { isJax: cur.id === 'd-jax', crumb: 'Manual · ' + cur.g, t: cur.t, lede: cur.lede,
+        blocks: cur.blocks.map((b) => b.isTip ? Object.assign({}, b, { style: { display: 'flex', flexDirection: 'column', gap: 4, padding: '14px 18px', borderRadius: 12, background: TONE[b.tone][1], borderLeft: '3px solid ' + TONE[b.tone][0] }, labelStyle: { fontSize: 12, fontWeight: 600, color: TONE[b.tone][0] } }) : b),
+        hasPrev: idx > 0, prevT: idx > 0 ? FLAT[idx - 1].t : '', prev: () => this.go('manual', FLAT[idx - 1].id), hasNext: idx < FLAT.length - 1, nextT: idx < FLAT.length - 1 ? FLAT[idx + 1].t : '', next: () => this.go('manual', FLAT[idx + 1].id) },
+    };
+  }
+}
+</script>
+</body>
+</html>
