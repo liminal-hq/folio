@@ -329,8 +329,13 @@ pub fn first_fit(items: &[Item], width_of: &dyn Fn(usize) -> f64) -> Vec<Break> 
     let mut i = 0;
     let mut start = 0;
     while i < items.len() {
+        // Only a box that does not fit pushes a line over: the finishing glue never does.
+        let mut overflow = false;
         match items[i] {
-            Item::Box { width: w } => width += w,
+            Item::Box { width: w } => {
+                width += w;
+                overflow = true;
+            }
             Item::Glue {
                 width: w,
                 stretch: s,
@@ -362,7 +367,10 @@ pub fn first_fit(items: &[Item], width_of: &dyn Fn(usize) -> f64) -> Vec<Break> 
                 }
             }
         }
-        if width - shrink > width_of(line) + 1e-9 && candidate.is_some_and(|(c, ..)| c > start) {
+        if overflow
+            && width - shrink > width_of(line) + 1e-9
+            && candidate.is_some_and(|(c, ..)| c > start)
+        {
             let (at, w, s, k) = candidate.take().expect("checked above");
             breaks.push(Break {
                 at,

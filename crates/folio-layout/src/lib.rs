@@ -10,6 +10,8 @@
 pub mod breaker;
 pub mod error;
 pub mod fonts;
+pub mod hyphenate;
+pub mod paragraph;
 pub mod shape;
 
 pub use error::LayoutError;
