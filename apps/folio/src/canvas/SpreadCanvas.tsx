@@ -12,6 +12,7 @@ import { useRef } from 'react';
 import styles from './SpreadCanvas.module.css';
 import './fonts.css';
 import { PX_PER_POINT, spreadGeometry, type PlainRect } from './geometry';
+import type { FrameCommand } from './frameMenu';
 import { HANDLES, type Handle } from './snap';
 import { movable, useFrameDrag } from './useFrameDrag';
 
@@ -44,7 +45,9 @@ export interface SpreadCanvasProps {
 	onSelect?(ids: string[]): void;
 	/** Commits a frame's new box; resolves once the book has it. */
 	onMove?(id: string, rect: PlainRect): Promise<void>;
-	onDelete?(ids: string[]): void;
+	onCommand?(command: FrameCommand, ids: string[]): void;
+	/** The context menu was asked for on a frame, at these viewport coordinates. */
+	onFrameMenu?(frame: Frame, at: { x: number; y: number }): void;
 	/** The accessible name of the page area. */
 	label: string;
 }
@@ -174,7 +177,8 @@ export function SpreadCanvas({
 	selection = [],
 	onSelect,
 	onMove,
-	onDelete,
+	onCommand,
+	onFrameMenu,
 }: SpreadCanvasProps) {
 	const svg = useRef<SVGSVGElement | null>(null);
 	const geometry = spreadGeometry(book, spread);
@@ -188,7 +192,7 @@ export function SpreadCanvas({
 		selection,
 		onSelect,
 		onMove,
-		onDelete,
+		onCommand,
 	});
 	const frames = spread.frames.map((f) =>
 		drag.preview[f.id] ? ({ ...f, box: drag.preview[f.id] } as Frame) : f,
@@ -350,6 +354,11 @@ export function SpreadCanvas({
 							fill="transparent"
 							style={{ cursor: movable(frame) ? 'move' : 'default' }}
 							onPointerDown={(event) => drag.onFramePointerDown(event, frame)}
+							onContextMenu={(event) => {
+								event.preventDefault();
+								if (!selection.includes(frame.id)) onSelect?.([frame.id]);
+								onFrameMenu?.(frame, { x: event.clientX, y: event.clientY });
+							}}
 						/>
 					))}
 				</g>

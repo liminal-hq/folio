@@ -6,6 +6,7 @@
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { KeyboardEvent, PointerEvent, RefObject } from 'react';
 import { useRef, useState } from 'react';
+import type { FrameCommand } from './frameMenu';
 import type { PlainRect, SpreadGeometry } from './geometry';
 import {
 	resizeRect,
@@ -54,7 +55,8 @@ export interface FrameDragOptions {
 	onSelect?(ids: string[]): void;
 	/** Commits a frame's new box; resolves once the book has it. */
 	onMove?(id: string, rect: PlainRect): Promise<void>;
-	onDelete?(ids: string[]): void;
+	/** A command on the selection, from the keys: duplicate, delete. */
+	onCommand?(command: FrameCommand, ids: string[]): void;
 }
 
 /** Whether a frame can be dragged: not locked, and not a master's. */
@@ -66,7 +68,7 @@ const same = (a: PlainRect, b: PlainRect) =>
 	a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 
 export function useFrameDrag(options: FrameDragOptions) {
-	const { svg, geometry, frames, scale, selection, onSelect, onMove, onDelete } = options;
+	const { svg, geometry, frames, scale, selection, onSelect, onMove, onCommand } = options;
 	const drag = useRef<Drag | null>(null);
 	const [preview, setPreview] = useState<Record<string, PlainRect>>({});
 	const [lines, setLines] = useState<Snapped['lines']>([]);
@@ -239,8 +241,13 @@ export function useFrameDrag(options: FrameDragOptions) {
 			return;
 		}
 		if (selection.length === 0) return;
+		if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd') {
+			onCommand?.('duplicate', selection);
+			event.preventDefault();
+			return;
+		}
 		if (event.key === 'Delete' || event.key === 'Backspace') {
-			onDelete?.(selection.filter((id) => frames.some((f) => f.id === id && !f.locked)));
+			onCommand?.('delete', selection);
 			event.preventDefault();
 			return;
 		}
