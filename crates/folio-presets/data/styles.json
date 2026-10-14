@@ -89,6 +89,7 @@
 	},
 	"poem": {
 		"name": "Poem",
+		"wrap": "preserve",
 		"sizePt": 11,
 		"lineHeight": 1.6
 	},

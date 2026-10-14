@@ -1,0 +1,27 @@
+[package]
+name = "folio-layout"
+version = "0.1.0"
+description = "Folio's layout engine: fonts, shaping, line breaking and flow. Pure Rust, no Tauri"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+folio-model = { path = "../folio-model" }
+fontdb = { version = "0.24", default-features = false, features = ["std", "fs"] }
+hyphenation = { version = "0.8", default-features = false, features = ["embed_all"] }
+rustybuzz = "0.20"
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+ts-rs = { workspace = true }
+ttf-parser = "0.25"
+unicode-linebreak = "0.1"
+unicode-segmentation = "1"
+
+[dev-dependencies]
+folio-presets = { path = "../folio-presets" }
+proptest = "1"
