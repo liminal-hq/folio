@@ -11,6 +11,9 @@ import { AppWindowChrome } from './app/AppWindowChrome';
 import { AboutScreen } from './app/AboutScreen';
 import { BookToolsScreen } from './app/BookToolsScreen';
 import { MainScreen } from './app/MainScreen';
+import { BooksProvider } from './books/BooksProvider';
+import { tauriBooksClient } from './books/booksClient';
+import { tauriFileDialogs } from './books/dialogs';
 import { PreferencesScreen } from './app/PreferencesScreen';
 import { windowKindFromLabel } from './app/windowKind';
 import { SettingsProvider } from './settings/SettingsProvider';
@@ -25,7 +28,11 @@ import './theme/tokens.css';
 function screenFor(kind: WindowKind | null) {
 	switch (kind) {
 		case 'Main':
-			return <MainScreen />;
+			return (
+				<BooksProvider client={tauriBooksClient} dialogs={tauriFileDialogs}>
+					<MainScreen />
+				</BooksProvider>
+			);
 		case 'About':
 			return <AboutScreen />;
 		case 'Preferences':

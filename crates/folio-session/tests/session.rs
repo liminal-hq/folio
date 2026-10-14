@@ -533,3 +533,92 @@ fn only_the_last_200_steps_can_be_undone() {
     }
     assert_eq!(undone, UNDO_DEPTH);
 }
+
+// ── Fixtures the TypeScript side checks its own patch code against ──
+
+/// Where the cases are kept: next to the code in the app that applies patches.
+fn fixture_path() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../apps/folio/src/books/fixtures/patchCases.json")
+}
+
+/// Each case is a book, a patch produced for it by a real session, and the book after.
+/// The TypeScript `applyPatch` must turn the first into the last. Run with `UPDATE_FIXTURES=1` to
+/// rewrite the file after a deliberate change; otherwise the file must match what the code makes.
+#[test]
+fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
+    let mut cases = Vec::new();
+    let mut record =
+        |name: &str, s: &mut Session, step: &dyn Fn(&mut Session) -> folio_session::Patch| {
+            let before = serde_json::to_value(s.book()).unwrap();
+            let patch = step(s);
+            let after = serde_json::to_value(s.book()).unwrap();
+            cases.push(json!({
+                "name": name,
+                "before": before,
+                "patch": serde_json::to_value(&patch).unwrap(),
+                "after": after,
+            }));
+        };
+
+    let mut s = session();
+    record("move a frame", &mut s, &|s| {
+        s.apply(move_pic(40.0)).unwrap()
+    });
+    record("add a blank spread after the cover", &mut s, &|s| {
+        s.apply(Intent::AddSpread {
+            after: spread("sp_cover"),
+            duplicate: false,
+        })
+        .unwrap()
+    });
+    record("duplicate a spread", &mut s, &|s| {
+        s.apply(Intent::AddSpread {
+            after: spread("sp_1"),
+            duplicate: true,
+        })
+        .unwrap()
+    });
+    record("move a spread", &mut s, &|s| {
+        s.apply(Intent::MoveSpread {
+            spread: spread("sp_2"),
+            to: 1,
+        })
+        .unwrap()
+    });
+    record("delete a spread", &mut s, &|s| {
+        s.apply(Intent::DeleteSpread {
+            spread: spread("sp_1"),
+        })
+        .unwrap()
+    });
+    record("undo the delete", &mut s, &|s| s.undo().unwrap());
+    record("change the page geometry", &mut s, &|s| {
+        s.apply(Intent::SetBookGeometry {
+            trim: Some(Size {
+                w: Pt(504.0),
+                h: Pt(504.0),
+            }),
+            margins: None,
+            bleed: Some(Pt(0.0)),
+            grid: Some(Grid {
+                columns: 12,
+                gutter: Pt(6.0),
+                baseline: None,
+            }),
+        })
+        .unwrap()
+    });
+
+    let text = serde_json::to_string_pretty(&cases).unwrap() + "\n";
+    let path = fixture_path();
+    if std::env::var_os("UPDATE_FIXTURES").is_some() {
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, &text).unwrap();
+    }
+    let kept = std::fs::read_to_string(&path).unwrap_or_default();
+    assert_eq!(
+        kept, text,
+        "the patch cases are out of date: run `UPDATE_FIXTURES=1 cargo test -p folio-session` and commit the file"
+    );
+}

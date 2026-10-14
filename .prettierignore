@@ -21,3 +21,4 @@ site/.astro
 site/dist
 site/.astro
 site/src/content
+apps/folio/src/books/fixtures
