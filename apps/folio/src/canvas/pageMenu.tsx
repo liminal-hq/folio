@@ -6,6 +6,7 @@
 import type { MenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
 import { AddPagesIcon, DuplicateIcon } from '../icons/AppIcons';
 import { t } from '../i18n/messages';
+import type { MasterItem } from './masterItems';
 import type { Marks } from './marksModel';
 
 export type PageCommand =
@@ -15,7 +16,9 @@ export type PageCommand =
 	| 'addPages'
 	| 'duplicateSpread'
 	| 'toggleMargins'
-	| 'toggleGrid';
+	| 'toggleGrid'
+	/** `hideMaster:<page>:<frame>` hides a master item on one page; `showMaster:…` shows it again. */
+	| `${'hideMaster' | 'showMaster'}:${string}:${string}`;
 
 const Box = () => (
 	<svg
@@ -31,7 +34,11 @@ const Box = () => (
 	</svg>
 );
 
-export function pageMenuItems(marks: Marks, canDuplicate: boolean): MenuItem[] {
+export function pageMenuItems(
+	marks: Marks,
+	canDuplicate: boolean,
+	masterItems: MasterItem[] = [],
+): MenuItem[] {
 	return [
 		{ type: 'action', id: 'addText', label: t('page.addText'), icon: <Box /> },
 		{ type: 'action', id: 'addPicture', label: t('page.addPicture'), icon: <Box /> },
@@ -53,5 +60,12 @@ export function pageMenuItems(marks: Marks, canDuplicate: boolean): MenuItem[] {
 			label: t('page.showGrid'),
 			checked: marks.columns || marks.baseline,
 		},
+		...(masterItems.length > 0 ? [{ type: 'separator' } as const] : []),
+		...masterItems.map((item): MenuItem => ({
+			type: 'action',
+			id: `${item.hidden ? 'showMaster' : 'hideMaster'}:${item.page}:${item.frame}`,
+			label: t(item.hidden ? 'page.showMaster' : 'page.hideMaster', { name: item.label }),
+			icon: <Box />,
+		})),
 	];
 }

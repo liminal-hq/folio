@@ -275,7 +275,16 @@ export function BookView({
 								apply({ type: 'AddSpread', after: spread.id, duplicate: false });
 								setSpreadIndex(shown + 1);
 							} else if (command === 'duplicateSpread') pageOp('duplicate');
-							else if (command === 'toggleMargins') setMarks({ margins: !marks.margins });
+							else if (command.startsWith('hideMaster:') || command.startsWith('showMaster:')) {
+								const [which, page, frame] = command.split(':') as [string, string, string];
+								apply({
+									type: 'HideMasterItem',
+									spread: spread.id,
+									page,
+									frame,
+									hide: which === 'hideMaster',
+								});
+							} else if (command === 'toggleMargins') setMarks({ margins: !marks.margins });
 							else if (command === 'toggleGrid') {
 								const on = !(marks.columns || marks.baseline);
 								setMarks({ columns: on, baseline: on });
