@@ -205,7 +205,7 @@ describe('a book in the main window', () => {
 	it('switches between Easy and Expert through the settings', async () => {
 		const { settings } = setup();
 		await startBook();
-		const toolbar = screen.getByRole('toolbar', { name: 'Toolbar' });
+		const toolbar = screen.getByRole('group', { name: 'Toolbar' });
 		await userEvent.click(within(toolbar).getByRole('radio', { name: 'Expert' }));
 		await waitFor(async () => expect((await settings.get()).settings.mode).toBe('expert'));
 	});

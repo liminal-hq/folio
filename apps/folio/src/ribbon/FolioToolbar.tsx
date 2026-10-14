@@ -33,6 +33,7 @@ export function FolioToolbar({ available, run, contextual = NO_CONTEXTUAL }: Fol
 	const labels = useMemo(
 		() => ({
 			ribbon: t('region.toolbar'),
+			toolbar: t('region.toolbar'),
 			tabs: t('ribbon.tabs'),
 			mode: t('mode.label'),
 			modeEasy: t('mode.easy'),

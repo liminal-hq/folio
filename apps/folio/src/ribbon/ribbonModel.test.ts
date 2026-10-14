@@ -92,6 +92,19 @@ describe('buildRibbonModel', () => {
 		expect(model.file?.items).toEqual([['file.save', 'Save']]);
 	});
 
+	it('leaves values to the ribbon: no invented size and no placeholder value on unavailable selects', () => {
+		const items = allItems(buildRibbonModel({ settings: DEFAULT_SETTINGS, available: none }));
+		const size = items.find((i) => i.id === 'size');
+		expect(size?.value).toBeUndefined();
+		expect(size?.disabled).toBe(true);
+		const selects = items.filter((i) => i.kind === 'select');
+		expect(selects.length).toBeGreaterThan(0);
+		for (const select of selects) {
+			expect(select.value, select.id).toBeUndefined();
+			expect(select.disabled, select.id).toBe(true);
+		}
+	});
+
 	it('gives each control a glyph, a label and a size', () => {
 		const items = allItems(buildRibbonModel({ settings: DEFAULT_SETTINGS, available: none }));
 		for (const item of items) {
@@ -126,5 +139,12 @@ describe('buildToolbarModel', () => {
 		});
 		expect(RIBBON_COMMANDS.ribbonToggle).toBe('view.ribbon');
 		expect(model.groups.flat().find((i) => i.id === 'ribbonToggle')?.disabled).toBe(false);
+	});
+
+	it('makes the ribbon toggle a plain button, so it keeps no pressed state of its own', () => {
+		const model = buildToolbarModel({ settings: DEFAULT_SETTINGS, available: none });
+		const item = model.groups.flat().find((i) => i.id === 'ribbonToggle');
+		expect(item?.kind).toBe('button');
+		expect(item?.active).toBeUndefined();
 	});
 });
