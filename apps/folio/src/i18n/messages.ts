@@ -156,6 +156,7 @@ export const messages = {
 	'marks.columns': 'Column grid',
 	'marks.baseline': 'Baseline grid',
 	'marks.frameEdges': 'Frame edges',
+	'marks.guides': 'Ruler guides',
 	'marks.colour': '{mark} colour {number}',
 	'marks.colours': 'Colour',
 	'stage.zoom.in': 'Zoom in',

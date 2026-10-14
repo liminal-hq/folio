@@ -26,8 +26,10 @@ export const DEFAULT_SETTINGS: Settings = {
 		columns: { on: false, colour: 0 },
 		baseline: { on: false, colour: 0 },
 		frameEdges: { on: false, colour: 0 },
+		guides: { on: true, colour: 0 },
 		snap: true,
 	},
+	rulers: { on: false, units: 'inches' },
 	recentBooks: [],
 };
 

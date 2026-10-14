@@ -19,6 +19,7 @@ describe('marksOf and coloursOf', () => {
 			columns: true,
 			baseline: false,
 			frameEdges: false,
+			guides: true,
 		});
 		expect(coloursOf(settings).columns).toBe(MARK_PALETTES.columns[2]);
 		expect(coloursOf(settings).bleed).toBe(MARK_PALETTES.bleed[0]);
