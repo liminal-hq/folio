@@ -228,6 +228,39 @@ describe('Ribbon', () => {
 		expect(onCommand).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'size', value: 10 }));
 	});
 
+	it('shows a stepper at its default value until it is changed', async () => {
+		const stepper: RibbonModel = {
+			tabs: [
+				{
+					id: 'home',
+					label: 'Home',
+					groups: [
+						{
+							id: 'g',
+							label: 'G',
+							items: [
+								{
+									id: 'size',
+									label: 'Size',
+									d,
+									kind: 'stepper',
+									defaultValue: 12,
+									min: 4,
+									max: 96,
+								},
+							],
+						},
+					],
+				},
+			],
+		};
+		render(<Ribbon model={stepper} mode="easy" onCommand={() => {}} />);
+		const size = screen.getByRole('group', { name: 'Size' });
+		expect(within(size).getByText('12')).toBeInTheDocument();
+		await userEvent.click(within(size).getByRole('button', { name: 'Increase Size' }));
+		expect(within(size).getByText('13')).toBeInTheDocument();
+	});
+
 	it('reports a mode change from the Easy and Expert switch', async () => {
 		const { onCommand } = setup();
 		expect(screen.getByRole('radio', { name: 'Easy' })).toBeChecked();

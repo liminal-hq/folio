@@ -53,7 +53,8 @@ export function useRibbonControls(
 
 	const toggleOn = (scope: string, item: RibbonItem) =>
 		item.active ?? toggles[keyOf(scope, item)] ?? false;
-	const valueOf = (scope: string, item: RibbonItem) => item.value ?? values[keyOf(scope, item)];
+	const valueOf = (scope: string, item: RibbonItem) =>
+		item.value ?? values[keyOf(scope, item)] ?? item.defaultValue;
 
 	const onPress = (scope: string, item: RibbonItem, anchor: HTMLElement) => {
 		const kind = item.kind ?? 'button';

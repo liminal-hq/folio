@@ -31,6 +31,8 @@ export interface RibbonItem {
 	/** The choices of a menu or select, as `[value, label]`. */
 	options?: [value: string, label: string][];
 	value?: string | number;
+	/** What a select or stepper shows until it is changed, when the app does not own its value. */
+	defaultValue?: string | number;
 	/** Pixel width of a select. */
 	width?: number;
 	step?: number;
