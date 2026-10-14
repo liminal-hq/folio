@@ -99,6 +99,20 @@ describe('SpreadCanvas', () => {
 		expect(words[2]).toHaveAttribute('x', '60');
 	});
 
+	it('draws every frame inside the page, so none of it lands in the page around it', () => {
+		const { container } = render(
+			<SpreadCanvas book={book} spread={spread} layout={layout} zoom={1} label="Page" />,
+		);
+		const svg = container.querySelector('svg')!;
+		// A <text> outside an <svg> is just an unknown HTML element, drawn as a line of plain words.
+		expect(container.querySelectorAll('text')).toHaveLength(svg.querySelectorAll('text').length);
+		expect(container.querySelector('[data-frame="t1"]')!.closest('svg')).toBe(svg);
+		expect(screen.getByRole('img', { name: 'Otter' }).closest('svg')).toBe(svg);
+		expect(
+			[...container.children[0]!.children].filter((e) => e !== svg && e.tagName === 'g'),
+		).toEqual([]);
+	});
+
 	it('draws the frames without their text until the layout arrives', () => {
 		const { container } = render(
 			<SpreadCanvas book={book} spread={spread} layout={null} zoom={1} label="Page" />,

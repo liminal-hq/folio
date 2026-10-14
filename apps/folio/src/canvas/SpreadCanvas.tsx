@@ -320,6 +320,26 @@ export function SpreadCanvas({
 						<Lines key={laid.frame} id={laid.frame} at={laid.origin} layout={laid} />
 					) : null,
 				)}
+				{frames.map((frame) => (
+					<g key={frame.id}>
+						<Furniture frame={frame} images={images} />
+						{marks.frameEdges && (
+							<rect
+								data-mark="frame-edges"
+								x={frame.box.x}
+								y={frame.box.y}
+								width={frame.box.w}
+								height={frame.box.h}
+								fill="none"
+								stroke={colours.frameEdges}
+								strokeWidth={0.5}
+							/>
+						)}
+						{byFrame.has(frame.id) && frame.id !== editing && (
+							<Lines id={frame.id} at={frame.box} layout={byFrame.get(frame.id)!} />
+						)}
+					</g>
+				))}
 				{marks.bleed && (
 					<path
 						data-mark="bleed"
@@ -500,26 +520,6 @@ export function SpreadCanvas({
 					}}
 				/>
 			)}
-			{frames.map((frame) => (
-				<g key={frame.id}>
-					<Furniture frame={frame} images={images} />
-					{marks.frameEdges && (
-						<rect
-							data-mark="frame-edges"
-							x={frame.box.x}
-							y={frame.box.y}
-							width={frame.box.w}
-							height={frame.box.h}
-							fill="none"
-							stroke={colours.frameEdges}
-							strokeWidth={0.5}
-						/>
-					)}
-					{byFrame.has(frame.id) && frame.id !== editing && (
-						<Lines id={frame.id} at={frame.box} layout={byFrame.get(frame.id)!} />
-					)}
-				</g>
-			))}
 		</div>
 	);
 }
