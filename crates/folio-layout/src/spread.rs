@@ -9,7 +9,7 @@ use folio_model::{
 
 use crate::error::LayoutError;
 use crate::flow::{flow, FlowOptions, Flowed, FrameBox, PlacedLine, StoryParagraph};
-use crate::fonts::FontBook;
+use crate::fonts::{FontBook, FontRequest};
 use crate::paragraph::{Span, Wrap};
 use crate::preflight::geometry_checks;
 use crate::styles::{ResolvedStyle, StyleSheet};
@@ -63,9 +63,28 @@ impl<'a> Layouter<'a> {
                 continue;
             };
             let layout = match &text.flow {
-                None => self.own_text(text)?,
+                None => {
+                    let (laid, overlong) = self.own_text(text)?;
+                    if overlong {
+                        preflight.push(self.poem_item(spread, text));
+                    }
+                    laid
+                }
                 Some(slot) => {
                     let Some(chain) = self.book.flows.iter().find(|f| f.id == slot.id) else {
+                        // The flow is gone: the frame shows its own words, if it has any.
+                        let own = self.own_text(text)?;
+                        if own.1 {
+                            preflight.push(self.poem_item(spread, text));
+                        }
+                        if own.0.overset {
+                            preflight.push(PreflightItem {
+                                kind: PreflightKind::OversetText,
+                                spread: spread.id.clone(),
+                                frame: text.base.id.clone(),
+                            });
+                        }
+                        frames.push(own.0);
                         continue;
                     };
                     if !flowed.iter().any(|f| f.id == chain.id.0) {
@@ -81,6 +100,9 @@ impl<'a> Layouter<'a> {
                         .find(|f| f.id == chain.id.0)
                         .expect("pushed above");
                     let index = order.iter().position(|f| *f == text.base.id);
+                    if laid.overlong && index == Some(0) {
+                        preflight.push(self.poem_item(spread, text));
+                    }
                     flow_frame(&text.base.id, laid, index, styles)
                 }
             };
@@ -101,7 +123,7 @@ impl<'a> Layouter<'a> {
     }
 
     /// A text frame that holds its own words.
-    fn own_text(&self, text: &TextFrame) -> Result<FrameLayout, LayoutError> {
+    fn own_text(&self, text: &TextFrame) -> Result<(FrameLayout, bool), LayoutError> {
         let story = self.story_of(text.content.as_ref(), &text.style, text);
         let wide = text.base.rect.w.0;
         let mut frame = FrameBox::new(wide, text.base.rect.h.0);
@@ -119,12 +141,18 @@ impl<'a> Layouter<'a> {
             &self.book.language,
             &options,
         )?;
-        Ok(frame_layout(
-            &text.base.id,
-            &laid,
-            0,
-            &self.runs_info(&story),
+        Ok((
+            frame_layout(&text.base.id, &laid, 0, &self.runs_info(&story)),
+            laid.overlong,
         ))
+    }
+
+    fn poem_item(&self, spread: &Spread, text: &TextFrame) -> PreflightItem {
+        PreflightItem {
+            kind: PreflightKind::PoemLineTooLong,
+            spread: spread.id.clone(),
+            frame: text.base.id.clone(),
+        }
     }
 
     /// The paragraphs of a text frame: one per line break, or the whole text for a style that
@@ -186,6 +214,7 @@ impl<'a> Layouter<'a> {
         let mut boxes = Vec::new();
         let mut order = Vec::new();
         let mut style = StyleId("body".to_string());
+        let mut overrides = None;
         let mut lock = false;
         for id in &chain.frames {
             let Some(text) = self.find_text_frame(id) else {
@@ -193,6 +222,7 @@ impl<'a> Layouter<'a> {
             };
             if order.is_empty() {
                 style = text.style.clone();
+                overrides = text.overrides.as_ref();
                 lock = text.baseline_lock;
             }
             let mut b = FrameBox::new(text.base.rect.w.0, text.base.rect.h.0);
@@ -201,12 +231,20 @@ impl<'a> Layouter<'a> {
             boxes.push(b);
             order.push(id.clone());
         }
-        let resolved = self.styles.resolve(&style, None);
-        let story: Vec<StoryParagraph> = chain
-            .source
-            .split('\n')
-            .map(|line| paragraph_from(vec![Span::new(line, resolved.text.clone())], &resolved))
-            .collect();
+        let resolved = self.styles.resolve(&style, overrides);
+        // A style that keeps its breaks (verse) is one paragraph, as in a frame of its own.
+        let story: Vec<StoryParagraph> = if resolved.wrap == Wrap::Preserve {
+            vec![paragraph_from(
+                vec![Span::new(&chain.source, resolved.text.clone())],
+                &resolved,
+            )]
+        } else {
+            chain
+                .source
+                .split('\n')
+                .map(|line| paragraph_from(vec![Span::new(line, resolved.text.clone())], &resolved))
+                .collect()
+        };
         let mut options = self.options();
         if !lock {
             options.baseline_grid = None;
@@ -239,12 +277,29 @@ impl<'a> Layouter<'a> {
             .map(|p| {
                 p.spans
                     .iter()
-                    .map(|s| RunStyle {
-                        family: s.style.family.clone(),
-                        size: s.style.size_pt,
-                        weight: s.style.weight,
-                        italic: s.style.italic,
-                        tracking: s.style.tracking_em,
+                    .map(|s| {
+                        // What is drawn is what was measured: the family that stood in, and the
+                        // weight the font can do.
+                        let found = self.fonts.resolve(&FontRequest::new(
+                            &s.style.family,
+                            s.style.weight,
+                            s.style.italic,
+                        ));
+                        let (family, weight, italic) = match &found {
+                            Ok(r) => (
+                                r.font.family().to_string(),
+                                r.font.weight_for(s.style.weight),
+                                r.font.italic(),
+                            ),
+                            Err(_) => (s.style.family.clone(), s.style.weight, s.style.italic),
+                        };
+                        RunStyle {
+                            family,
+                            size: s.style.size_pt,
+                            weight,
+                            italic,
+                            tracking: s.style.tracking_em,
+                        }
                     })
                     .collect()
             })

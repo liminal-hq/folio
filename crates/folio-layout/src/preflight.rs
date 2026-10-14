@@ -105,9 +105,15 @@ pub fn geometry_checks(book: &Book, spread: &Spread) -> Vec<PreflightItem> {
             }
             Frame::Image(_) => {
                 // Each outer edge that touches the trim must run on to the bleed line.
+                // The gutter side of an opener or a closer is the fold, not a trim edge.
+                let (left_is_trim, right_is_trim) = match spread.kind {
+                    SpreadKind::Opener => (false, true),
+                    SpreadKind::Closer => (true, false),
+                    _ => (true, true),
+                };
                 let edges = [
-                    (fx0, x0, fx0 <= x0 - bleed + EPS),
-                    (fx1, x1, fx1 >= x1 + bleed - EPS),
+                    (fx0, x0, !left_is_trim || fx0 <= x0 - bleed + EPS),
+                    (fx1, x1, !right_is_trim || fx1 >= x1 + bleed - EPS),
                     (fy0, y0, fy0 <= y0 - bleed + EPS),
                     (fy1, y1, fy1 >= y1 + bleed - EPS),
                 ];

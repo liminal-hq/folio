@@ -4258,6 +4258,7 @@ dependencies = [
 name = "tauri-plugin-folio-books"
 version = "0.1.0"
 dependencies = [
+ "folio-layout",
  "folio-model",
  "folio-package",
  "folio-presets",

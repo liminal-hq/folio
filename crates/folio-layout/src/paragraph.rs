@@ -236,12 +236,17 @@ fn span_at(ends: &[usize], byte: usize) -> usize {
     ends.partition_point(|&end| end <= byte).min(ends.len() - 1)
 }
 
+/// A space that keeps the words either side of it on one line, and keeps its width.
+fn is_no_break_space(c: char) -> bool {
+    matches!(c, '\u{a0}' | '\u{2007}' | '\u{202f}')
+}
+
 /// Words and spaces in `range` of `text`: `(is_space, range)`. A run of spaces counts as one.
 fn tokens(text: &str, range: Range<usize>) -> Vec<(bool, Range<usize>)> {
     let mut out: Vec<(bool, Range<usize>)> = Vec::new();
     for (offset, c) in text[range.clone()].char_indices() {
         let at = range.start + offset;
-        let space = c.is_whitespace();
+        let space = c.is_whitespace() && !is_no_break_space(c);
         match out.last_mut() {
             Some((was_space, r)) if *was_space == space => r.end = at + c.len_utf8(),
             _ => out.push((space, at..at + c.len_utf8())),
@@ -270,9 +275,15 @@ fn word_slots(
 
     // Where the word may break, keeping only the points a glyph starts at (a ligature can't be cut).
     let mut points: Vec<usize> = if hyphenate {
-        hyphenation_points(&text[word.clone()], shaper.language)
+        // The dictionary knows letters only: leave the punctuation at either end out of what it sees.
+        let spoken = &text[word.clone()];
+        let lead = spoken.find(char::is_alphabetic).unwrap_or(spoken.len());
+        let core_end = spoken.rfind(char::is_alphabetic).map_or(lead, |at| {
+            at + spoken[at..].chars().next().map_or(0, char::len_utf8)
+        });
+        hyphenation_points(&spoken[lead..core_end], shaper.language)
             .into_iter()
-            .map(|p| word.start + p)
+            .map(|p| word.start + lead + p)
             .filter(|&p| {
                 fragments.iter().any(|(_, range, shaped)| {
                     p == range.start
@@ -652,10 +663,14 @@ pub fn layout_paragraph(
         if made.len() > 1 && preserve {
             overlong = true;
         }
+        for blank in made.iter_mut().filter(|l| l.runs.is_empty()) {
+            blank.text = range.start..range.start;
+        }
         if made.is_empty() {
             made.push(empty_line(
                 &shaper,
                 span_at(&ends, range.start.min(text.len().saturating_sub(1))),
+                range.start,
             ));
         }
         tolerance = match (tolerance, tol) {
@@ -672,14 +687,15 @@ pub fn layout_paragraph(
     })
 }
 
-fn empty_line(shaper: &Shaper<'_>, span: usize) -> Line {
+/// A blank line, which sits at `at` in the text so a paragraph carried on after it picks up there.
+fn empty_line(shaper: &Shaper<'_>, span: usize, at: usize) -> Line {
     let style = &shaper.spans[span].style;
     let m = shaper.fonts[span].font.metrics(style.size_pt);
     Line {
         x: 0.0,
         width: 0.0,
         runs: Vec::new(),
-        text: 0..0,
+        text: at..at,
         ascent: m.ascent,
         descent: m.descent,
         height: style.size_pt * style.line_height,

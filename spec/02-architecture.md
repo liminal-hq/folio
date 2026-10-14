@@ -10,7 +10,7 @@ folio/
 ├─ crates/
 │  ├─ folio-model/             # document model (serde), units, ids, migrations — no IO
 │  ├─ folio-package/           # .folio zip read/write, manifest, autosave journal
-│  ├─ folio-layout/            # text shaping + line breaking + flow, snapping maths, preflight geometry
+│  ├─ folio-layout/            # text shaping + line breaking + flow, snapping maths, preflight geometry (built: D-20) (built: D-20)
 │  ├─ folio-export/            # EPUB 3 / KEPUB writer, PDF writer (PDF/X), cover builder
 │  ├─ folio-import/            # docx, odt, rtf, md, html-paste, sla, idml, epub → model
 │  ├─ folio-color/             # ICC handling (lcms2), RGB→CMYK, output intents

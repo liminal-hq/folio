@@ -9,11 +9,11 @@ use folio_model::Intent;
 use folio_presets::{KindInfo, NewBookSpec};
 use folio_protocol::PluginStatus;
 use folio_session::Patch;
-use tauri::{Runtime, State, WebviewWindow};
+use tauri::{AppHandle, Manager, Runtime, State, WebviewWindow};
 
 use crate::error::Error;
 use crate::state::Books;
-use crate::wire::{BookSnapshot, BookSummary};
+use crate::wire::{BookSnapshot, BookSummary, SpreadLayoutResult};
 
 /// Reports that books work. They need nothing from the system, so this is always available.
 #[tauri::command]
@@ -132,4 +132,20 @@ pub async fn redo<R: Runtime>(
     id: String,
 ) -> Result<Option<Patch>, Error> {
     books.redo(&id)
+}
+
+/// Lays out one spread of a book: where every line of text goes, and the preflight checks on it. It
+/// runs on a blocking thread, because the first call scans the system's fonts.
+#[tauri::command]
+pub async fn layout_spread<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    spread: String,
+) -> Result<SpreadLayoutResult, Error> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Books<R>>().layout_spread(&id, &spread)
+    })
+    .await
+    .expect("the layout task does not panic")
 }

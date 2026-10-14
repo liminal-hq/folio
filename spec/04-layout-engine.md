@@ -31,6 +31,10 @@
 - **Bleed line**: dashed rose at the bleed box. **Margins**: dashed purple. **Smart guides**: solid cyan 1 px.
 - **Ruler guides** (Expert): drag from rulers, lockable, stored per spread or on the master.
 
+## Built so far
+
+`crates/folio-layout` (D-20): the font book (bundled families plus the system's, variable weights and optical sizes, `fsType` embedding check), shaping with kerning, ligatures, OpenType features and tracking, Knuth–Plass line breaking with a first-fit fallback, hyphenation (en-CA/US, en-GB, French; minimum word length 6, at most two hyphens in a row, none in headings), alignment and first-line indent, poetry that keeps its line breaks, flow through frames and columns with widows and orphans and a baseline grid, overset detection, and preflight for overset text, text outside the safe margin and pictures short of the bleed. `layout_spread` is exposed by the books plugin. Not built yet: wrap around pictures, drop caps, small-caps styles, the reflow preview, picture resolution checks and the snapping maths' use from the UI.
+
 ## Snapping (lifted from Spindle's `SceneCanvas`)
 
 Spindle's menu editor uses an 8 px screen-space threshold and snaps the dragged node's left/centre/right (and top/middle/bottom) to the edges and centres of other nodes, with safe-area guides. Folio keeps that algorithm and adds book targets.

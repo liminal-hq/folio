@@ -22,6 +22,11 @@ pub enum Error {
     Package(#[from] PackageError),
     #[error(transparent)]
     Session(#[from] SessionError),
+    #[error(transparent)]
+    Layout(#[from] folio_layout::LayoutError),
+    /// A window asked for a spread the book does not have.
+    #[error("the book has no spread `{0}`")]
+    NoSuchSpread(String),
 }
 
 impl Error {
@@ -37,6 +42,8 @@ impl Error {
             }
             Error::Package(_) => "package",
             Error::Session(_) => "session",
+            Error::Layout(_) => "layout",
+            Error::NoSuchSpread(_) => "noSuchSpread",
         }
     }
 }
