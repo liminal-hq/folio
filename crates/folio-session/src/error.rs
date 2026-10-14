@@ -34,4 +34,10 @@ pub enum SessionError {
     Locked(String),
     #[error("the frame `{0}` is not on spread `{1}`")]
     NotOnSpread(String, String),
+    #[error("there is no guide {0} on spread `{1}`")]
+    NoSuchGuide(usize, String),
+    #[error("guide {0} is locked")]
+    GuideLocked(usize),
+    #[error("a guide needs a position on the page")]
+    BadGuide,
 }

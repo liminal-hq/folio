@@ -10,7 +10,7 @@ import { DEFAULT_MARKS } from '../canvas/marksModel';
 import { editorAction, editorState, type EditorInput } from './editorCommands';
 
 const spread = (kind = 'spread') =>
-	({ id: 'sp', kind, pages: [], frames: [] }) as unknown as Spread;
+	({ id: 'sp', kind, pages: [], frames: [], guides: [] }) as unknown as Spread;
 const text = (extra = {}) =>
 	({ type: 'text', id: 't', box: {}, locked: false, style: 'body', ...extra }) as unknown as Frame;
 const image = (extra = {}) =>
@@ -32,6 +32,7 @@ const input = (selected: Frame[] = [], extra: Partial<EditorInput> = {}): Editor
 	choices: [{ id: 'body', name: 'Body', size: 13 }],
 	marks: DEFAULT_MARKS,
 	snap: true,
+	rulers: false,
 	...extra,
 });
 
@@ -151,5 +152,42 @@ describe('editorAction', () => {
 
 	it('leaves other controls alone', () => {
 		expect(editorAction('undo', undefined, input())).toBeNull();
+	});
+});
+
+describe('the rulers and their guides', () => {
+	it('lets the rulers and the guides be switched, and shows which are on', () => {
+		const off = editorState(input());
+		expect(off.available.has('rulers') && off.available.has('rguides')).toBe(true);
+		expect(off.active.rulers).toBe(false);
+		expect(off.active.rguides).toBe(true);
+		const on = editorState(input([], { rulers: true, marks: { ...DEFAULT_MARKS, guides: false } }));
+		expect(on.active.rulers).toBe(true);
+		expect(on.active.rguides).toBe(false);
+	});
+
+	it('asks to toggle the rulers and the guides mark', () => {
+		expect(editorAction('rulers', undefined, input())).toEqual({ kind: 'rulers' });
+		expect(editorAction('rguides', undefined, input())).toEqual({
+			kind: 'marks',
+			marks: { guides: false },
+		});
+	});
+
+	it('offers to clear guides only when the spread has any that are not locked', () => {
+		const withGuides = (locked: boolean) =>
+			input([], {
+				spread: {
+					...spread(),
+					guides: [{ axis: 'x', pos: 10, locked }],
+				} as unknown as Spread,
+			});
+		expect(editorState(input()).available.has('rgClear')).toBe(false);
+		expect(editorState(withGuides(true)).available.has('rgClear')).toBe(false);
+		expect(editorState(withGuides(false)).available.has('rgClear')).toBe(true);
+		expect(editorAction('rgClear', undefined, withGuides(false))).toEqual({
+			kind: 'intents',
+			intents: [{ type: 'ClearGuides', spread: 'sp' }],
+		});
 	});
 });

@@ -7,12 +7,15 @@ import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
 import { ContextMenu } from '@liminal-hq/folio-chrome/ContextMenu';
+import type { RulerUnit } from '@liminal-hq/folio-protocol/generated/RulerUnit';
 import { useState } from 'react';
 import type { MutableRefObject } from 'react';
 import { t } from '../i18n/messages';
 import { frameMenuItems, type FrameCommand } from './frameMenu';
 import { pageMenuItems, type PageCommand } from './pageMenu';
-import { fitZoom, spreadGeometry } from './geometry';
+import { fitZoom, PX_PER_POINT, spreadGeometry } from './geometry';
+import { guideMenuItems, isGuideCommand } from './guideMenu';
+import type { GuideAxis, GuideCommand } from './guides';
 import { MarksMenu } from './MarksMenu';
 import { masterItemsAt } from './masterItems';
 import {
@@ -22,10 +25,16 @@ import {
 	type MarkKey,
 	type Marks,
 } from './marksModel';
+import { Ruler, RULER_SIZE } from './Ruler';
+import { formatPosition, RULER_UNITS } from './rulerMath';
+import { rulerUnitItems } from './rulerMenu';
+import { snapTargets } from './snap';
 import { SpreadCanvas } from './SpreadCanvas';
 import styles from './Stage.module.css';
 import { useElementSize } from './useElementSize';
 import type { FrameBoxMove } from './useFrameDrag';
+import { useGuideDrag } from './useGuideDrag';
+import { usePageOrigin } from './usePageOrigin';
 import { useStageZoom, type StageZoom } from './useStageZoom';
 
 export type ZoomApi = Pick<StageZoom, 'zoomIn' | 'zoomOut' | 'fit'>;
@@ -41,6 +50,15 @@ export interface StageProps {
 	onMarks?(next: Partial<Marks>): void;
 	onMarkColour?(key: MarkKey, index: number): void;
 	snap?: boolean;
+	/** Whether the rulers show, and what they count in. */
+	rulers?: { on: boolean; unit: RulerUnit };
+	onRulerUnit?(unit: RulerUnit): void;
+	/** A guide was pulled out of a ruler, moved, or dragged back onto one. */
+	onAddGuide?(axis: GuideAxis, pos: number): void;
+	onMoveGuide?(index: number, pos: number): void;
+	onRemoveGuide?(index: number): void;
+	/** A choice from a guide's menu. */
+	onGuideCommand?(command: GuideCommand, index: number): void;
 	/** Filled in with the stage's zoom controls, for the ribbon and the keys to use. */
 	zoomApi?: MutableRefObject<ZoomApi | null>;
 	images?: Record<string, string>;
@@ -63,6 +81,12 @@ export function Stage({
 	onMarks,
 	onMarkColour,
 	snap,
+	rulers,
+	onRulerUnit,
+	onAddGuide,
+	onMoveGuide,
+	onRemoveGuide,
+	onGuideCommand,
 	zoomApi,
 	images,
 	selection,
@@ -83,6 +107,48 @@ export function Stage({
 		point: { x: number; y: number };
 	} | null>(null);
 	const chosen = spread.frames.filter((f) => selection?.includes(f.id));
+	const rulersOn = rulers?.on === true;
+	const rulerUnit = rulers?.unit ?? 'inches';
+	const [unitMenu, setUnitMenu] = useState<{ x: number; y: number } | null>(null);
+	const scale = zoom.zoom * PX_PER_POINT;
+	const origin = usePageOrigin(ref, scale, book.bleed);
+	const extent = chosen.length
+		? {
+				x: {
+					from: Math.min(...chosen.map((f) => f.box.x)),
+					to: Math.max(...chosen.map((f) => f.box.x + f.box.w)),
+				},
+				y: {
+					from: Math.min(...chosen.map((f) => f.box.y)),
+					to: Math.max(...chosen.map((f) => f.box.y + f.box.h)),
+				},
+			}
+		: null;
+	const [guideMenu, setGuideMenu] = useState<{
+		index: number;
+		at: { x: number; y: number };
+	} | null>(null);
+	const guideDrag = useGuideDrag({
+		stage: ref,
+		bounds: geometry.bounds,
+		scale,
+		targets: (moving) =>
+			snapTargets(
+				geometry,
+				spread.frames,
+				[],
+				spread.guides.flatMap((g, i) => (i === moving ? [] : [{ axis: g.axis, pos: g.pos }])),
+			),
+		fineStep: RULER_UNITS[rulerUnit].fineStep,
+		snap: snap ?? true,
+		onAdd: (axis, pos) => onAddGuide?.(axis, pos),
+		onMove: (index, pos) => onMoveGuide?.(index, pos),
+		onRemove: (index) => onRemoveGuide?.(index),
+	});
+	const askUnit = (event: { preventDefault(): void; clientX: number; clientY: number }) => {
+		event.preventDefault();
+		setUnitMenu({ x: event.clientX, y: event.clientY });
+	};
 
 	return (
 		<>
@@ -111,35 +177,113 @@ export function Stage({
 					</div>
 				</div>
 			</div>
-			<div
-				ref={ref}
-				className={styles.table}
-				onPointerDown={(event) => {
-					// A press on the bare table, not on the page, lets go of the selection.
-					if (!(event.target as Element).closest('svg')) onSelect?.([]);
-				}}
-			>
-				<div className={styles.sheet}>
-					<SpreadCanvas
-						book={book}
-						spread={spread}
-						layout={layout}
-						zoom={zoom.zoom}
-						label={t('region.stage')}
-						marks={marks}
-						colours={colours}
-						snap={snap}
-						images={images}
-						selection={selection}
-						onSelect={onSelect}
-						onMove={onMove}
-						onCommand={onCommand}
-						onEditText={onEditText}
-						onPageMenu={(at, point) => setPageMenu({ at, point })}
-						onFrameMenu={(_, at) => setMenu(at)}
-					/>
+			<div className={styles.area}>
+				{rulersOn && (
+					<>
+						<button
+							type="button"
+							className={styles.corner}
+							style={{ inlineSize: RULER_SIZE, blockSize: RULER_SIZE }}
+							onClick={(event) => {
+								const box = event.currentTarget.getBoundingClientRect();
+								setUnitMenu({ x: box.left, y: box.bottom });
+							}}
+							aria-label={t('ruler.units')}
+							title={t('ruler.units')}
+						>
+							{RULER_UNITS[rulerUnit].suffix}
+						</button>
+						<Ruler
+							axis="x"
+							unit={rulerUnit}
+							scale={scale}
+							origin={origin.x}
+							length={size.w}
+							extent={extent?.x}
+							onPointerDown={guideDrag.fromRuler('x')}
+							onContextMenu={askUnit}
+						/>
+						<Ruler
+							axis="y"
+							unit={rulerUnit}
+							scale={scale}
+							origin={origin.y}
+							length={size.h}
+							extent={extent?.y}
+							onPointerDown={guideDrag.fromRuler('y')}
+							onContextMenu={askUnit}
+						/>
+					</>
+				)}
+				<div
+					ref={ref}
+					className={styles.table}
+					onPointerDown={(event) => {
+						// A press on the bare table, not on the page, lets go of the selection.
+						if (!(event.target as Element).closest('svg')) onSelect?.([]);
+					}}
+				>
+					<div className={styles.sheet}>
+						<SpreadCanvas
+							book={book}
+							spread={spread}
+							layout={layout}
+							zoom={zoom.zoom}
+							label={t('region.stage')}
+							marks={marks}
+							colours={colours}
+							snap={snap}
+							images={images}
+							selection={selection}
+							onSelect={onSelect}
+							onMove={onMove}
+							onCommand={onCommand}
+							onEditText={onEditText}
+							onPageMenu={(at, point) => setPageMenu({ at, point })}
+							onFrameMenu={(_, at) => setMenu(at)}
+							onGuidePointerDown={(axis, index, event) => guideDrag.fromGuide(axis, index)(event)}
+							onGuideMenu={(index, at) => setGuideMenu({ index, at })}
+							guideDrag={guideDrag.state}
+						/>
+					</div>
 				</div>
 			</div>
+			{guideDrag.state && (
+				<div
+					className={styles.tag}
+					data-remove={guideDrag.state.remove || undefined}
+					style={{ left: guideDrag.state.pointer.x + 14, top: guideDrag.state.pointer.y + 14 }}
+				>
+					{guideDrag.state.remove && guideDrag.state.index !== null
+						? t('guide.release')
+						: formatPosition(guideDrag.state.pos, rulerUnit)}
+				</div>
+			)}
+			{guideMenu && spread.guides[guideMenu.index] && (
+				<ContextMenu
+					items={guideMenuItems(spread.guides[guideMenu.index]!)}
+					position={guideMenu.at}
+					ariaLabel={t('guide.menu')}
+					onSelect={(item) => {
+						const { index } = guideMenu;
+						setGuideMenu(null);
+						if (isGuideCommand(item.id)) onGuideCommand?.(item.id, index);
+					}}
+					onClose={() => setGuideMenu(null)}
+				/>
+			)}
+			{unitMenu && (
+				<ContextMenu
+					items={rulerUnitItems(rulerUnit)}
+					position={unitMenu}
+					ariaLabel={t('ruler.units')}
+					onSelect={(item) => {
+						setUnitMenu(null);
+						onRulerUnit?.(item.id as RulerUnit);
+					}}
+					onClose={() => setUnitMenu(null)}
+				/>
+			)}
 			{menu && chosen.length > 0 && (
 				<ContextMenu
 					items={frameMenuItems(chosen)}

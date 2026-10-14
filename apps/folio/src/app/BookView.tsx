@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { RibbonCommand } from '@liminal-hq/folio-ribbon/types';
-import { useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { shelfLabels } from '../books/shelfLabels';
 import type { OpenBookCopy } from '../books/booksStore';
 import { useBooks } from '../books/useBooks';
@@ -14,6 +14,7 @@ import { spreadGeometry } from '../canvas/geometry';
 import { defaultTextStyle, styleChoices } from '../inspector/styleChoices';
 import { Shelf } from '../canvas/Shelf';
 import { shelfIntent } from '../canvas/shelfMenu';
+import { guideIntents } from '../canvas/guides';
 import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../canvas/marksModel';
 import { Stage, type ZoomApi } from '../canvas/Stage';
 import { useSelection } from '../canvas/useSelection';
@@ -63,6 +64,7 @@ export function BookView({
 	const marks = useMemo(() => marksOf(settings.marks), [settings.marks]);
 	const colours = useMemo(() => coloursOf(settings.marks), [settings.marks]);
 	const snap = settings.marks.snap;
+	const rulers = settings.rulers;
 	/** Changes which marks are drawn; the choice is kept in the settings, for every book. */
 	const setMarks = (next: Partial<Marks>) => void update(marksPatch(marks, next));
 	const zoomApi = useRef<ZoomApi | null>(null);
@@ -97,12 +99,25 @@ export function BookView({
 				choices,
 				marks,
 				snap,
+				rulers: rulers.on,
 			}
 		: null;
 	const editor = useMemo(
 		() => (input ? editorState(input) : undefined),
-		[spread, shown, book.spreads.length, selected, layout, choices, marks, snap],
+		[spread, shown, book.spreads.length, selected, layout, choices, marks, snap, rulers.on],
 	);
+
+	// Ctrl+R shows and hides the rulers, and is kept from reloading the page.
+	useEffect(() => {
+		const onKey = (event: KeyboardEvent) => {
+			if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+			if (event.key.toLowerCase() !== 'r') return;
+			event.preventDefault();
+			void update({ rulers: { on: !rulers.on } } as SettingsPatch);
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	}, [rulers.on, update]);
 	if (!spread || !input) return null;
 
 	const apply = (intent: Intent) => void store.apply(intent);
@@ -183,6 +198,9 @@ export function BookView({
 			case 'snap':
 				void update({ marks: { snap: !snap } } as SettingsPatch);
 				break;
+			case 'rulers':
+				void update({ rulers: { on: !rulers.on } } as SettingsPatch);
+				break;
 			case 'zoom':
 				if (action.zoom === 'in') zoomApi.current?.zoomIn();
 				else if (action.zoom === 'out') zoomApi.current?.zoomOut();
@@ -242,6 +260,16 @@ export function BookView({
 							void update({ marks: { [key]: { colour } } } as SettingsPatch)
 						}
 						snap={snap}
+						rulers={{ on: rulers.on, unit: rulers.units }}
+						onRulerUnit={(units) => void update({ rulers: { units } } as SettingsPatch)}
+						onAddGuide={(axis, pos) => apply({ type: 'AddGuide', spread: spread.id, axis, pos })}
+						onMoveGuide={(index, pos) =>
+							apply({ type: 'MoveGuide', spread: spread.id, index, pos })
+						}
+						onRemoveGuide={(index) => apply({ type: 'RemoveGuide', spread: spread.id, index })}
+						onGuideCommand={(command, index) => {
+							for (const intent of guideIntents(command, spread, index)) apply(intent);
+						}}
 						zoomApi={zoomApi}
 						images={images}
 						selection={selection}

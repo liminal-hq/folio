@@ -6,8 +6,8 @@
 use std::time::{Duration, Instant};
 
 use folio_model::{
-    Book, Frame, FrameId, Grid, Intent, Margins, Pt, Rect, ReorderTo, Size, SpreadId, SpreadKind,
-    StyleId, StyleOverrides,
+    Axis, Book, Frame, FrameId, Grid, Intent, Margins, Pt, Rect, ReorderTo, Size, SpreadId,
+    SpreadKind, StyleId, StyleOverrides,
 };
 use folio_session::{PatchOp, Session, SessionError, COALESCE_WINDOW, UNDO_DEPTH};
 use serde_json::json;
@@ -1121,4 +1121,146 @@ fn a_copy_of_a_flowing_frame_is_not_another_slot_in_the_flow() {
         Frame::Text(t) => assert!(t.flow.is_none()),
         _ => unreachable!(),
     }
+}
+
+fn guides(s: &Session, at: usize) -> Vec<(Axis, f64, bool)> {
+    s.book().spreads[at]
+        .guides
+        .iter()
+        .map(|g| (g.axis, g.pos.0, g.locked))
+        .collect()
+}
+
+#[test]
+fn guides_are_added_moved_locked_and_removed_and_each_is_one_undo_step() {
+    let mut s = session();
+    let add = |axis, at: f64| Intent::AddGuide {
+        spread: spread("sp_1"),
+        axis,
+        pos: Pt(at),
+    };
+    s.apply(add(Axis::X, 100.0)).unwrap();
+    s.apply(add(Axis::Y, 50.0)).unwrap();
+    assert_eq!(
+        guides(&s, 1),
+        vec![(Axis::X, 100.0, false), (Axis::Y, 50.0, false)]
+    );
+
+    s.apply(Intent::MoveGuide {
+        spread: spread("sp_1"),
+        index: 0,
+        pos: Pt(120.0),
+    })
+    .unwrap();
+    assert_eq!(guides(&s, 1)[0], (Axis::X, 120.0, false));
+    s.undo().unwrap();
+    assert_eq!(guides(&s, 1)[0], (Axis::X, 100.0, false));
+
+    s.apply(Intent::RemoveGuide {
+        spread: spread("sp_1"),
+        index: 0,
+    })
+    .unwrap();
+    assert_eq!(guides(&s, 1), vec![(Axis::Y, 50.0, false)]);
+    s.undo().unwrap();
+    assert_eq!(guides(&s, 1).len(), 2);
+}
+
+#[test]
+fn a_locked_guide_is_not_moved_or_removed_or_cleared_until_it_is_freed() {
+    let mut s = session();
+    s.apply(Intent::AddGuide {
+        spread: spread("sp_1"),
+        axis: Axis::X,
+        pos: Pt(10.0),
+    })
+    .unwrap();
+    let lock = |locked| Intent::LockGuide {
+        spread: spread("sp_1"),
+        index: 0,
+        locked,
+    };
+    s.apply(lock(true)).unwrap();
+    assert_eq!(
+        s.apply(Intent::MoveGuide {
+            spread: spread("sp_1"),
+            index: 0,
+            pos: Pt(30.0),
+        })
+        .unwrap_err(),
+        SessionError::GuideLocked(0)
+    );
+    assert_eq!(
+        s.apply(Intent::RemoveGuide {
+            spread: spread("sp_1"),
+            index: 0,
+        })
+        .unwrap_err(),
+        SessionError::GuideLocked(0)
+    );
+    s.apply(Intent::ClearGuides { spread: None }).unwrap();
+    assert_eq!(guides(&s, 1), vec![(Axis::X, 10.0, true)]);
+    s.apply(lock(false)).unwrap();
+    s.apply(Intent::ClearGuides {
+        spread: Some(spread("sp_1")),
+    })
+    .unwrap();
+    assert!(guides(&s, 1).is_empty());
+}
+
+#[test]
+fn clearing_guides_clears_one_spread_or_all_and_a_clear_of_nothing_changes_nothing() {
+    let mut s = session();
+    for sp in ["sp_2", "sp_1"] {
+        s.apply(Intent::AddGuide {
+            spread: spread(sp),
+            axis: Axis::Y,
+            pos: Pt(20.0),
+        })
+        .unwrap();
+    }
+    s.apply(Intent::ClearGuides {
+        spread: Some(spread("sp_1")),
+    })
+    .unwrap();
+    assert_eq!(guides(&s, 2).len(), 1);
+    assert!(guides(&s, 1).is_empty());
+    s.apply(Intent::ClearGuides { spread: None }).unwrap();
+    assert!(guides(&s, 2).is_empty());
+
+    let revision = s.revision();
+    let patch = s.apply(Intent::ClearGuides { spread: None }).unwrap();
+    assert!(patch.ops.is_empty());
+    assert_eq!(s.revision(), revision);
+}
+
+#[test]
+fn a_guide_must_be_on_a_spread_that_exists_at_a_position_that_makes_sense() {
+    let mut s = session();
+    let bad = |at: f64| Intent::AddGuide {
+        spread: spread("sp_1"),
+        axis: Axis::X,
+        pos: Pt(at),
+    };
+    assert_eq!(s.apply(bad(f64::NAN)).unwrap_err(), SessionError::BadGuide);
+    assert_eq!(s.apply(bad(1.0e9)).unwrap_err(), SessionError::BadGuide);
+    assert_eq!(
+        s.apply(Intent::AddGuide {
+            spread: spread("sp_nope"),
+            axis: Axis::X,
+            pos: Pt(1.0),
+        })
+        .unwrap_err(),
+        SessionError::NoSuchSpread("sp_nope".into())
+    );
+    assert_eq!(
+        s.apply(Intent::MoveGuide {
+            spread: spread("sp_1"),
+            index: 3,
+            pos: Pt(1.0),
+        })
+        .unwrap_err(),
+        SessionError::NoSuchGuide(3, "sp_1".into())
+    );
+    assert_eq!(s.revision(), 0);
 }

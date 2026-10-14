@@ -1,0 +1,36 @@
+.ruler {
+	display: block;
+	overflow: hidden;
+	background: var(--folio-bg-raised);
+	color: var(--folio-text-secondary);
+	touch-action: none;
+	user-select: none;
+}
+
+.ruler[data-ruler='x'] {
+	cursor: s-resize;
+	border-bottom: 1px solid var(--folio-border-subtle);
+}
+
+.ruler[data-ruler='y'] {
+	cursor: e-resize;
+	border-right: 1px solid var(--folio-border-subtle);
+}
+
+.tick {
+	stroke: currentColor;
+	stroke-width: 1;
+	shape-rendering: crispEdges;
+}
+
+.label {
+	fill: currentColor;
+	font-size: 9px;
+	font-variant-numeric: tabular-nums;
+	pointer-events: none;
+}
+
+.extent {
+	fill: var(--folio-accent);
+	fill-opacity: 0.22;
+}

@@ -60,6 +60,8 @@ export interface FrameDragOptions {
 	selection: string[];
 	/** Whether a drag snaps to edges, centres and margins. Alt turns it off for one drag. */
 	snap?: boolean;
+	/** Ruler guides a drag can snap to, when they are shown. */
+	guides?: { axis: 'x' | 'y'; pos: number }[];
 	onSelect?(ids: string[]): void;
 	/** Commits the new boxes of one or more frames as one change; resolves once the book has them. */
 	onMove?(moves: FrameBoxMove[]): Promise<void>;
@@ -83,6 +85,7 @@ export function useFrameDrag(options: FrameDragOptions) {
 		scale,
 		selection,
 		snap = true,
+		guides = [],
 		onSelect,
 		onMove,
 		onCommand,
@@ -176,7 +179,7 @@ export function useFrameDrag(options: FrameDragOptions) {
 		let dx = now.x - d.start.x;
 		let dy = now.y - d.start.y;
 		const threshold = SNAP_THRESHOLD_PX / scale;
-		const targets = snapTargets(geometry, frames, d.kind === 'move' ? d.ids : [d.id], []);
+		const targets = snapTargets(geometry, frames, d.kind === 'move' ? d.ids : [d.id], guides);
 		if (d.kind === 'move') {
 			if (event.shiftKey) {
 				// Shift keeps the move on one axis: the one the pointer has gone further along.

@@ -86,5 +86,5 @@ Fixed spreads render into a device frame at the device's landscape aspect. Guide
 - **Guides:** drag from the top ruler for a horizontal guide, or from the left ruler for a vertical one. While dragging, a tag shows the position in ruler units. Guides snap to margins, frame edges and other guides; otherwise they snap to a fine unit step (1/16 in, 1 mm, 6 pt, 0.5 pc, 5 px). Hold Alt to place freely.
 - To move a guide, drag it. Drag it back onto a ruler to delete it; the line turns red with "Release to remove".
 - Right-click a guide for: Lock · Put on every page (moves it to master page A) / Only on this spread · Clear guides on this spread · Clear all guides · Ruler units · Delete. Locked guides are dashed and don't move.
-- **Storage:** `spread.rg: [{ a: 'x'|'y', v: inches, lock? }]`, `cover.rg` for the cover sheet, and `masterGuides[kind]` for every-page guides (shown in the margin colour). Moving and deleting guides is undoable.
+- **Storage:** `spread.guides: [{ axis: 'x'|'y', pos: points, locked }]`, on the cover's own spread too. Every-page guides (`masterGuides`, shown in the margin colour) come with master page editing. Moving and deleting guides is undoable, one step each. See D-21.
 - Ruler guides are snap targets for frames, and appear as their own row (with colour) in Marks.

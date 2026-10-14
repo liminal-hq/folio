@@ -6,8 +6,8 @@
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_MARKS } from './marksModel';
 import { SpreadCanvas } from './SpreadCanvas';
 
@@ -243,5 +243,80 @@ describe('master pages', () => {
 		const group = container.querySelector('[data-frame="fr_pn@pg1"]')!;
 		expect(group).toHaveAttribute('transform', 'translate(100 300)');
 		expect(group).toHaveTextContent('7');
+	});
+
+	describe('ruler guides', () => {
+		const guided = {
+			...spread,
+			guides: [
+				{ axis: 'x', pos: 30, locked: false },
+				{ axis: 'y', pos: 60, locked: true },
+			],
+		} as unknown as Spread;
+		const canvas = (extra = {}) => (
+			<SpreadCanvas
+				book={book}
+				spread={guided}
+				layout={null}
+				zoom={1}
+				label="Page"
+				onSelect={() => {}}
+				{...extra}
+			/>
+		);
+
+		it('draws a vertical guide at its x and a horizontal one at its y, locked ones dashed', () => {
+			const { container } = render(canvas());
+			const [vertical, horizontal] = [...container.querySelectorAll('[data-guide]')].map((g) =>
+				g.querySelector('line')!,
+			);
+			expect(vertical).toHaveAttribute('x1', '30');
+			expect(vertical).toHaveAttribute('x2', '30');
+			expect(vertical).not.toHaveAttribute('stroke-dasharray');
+			expect(horizontal).toHaveAttribute('y1', '60');
+			expect(horizontal).toHaveAttribute('stroke-dasharray');
+		});
+
+		it('draws none when the guides mark is off', () => {
+			const { container } = render(canvas({ marks: { ...DEFAULT_MARKS, guides: false } }));
+			expect(container.querySelector('[data-guide]')).toBeNull();
+		});
+
+		it('starts a move from a press on a free guide, and not from a locked one', () => {
+			const onGuidePointerDown = vi.fn();
+			const { container } = render(canvas({ onGuidePointerDown }));
+			fireEvent.pointerDown(container.querySelector('[data-guide-hit="0"]')!, { button: 0 });
+			expect(onGuidePointerDown).toHaveBeenCalledWith('x', 0, expect.anything());
+			fireEvent.pointerDown(container.querySelector('[data-guide-hit="1"]')!, { button: 0 });
+			expect(onGuidePointerDown).toHaveBeenCalledTimes(1);
+		});
+
+		it("asks for a guide's menu with a right-click", () => {
+			const onGuideMenu = vi.fn();
+			const { container } = render(canvas({ onGuideMenu }));
+			fireEvent.contextMenu(container.querySelector('[data-guide-hit="1"]')!, {
+				clientX: 12,
+				clientY: 34,
+			});
+			expect(onGuideMenu).toHaveBeenCalledWith(1, { x: 12, y: 34 });
+		});
+
+		it('draws a guide being dragged where it would land, and hides the one it moves', () => {
+			const drag = {
+				axis: 'x',
+				pos: 45,
+				index: 0,
+				remove: false,
+				pointer: { x: 0, y: 0 },
+			} as const;
+			const { container, rerender } = render(canvas({ guideDrag: drag }));
+			expect(container.querySelector('[data-guide="0"]')).toBeNull();
+			expect(container.querySelector('[data-guide-drag="x"]')).toHaveAttribute('x1', '45');
+			rerender(canvas({ guideDrag: { ...drag, remove: true } }));
+			expect(container.querySelector('[data-guide-drag="x"]')).toHaveAttribute(
+				'stroke',
+				'var(--folio-danger)',
+			);
+		});
 	});
 });

@@ -47,6 +47,30 @@ pub enum Units {
     Millimetres,
 }
 
+/// The unit the rulers count in. It is kept apart from `Units`, which the inspector uses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub enum RulerUnit {
+    #[default]
+    Inches,
+    Millimetres,
+    Centimetres,
+    Points,
+    Picas,
+    /// CSS pixels, 96 to the inch.
+    Pixels,
+}
+
+/// Whether the rulers show along the top and left of the spread, and what they count in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct RulerSettings {
+    pub on: bool,
+    pub units: RulerUnit,
+}
+
 /// How much Jax, the optional helper, says.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
@@ -150,6 +174,8 @@ pub struct MarksSettings {
     pub columns: MarkSetting,
     pub baseline: MarkSetting,
     pub frame_edges: MarkSetting,
+    /// The ruler guides.
+    pub guides: MarkSetting,
     /// Whether dragging snaps to the page's edges, margins and other frames.
     pub snap: bool,
 }
@@ -162,19 +188,21 @@ impl Default for MarksSettings {
             columns: MarkSetting::new(false),
             baseline: MarkSetting::new(false),
             frame_edges: MarkSetting::new(false),
+            guides: MarkSetting::new(true),
             snap: true,
         }
     }
 }
 
 impl MarksSettings {
-    fn each(&mut self) -> [(&'static str, &mut MarkSetting); 5] {
+    fn each(&mut self) -> [(&'static str, &mut MarkSetting); 6] {
         [
             ("marks.bleed.colour", &mut self.bleed),
             ("marks.margins.colour", &mut self.margins),
             ("marks.columns.colour", &mut self.columns),
             ("marks.baseline.colour", &mut self.baseline),
             ("marks.frameEdges.colour", &mut self.frame_edges),
+            ("marks.guides.colour", &mut self.guides),
         ]
     }
 }
@@ -190,6 +218,7 @@ pub struct Settings {
     pub jax: JaxHelp,
     pub interface: InterfaceSettings,
     pub marks: MarksSettings,
+    pub rulers: RulerSettings,
     /// The paths of recently opened books, newest first.
     pub recent_books: Vec<String>,
 }
@@ -411,7 +440,26 @@ mod tests {
         let marks = Settings::default().marks;
         assert!(marks.bleed.on && marks.margins.on && marks.snap);
         assert!(!marks.columns.on && !marks.baseline.on && !marks.frame_edges.on);
+        assert!(
+            marks.guides.on,
+            "guides show once there are rulers to make them with"
+        );
         assert_eq!(marks.bleed.colour, 0);
+    }
+
+    #[test]
+    fn the_rulers_start_off_in_inches_and_are_changed_by_a_patch() {
+        let rulers = Settings::default().rulers;
+        assert!(!rulers.on);
+        assert_eq!(rulers.units, RulerUnit::Inches);
+        let patched = Settings::default()
+            .patched(&json!({ "rulers": { "on": true, "units": "picas" } }))
+            .unwrap();
+        assert!(patched.rulers.on);
+        assert_eq!(patched.rulers.units, RulerUnit::Picas);
+        assert!(Settings::default()
+            .patched(&json!({ "rulers": { "units": "cubits" } }))
+            .is_err());
     }
 
     #[test]

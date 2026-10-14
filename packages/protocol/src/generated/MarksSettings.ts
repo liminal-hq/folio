@@ -6,6 +6,10 @@ import type { MarkSetting } from "./MarkSetting";
  */
 export type MarksSettings = { bleed: MarkSetting, margins: MarkSetting, columns: MarkSetting, baseline: MarkSetting, frameEdges: MarkSetting, 
 /**
+ * The ruler guides.
+ */
+guides: MarkSetting, 
+/**
  * Whether dragging snaps to the page's edges, margins and other frames.
  */
 snap: boolean, };

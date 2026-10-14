@@ -16,6 +16,8 @@ import type { FrameCommand } from './frameMenu';
 import { canEditText, TextEditor } from './TextEditor';
 import { DEFAULT_MARK_COLOURS, DEFAULT_MARKS, type MarkColours, type Marks } from './marksModel';
 import { HANDLES, type Handle } from './snap';
+import type { GuideAxis } from './guides';
+import type { GuideDragState } from './useGuideDrag';
 import { movable, useFrameDrag, type FrameBoxMove } from './useFrameDrag';
 
 export interface SpreadCanvasProps {
@@ -38,6 +40,12 @@ export interface SpreadCanvasProps {
 	onCommand?(command: FrameCommand, ids: string[]): void;
 	/** The context menu was asked for on a frame, at these viewport coordinates. */
 	onFrameMenu?(frame: Frame, at: { x: number; y: number }): void;
+	/** A press on a guide that is not locked, to move it. */
+	onGuidePointerDown?(axis: GuideAxis, index: number, event: { button: number }): void;
+	/** The context menu was asked for on a guide, at these viewport coordinates. */
+	onGuideMenu?(index: number, at: { x: number; y: number }): void;
+	/** A guide being pulled out or moved, drawn where it would land. */
+	guideDrag?: GuideDragState | null;
 	/** The menu was asked for on the bare page: where on screen, and where on the spread in points. */
 	/** An address to draw for each picture's asset path, once it has been read. */
 	images?: Record<string, string>;
@@ -213,6 +221,9 @@ export function SpreadCanvas({
 	onMove,
 	onCommand,
 	onFrameMenu,
+	onGuidePointerDown,
+	onGuideMenu,
+	guideDrag = null,
 	onEditText,
 	onPageMenu,
 	images = {},
@@ -228,6 +239,7 @@ export function SpreadCanvas({
 		scale,
 		selection,
 		snap,
+		guides: marks.guides ? spread.guides.map((g) => ({ axis: g.axis, pos: g.pos })) : [],
 		onSelect,
 		onMove,
 		onCommand,
@@ -449,6 +461,60 @@ export function SpreadCanvas({
 							/>
 						))}
 					</g>
+				)}
+				{marks.guides &&
+					spread.guides.map((guide, index) => {
+						if (guideDrag?.index === index) return null;
+						const vertical = guide.axis === 'x';
+						const line = {
+							x1: vertical ? guide.pos : bounds.x,
+							x2: vertical ? guide.pos : bounds.x + bounds.w,
+							y1: vertical ? bounds.y : guide.pos,
+							y2: vertical ? bounds.y + bounds.h : guide.pos,
+						};
+						return (
+							<g key={index} data-guide={index} data-locked={guide.locked || undefined}>
+								<line
+									{...line}
+									stroke={colours.guides}
+									strokeWidth={1 / scale}
+									strokeDasharray={guide.locked ? `${4 / scale} ${3 / scale}` : undefined}
+									pointerEvents="none"
+								/>
+								{editable && (
+									<line
+										{...line}
+										data-guide-hit={index}
+										stroke="transparent"
+										strokeWidth={8 / scale}
+										style={{
+											cursor: guide.locked ? 'default' : vertical ? 'col-resize' : 'row-resize',
+										}}
+										onPointerDown={(event) => {
+											event.stopPropagation();
+											if (!guide.locked) onGuidePointerDown?.(guide.axis, index, event);
+										}}
+										onContextMenu={(event) => {
+											event.preventDefault();
+											event.stopPropagation();
+											onGuideMenu?.(index, { x: event.clientX, y: event.clientY });
+										}}
+									/>
+								)}
+							</g>
+						);
+					})}
+				{guideDrag && (
+					<line
+						data-guide-drag={guideDrag.axis}
+						x1={guideDrag.axis === 'x' ? guideDrag.pos : bounds.x}
+						x2={guideDrag.axis === 'x' ? guideDrag.pos : bounds.x + bounds.w}
+						y1={guideDrag.axis === 'y' ? guideDrag.pos : bounds.y}
+						y2={guideDrag.axis === 'y' ? guideDrag.pos : bounds.y + bounds.h}
+						stroke={guideDrag.remove ? 'var(--folio-danger)' : colours.guides}
+						strokeWidth={1 / scale}
+						pointerEvents="none"
+					/>
 				)}
 				{frames
 					.filter((f) => selection.includes(f.id))

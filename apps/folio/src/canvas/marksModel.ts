@@ -6,7 +6,7 @@
 import type { MarksSettings } from '@liminal-hq/folio-protocol/generated/MarksSettings';
 import type { SettingsPatch } from '@liminal-hq/folio-plugin-settings';
 
-export type MarkKey = 'bleed' | 'margins' | 'columns' | 'baseline' | 'frameEdges';
+export type MarkKey = 'bleed' | 'margins' | 'columns' | 'baseline' | 'frameEdges' | 'guides';
 
 export const MARK_KEYS: readonly MarkKey[] = [
 	'bleed',
@@ -14,6 +14,7 @@ export const MARK_KEYS: readonly MarkKey[] = [
 	'columns',
 	'baseline',
 	'frameEdges',
+	'guides',
 ];
 
 /** Which marks are drawn. */
@@ -31,6 +32,7 @@ export const MARK_PALETTES: Readonly<Record<MarkKey, Palette>> = {
 	columns: ['#ff8a1f', '#e0368f', '#2f9e7a', '#5b7fd6'],
 	baseline: ['#d95fa0', '#5b7fd6', '#2f9e7a', '#ff8a1f'],
 	frameEdges: ['#2f9e7a', '#5b7fd6', '#e0368f', '#ff8a1f'],
+	guides: ['#00a3b8', '#e0368f', '#ff8a1f', '#7b4fd6'],
 };
 
 export const DEFAULT_MARKS: Marks = {
@@ -39,6 +41,7 @@ export const DEFAULT_MARKS: Marks = {
 	columns: false,
 	baseline: false,
 	frameEdges: false,
+	guides: true,
 };
 
 export const DEFAULT_MARK_COLOURS: MarkColours = {
@@ -47,6 +50,7 @@ export const DEFAULT_MARK_COLOURS: MarkColours = {
 	columns: MARK_PALETTES.columns[0],
 	baseline: MARK_PALETTES.baseline[0],
 	frameEdges: MARK_PALETTES.frameEdges[0],
+	guides: MARK_PALETTES.guides[0],
 };
 
 export function marksOf(settings: MarksSettings): Marks {
