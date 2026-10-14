@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { TitleBar } from '@liminal-hq/folio-chrome/TitleBar';
+import type { ButtonLayout } from '@liminal-hq/folio-chrome/TitleBar/buttonLayout';
 import { TitleBarTitle } from '@liminal-hq/folio-chrome/TitleBar/TitleBarTitle';
 import type { ReactNode } from 'react';
 import { chromeLabels } from '../i18n/chromeLabels';
@@ -11,13 +12,18 @@ import { useTitlebarPreferences } from '../services/titlebarPreferences';
 import { titlebarConfigFor } from './titlebarConfig';
 import { useWindowCapabilities } from './windowCapabilities';
 
+/** A layout with the close button alone, on the end side. */
+const CLOSE_ONLY: ButtonLayout = { start: [], end: ['close'] };
+
 interface AppTitleBarProps {
 	title: string;
 	/** The start slot, after any start-side window buttons: the main window puts its app menu here. */
 	start?: ReactNode;
+	/** Shows only the close button, for a window that is not maximised or minimised (About). */
+	closeOnly?: boolean;
 }
 
-export function AppTitleBar({ title, start }: AppTitleBarProps) {
+export function AppTitleBar({ title, start, closeOnly = false }: AppTitleBarProps) {
 	const preferences = useTitlebarPreferences();
 	const capabilities = useWindowCapabilities();
 	const config = titlebarConfigFor(preferences, document.documentElement.dataset.platform);
@@ -26,7 +32,7 @@ export function AppTitleBar({ title, start }: AppTitleBarProps) {
 			start={start}
 			center={<TitleBarTitle>{title}</TitleBarTitle>}
 			controlsStyle={config.controlsStyle}
-			buttonLayout={config.buttonLayout}
+			buttonLayout={closeOnly ? CLOSE_ONLY : config.buttonLayout}
 			titlebarActions={config.titlebarActions}
 			titleAlign={config.titleAlign}
 			labels={chromeLabels()}

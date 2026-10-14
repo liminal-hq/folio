@@ -11,14 +11,16 @@ import { runCommand, type CommandContext } from './runCommand';
 function context(overrides: Partial<CommandContext['settings']> = {}) {
 	const patches: SettingsPatch[] = [];
 	const closeWindow = vi.fn();
+	const openWindow = vi.fn();
 	const value: CommandContext = {
 		settings: { ...DEFAULT_SETTINGS, ...overrides },
 		update: async (patch) => {
 			patches.push(patch);
 		},
+		openWindow,
 		closeWindow,
 	};
-	return { value, patches, closeWindow };
+	return { value, patches, closeWindow, openWindow };
 }
 
 describe('runCommand', () => {
@@ -50,6 +52,14 @@ describe('runCommand', () => {
 		const off = context({ jax: 'off' });
 		await runCommand('view.jax', off.value);
 		expect(off.patches).toEqual([{ jax: 'tips' }]);
+	});
+
+	it('opens Preferences, About and Book tools', async () => {
+		const { value, openWindow } = context();
+		await runCommand('app.preferences', value);
+		await runCommand('app.about', value);
+		await runCommand('app.bookTools', value);
+		expect(openWindow.mock.calls).toEqual([['Preferences'], ['About'], ['BookTools']]);
 	});
 
 	it('quits by closing the window', async () => {

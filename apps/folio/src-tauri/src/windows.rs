@@ -18,6 +18,10 @@ pub struct WindowSpec {
     pub size: (f64, f64),
     pub min_size: Option<(f64, f64)>,
     pub resizable: bool,
+    /// Keeps the window off the taskbar: it belongs to the main window, not the desktop.
+    pub skip_taskbar: bool,
+    /// Opens as a child of the main window, so it stays above it and closes with it.
+    pub child_of_main: bool,
 }
 
 /// The title Folio's windows carry before the page names them (the page sets the real one).
@@ -31,13 +35,32 @@ pub fn spec_for(kind: WindowKind) -> WindowSpec {
             size: (1440.0, 900.0),
             min_size: Some((1024.0, 680.0)),
             resizable: true,
+            skip_taskbar: false,
+            child_of_main: false,
         },
-        // The other kinds arrive with the child windows.
-        WindowKind::About | WindowKind::Preferences | WindowKind::BookTools => WindowSpec {
-            title: APP_TITLE,
-            size: (800.0, 600.0),
+        WindowKind::About => WindowSpec {
+            title: "About Folio",
+            size: (560.0, 760.0),
             min_size: None,
+            resizable: false,
+            skip_taskbar: true,
+            child_of_main: false,
+        },
+        WindowKind::Preferences => WindowSpec {
+            title: "Preferences",
+            size: (860.0, 620.0),
+            min_size: Some((560.0, 440.0)),
             resizable: true,
+            skip_taskbar: false,
+            child_of_main: false,
+        },
+        WindowKind::BookTools => WindowSpec {
+            title: "Book Tools",
+            size: (1180.0, 760.0),
+            min_size: Some((900.0, 600.0)),
+            resizable: true,
+            skip_taskbar: false,
+            child_of_main: true,
         },
     }
 }
@@ -53,12 +76,22 @@ pub fn build_window<R: Runtime>(
             .title(spec.title)
             .inner_size(spec.size.0, spec.size.1)
             .resizable(spec.resizable)
+            // A fixed window cannot be maximised either: the button would do nothing.
+            .maximizable(spec.resizable)
+            .skip_taskbar(spec.skip_taskbar)
             .decorations(false)
             .transparent(true)
             .shadow(true)
             .center();
     if let Some((width, height)) = spec.min_size {
         builder = builder.min_inner_size(width, height);
+    }
+    if spec.child_of_main {
+        // On Wayland a window's place cannot be set, so a child is placed by the compositor over
+        // its parent. Without a main window there is nothing to belong to.
+        if let Some(main) = app.get_webview_window(WindowKind::Main.label()) {
+            builder = builder.parent(&main)?;
+        }
     }
     builder.build()
 }
@@ -77,6 +110,14 @@ pub fn open_or_focus<R: Runtime>(
     build_window(app, kind)
 }
 
+/// Opens a window of `kind`, or focuses it when it is already open. Reopening never makes a second.
+#[tauri::command]
+pub fn open_window<R: Runtime>(app: AppHandle<R>, kind: WindowKind) -> Result<(), String> {
+    open_or_focus(&app, kind)
+        .map(drop)
+        .map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -88,6 +129,39 @@ mod tests {
         assert!(spec.size.0 >= min_width && spec.size.1 >= min_height);
         assert_eq!(spec.size, (1440.0, 900.0));
         assert_eq!(spec.min_size, Some((1024.0, 680.0)));
+    }
+
+    #[test]
+    fn about_is_a_fixed_window_that_stays_off_the_taskbar() {
+        let spec = spec_for(WindowKind::About);
+        assert_eq!(spec.size, (560.0, 760.0));
+        assert!(!spec.resizable && spec.skip_taskbar);
+    }
+
+    #[test]
+    fn book_tools_belong_to_the_main_window() {
+        let spec = spec_for(WindowKind::BookTools);
+        assert!(spec.child_of_main);
+        assert_eq!(spec.size, (1180.0, 760.0));
+        assert_eq!(spec.min_size, Some((900.0, 600.0)));
+    }
+
+    #[test]
+    fn every_kind_opens_a_window_with_its_own_label_and_reopening_makes_no_second() {
+        let app = tauri::test::mock_app();
+        // Book tools come before the main window: the mock runtime cannot parent a window to
+        // another, which a real Book tools window does when the main window is open.
+        for kind in [
+            WindowKind::BookTools,
+            WindowKind::About,
+            WindowKind::Preferences,
+            WindowKind::Main,
+        ] {
+            open_window(app.handle().clone(), kind).expect("opens");
+            open_window(app.handle().clone(), kind).expect("focuses");
+            assert!(app.get_webview_window(kind.label()).is_some());
+        }
+        assert_eq!(app.webview_windows().len(), 4);
     }
 
     #[test]

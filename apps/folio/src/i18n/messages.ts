@@ -33,6 +33,7 @@ export const messages = {
 	'command.useRibbon': 'Use the ribbon',
 	'command.expertMode': 'Expert mode',
 	'command.jax': 'Jax',
+	'command.bookTools': 'Book tools',
 	'command.preferences': 'Preferences…',
 	'command.shortcuts': 'Keyboard shortcuts',
 	'command.about': 'About Folio',
@@ -41,6 +42,55 @@ export const messages = {
 	'command.redo': 'Redo',
 	'command.zoomIn': 'Zoom in',
 	'command.zoomOut': 'Zoom out',
+
+	// Window titles
+	'window.about.title': 'About Folio',
+	'window.preferences.title': 'Preferences',
+	'window.bookTools.title': 'Book Tools',
+
+	// About
+	'about.tagline': 'Books, laid out by hand, without the hard parts.',
+	'about.version': 'Version {version}',
+	'about.identifier': '{identifier} on {platform}',
+	'about.licence': 'Licensed under either the Apache License 2.0 or the MIT licence.',
+	'about.copyright': 'Copyright 2026 Liminal HQ, Scott Morris',
+	'about.copyDetails': 'Copy build details',
+	'about.copied': 'Copied',
+	'about.details': 'Folio {version} ({identifier}) on {platform}',
+
+	// Book tools
+	'bookTools.heading': 'Book tools',
+	'bookTools.empty':
+		'The workbenches for structure, typesetting, pictures and publishing will open here.',
+
+	// Preferences
+	'preferences.section.interface': 'Interface',
+	'preferences.section.appearance': 'Appearance',
+	'preferences.section.units': 'Units',
+	'preferences.section.help': 'Help',
+	'preferences.menuBar': 'Show the menu bar',
+	'preferences.menuBar.description': 'Alt or F10 still opens it while it is hidden.',
+	'preferences.toolbar': 'Toolbar',
+	'preferences.toolbar.ribbon': 'Ribbon',
+	'preferences.toolbar.classic': 'Classic',
+	'preferences.largerControls': 'Larger controls',
+	'preferences.largerControls.description': 'Make buttons and rows easier to hit.',
+	'preferences.mode': 'How do you like to work?',
+	'preferences.mode.description': 'Easy hides what you do not need. Expert shows everything.',
+	'preferences.colourMode': 'Colour scheme',
+	'preferences.colourMode.system': 'Follow system',
+	'preferences.colourMode.light': 'Light',
+	'preferences.colourMode.dark': 'Dark',
+	'preferences.units': 'Show lengths in',
+	'preferences.units.description': 'Books store lengths in points. This changes only what you see.',
+	'preferences.units.inches': 'Inches',
+	'preferences.units.millimetres': 'Millimetres',
+	'preferences.jax': 'Jax',
+	'preferences.jax.description': 'An optional helper. He never interrupts.',
+	'preferences.jax.guide': 'Walk me through it',
+	'preferences.jax.tips': 'Just tips',
+	'preferences.jax.off': 'No thanks',
+	'preferences.error': 'That change could not be made: {message}',
 
 	// The main window's regions
 	'region.toolbar': 'Toolbar',

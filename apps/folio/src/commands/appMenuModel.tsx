@@ -9,6 +9,7 @@ import type { ReactNode } from 'react';
 import { t } from '../i18n/messages';
 import {
 	AboutIcon,
+	BookToolsIcon,
 	EditIcon,
 	ExpertIcon,
 	ExportIcon,
@@ -48,6 +49,7 @@ export type CommandId =
 	| 'view.jax'
 	| 'view.zoomIn'
 	| 'view.zoomOut'
+	| 'app.bookTools'
 	| 'app.preferences'
 	| 'app.shortcuts'
 	| 'app.about'
@@ -190,6 +192,7 @@ export function buildAppMenu(settings: Settings, available: CommandAvailability)
 		{ type: 'separator' },
 		...interfaceToggles(settings, available),
 		{ type: 'separator' },
+		action('app.bookTools', t('command.bookTools'), <BookToolsIcon />, available),
 		action('app.preferences', t('command.preferences'), <PreferencesIcon />, available, 'Ctrl+,'),
 		...helpItems(available),
 		{ type: 'separator' },

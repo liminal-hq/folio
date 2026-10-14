@@ -145,10 +145,16 @@ export const EditIcon = () => (
 	</Glyph>
 );
 
+export const BookToolsIcon = () => (
+	<Glyph>
+		<path d="M9.5 2.5a3 3 0 00-2.8 4L2 11.2 4.8 14l4.7-4.7a3 3 0 004-2.8l-2 2-2-.5-.5-2z" />
+	</Glyph>
+);
+
 /** The Folio mark for the title bar's menu button: an open spread with the slit of light. */
-export function AppMarkIcon() {
+export function AppMarkIcon({ size = 18 }: { size?: number }) {
 	return (
-		<svg width="18" height="18" viewBox="0 0 64 64" aria-hidden="true">
+		<svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
 			<defs>
 				<linearGradient
 					id="folio-mark-stroke"

@@ -9,6 +9,7 @@ import { useCallback, useMemo } from 'react';
 import { buildAppMenu, buildMenuBar } from '../commands/appMenuModel';
 import { ENABLED_COMMANDS, runCommand } from '../commands/runCommand';
 import { useSettings, useUpdateSettings } from '../settings/useSettings';
+import { useWindows } from './WindowsContext';
 
 const AVAILABLE = { enabled: ENABLED_COMMANDS };
 
@@ -24,6 +25,7 @@ export function useAppMenu(): AppMenuModel {
 	const settings = useSettings();
 	const update = useUpdateSettings();
 	const controls = useWindowControls();
+	const windows = useWindows();
 
 	const items = useMemo(() => buildAppMenu(settings, AVAILABLE), [settings]);
 	const barItems = useMemo(() => buildMenuBar(settings, AVAILABLE), [settings]);
@@ -32,10 +34,11 @@ export function useAppMenu(): AppMenuModel {
 			void runCommand(item.id, {
 				settings,
 				update,
+				openWindow: (kind) => windows.open(kind),
 				closeWindow: () => controls.close(),
 			});
 		},
-		[settings, update, controls],
+		[settings, update, controls, windows],
 	);
 
 	return { items, barItems, onSelect };

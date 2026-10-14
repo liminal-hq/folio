@@ -8,7 +8,10 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { WindowKind } from '@liminal-hq/folio-protocol/generated/WindowKind';
 import { AppWindowChrome } from './app/AppWindowChrome';
+import { AboutScreen } from './app/AboutScreen';
+import { BookToolsScreen } from './app/BookToolsScreen';
 import { MainScreen } from './app/MainScreen';
+import { PreferencesScreen } from './app/PreferencesScreen';
 import { windowKindFromLabel } from './app/windowKind';
 import { SettingsProvider } from './settings/SettingsProvider';
 import { tauriSettingsClient } from './settings/settingsClient';
@@ -23,10 +26,12 @@ function screenFor(kind: WindowKind | null) {
 	switch (kind) {
 		case 'Main':
 			return <MainScreen />;
-		// The child windows' screens arrive with the windows themselves.
 		case 'About':
+			return <AboutScreen />;
 		case 'Preferences':
+			return <PreferencesScreen />;
 		case 'BookTools':
+			return <BookToolsScreen />;
 		case null:
 			return null;
 	}

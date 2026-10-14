@@ -51,7 +51,10 @@ pub fn run() {
         .plugin(tauri_plugin_window_manager::init())
         // After the store plugin it saves through.
         .plugin(tauri_plugin_folio_settings::init_with(settings::storage))
-        .invoke_handler(tauri::generate_handler![app_info::app_info])
+        .invoke_handler(tauri::generate_handler![
+            app_info::app_info,
+            windows::open_window
+        ])
         .setup(|app| {
             windows::open_or_focus(app.handle(), WindowKind::Main)?;
             Ok(())

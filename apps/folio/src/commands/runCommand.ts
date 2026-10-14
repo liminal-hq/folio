@@ -4,12 +4,15 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { Settings, SettingsPatch } from '@liminal-hq/folio-plugin-settings';
+import type { WindowKind } from '@liminal-hq/folio-protocol/generated/WindowKind';
 import type { CommandId } from './appMenuModel';
 
 /** What a command needs from its window. */
 export interface CommandContext {
 	settings: Settings;
 	update(patch: SettingsPatch): Promise<void>;
+	/** Opens a window, or focuses it when it is already open. */
+	openWindow(kind: WindowKind): void | Promise<void>;
 	/** Closes the window the command was run in. */
 	closeWindow(): void | Promise<void>;
 }
@@ -20,6 +23,9 @@ export const ENABLED_COMMANDS: ReadonlySet<CommandId> = new Set<CommandId>([
 	'view.ribbon',
 	'view.expert',
 	'view.jax',
+	'app.bookTools',
+	'app.preferences',
+	'app.about',
 	'app.quit',
 ]);
 
@@ -44,6 +50,12 @@ export async function runCommand(id: string, context: CommandContext): Promise<v
 		case 'view.jax':
 			// Switching Jax back on returns to the gentle default rather than the last choice.
 			return context.update({ jax: settings.jax === 'off' ? 'tips' : 'off' });
+		case 'app.bookTools':
+			return context.openWindow('BookTools');
+		case 'app.preferences':
+			return context.openWindow('Preferences');
+		case 'app.about':
+			return context.openWindow('About');
 		case 'app.quit':
 			await context.closeWindow();
 			return;
