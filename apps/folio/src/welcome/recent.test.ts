@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { describe, expect, it } from 'vitest';
-import { recentEntry } from './recent';
+import { plainPath, recentEntry } from './recent';
 
 describe('recentEntry', () => {
 	it('splits a path on either kind of separator and drops the extension', () => {
@@ -21,5 +21,16 @@ describe('recentEntry', () => {
 
 	it('copes with a bare file name', () => {
 		expect(recentEntry('Pip.folio')).toEqual({ path: 'Pip.folio', name: 'Pip', folder: '' });
+	});
+
+	it("drops the verbatim prefix Windows adds, but not a network path's", () => {
+		expect(recentEntry('\\\\?\\C:\\Users\\User\\Documents\\Pip.folio')).toEqual({
+			path: 'C:\\Users\\User\\Documents\\Pip.folio',
+			name: 'Pip',
+			folder: 'C:\\Users\\User\\Documents',
+		});
+		expect(plainPath('\\\\?\\UNC\\server\\share\\Pip.folio')).toBe(
+			'\\\\?\\UNC\\server\\share\\Pip.folio',
+		);
 	});
 });

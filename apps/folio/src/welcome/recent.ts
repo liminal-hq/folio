@@ -11,8 +11,14 @@ export interface RecentEntry {
 	folder: string;
 }
 
+/** A Windows path without the `\\?\` that canonicalising it once added, and which no one means to read. */
+export function plainPath(path: string): string {
+	return path.startsWith('\\\\?\\') && !/^\\\\\?\\UNC\\/i.test(path) ? path.slice(4) : path;
+}
+
 /** A path split into the name to show and the folder it is in, for `/` and `\` separators alike. */
 export function recentEntry(path: string): RecentEntry {
+	path = plainPath(path);
 	const cut = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
 	const file = cut === -1 ? path : path.slice(cut + 1);
 	const folder = cut === -1 ? '' : path.slice(0, cut);

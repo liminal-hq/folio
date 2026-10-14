@@ -191,7 +191,7 @@ impl<R: Runtime> Books<R> {
 
     /// Opens a `.folio` file, or returns the session it is already open in.
     pub fn open(&self, path: &Path) -> Result<BookSnapshot, Error> {
-        let canonical = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        let canonical = dunce::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
         {
             let inner = locked(&self.inner);
             if let Some(open) = inner
@@ -236,7 +236,7 @@ impl<R: Runtime> Books<R> {
             };
             open.package.save(&target, &options)?;
             open.session.mark_saved();
-            open.path = Some(std::fs::canonicalize(&target).unwrap_or(target));
+            open.path = Some(dunce::canonicalize(&target).unwrap_or(target));
             let summary = open.summary();
             self.announce(&inner);
             summary

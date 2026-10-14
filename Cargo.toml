@@ -25,6 +25,7 @@ homepage = "https://github.com/liminal-hq/folio"
 repository = "https://github.com/liminal-hq/folio"
 
 [workspace.dependencies]
+dunce = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 thiserror = "2"
