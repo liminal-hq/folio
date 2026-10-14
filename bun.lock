@@ -17,6 +17,7 @@
         "@liminal-hq/folio-plugin-books": "workspace:*",
         "@liminal-hq/folio-plugin-settings": "workspace:*",
         "@liminal-hq/folio-protocol": "workspace:*",
+        "@liminal-hq/folio-ribbon": "workspace:*",
         "@liminal-hq/plugin-system-appearance": "^0.1.0",
         "@liminal-hq/plugin-window-manager": "^0.1.0",
         "@tauri-apps/api": "^2.10.1",
@@ -70,6 +71,32 @@
     "packages/protocol": {
       "name": "@liminal-hq/folio-protocol",
       "version": "0.0.0",
+    },
+    "packages/ribbon": {
+      "name": "@liminal-hq/folio-ribbon",
+      "version": "0.0.0",
+      "dependencies": {
+        "@liminal-hq/folio-chrome": "workspace:*",
+      },
+      "devDependencies": {
+        "@testing-library/jest-dom": "^6.9.1",
+        "@testing-library/react": "^16.3.2",
+        "@testing-library/user-event": "^14.6.1",
+        "@types/node": "^24.0.0",
+        "@types/react": "^19.1.8",
+        "@types/react-dom": "^19.1.6",
+        "@vitejs/plugin-react": "^4.6.0",
+        "happy-dom": "^20.8.4",
+        "react": "^19.1.0",
+        "react-dom": "^19.1.0",
+        "typescript": "~5.8.3",
+        "vite": "^7.0.4",
+        "vitest": "^4.1.9",
+      },
+      "peerDependencies": {
+        "react": "^19.1.0",
+        "react-dom": "^19.1.0",
+      },
     },
     "plugins/folio-books": {
       "name": "@liminal-hq/folio-plugin-books",
@@ -358,6 +385,8 @@
     "@liminal-hq/folio-plugin-settings": ["@liminal-hq/folio-plugin-settings@workspace:plugins/folio-settings"],
 
     "@liminal-hq/folio-protocol": ["@liminal-hq/folio-protocol@workspace:packages/protocol"],
+
+    "@liminal-hq/folio-ribbon": ["@liminal-hq/folio-ribbon@workspace:packages/ribbon"],
 
     "@liminal-hq/folio-site": ["@liminal-hq/folio-site@workspace:site"],
 

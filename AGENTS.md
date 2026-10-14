@@ -203,6 +203,7 @@ Cargo workspace + **Bun workspaces**, matching Waypoint, Jar and Cadence. The ap
 
 - `apps/folio` — the Tauri app: React/TypeScript frontend in `src/`, and `src-tauri/` as a thin composition root that registers plugins and wires crates together.
 - `packages/chrome` — the shared React chrome (title bar, window menu, context menu, dialogs, settings shell), copied from Waypoint with Folio's `--folio-*` tokens, with no domain imports.
+- `packages/ribbon` — the data-driven ribbon toolbar (tabs, groups, controls, Easy/Expert filtering, tooltips, keyboard), with no domain imports; it depends one-way on `packages/chrome` for its menus.
 - `packages/protocol` — the TypeScript types `ts-rs` generates from the Rust wire types (types only, never hand-edited).
 - `crates/*` — pure Rust, no `tauri` dependency: `folio-layout`, `folio-model`, `folio-package`, `folio-presets`, `folio-protocol`, `folio-session`, `folio-settings` and the planned `folio-export`, `folio-import`, `folio-color`, `folio-jax`.
 - `plugins/*` — Tauri plugins, each a Rust crate plus a `guest-js` package: `folio-books` and `folio-settings` (domain) and copies of the unpublished reusable plugins `window-tearoff` and `window-effects`.

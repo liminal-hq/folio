@@ -21,6 +21,7 @@
 	},
 	"dependencies": {
 		"@liminal-hq/folio-chrome": "workspace:*",
+		"@liminal-hq/folio-ribbon": "workspace:*",
 		"@liminal-hq/folio-plugin-books": "workspace:*",
 		"@liminal-hq/folio-plugin-settings": "workspace:*",
 		"@liminal-hq/folio-protocol": "workspace:*",

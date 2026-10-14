@@ -17,7 +17,8 @@ folio/
 │  └─ folio-jax/               # help library index + ONNX runtime (ort) inference
 ├─ packages/
 │  ├─ protocol/                # ts-rs generated types (from folio-model)
-│  └─ chrome/                  # @liminal-hq/folio-chrome (copied from Waypoint): TitleBar, AppMenuButton, MenuBar, ContextMenu, WindowMenu
+│  ├─ chrome/                  # @liminal-hq/folio-chrome (copied from Waypoint): TitleBar, AppMenuButton, MenuBar, ContextMenu, WindowMenu
+│  └─ ribbon/                  # @liminal-hq/folio-ribbon: the data-driven ribbon toolbar (D-19)
 ├─ plugins/
 │  ├─ folio-settings/          # domain plugin: typed, versioned app settings (D-11)
 │  ├─ window-tearoff/          # copied until published (D-08)

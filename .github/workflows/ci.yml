@@ -76,7 +76,7 @@ jobs:
             echo "| Tests | \`${{ steps.tests.outcome }}\` | \`bun run test:js:ci\` |"
             echo "| Build | \`${{ steps.build.outcome }}\` | \`bun run build\` |"
             echo
-            bash scripts/junit-summary.sh test-results/chrome-junit.xml test-results/junit.xml
+            bash scripts/junit-summary.sh test-results/chrome-junit.xml test-results/ribbon-junit.xml test-results/junit.xml
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload frontend test artefacts

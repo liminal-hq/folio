@@ -6,29 +6,6 @@
 	color: var(--folio-text-primary);
 }
 
-.toolbar {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 16px;
-	min-height: 44px;
-	padding: 0 12px;
-	border-bottom: 1px solid var(--folio-border-subtle);
-	background: var(--folio-bg-window);
-}
-
-.toolbarNote {
-	margin: 0;
-	color: var(--folio-text-muted);
-}
-
-.mode {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	color: var(--folio-text-secondary);
-}
-
 .body {
 	position: relative;
 	flex: 1;
