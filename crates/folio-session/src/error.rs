@@ -22,6 +22,8 @@ pub enum SessionError {
     LastSpread,
     #[error("the cover stays where it is")]
     CoverFixed,
+    #[error("the frame `{0}` is locked")]
+    Locked(String),
     #[error("the frame `{0}` is not on spread `{1}`")]
     NotOnSpread(String, String),
 }
