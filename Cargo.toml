@@ -1,5 +1,9 @@
 [workspace]
-members = []
+members = [
+  "crates/wayland-toplevel-drag",
+  "plugins/window-effects",
+  "plugins/window-tearoff",
+]
 resolver = "2"
 
 [workspace.package]
