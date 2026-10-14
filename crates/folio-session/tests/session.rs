@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use folio_model::{
     Axis, Book, Frame, FrameId, Grid, Intent, Margins, Pt, Rect, ReorderTo, Size, SpreadId,
-    SpreadKind, StyleId, StyleOverrides,
+    SpreadKind, StyleId, StyleOverrides, Surface,
 };
 use folio_session::{PatchOp, Session, SessionError, COALESCE_WINDOW, UNDO_DEPTH};
 use serde_json::json;
@@ -67,7 +67,7 @@ fn frame(id: &str) -> FrameId {
 
 fn move_pic(x: f64) -> Intent {
     Intent::MoveFrame {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         frame: frame("fr_pic"),
         rect: rect(x),
     }
@@ -170,7 +170,7 @@ fn moves_of_different_frames_are_not_merged() {
     s.apply_at(move_pic(10.0), start).unwrap();
     s.apply_at(
         Intent::MoveFrame {
-            spread: spread("sp_1"),
+            on: folio_model::Surface::Spread(spread("sp_1")),
             frame: frame("fr_text"),
             rect: rect(5.0),
         },
@@ -186,7 +186,7 @@ fn a_refused_intent_changes_nothing_and_says_why() {
     let mut s = session();
     let refused = s
         .apply(Intent::MoveFrame {
-            spread: spread("sp_1"),
+            on: folio_model::Surface::Spread(spread("sp_1")),
             frame: frame("nope"),
             rect: rect(1.0),
         })
@@ -276,14 +276,14 @@ fn frames_are_added_deleted_and_reordered() {
     }))
     .unwrap();
     s.apply(Intent::AddFrame {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         frame: added.clone(),
     })
     .unwrap();
     assert_eq!(s.book().spreads[1].frames.len(), 4);
     assert_eq!(
         s.apply(Intent::AddFrame {
-            spread: spread("sp_1"),
+            on: folio_model::Surface::Spread(spread("sp_1")),
             frame: added
         })
         .unwrap_err(),
@@ -292,7 +292,7 @@ fn frames_are_added_deleted_and_reordered() {
     );
 
     s.apply(Intent::Reorder {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         frame: frame("fr_pic"),
         to: ReorderTo::Front,
     })
@@ -306,14 +306,14 @@ fn frames_are_added_deleted_and_reordered() {
     };
     assert_eq!(ids(&s), ["fr_text", "fr_flowed", "fr_box", "fr_pic"]);
     s.apply(Intent::Reorder {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         frame: frame("fr_pic"),
         to: ReorderTo::Back,
     })
     .unwrap();
     assert_eq!(ids(&s)[0], "fr_pic");
     s.apply(Intent::Reorder {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         frame: frame("fr_pic"),
         to: ReorderTo::Index(2),
     })
@@ -321,7 +321,7 @@ fn frames_are_added_deleted_and_reordered() {
     assert_eq!(ids(&s)[2], "fr_pic");
 
     s.apply(Intent::DeleteFrame {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         frame: frame("fr_box"),
     })
     .unwrap();
@@ -634,7 +634,7 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
 fn a_duplicate_is_a_new_frame_beside_the_first_and_undoes_away() {
     let mut s = session();
     s.apply(Intent::DuplicateFrame {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         frame: frame("fr_pic"),
     })
     .unwrap();
@@ -652,7 +652,7 @@ fn a_duplicate_is_a_new_frame_beside_the_first_and_undoes_away() {
 fn a_locked_frame_cannot_be_moved_or_deleted_until_it_is_unlocked() {
     let mut s = session();
     let lock = |locked| Intent::LockFrame {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         frame: frame("fr_pic"),
         locked,
     };
@@ -663,7 +663,7 @@ fn a_locked_frame_cannot_be_moved_or_deleted_until_it_is_unlocked() {
     );
     assert_eq!(
         s.apply(Intent::DeleteFrame {
-            spread: spread("sp_1"),
+            on: folio_model::Surface::Spread(spread("sp_1")),
             frame: frame("fr_pic"),
         })
         .unwrap_err(),
@@ -679,13 +679,13 @@ fn a_locked_frame_cannot_be_moved_or_deleted_until_it_is_unlocked() {
 fn a_copy_of_a_locked_frame_is_not_locked() {
     let mut s = session();
     s.apply(Intent::LockFrame {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         frame: frame("fr_pic"),
         locked: true,
     })
     .unwrap();
     s.apply(Intent::DuplicateFrame {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         frame: frame("fr_pic"),
     })
     .unwrap();
@@ -856,7 +856,7 @@ fn rect_at(x: f64, y: f64) -> Rect {
 
 fn two_moves(x: f64) -> Intent {
     Intent::MoveFrames {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         moves: vec![
             folio_model::FrameMove {
                 frame: frame("fr_pic"),
@@ -893,7 +893,7 @@ fn moving_several_frames_together_is_one_undo_step_even_across_a_drag() {
 fn a_locked_frame_is_held_against_every_change_not_only_moving() {
     let mut s = session();
     s.apply(Intent::LockFrame {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         frame: frame("fr_text"),
         locked: true,
     })
@@ -917,7 +917,7 @@ fn a_locked_frame_is_held_against_every_change_not_only_moving() {
     );
     assert_eq!(
         s.apply(Intent::Reorder {
-            spread: spread("sp_1"),
+            on: folio_model::Surface::Spread(spread("sp_1")),
             frame: frame("fr_text"),
             to: ReorderTo::Front
         })
@@ -926,7 +926,7 @@ fn a_locked_frame_is_held_against_every_change_not_only_moving() {
     );
     assert_eq!(
         s.apply(Intent::MoveFrames {
-            spread: spread("sp_1"),
+            on: folio_model::Surface::Spread(spread("sp_1")),
             moves: vec![folio_model::FrameMove {
                 frame: frame("fr_text"),
                 rect: rect_at(1.0, 1.0)
@@ -1241,11 +1241,161 @@ fn turning_the_numbers_off_keeps_a_master_that_holds_more_than_numbers() {
     assert!(master(&s, "mst_b").is_none(), "B held only a number");
 }
 
+fn on_master(id: &str) -> folio_model::Surface {
+    folio_model::Surface::Master(folio_model::MasterId(id.into()))
+}
+
+fn with_master_a() -> Session {
+    let mut s = session();
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::Centre,
+    })
+    .unwrap();
+    s
+}
+
+#[test]
+fn frames_on_a_master_are_added_moved_and_undone_one_step_each() {
+    let mut s = with_master_a();
+    let before = s.revision();
+    let patch = s
+        .apply(Intent::AddFrame {
+            on: on_master("mst_a"),
+            frame: user_frame(),
+        })
+        .unwrap();
+    assert!(
+        matches!(patch.ops.as_slice(), [PatchOp::SetMasters { .. }]),
+        "a master edit is patched as the masters, and no spread changes"
+    );
+    let moved = folio_model::Rect {
+        x: folio_model::Pt(40.0),
+        y: folio_model::Pt(50.0),
+        w: folio_model::Pt(100.0),
+        h: folio_model::Pt(20.0),
+    };
+    s.apply(Intent::MoveFrame {
+        on: on_master("mst_a"),
+        frame: frame("fr_mine"),
+        rect: moved,
+    })
+    .unwrap();
+    let found = master(&s, "mst_a")
+        .unwrap()
+        .frames
+        .iter()
+        .find(|f| f.base().id.0 == "fr_mine")
+        .unwrap();
+    assert_eq!(found.base().rect, moved);
+    s.apply(Intent::LockFrame {
+        on: on_master("mst_a"),
+        frame: frame("fr_mine"),
+        locked: true,
+    })
+    .unwrap();
+    assert!(matches!(
+        s.apply(Intent::DeleteFrame {
+            on: on_master("mst_a"),
+            frame: frame("fr_mine"),
+        }),
+        Err(SessionError::Locked(_))
+    ));
+    s.undo().unwrap();
+    s.undo().unwrap();
+    s.undo().unwrap();
+    assert_eq!(s.revision(), before + 6, "three changes and three undos");
+    assert!(master(&s, "mst_a")
+        .unwrap()
+        .frames
+        .iter()
+        .all(|f| f.base().id.0 != "fr_mine"));
+}
+
+#[test]
+fn frame_only_intents_find_a_frame_on_a_master_and_ids_stay_unique() {
+    let mut s = with_master_a();
+    s.apply(Intent::AddFrame {
+        on: on_master("mst_a"),
+        frame: user_frame(),
+    })
+    .unwrap();
+    s.apply(Intent::SetText {
+        frame: frame("fr_mine"),
+        text: "Running head".into(),
+    })
+    .unwrap();
+    s.apply(Intent::SetStyle {
+        frame: frame("fr_mine"),
+        style: folio_model::StyleId("folio".into()),
+    })
+    .unwrap();
+    assert!(matches!(
+        s.apply(Intent::AddFrame {
+            on: Surface::Spread(spread("sp_1")),
+            frame: user_frame(),
+        }),
+        Err(SessionError::DuplicateFrame(_))
+    ));
+    assert!(matches!(
+        s.apply(Intent::AddFrame {
+            on: on_master("mst_nope"),
+            frame: user_frame(),
+        }),
+        Err(SessionError::NoSuchMaster(_))
+    ));
+}
+
+#[test]
+fn guides_on_a_master_are_added_moved_locked_and_removed() {
+    let mut s = with_master_a();
+    let guides = |s: &Session| master(s, "mst_a").unwrap().guides.clone();
+    s.apply(Intent::AddGuide {
+        on: on_master("mst_a"),
+        axis: Axis::Y,
+        pos: folio_model::Pt(36.0),
+    })
+    .unwrap();
+    s.apply(Intent::MoveGuide {
+        on: on_master("mst_a"),
+        index: 0,
+        pos: folio_model::Pt(48.0),
+    })
+    .unwrap();
+    assert_eq!(guides(&s)[0].pos.0, 48.0);
+    s.apply(Intent::LockGuide {
+        on: on_master("mst_a"),
+        index: 0,
+        locked: true,
+    })
+    .unwrap();
+    assert!(matches!(
+        s.apply(Intent::RemoveGuide {
+            on: on_master("mst_a"),
+            index: 0
+        }),
+        Err(SessionError::GuideLocked(0))
+    ));
+    s.apply(Intent::LockGuide {
+        on: on_master("mst_a"),
+        index: 0,
+        locked: false,
+    })
+    .unwrap();
+    s.apply(Intent::RemoveGuide {
+        on: on_master("mst_a"),
+        index: 0,
+    })
+    .unwrap();
+    assert!(guides(&s).is_empty());
+    s.undo().unwrap();
+    assert_eq!(guides(&s).len(), 1);
+}
+
 #[test]
 fn a_copy_of_a_flowing_frame_is_not_another_slot_in_the_flow() {
     let mut s = session();
     s.apply(Intent::DuplicateFrame {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         frame: frame("fr_flowed"),
     })
     .unwrap();
@@ -1267,7 +1417,7 @@ fn guides(s: &Session, at: usize) -> Vec<(Axis, f64, bool)> {
 fn guides_are_added_moved_locked_and_removed_and_each_is_one_undo_step() {
     let mut s = session();
     let add = |axis, at: f64| Intent::AddGuide {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         axis,
         pos: Pt(at),
     };
@@ -1279,7 +1429,7 @@ fn guides_are_added_moved_locked_and_removed_and_each_is_one_undo_step() {
     );
 
     s.apply(Intent::MoveGuide {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         index: 0,
         pos: Pt(120.0),
     })
@@ -1289,7 +1439,7 @@ fn guides_are_added_moved_locked_and_removed_and_each_is_one_undo_step() {
     assert_eq!(guides(&s, 1)[0], (Axis::X, 100.0, false));
 
     s.apply(Intent::RemoveGuide {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         index: 0,
     })
     .unwrap();
@@ -1302,20 +1452,20 @@ fn guides_are_added_moved_locked_and_removed_and_each_is_one_undo_step() {
 fn a_locked_guide_is_not_moved_or_removed_or_cleared_until_it_is_freed() {
     let mut s = session();
     s.apply(Intent::AddGuide {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         axis: Axis::X,
         pos: Pt(10.0),
     })
     .unwrap();
     let lock = |locked| Intent::LockGuide {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         index: 0,
         locked,
     };
     s.apply(lock(true)).unwrap();
     assert_eq!(
         s.apply(Intent::MoveGuide {
-            spread: spread("sp_1"),
+            on: folio_model::Surface::Spread(spread("sp_1")),
             index: 0,
             pos: Pt(30.0),
         })
@@ -1324,7 +1474,7 @@ fn a_locked_guide_is_not_moved_or_removed_or_cleared_until_it_is_freed() {
     );
     assert_eq!(
         s.apply(Intent::RemoveGuide {
-            spread: spread("sp_1"),
+            on: folio_model::Surface::Spread(spread("sp_1")),
             index: 0,
         })
         .unwrap_err(),
@@ -1345,7 +1495,7 @@ fn clearing_guides_clears_one_spread_or_all_and_a_clear_of_nothing_changes_nothi
     let mut s = session();
     for sp in ["sp_2", "sp_1"] {
         s.apply(Intent::AddGuide {
-            spread: spread(sp),
+            on: folio_model::Surface::Spread(spread(sp)),
             axis: Axis::Y,
             pos: Pt(20.0),
         })
@@ -1370,7 +1520,7 @@ fn clearing_guides_clears_one_spread_or_all_and_a_clear_of_nothing_changes_nothi
 fn a_guide_must_be_on_a_spread_that_exists_at_a_position_that_makes_sense() {
     let mut s = session();
     let bad = |at: f64| Intent::AddGuide {
-        spread: spread("sp_1"),
+        on: folio_model::Surface::Spread(spread("sp_1")),
         axis: Axis::X,
         pos: Pt(at),
     };
@@ -1378,7 +1528,7 @@ fn a_guide_must_be_on_a_spread_that_exists_at_a_position_that_makes_sense() {
     assert_eq!(s.apply(bad(1.0e9)).unwrap_err(), SessionError::BadGuide);
     assert_eq!(
         s.apply(Intent::AddGuide {
-            spread: spread("sp_nope"),
+            on: folio_model::Surface::Spread(spread("sp_nope")),
             axis: Axis::X,
             pos: Pt(1.0),
         })
@@ -1387,7 +1537,7 @@ fn a_guide_must_be_on_a_spread_that_exists_at_a_position_that_makes_sense() {
     );
     assert_eq!(
         s.apply(Intent::MoveGuide {
-            spread: spread("sp_1"),
+            on: folio_model::Surface::Spread(spread("sp_1")),
             index: 3,
             pos: Pt(1.0),
         })

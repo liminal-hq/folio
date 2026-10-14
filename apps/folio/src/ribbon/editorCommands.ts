@@ -128,7 +128,7 @@ export function editorAction(
 	input: EditorInput,
 ): EditorAction | null {
 	const { spread, selected } = input;
-	const on = { spread: spread.id };
+	const on = { on: { spread: spread.id } };
 	switch (id) {
 		case 'text':
 			return { kind: 'add', shape: 'text' };

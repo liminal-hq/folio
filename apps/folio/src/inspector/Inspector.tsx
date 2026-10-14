@@ -205,7 +205,7 @@ function PositionSection({
 	const locked = frame.locked || frame.fromMaster != null;
 	const move = (change: Partial<typeof box>): Intent => ({
 		type: 'MoveFrame',
-		spread: spread.id,
+		on: { spread: spread.id },
 		frame: frame.id,
 		box: { x: box.x, y: box.y, w: box.w, h: box.h, ...change },
 	});
@@ -381,7 +381,7 @@ function PictureSection({ frame, props }: { frame: Frame; props: InspectorProps 
 		const right = page.trim.x + page.trim.w + (last ? book.bleed : 0);
 		apply({
 			type: 'MoveFrame',
-			spread: spread.id,
+			on: { spread: spread.id },
 			frame: frame.id,
 			box: { x, y: -book.bleed, w: right - x, h: page.trim.h + book.bleed * 2 },
 		});

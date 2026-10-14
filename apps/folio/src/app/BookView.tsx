@@ -132,7 +132,7 @@ export function BookView({
 		};
 		const page = pages.find((p) => at.x >= p.trim.x && at.x <= p.trim.x + p.trim.w) ?? first;
 		const frame = newFrame(kind, boxAt(kind, at, page.trim), defaultTextStyle(choices));
-		apply({ type: 'AddFrame', spread: spread.id, frame });
+		apply({ type: 'AddFrame', on: { spread: spread.id }, frame });
 		select([frame.id]);
 	};
 
@@ -178,7 +178,7 @@ export function BookView({
 		const right = page.trim.x + page.trim.w + (last ? book.bleed : 0);
 		apply({
 			type: 'MoveFrame',
-			spread: spread.id,
+			on: { spread: spread.id },
 			frame: frame.id,
 			box: { x, y: -book.bleed, w: right - x, h: page.trim.h + book.bleed * 2 },
 		});
@@ -262,11 +262,15 @@ export function BookView({
 						snap={snap}
 						rulers={{ on: rulers.on, unit: rulers.units }}
 						onRulerUnit={(units) => void update({ rulers: { units } } as SettingsPatch)}
-						onAddGuide={(axis, pos) => apply({ type: 'AddGuide', spread: spread.id, axis, pos })}
-						onMoveGuide={(index, pos) =>
-							apply({ type: 'MoveGuide', spread: spread.id, index, pos })
+						onAddGuide={(axis, pos) =>
+							apply({ type: 'AddGuide', on: { spread: spread.id }, axis, pos })
 						}
-						onRemoveGuide={(index) => apply({ type: 'RemoveGuide', spread: spread.id, index })}
+						onMoveGuide={(index, pos) =>
+							apply({ type: 'MoveGuide', on: { spread: spread.id }, index, pos })
+						}
+						onRemoveGuide={(index) =>
+							apply({ type: 'RemoveGuide', on: { spread: spread.id }, index })
+						}
 						onGuideCommand={(command, index) => {
 							for (const intent of guideIntents(command, spread, index)) apply(intent);
 						}}
@@ -279,13 +283,13 @@ export function BookView({
 								moves.length === 1
 									? {
 											type: 'MoveFrame',
-											spread: spread.id,
+											on: { spread: spread.id },
 											frame: moves[0]!.id,
 											box: boxOf(moves[0]!.rect),
 										}
 									: {
 											type: 'MoveFrames',
-											spread: spread.id,
+											on: { spread: spread.id },
 											moves: moves.map((m) => ({ frame: m.id, box: boxOf(m.rect) })),
 										},
 							)

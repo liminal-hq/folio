@@ -42,13 +42,13 @@ describe('guideIntents', () => {
 	const spread = { id: 'sp' } as unknown as Spread;
 	it('locks, unlocks and deletes the guide named', () => {
 		expect(guideIntents('lock', spread, 2)).toEqual([
-			{ type: 'LockGuide', spread: 'sp', index: 2, locked: true },
+			{ type: 'LockGuide', on: { spread: 'sp' }, index: 2, locked: true },
 		]);
 		expect(guideIntents('unlock', spread, 2)).toEqual([
-			{ type: 'LockGuide', spread: 'sp', index: 2, locked: false },
+			{ type: 'LockGuide', on: { spread: 'sp' }, index: 2, locked: false },
 		]);
 		expect(guideIntents('delete', spread, 2)).toEqual([
-			{ type: 'RemoveGuide', spread: 'sp', index: 2 },
+			{ type: 'RemoveGuide', on: { spread: 'sp' }, index: 2 },
 		]);
 	});
 	it("clears the spread's guides, or every spread's", () => {

@@ -10,6 +10,8 @@ use thiserror::Error;
 pub enum SessionError {
     #[error("there is no spread `{0}`")]
     NoSuchSpread(String),
+    #[error("there is no master page `{0}`")]
+    NoSuchMaster(String),
     #[error("there is no frame `{0}`")]
     NoSuchFrame(String),
     #[error("a frame `{0}` is already in the book")]
@@ -34,7 +36,7 @@ pub enum SessionError {
     Locked(String),
     #[error("the frame `{0}` is not on spread `{1}`")]
     NotOnSpread(String, String),
-    #[error("there is no guide {0} on spread `{1}`")]
+    #[error("there is no guide {0} on `{1}`")]
     NoSuchGuide(usize, String),
     #[error("guide {0} is locked")]
     GuideLocked(usize),

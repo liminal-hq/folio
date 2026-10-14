@@ -50,7 +50,7 @@ export type GuideCommand = 'lock' | 'unlock' | 'delete' | 'clearSpread' | 'clear
 
 /** The intents a choice from a guide's menu makes. */
 export function guideIntents(command: GuideCommand, spread: Spread, index: number): Intent[] {
-	const on = { spread: spread.id };
+	const on = { on: { spread: spread.id } };
 	switch (command) {
 		case 'lock':
 			return [{ type: 'LockGuide', ...on, index, locked: true }];
@@ -59,7 +59,7 @@ export function guideIntents(command: GuideCommand, spread: Spread, index: numbe
 		case 'delete':
 			return [{ type: 'RemoveGuide', ...on, index }];
 		case 'clearSpread':
-			return [{ type: 'ClearGuides', ...on }];
+			return [{ type: 'ClearGuides', spread: spread.id }];
 		case 'clearAll':
 			return [{ type: 'ClearGuides' }];
 	}

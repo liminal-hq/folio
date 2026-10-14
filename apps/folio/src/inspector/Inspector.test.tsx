@@ -171,7 +171,7 @@ describe('with a picture selected', () => {
 		await userEvent.click(screen.getByRole('button', { name: 'Stretch to the bleed line' }));
 		expect(apply).toHaveBeenCalledWith({
 			type: 'MoveFrame',
-			spread: 'sp',
+			on: { spread: 'sp' },
 			frame: 'i',
 			// The left page: bleed on the outside edge only, and above and below.
 			box: { x: -9, y: -9, w: 621, h: 630 },
@@ -241,7 +241,7 @@ describe('in Expert mode', () => {
 		await userEvent.type(x, '1{Enter}');
 		expect(apply).toHaveBeenLastCalledWith({
 			type: 'MoveFrame',
-			spread: 'sp',
+			on: { spread: 'sp' },
 			frame: 't',
 			box: { x: 72, y: 0, w: 100, h: 40 },
 		});

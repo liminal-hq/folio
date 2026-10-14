@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    Book, Frame, FrameId, Guide, InlineContent, Intent, Page, Pt, ReorderTo, Run, Spread, SpreadId,
-    SpreadKind,
+    Book, Frame, FrameId, Guide, InlineContent, Intent, Master, MasterId, Page, Pt, ReorderTo, Run,
+    Spread, SpreadId, SpreadKind, Surface,
 };
 
 /// How far, in points, a duplicated frame sits from the one it was copied from.
@@ -40,6 +40,86 @@ fn spread<'a>(book: &'a Book, id: &SpreadId) -> Result<&'a Spread, SessionError>
         .iter()
         .find(|s| &s.id == id)
         .ok_or_else(|| SessionError::NoSuchSpread(id.0.clone()))
+}
+
+fn master<'a>(book: &'a Book, id: &MasterId) -> Result<&'a Master, SessionError> {
+    book.master_pages
+        .iter()
+        .find(|m| &m.id == id)
+        .ok_or_else(|| SessionError::NoSuchMaster(id.0.clone()))
+}
+
+/// The id of a surface, for saying which one an error is about.
+fn named(on: &Surface) -> String {
+    match on {
+        Surface::Spread(s) => s.0.clone(),
+        Surface::Master(m) => m.0.clone(),
+    }
+}
+
+fn frames_on<'a>(book: &'a Book, on: &Surface) -> Result<&'a [Frame], SessionError> {
+    match on {
+        Surface::Spread(s) => Ok(&spread(book, s)?.frames),
+        Surface::Master(m) => Ok(&master(book, m)?.frames),
+    }
+}
+
+fn frames_on_mut<'a>(book: &'a mut Book, on: &Surface) -> Option<&'a mut Vec<Frame>> {
+    match on {
+        Surface::Spread(s) => book
+            .spreads
+            .iter_mut()
+            .find(|sp| &sp.id == s)
+            .map(|sp| &mut sp.frames),
+        Surface::Master(m) => book
+            .master_pages
+            .iter_mut()
+            .find(|mp| &mp.id == m)
+            .map(|mp| &mut mp.frames),
+    }
+}
+
+fn guides_on<'a>(book: &'a Book, on: &Surface) -> Result<&'a [Guide], SessionError> {
+    match on {
+        Surface::Spread(s) => Ok(&spread(book, s)?.guides),
+        Surface::Master(m) => Ok(&master(book, m)?.guides),
+    }
+}
+
+fn guides_on_mut<'a>(book: &'a mut Book, on: &Surface) -> Option<&'a mut Vec<Guide>> {
+    match on {
+        Surface::Spread(s) => book
+            .spreads
+            .iter_mut()
+            .find(|sp| &sp.id == s)
+            .map(|sp| &mut sp.guides),
+        Surface::Master(m) => book
+            .master_pages
+            .iter_mut()
+            .find(|mp| &mp.id == m)
+            .map(|mp| &mut mp.guides),
+    }
+}
+
+/// A frame anywhere in the book: on a spread, or on a master page.
+fn locate<'a>(book: &'a Book, id: &FrameId) -> Option<&'a Frame> {
+    book.spreads
+        .iter()
+        .find_map(|s| find(&s.frames, id))
+        .or_else(|| book.master_pages.iter().find_map(|m| find(&m.frames, id)))
+}
+
+fn locate_mut<'a>(book: &'a mut Book, id: &FrameId) -> Option<&'a mut Frame> {
+    let on_spread = book.spreads.iter().any(|s| find(&s.frames, id).is_some());
+    if on_spread {
+        book.spreads
+            .iter_mut()
+            .find_map(|s| find_mut(&mut s.frames, id))
+    } else {
+        book.master_pages
+            .iter_mut()
+            .find_map(|m| find_mut(&mut m.frames, id))
+    }
 }
 
 fn find<'a>(frames: &'a [Frame], id: &FrameId) -> Option<&'a Frame> {
@@ -81,13 +161,24 @@ fn remove(frames: &mut Vec<Frame>, id: &FrameId) -> bool {
     })
 }
 
-/// The spread a frame is on, anywhere in the book.
-fn spread_of(book: &Book, frame: &FrameId) -> Result<SpreadId, SessionError> {
-    book.spreads
+/// The spreads a change to a frame touches: the one it is on, or none when it is on a master page,
+/// which the session captures for every change.
+fn touched_by(book: &Book, frame: &FrameId) -> Result<Vec<SpreadId>, SessionError> {
+    if let Some(s) = book
+        .spreads
         .iter()
         .find(|s| find(&s.frames, frame).is_some())
-        .map(|s| s.id.clone())
-        .ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))
+    {
+        return Ok(vec![s.id.clone()]);
+    }
+    if book
+        .master_pages
+        .iter()
+        .any(|m| find(&m.frames, frame).is_some())
+    {
+        return Ok(Vec::new());
+    }
+    Err(SessionError::NoSuchFrame(frame.0.clone()))
 }
 
 fn every_id(frame: &Frame, out: &mut Vec<FrameId>) {
@@ -164,26 +255,18 @@ fn check_guide_position(pos: Pt) -> Result<(), SessionError> {
     }
 }
 
-fn guide_on<'a>(book: &'a Book, s: &SpreadId, index: usize) -> Result<&'a Guide, SessionError> {
-    spread(book, s)?
-        .guides
+fn guide_at<'a>(book: &'a Book, on: &Surface, index: usize) -> Result<&'a Guide, SessionError> {
+    guides_on(book, on)?
         .get(index)
-        .ok_or_else(|| SessionError::NoSuchGuide(index, s.0.clone()))
+        .ok_or_else(|| SessionError::NoSuchGuide(index, named(on)))
 }
 
-fn check_guide_free(book: &Book, s: &SpreadId, index: usize) -> Result<(), SessionError> {
-    if guide_on(book, s, index)?.locked {
+fn check_guide_free(book: &Book, on: &Surface, index: usize) -> Result<(), SessionError> {
+    if guide_at(book, on, index)?.locked {
         Err(SessionError::GuideLocked(index))
     } else {
         Ok(())
     }
-}
-
-fn guide_mut<'a>(book: &'a mut Book, s: &SpreadId, index: usize) -> Option<&'a mut Guide> {
-    book.spreads
-        .iter_mut()
-        .find(|sp| &sp.id == s)
-        .and_then(|sp| sp.guides.get_mut(index))
 }
 
 /// Refuses a change to a frame that is locked or belongs to a master page.
@@ -223,34 +306,37 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         new_spread: None,
         merge,
     };
+    // The spreads a change on `on` touches: a master page is captured for every change.
+    let by = |on: &Surface, merge: Option<MergeKey>| Plan {
+        touched: match on {
+            Surface::Spread(s) => vec![s.clone()],
+            Surface::Master(_) => Vec::new(),
+        },
+        new_spread: None,
+        merge,
+    };
     match intent {
-        Intent::MoveFrame {
-            spread: s, frame, ..
-        } => {
-            let found = spread(book, s)?;
-            let target = find(&found.frames, frame)
+        Intent::MoveFrame { on, frame, .. } => {
+            let target = find(frames_on(book, on)?, frame)
                 .ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
             ensure_free(target)?;
-            Ok(one(s.clone(), Some(MergeKey::Move(frame.clone()))))
+            Ok(by(on, Some(MergeKey::Move(frame.clone()))))
         }
-        Intent::MoveFrames { spread: s, moves } => {
-            let found = spread(book, s)?;
-            let mut named = Vec::new();
+        Intent::MoveFrames { on, moves } => {
+            let frames = frames_on(book, on)?;
+            let mut ids_moved = Vec::new();
             for m in moves {
-                let target = find(&found.frames, &m.frame)
+                let target = find(frames, &m.frame)
                     .ok_or_else(|| SessionError::NoSuchFrame(m.frame.0.clone()))?;
                 ensure_free(target)?;
-                named.push(m.frame.clone());
+                ids_moved.push(m.frame.clone());
             }
-            named.sort_by(|a, b| a.0.cmp(&b.0));
-            Ok(one(s.clone(), Some(MergeKey::Moves(named))))
+            ids_moved.sort_by(|a, b| a.0.cmp(&b.0));
+            Ok(by(on, Some(MergeKey::Moves(ids_moved))))
         }
         Intent::SetImage { frame, asset, .. } => {
-            let found = book
-                .spreads
-                .iter()
-                .find_map(|s| find(&s.frames, frame))
-                .ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
+            let found =
+                locate(book, frame).ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
             let Frame::Image(_) = found else {
                 return Err(SessionError::NotImage(frame.0.clone()));
             };
@@ -262,7 +348,11 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                     return Err(SessionError::BadAsset(asset.clone()));
                 }
             }
-            Ok(one(spread_of(book, frame)?, None))
+            Ok(Plan {
+                touched: touched_by(book, frame)?,
+                new_spread: None,
+                merge: None,
+            })
         }
         Intent::SetPageNumbers { .. } => Ok(Plan {
             touched: book.spreads.iter().map(|s| s.id.clone()).collect(),
@@ -291,39 +381,33 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             }
             Ok(one(s.clone(), None))
         }
-        Intent::AddGuide { spread: s, pos, .. } => {
-            spread(book, s)?;
+        Intent::AddGuide { on, pos, .. } => {
+            guides_on(book, on)?;
             check_guide_position(*pos)?;
-            Ok(one(s.clone(), None))
+            Ok(by(on, None))
         }
-        Intent::MoveGuide {
-            spread: s,
-            index,
-            pos,
-        } => {
+        Intent::MoveGuide { on, index, pos } => {
             check_guide_position(*pos)?;
-            check_guide_free(book, s, *index)?;
-            Ok(one(s.clone(), None))
+            check_guide_free(book, on, *index)?;
+            Ok(by(on, None))
         }
-        Intent::LockGuide {
-            spread: s, index, ..
-        } => {
-            guide_on(book, s, *index)?;
-            Ok(one(s.clone(), None))
+        Intent::LockGuide { on, index, .. } => {
+            guide_at(book, on, *index)?;
+            Ok(by(on, None))
         }
-        Intent::RemoveGuide { spread: s, index } => {
-            check_guide_free(book, s, *index)?;
-            Ok(one(s.clone(), None))
+        Intent::RemoveGuide { on, index } => {
+            check_guide_free(book, on, *index)?;
+            Ok(by(on, None))
         }
-        Intent::ClearGuides { spread: named } => {
-            if let Some(s) = named {
+        Intent::ClearGuides { spread: only } => {
+            if let Some(s) = only {
                 spread(book, s)?;
             }
             Ok(Plan {
                 touched: book
                     .spreads
                     .iter()
-                    .filter(|sp| named.as_ref().is_none_or(|n| n == &sp.id))
+                    .filter(|sp| only.as_ref().is_none_or(|n| n == &sp.id))
                     .filter(|sp| sp.guides.iter().any(|g| !g.locked))
                     .map(|sp| sp.id.clone())
                     .collect(),
@@ -333,84 +417,71 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         }
         Intent::SetText { frame, .. } => {
             check_text(book, frame)?;
-            Ok(one(
-                spread_of(book, frame)?,
-                Some(MergeKey::Text(frame.clone())),
-            ))
+            Ok(Plan {
+                touched: touched_by(book, frame)?,
+                new_spread: None,
+                merge: Some(MergeKey::Text(frame.clone())),
+            })
         }
         Intent::SetStyle { frame, .. } => {
-            let on = spread_of(book, frame)?;
-            let styled = book
-                .spreads
-                .iter()
-                .find_map(|sp| find(&sp.frames, frame))
-                .is_some_and(|f| matches!(f, Frame::Text(_) | Frame::Shape(_)));
+            let touched = touched_by(book, frame)?;
+            let styled =
+                locate(book, frame).is_some_and(|f| matches!(f, Frame::Text(_) | Frame::Shape(_)));
             if !styled {
                 return Err(SessionError::NotText(frame.0.clone()));
             }
-            if let Some(found) = book.spreads.iter().find_map(|sp| find(&sp.frames, frame)) {
+            if let Some(found) = locate(book, frame) {
                 ensure_free(found)?;
             }
-            Ok(one(on, None))
+            Ok(Plan {
+                touched,
+                new_spread: None,
+                merge: None,
+            })
         }
         Intent::OverrideStyle { frame, .. } => {
             check_text(book, frame).or_else(|e| match e {
                 // Overrides sit on a frame whose words come from a flow too.
-                SessionError::FlowText(_) => book
-                    .spreads
-                    .iter()
-                    .find_map(|sp| find(&sp.frames, frame))
-                    .map_or(Ok(()), ensure_free),
+                SessionError::FlowText(_) => locate(book, frame).map_or(Ok(()), ensure_free),
                 other => Err(other),
             })?;
-            Ok(one(
-                spread_of(book, frame)?,
-                Some(MergeKey::Style(frame.clone())),
-            ))
+            Ok(Plan {
+                touched: touched_by(book, frame)?,
+                new_spread: None,
+                merge: Some(MergeKey::Style(frame.clone())),
+            })
         }
-        Intent::AddFrame { spread: s, frame } => {
-            spread(book, s)?;
+        Intent::AddFrame { on, frame } => {
+            frames_on(book, on)?;
             let mut new_ids = Vec::new();
             every_id(frame, &mut new_ids);
             for id in new_ids {
-                if book
-                    .spreads
-                    .iter()
-                    .any(|sp| find(&sp.frames, &id).is_some())
-                {
+                if locate(book, &id).is_some() {
                     return Err(SessionError::DuplicateFrame(id.0));
                 }
             }
-            Ok(one(s.clone(), None))
+            Ok(by(on, None))
         }
-        Intent::DeleteFrame { spread: s, frame } => {
-            let found = spread(book, s)?;
-            let target = find(&found.frames, frame)
+        Intent::DeleteFrame { on, frame } => {
+            let target = find(frames_on(book, on)?, frame)
                 .ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
             ensure_free(target)?;
-            Ok(one(s.clone(), None))
+            Ok(by(on, None))
         }
-        Intent::DuplicateFrame { spread: s, frame }
-        | Intent::LockFrame {
-            spread: s, frame, ..
-        } => {
-            let found = spread(book, s)?;
-            if !found.frames.iter().any(|f| &f.base().id == frame) {
-                return Err(SessionError::NotOnSpread(frame.0.clone(), s.0.clone()));
+        Intent::DuplicateFrame { on, frame } | Intent::LockFrame { on, frame, .. } => {
+            let frames = frames_on(book, on)?;
+            if !frames.iter().any(|f| &f.base().id == frame) {
+                return Err(SessionError::NotOnSpread(frame.0.clone(), named(on)));
             }
-            Ok(one(s.clone(), None))
+            Ok(by(on, None))
         }
-        Intent::Reorder {
-            spread: s, frame, ..
-        } => {
-            let found = spread(book, s)?;
-            let target = found
-                .frames
+        Intent::Reorder { on, frame, .. } => {
+            let target = frames_on(book, on)?
                 .iter()
                 .find(|f| &f.base().id == frame)
-                .ok_or_else(|| SessionError::NotOnSpread(frame.0.clone(), s.0.clone()))?;
+                .ok_or_else(|| SessionError::NotOnSpread(frame.0.clone(), named(on)))?;
             ensure_free(target)?;
-            Ok(one(s.clone(), None))
+            Ok(by(on, None))
         }
         Intent::AddSpread { after, .. } => {
             spread(book, after)?;
@@ -485,26 +556,13 @@ pub fn run(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
 
 fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
     match intent {
-        Intent::MoveFrame {
-            spread: s,
-            frame,
-            rect,
-        } => {
-            if let Some(f) = book
-                .spreads
-                .iter_mut()
-                .find(|sp| sp.id == s)
-                .and_then(|sp| find_mut(&mut sp.frames, &frame))
-            {
+        Intent::MoveFrame { on, frame, rect } => {
+            if let Some(f) = frames_on_mut(book, &on).and_then(|frames| find_mut(frames, &frame)) {
                 f.base_mut().rect = rect;
             }
         }
         Intent::SetImage { frame, asset, fit } => {
-            if let Some(Frame::Image(img)) = book
-                .spreads
-                .iter_mut()
-                .find_map(|sp| find_mut(&mut sp.frames, &frame))
-            {
+            if let Some(Frame::Image(img)) = locate_mut(book, &frame) {
                 if let Some(asset) = asset {
                     img.image.asset = Some(asset);
                 }
@@ -546,59 +604,43 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 }
             }
         }
-        Intent::AddGuide {
-            spread: s,
-            axis,
-            pos,
-        } => {
-            if let Some(sp) = book.spreads.iter_mut().find(|sp| sp.id == s) {
-                sp.guides.push(Guide {
+        Intent::AddGuide { on, axis, pos } => {
+            if let Some(guides) = guides_on_mut(book, &on) {
+                guides.push(Guide {
                     axis,
                     pos,
                     locked: false,
                 });
             }
         }
-        Intent::MoveGuide {
-            spread: s,
-            index,
-            pos,
-        } => {
-            if let Some(g) = guide_mut(book, &s, index) {
+        Intent::MoveGuide { on, index, pos } => {
+            if let Some(g) = guides_on_mut(book, &on).and_then(|g| g.get_mut(index)) {
                 g.pos = pos;
             }
         }
-        Intent::LockGuide {
-            spread: s,
-            index,
-            locked,
-        } => {
-            if let Some(g) = guide_mut(book, &s, index) {
+        Intent::LockGuide { on, index, locked } => {
+            if let Some(g) = guides_on_mut(book, &on).and_then(|g| g.get_mut(index)) {
                 g.locked = locked;
             }
         }
-        Intent::RemoveGuide { spread: s, index } => {
-            if let Some(sp) = book.spreads.iter_mut().find(|sp| sp.id == s) {
-                if index < sp.guides.len() {
-                    sp.guides.remove(index);
+        Intent::RemoveGuide { on, index } => {
+            if let Some(guides) = guides_on_mut(book, &on) {
+                if index < guides.len() {
+                    guides.remove(index);
                 }
             }
         }
-        Intent::ClearGuides { spread: named } => {
+        Intent::ClearGuides { spread: only } => {
             for sp in book
                 .spreads
                 .iter_mut()
-                .filter(|sp| named.as_ref().is_none_or(|n| n == &sp.id))
+                .filter(|sp| only.as_ref().is_none_or(|n| n == &sp.id))
             {
                 sp.guides.retain(|g| g.locked);
             }
         }
         Intent::SetText { frame, text } => {
-            if let Some(Frame::Text(t)) = book
-                .spreads
-                .iter_mut()
-                .find_map(|sp| find_mut(&mut sp.frames, &frame))
-            {
+            if let Some(Frame::Text(t)) = locate_mut(book, &frame) {
                 t.content = Some(InlineContent {
                     inline: vec![Run {
                         text,
@@ -610,11 +652,7 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             }
         }
         Intent::SetStyle { frame, style } => {
-            if let Some(f) = book
-                .spreads
-                .iter_mut()
-                .find_map(|sp| find_mut(&mut sp.frames, &frame))
-            {
+            if let Some(f) = locate_mut(book, &frame) {
                 match f {
                     Frame::Text(t) => t.style = style,
                     Frame::Shape(sh) => sh.style = Some(style),
@@ -623,36 +661,32 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             }
         }
         Intent::OverrideStyle { frame, overrides } => {
-            if let Some(Frame::Text(t)) = book
-                .spreads
-                .iter_mut()
-                .find_map(|sp| find_mut(&mut sp.frames, &frame))
-            {
+            if let Some(Frame::Text(t)) = locate_mut(book, &frame) {
                 t.overrides = Some(overrides);
             }
         }
-        Intent::AddFrame { spread: s, frame } => {
-            if let Some(sp) = book.spreads.iter_mut().find(|sp| sp.id == s) {
-                sp.frames.push(frame);
+        Intent::AddFrame { on, frame } => {
+            if let Some(frames) = frames_on_mut(book, &on) {
+                frames.push(frame);
             }
         }
-        Intent::DeleteFrame { spread: s, frame } => {
-            if let Some(sp) = book.spreads.iter_mut().find(|sp| sp.id == s) {
-                remove(&mut sp.frames, &frame);
+        Intent::DeleteFrame { on, frame } => {
+            if let Some(frames) = frames_on_mut(book, &on) {
+                remove(frames, &frame);
             }
         }
-        Intent::MoveFrames { spread: s, moves } => {
-            if let Some(sp) = book.spreads.iter_mut().find(|sp| sp.id == s) {
+        Intent::MoveFrames { on, moves } => {
+            if let Some(frames) = frames_on_mut(book, &on) {
                 for m in moves {
-                    if let Some(f) = find_mut(&mut sp.frames, &m.frame) {
+                    if let Some(f) = find_mut(frames, &m.frame) {
                         f.base_mut().rect = m.rect;
                     }
                 }
             }
         }
-        Intent::DuplicateFrame { spread: s, frame } => {
-            if let Some(sp) = book.spreads.iter_mut().find(|sp| sp.id == s) {
-                if let Some(source) = sp.frames.iter().find(|f| f.base().id == frame) {
+        Intent::DuplicateFrame { on, frame } => {
+            if let Some(frames) = frames_on_mut(book, &on) {
+                if let Some(source) = frames.iter().find(|f| f.base().id == frame) {
                     let mut copy = renewed(source, ids);
                     let base = copy.base_mut();
                     base.rect.x = Pt(base.rect.x.0 + DUPLICATE_OFFSET);
@@ -664,39 +698,26 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                     if let Frame::Text(t) = &mut copy {
                         t.flow = None;
                     }
-                    sp.frames.push(copy);
+                    frames.push(copy);
                 }
             }
         }
-        Intent::LockFrame {
-            spread: s,
-            frame,
-            locked,
-        } => {
-            if let Some(f) = book
-                .spreads
-                .iter_mut()
-                .find(|sp| sp.id == s)
-                .and_then(|sp| find_mut(&mut sp.frames, &frame))
-            {
+        Intent::LockFrame { on, frame, locked } => {
+            if let Some(f) = frames_on_mut(book, &on).and_then(|frames| find_mut(frames, &frame)) {
                 f.base_mut().locked = locked;
             }
         }
-        Intent::Reorder {
-            spread: s,
-            frame,
-            to,
-        } => {
-            if let Some(sp) = book.spreads.iter_mut().find(|sp| sp.id == s) {
-                if let Some(at) = sp.frames.iter().position(|f| f.base().id == frame) {
-                    let moved = sp.frames.remove(at);
-                    let last = sp.frames.len();
+        Intent::Reorder { on, frame, to } => {
+            if let Some(frames) = frames_on_mut(book, &on) {
+                if let Some(at) = frames.iter().position(|f| f.base().id == frame) {
+                    let moved = frames.remove(at);
+                    let last = frames.len();
                     let target = match to {
                         ReorderTo::Front => last,
                         ReorderTo::Back => 0,
                         ReorderTo::Index(i) => (i as usize).min(last),
                     };
-                    sp.frames.insert(target, moved);
+                    frames.insert(target, moved);
                 }
             }
         }
@@ -790,11 +811,7 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
 
 /// Checks a text intent against the frame it names: it must be a text frame whose words are its own.
 pub fn check_text(book: &Book, frame: &FrameId) -> Result<(), SessionError> {
-    let found = book
-        .spreads
-        .iter()
-        .find_map(|s| find(&s.frames, frame))
-        .ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
+    let found = locate(book, frame).ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
     match found {
         Frame::Text(t) if t.flow.is_some() => Err(SessionError::FlowText(frame.0.clone())),
         Frame::Text(_) => ensure_free(found),

@@ -36,7 +36,7 @@ pub enum Surface {
 #[serde(tag = "type")]
 pub enum Intent {
     MoveFrame {
-        spread: SpreadId,
+        on: Surface,
         frame: FrameId,
         #[serde(rename = "box")]
         rect: Rect,
@@ -44,17 +44,17 @@ pub enum Intent {
     /// Moves or resizes several frames together, as one change that merges with the next of the
     /// same frames within the coalescing window, so a drag or a nudge of a selection is one undo step.
     MoveFrames {
-        spread: SpreadId,
+        on: Surface,
         moves: Vec<FrameMove>,
     },
     /// Puts a copy of a frame on the same spread, a little down and to the right, in front.
     DuplicateFrame {
-        spread: SpreadId,
+        on: Surface,
         frame: FrameId,
     },
     /// Locks a frame against moving and deleting, or lets it go again.
     LockFrame {
-        spread: SpreadId,
+        on: Surface,
         frame: FrameId,
         locked: bool,
     },
@@ -78,27 +78,27 @@ pub enum Intent {
         frame: FrameId,
         hide: bool,
     },
-    /// Puts a ruler guide on a spread.
+    /// Puts a ruler guide on a spread, or on a master page so it shows on every page using it.
     AddGuide {
-        spread: SpreadId,
+        on: Surface,
         axis: Axis,
         pos: Pt,
     },
     /// Moves a ruler guide, named by its place in the spread's list. A locked guide stays put.
     MoveGuide {
-        spread: SpreadId,
+        on: Surface,
         index: usize,
         pos: Pt,
     },
     /// Locks a ruler guide where it is, or frees it.
     LockGuide {
-        spread: SpreadId,
+        on: Surface,
         index: usize,
         locked: bool,
     },
     /// Takes a ruler guide off its spread. A locked guide stays.
     RemoveGuide {
-        spread: SpreadId,
+        on: Surface,
         index: usize,
     },
     /// Takes the unlocked guides off one spread, or off every spread when none is named.
@@ -119,15 +119,15 @@ pub enum Intent {
         overrides: StyleOverrides,
     },
     AddFrame {
-        spread: SpreadId,
+        on: Surface,
         frame: Frame,
     },
     DeleteFrame {
-        spread: SpreadId,
+        on: Surface,
         frame: FrameId,
     },
     Reorder {
-        spread: SpreadId,
+        on: Surface,
         frame: FrameId,
         to: ReorderTo,
     },

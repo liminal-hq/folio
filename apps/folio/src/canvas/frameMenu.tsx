@@ -52,7 +52,7 @@ export function frameMenuItems(frames: Frame[]): MenuItem[] {
 
 /** The intents a command makes for one frame. A locked frame is not deleted. */
 export function frameIntents(command: FrameCommand, spread: string, frame: Frame): Intent[] {
-	const on = { spread, frame: frame.id };
+	const on = { on: { spread }, frame: frame.id };
 	switch (command) {
 		case 'duplicate':
 			return [{ type: 'DuplicateFrame', ...on }];

@@ -55,7 +55,7 @@ fn nudge(app: &App, id: &str, x: f64) -> Intent {
     let snapshot = books(app).snapshot(id).unwrap();
     let cover = &snapshot.book.spreads[0];
     Intent::MoveFrame {
-        spread: SpreadId(cover.id.0.clone()),
+        on: folio_model::Surface::Spread(SpreadId(cover.id.0.clone())),
         frame: cover.frames[0].base().id.clone(),
         rect: Rect {
             x: Pt(x),
