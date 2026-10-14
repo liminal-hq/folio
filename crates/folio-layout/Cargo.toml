@@ -1,0 +1,16 @@
+[package]
+name = "folio-layout"
+version = "0.1.0"
+description = "Folio's layout engine: fonts, shaping, line breaking and flow. Pure Rust, no Tauri"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+fontdb = { version = "0.24", default-features = false, features = ["std", "fs"] }
+rustybuzz = "0.20"
+thiserror = { workspace = true }
+ttf-parser = "0.25"
