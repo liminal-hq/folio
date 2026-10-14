@@ -10,7 +10,6 @@ import { formatTrim, pageCount } from '../books/format';
 import { useActiveBook, useBooksSelector } from '../books/useBooks';
 import { APP_MENU_MNEMONICS } from '../commands/appMenuModel';
 import { t } from '../i18n/messages';
-import { FolioToolbar } from '../ribbon/FolioToolbar';
 import { tauriAppInfoClient, type AppInfoClient } from '../services/appInfoClient';
 import { useSettings } from '../settings/useSettings';
 import { WelcomeScreen } from '../welcome/WelcomeScreen';
@@ -85,8 +84,13 @@ export function MainScreen({ client = tauriAppInfoClient }: { client?: AppInfoCl
 					<WelcomeScreen />
 				) : (
 					<>
-						<FolioToolbar available={menu.available} run={menu.run} />
-						<BookView id={active.summary.id} copy={active.copy} kindLabel={kindLabel} />
+						<BookView
+							id={active.summary.id}
+							copy={active.copy}
+							kindLabel={kindLabel}
+							available={menu.available}
+							run={menu.run}
+						/>
 					</>
 				)}
 				<footer className={styles.status} aria-label={t('status.bar')}>

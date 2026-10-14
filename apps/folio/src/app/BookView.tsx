@@ -3,7 +3,8 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { useState, type CSSProperties } from 'react';
+import type { RibbonCommand } from '@liminal-hq/folio-ribbon/types';
+import { useMemo, useRef, useState, type CSSProperties } from 'react';
 import { shelfLabels } from '../books/shelfLabels';
 import type { OpenBookCopy } from '../books/booksStore';
 import { useBooks } from '../books/useBooks';
@@ -14,11 +15,21 @@ import { defaultTextStyle, styleChoices } from '../inspector/styleChoices';
 import { Shelf } from '../canvas/Shelf';
 import { shelfIntent } from '../canvas/shelfMenu';
 import { DEFAULT_MARKS, type Marks } from '../canvas/SpreadCanvas';
-import { Stage } from '../canvas/Stage';
+import { Stage, type ZoomApi } from '../canvas/Stage';
 import { useSelection } from '../canvas/useSelection';
 import { useAssetUrls } from '../canvas/useAssetUrls';
 import { useSpreadLayout } from '../canvas/useSpreadLayout';
+import type { CommandId } from '../commands/appMenuModel';
+import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
+import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import { Inspector } from '../inspector/Inspector';
+import {
+	editorAction,
+	editorState,
+	type EditorAction,
+	type EditorInput,
+} from '../ribbon/editorCommands';
+import { FolioToolbar } from '../ribbon/FolioToolbar';
 import { useSettings } from '../settings/useSettings';
 import styles from './MainScreen.module.css';
 
@@ -26,15 +37,22 @@ export function BookView({
 	id,
 	copy,
 	kindLabel,
+	available,
+	run,
 }: {
 	id: string;
 	copy: OpenBookCopy;
 	kindLabel: string;
+	/** The menu commands that can be run now, for the toolbar. */
+	available: ReadonlySet<CommandId>;
+	run: (id: string) => Promise<void>;
 }) {
 	const settings = useSettings();
 	const { client, store, dialogs } = useBooks();
 	const [spreadIndex, setSpreadIndex] = useState(0);
 	const [marks, setMarks] = useState<Marks>(DEFAULT_MARKS);
+	const [snap, setSnap] = useState(true);
+	const zoomApi = useRef<ZoomApi | null>(null);
 	const book = copy.book;
 	const shown = Math.max(0, Math.min(spreadIndex, book.spreads.length - 1));
 	const spread = book.spreads[shown] ?? null;
@@ -51,11 +69,145 @@ export function BookView({
 			f.type === 'image' && f.image.asset ? [f.image.asset] : [],
 		),
 	);
-	if (!spread) return null;
-	const selected = spread.frames.filter((f) => selection.includes(f.id));
+	const choices = useMemo(() => styleChoices(copy.styles), [copy.styles]);
+	const selected = useMemo(
+		() => spread?.frames.filter((f) => selection.includes(f.id)) ?? [],
+		[spread, selection],
+	);
+	const input: EditorInput | null = spread
+		? {
+				spread,
+				spreadIndex: shown,
+				spreadCount: book.spreads.length,
+				selected,
+				layout,
+				choices,
+				marks,
+				snap,
+			}
+		: null;
+	const editor = useMemo(
+		() => (input ? editorState(input) : undefined),
+		[spread, shown, book.spreads.length, selected, layout, choices, marks, snap],
+	);
+	if (!spread || !input) return null;
+
+	const apply = (intent: Intent) => void store.apply(intent);
+
+	/** Puts a new frame of `kind` on the spread, centred on `point` (in points) or the first page. */
+	const addFrame = (kind: NewFrameKind, point?: { x: number; y: number }) => {
+		const pages = spreadGeometry(book, spread).pages;
+		const first = pages[0]!;
+		const at = point ?? {
+			x: first.trim.x + first.trim.w / 2,
+			y: first.trim.y + first.trim.h / 2,
+		};
+		const page = pages.find((p) => at.x >= p.trim.x && at.x <= p.trim.x + p.trim.w) ?? first;
+		const frame = newFrame(kind, boxAt(kind, at, page.trim), defaultTextStyle(choices));
+		apply({ type: 'AddFrame', spread: spread.id, frame });
+		select([frame.id]);
+	};
+
+	const pageOp = (op: 'add' | 'duplicate' | 'remove', index = shown) => {
+		const target = book.spreads[index];
+		if (!target) return;
+		if (op === 'add') {
+			// New pages go at the end of the book.
+			const last = book.spreads[book.spreads.length - 1]!;
+			apply({ type: 'AddSpread', after: last.id, duplicate: false });
+			setSpreadIndex(book.spreads.length);
+		} else if (op === 'duplicate' && target.kind !== 'cover') {
+			apply({ type: 'AddSpread', after: target.id, duplicate: true });
+			setSpreadIndex(index + 1);
+		} else if (op === 'remove' && target.kind !== 'cover' && book.spreads.length > 1) {
+			apply({ type: 'DeleteSpread', spread: target.id });
+			setSpreadIndex(Math.max(0, index - 1));
+		}
+	};
+
+	const choosePicture = async (frame: string) => {
+		const picked = await dialogs.pickImage();
+		if (picked === null) return;
+		try {
+			const asset = await client.importImage(id, picked);
+			await store.apply({ type: 'SetImage', frame, asset, fit: null });
+		} catch {
+			// The store keeps the refusal for the page to say.
+		}
+	};
+
+	const stretchToBleed = (frame: Frame) => {
+		const geometry = spreadGeometry(book, spread);
+		const centre = frame.box.x + frame.box.w / 2;
+		const page =
+			geometry.pages.find((p) => centre >= p.trim.x && centre <= p.trim.x + p.trim.w) ??
+			geometry.pages[0]!;
+		const first = page === geometry.pages[0];
+		const last = page === geometry.pages[geometry.pages.length - 1];
+		const x = page.trim.x - (first ? book.bleed : 0);
+		const right = page.trim.x + page.trim.w + (last ? book.bleed : 0);
+		apply({
+			type: 'MoveFrame',
+			spread: spread.id,
+			frame: frame.id,
+			box: { x, y: -book.bleed, w: right - x, h: page.trim.h + book.bleed * 2 },
+		});
+	};
+
+	const perform = (action: EditorAction) => {
+		switch (action.kind) {
+			case 'intents':
+				action.intents.forEach(apply);
+				break;
+			case 'add':
+				addFrame(action.shape);
+				break;
+			case 'marks':
+				setMarks({ ...marks, ...action.marks });
+				break;
+			case 'snap':
+				setSnap(!snap);
+				break;
+			case 'zoom':
+				if (action.zoom === 'in') zoomApi.current?.zoomIn();
+				else if (action.zoom === 'out') zoomApi.current?.zoomOut();
+				else zoomApi.current?.fit();
+				break;
+			case 'page':
+				pageOp(action.op);
+				break;
+			case 'choosePicture':
+				void choosePicture(action.frame);
+				break;
+			case 'stretch': {
+				const frame = spread.frames.find((f) => f.id === action.frame);
+				if (frame) stretchToBleed(frame);
+				break;
+			}
+			case 'fit':
+				apply({ type: 'SetImage', frame: action.frame, asset: null, fit: action.fit });
+				break;
+		}
+	};
+
+	/** The ribbon's document controls; answers whether the command was one of them. */
+	const onEditorCommand = (command: RibbonCommand): boolean => {
+		const value = typeof command.value === 'boolean' ? undefined : command.value;
+		const action = editorAction(command.id, value, input);
+		if (!action) return false;
+		perform(action);
+		return true;
+	};
 
 	return (
 		<>
+			<FolioToolbar
+				available={available}
+				run={run}
+				editor={editor}
+				contextual={editor?.contextual}
+				onEditorCommand={onEditorCommand}
+			/>
 			<main
 				className={styles.body}
 				style={
@@ -69,6 +221,8 @@ export function BookView({
 						label={labels[shown] ?? ''}
 						layout={layout}
 						marks={marks}
+						snap={snap}
+						zoomApi={zoomApi}
 						images={images}
 						selection={selection}
 						onSelect={select}
@@ -88,25 +242,13 @@ export function BookView({
 								addNote: 'note',
 							};
 							const kind = kinds[command];
-							if (kind) {
-								const pages = spreadGeometry(book, spread).pages;
-								const page =
-									pages.find((p) => point.x >= p.trim.x && point.x <= p.trim.x + p.trim.w) ??
-									pages[0]!;
-								const choices = styleChoices(copy.styles);
-								const style = defaultTextStyle(choices);
-								const frame = newFrame(kind, boxAt(kind, point, page.trim), style);
-								void store.apply({ type: 'AddFrame', spread: spread.id, frame });
-								select([frame.id]);
-							} else if (command === 'addPages') {
-								void store.apply({ type: 'AddSpread', after: spread.id, duplicate: false });
+							if (kind) addFrame(kind, point);
+							else if (command === 'addPages') {
+								apply({ type: 'AddSpread', after: spread.id, duplicate: false });
 								setSpreadIndex(shown + 1);
-							} else if (command === 'duplicateSpread') {
-								void store.apply({ type: 'AddSpread', after: spread.id, duplicate: true });
-								setSpreadIndex(shown + 1);
-							} else if (command === 'toggleMargins') {
-								setMarks({ ...marks, margins: !marks.margins });
-							} else if (command === 'toggleGrid') {
+							} else if (command === 'duplicateSpread') pageOp('duplicate');
+							else if (command === 'toggleMargins') setMarks({ ...marks, margins: !marks.margins });
+							else if (command === 'toggleGrid') {
 								const on = !(marks.columns || marks.baseline);
 								setMarks({ ...marks, columns: on, baseline: on });
 							}
@@ -115,9 +257,7 @@ export function BookView({
 							for (const frameId of ids) {
 								const target = spread.frames.find((f) => f.id === frameId);
 								if (!target) continue;
-								for (const intent of frameIntents(command, spread.id, target)) {
-									void store.apply(intent);
-								}
+								for (const intent of frameIntents(command, spread.id, target)) apply(intent);
 							}
 						}}
 					/>
@@ -133,17 +273,8 @@ export function BookView({
 					selected={selected}
 					marks={marks}
 					onMarks={setMarks}
-					apply={(intent) => void store.apply(intent)}
-					choosePicture={async (frame) => {
-						const picked = await dialogs.pickImage();
-						if (picked === null) return;
-						try {
-							const asset = await client.importImage(id, picked);
-							await store.apply({ type: 'SetImage', frame, asset, fit: null });
-						} catch {
-							// The store keeps the refusal for the page to say.
-						}
-					}}
+					apply={apply}
+					choosePicture={(frame) => void choosePicture(frame)}
 				/>
 			</main>
 			<Shelf
@@ -151,16 +282,11 @@ export function BookView({
 				labels={labels}
 				selected={shown}
 				onSelect={setSpreadIndex}
-				onAdd={() => {
-					// New pages go at the end of the book.
-					const last = book.spreads[book.spreads.length - 1]!;
-					void store.apply({ type: 'AddSpread', after: last.id, duplicate: false });
-					setSpreadIndex(book.spreads.length);
-				}}
+				onAdd={() => pageOp('add')}
 				onCommand={(command, index) => {
 					const intent = shelfIntent(command, book, index);
 					if (!intent) return;
-					void store.apply(intent);
+					apply(intent);
 					if (command === 'duplicate' || command === 'moveRight') setSpreadIndex(index + 1);
 					else if (command === 'moveLeft') setSpreadIndex(index - 1);
 					else if (command === 'remove') setSpreadIndex(Math.max(0, index - 1));
@@ -168,7 +294,7 @@ export function BookView({
 				onMove={(from, to) => {
 					const moved = book.spreads[from];
 					if (!moved) return;
-					void store.apply({ type: 'MoveSpread', spread: moved.id, to });
+					apply({ type: 'MoveSpread', spread: moved.id, to });
 					setSpreadIndex(Math.max(1, to));
 				}}
 			/>

@@ -6,10 +6,12 @@
 import { ClassicToolbar } from '@liminal-hq/folio-ribbon/ClassicToolbar';
 import { Ribbon } from '@liminal-hq/folio-ribbon/Ribbon';
 import { useMemo } from 'react';
+import type { RibbonCommand } from '@liminal-hq/folio-ribbon/types';
 import type { CommandId } from '../commands/appMenuModel';
 import { t } from '../i18n/messages';
 import { useSettings, useUpdateSettings } from '../settings/useSettings';
 import styles from './FolioToolbar.module.css';
+import type { EditorState } from './editorCommands';
 import { buildRibbonModel, buildToolbarModel } from './ribbonModel';
 import { runRibbonCommand } from './runRibbonCommand';
 
@@ -20,14 +22,24 @@ export interface FolioToolbarProps {
 	run: (id: string) => Promise<void>;
 	/** Ids of the contextual tabs to show; none until something on the page can be selected. */
 	contextual?: readonly string[];
+	/** The document's controls, when a book is open. */
+	editor?: EditorState;
+	/** Runs a document control; answers whether it took the command. */
+	onEditorCommand?: (command: RibbonCommand) => boolean;
 }
 
 const NO_CONTEXTUAL: readonly string[] = [];
 
-export function FolioToolbar({ available, run, contextual = NO_CONTEXTUAL }: FolioToolbarProps) {
+export function FolioToolbar({
+	available,
+	run,
+	contextual = NO_CONTEXTUAL,
+	editor,
+	onEditorCommand,
+}: FolioToolbarProps) {
 	const settings = useSettings();
 	const update = useUpdateSettings();
-	const context = useMemo(() => ({ settings, available }), [settings, available]);
+	const context = useMemo(() => ({ settings, available, editor }), [settings, available, editor]);
 	const ribbon = useMemo(() => buildRibbonModel(context), [context]);
 	const toolbar = useMemo(() => buildToolbarModel(context), [context]);
 	const labels = useMemo(
@@ -46,7 +58,7 @@ export function FolioToolbar({ available, run, contextual = NO_CONTEXTUAL }: Fol
 		[],
 	);
 	const onCommand = (command: Parameters<typeof runRibbonCommand>[0]) =>
-		void runRibbonCommand(command, run, update);
+		void runRibbonCommand(command, run, update, onEditorCommand);
 
 	if (settings.interface.toolbar === 'classic') {
 		return (

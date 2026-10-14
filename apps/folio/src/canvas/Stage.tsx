@@ -8,6 +8,7 @@ import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
 import { ContextMenu } from '@liminal-hq/folio-chrome/ContextMenu';
 import { useState } from 'react';
+import type { MutableRefObject } from 'react';
 import { t } from '../i18n/messages';
 import { frameMenuItems, type FrameCommand } from './frameMenu';
 import { pageMenuItems, type PageCommand } from './pageMenu';
@@ -15,7 +16,9 @@ import { fitZoom, spreadGeometry, type PlainRect } from './geometry';
 import { DEFAULT_MARKS, SpreadCanvas, type Marks } from './SpreadCanvas';
 import styles from './Stage.module.css';
 import { useElementSize } from './useElementSize';
-import { useStageZoom } from './useStageZoom';
+import { useStageZoom, type StageZoom } from './useStageZoom';
+
+export type ZoomApi = Pick<StageZoom, 'zoomIn' | 'zoomOut' | 'fit'>;
 
 export interface StageProps {
 	book: Book;
@@ -24,6 +27,9 @@ export interface StageProps {
 	label: string;
 	layout: SpreadLayout | null;
 	marks?: Marks;
+	snap?: boolean;
+	/** Filled in with the stage's zoom controls, for the ribbon and the keys to use. */
+	zoomApi?: MutableRefObject<ZoomApi | null>;
 	images?: Record<string, string>;
 	selection?: string[];
 	onSelect?(ids: string[]): void;
@@ -40,6 +46,8 @@ export function Stage({
 	label,
 	layout,
 	marks,
+	snap,
+	zoomApi,
 	images,
 	selection,
 	onSelect,
@@ -51,6 +59,7 @@ export function Stage({
 	const [ref, size] = useElementSize<HTMLDivElement>();
 	const geometry = spreadGeometry(book, spread);
 	const zoom = useStageZoom(fitZoom(geometry.bounds, size));
+	if (zoomApi) zoomApi.current = zoom;
 	const percent = Math.round(zoom.zoom * 100);
 	const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 	const [pageMenu, setPageMenu] = useState<{
@@ -92,6 +101,7 @@ export function Stage({
 						zoom={zoom.zoom}
 						label={t('region.stage')}
 						marks={marks}
+						snap={snap}
 						images={images}
 						selection={selection}
 						onSelect={onSelect}

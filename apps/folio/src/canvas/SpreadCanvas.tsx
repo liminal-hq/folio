@@ -43,6 +43,8 @@ export interface SpreadCanvasProps {
 	marks?: Marks;
 	/** The ids of the selected frames. The canvas is read-only without `onSelect`. */
 	selection?: string[];
+	/** Whether dragging snaps; on unless said otherwise. */
+	snap?: boolean;
 	onSelect?(ids: string[]): void;
 	/** Commits a frame's new box; resolves once the book has it. */
 	onMove?(id: string, rect: PlainRect): Promise<void>;
@@ -210,6 +212,7 @@ export function SpreadCanvas({
 	marks = DEFAULT_MARKS,
 	label,
 	selection = [],
+	snap = true,
 	onSelect,
 	onMove,
 	onCommand,
@@ -228,6 +231,7 @@ export function SpreadCanvas({
 		frames: spread.frames,
 		scale,
 		selection,
+		snap,
 		onSelect,
 		onMove,
 		onCommand,

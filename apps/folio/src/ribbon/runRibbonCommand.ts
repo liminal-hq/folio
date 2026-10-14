@@ -12,6 +12,8 @@ export async function runRibbonCommand(
 	command: RibbonCommand,
 	run: (id: string) => Promise<void>,
 	update: (patch: SettingsPatch) => Promise<void>,
+	/** Handles the document's controls; answers whether it took the command. */
+	editor?: (command: RibbonCommand) => boolean,
 ): Promise<void> {
 	switch (command.id) {
 		case 'mode':
@@ -25,6 +27,7 @@ export async function runRibbonCommand(
 			if (typeof command.value === 'string') return run(command.value);
 			return;
 		default: {
+			if (editor?.(command)) return;
 			const id = RIBBON_COMMANDS[command.id];
 			if (id) return run(id);
 		}
