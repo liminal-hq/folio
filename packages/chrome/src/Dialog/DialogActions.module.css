@@ -1,0 +1,52 @@
+.actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+.button {
+	box-sizing: border-box;
+	min-block-size: var(--folio-control-height);
+	padding: 0 14px;
+	color: var(--folio-text-primary);
+	background: var(--folio-control-bg);
+	border: 1px solid transparent;
+	border-radius: 6px;
+	font: inherit;
+	font-size: 13px;
+	cursor: default;
+}
+
+.button:hover:not(:disabled) {
+	background: var(--folio-control-bg-hover);
+}
+
+.button:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: 2px;
+}
+
+.button:disabled {
+	opacity: 0.45;
+}
+
+.primary {
+	color: var(--folio-accent-contrast);
+	background: var(--folio-accent);
+}
+
+.primary:hover:not(:disabled) {
+	background: var(--folio-accent);
+	filter: brightness(1.1);
+}
+
+.danger {
+	color: var(--folio-danger-fg);
+	background: var(--folio-danger);
+}
+
+.danger:hover:not(:disabled) {
+	background: var(--folio-danger);
+	filter: brightness(1.1);
+}

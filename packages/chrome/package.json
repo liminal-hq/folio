@@ -1,0 +1,80 @@
+{
+	"name": "@liminal-hq/folio-chrome",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"description": "Shared Liminal HQ window chrome: title bar, window menu, context menu. No app domain imports.",
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:ci": "mkdir -p ../../test-results && vitest run --reporter=default --reporter=junit --outputFile.junit=../../test-results/chrome-junit.xml"
+	},
+	"peerDependencies": {
+		"react": "^19.1.0",
+		"react-dom": "^19.1.0"
+	},
+	"dependencies": {
+		"@tauri-apps/api": "^2.10.1"
+	},
+	"devDependencies": {
+		"@testing-library/jest-dom": "^6.9.1",
+		"@testing-library/react": "^16.3.2",
+		"@testing-library/user-event": "^14.6.1",
+		"@types/node": "^24.0.0",
+		"@types/react": "^19.1.8",
+		"@types/react-dom": "^19.1.6",
+		"@vitejs/plugin-react": "^4.6.0",
+		"happy-dom": "^20.8.4",
+		"react": "^19.1.0",
+		"react-dom": "^19.1.0",
+		"typescript": "~5.8.3",
+		"vite": "^7.0.4",
+		"vitest": "^4.1.9"
+	},
+	"files": [
+		"src",
+		"!src/**/*.test.ts",
+		"!src/**/*.test.tsx",
+		"!src/test"
+	],
+	"exports": {
+		"./Dialog/ConfirmDialog": "./src/Dialog/ConfirmDialog.tsx",
+		"./Dialog/Dialog": "./src/Dialog/Dialog.tsx",
+		"./Dialog/DialogActions": "./src/Dialog/DialogActions.tsx",
+		"./Dialog/dialogContext": "./src/Dialog/dialogContext.ts",
+		"./ContextMenu": "./src/ContextMenu/ContextMenu.tsx",
+		"./ContextMenu/types": "./src/ContextMenu/types.ts",
+		"./ContextMenu/expectEveryItemHasIcon": "./src/ContextMenu/expectEveryItemHasIcon.ts",
+		"./MenuBar/MenuBar": "./src/MenuBar/MenuBar.tsx",
+		"./TitleBar": "./src/TitleBar/TitleBar.tsx",
+		"./TitleBar/AppMenuButton": "./src/TitleBar/AppMenuButton.tsx",
+		"./TitleBar/subscription": "./src/TitleBar/subscription.ts",
+		"./TitleBar/tauriWindowControls": "./src/TitleBar/tauriWindowControls.ts",
+		"./TitleBar/TitleBarTitle": "./src/TitleBar/TitleBarTitle.tsx",
+		"./TitleBar/buttonLayout": "./src/TitleBar/buttonLayout.ts",
+		"./TitleBar/windowControls": "./src/TitleBar/windowControls.ts",
+		"./WindowChromeProvider/WindowChromeProvider": "./src/WindowChromeProvider/WindowChromeProvider.tsx",
+		"./WindowFrame": "./src/WindowFrame/WindowFrame.tsx",
+		"./WindowMenu": "./src/WindowMenu/WindowMenu.tsx",
+		"./WindowMenu/windowMenuModel": "./src/WindowMenu/windowMenuModel.ts",
+		"./icons/icons": "./src/icons/icons.tsx",
+		"./labels": "./src/labels.ts",
+		"./package.json": "./package.json",
+		"./SettingsShell/ButtonRow": "./src/SettingsShell/ButtonRow.tsx",
+		"./SettingsShell/LinkRow": "./src/SettingsShell/LinkRow.tsx",
+		"./SettingsShell/NumberRow": "./src/SettingsShell/NumberRow.tsx",
+		"./SettingsShell/TextRow": "./src/SettingsShell/TextRow.tsx",
+		"./SettingsShell/ColourRow": "./src/SettingsShell/ColourRow.tsx",
+		"./SettingsShell/SegmentedRow": "./src/SettingsShell/SegmentedRow.tsx",
+		"./SettingsShell/SelectRow": "./src/SettingsShell/SelectRow.tsx",
+		"./SettingsShell/SettingsGroup": "./src/SettingsShell/SettingsGroup.tsx",
+		"./SettingsShell/SettingsRow": "./src/SettingsShell/SettingsRow.tsx",
+		"./SettingsShell/SettingsSection": "./src/SettingsShell/SettingsSection.tsx",
+		"./SettingsShell/SettingsShell": "./src/SettingsShell/SettingsShell.tsx",
+		"./SettingsShell/SliderRow": "./src/SettingsShell/SliderRow.tsx",
+		"./SettingsShell/ToggleRow": "./src/SettingsShell/ToggleRow.tsx",
+		"./SettingsShell/labels": "./src/SettingsShell/labels.ts",
+		"./SettingsShell/types": "./src/SettingsShell/types.ts"
+	}
+}
