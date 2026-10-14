@@ -15,6 +15,7 @@ import { formatLength, formatTrim, pageCount } from '../books/format';
 import { plainTextOf } from '../canvas/TextEditor';
 import { spreadGeometry } from '../canvas/geometry';
 import type { Marks } from '../canvas/marksModel';
+import { surfaceOf } from '../canvas/masterView';
 import { t } from '../i18n/messages';
 import styles from './Inspector.module.css';
 import { LengthField } from './LengthField';
@@ -205,7 +206,7 @@ function PositionSection({
 	const locked = frame.locked || frame.fromMaster != null;
 	const move = (change: Partial<typeof box>): Intent => ({
 		type: 'MoveFrame',
-		on: { spread: spread.id },
+		on: surfaceOf(spread),
 		frame: frame.id,
 		box: { x: box.x, y: box.y, w: box.w, h: box.h, ...change },
 	});
@@ -381,7 +382,7 @@ function PictureSection({ frame, props }: { frame: Frame; props: InspectorProps 
 		const right = page.trim.x + page.trim.w + (last ? book.bleed : 0);
 		apply({
 			type: 'MoveFrame',
-			on: { spread: spread.id },
+			on: surfaceOf(spread),
 			frame: frame.id,
 			box: { x, y: -book.bleed, w: right - x, h: page.trim.h + book.bleed * 2 },
 		});

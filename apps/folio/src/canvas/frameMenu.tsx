@@ -6,6 +6,7 @@
 import type { MenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
+import type { Surface } from '@liminal-hq/folio-protocol/generated/Surface';
 import {
 	BringToFrontIcon,
 	DuplicateIcon,
@@ -51,8 +52,8 @@ export function frameMenuItems(frames: Frame[]): MenuItem[] {
 }
 
 /** The intents a command makes for one frame. A locked frame is not deleted. */
-export function frameIntents(command: FrameCommand, spread: string, frame: Frame): Intent[] {
-	const on = { on: { spread }, frame: frame.id };
+export function frameIntents(command: FrameCommand, surface: Surface, frame: Frame): Intent[] {
+	const on = { on: surface, frame: frame.id };
 	switch (command) {
 		case 'duplicate':
 			return [{ type: 'DuplicateFrame', ...on }];

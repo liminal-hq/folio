@@ -26,18 +26,18 @@ describe('frameMenuItems', () => {
 
 describe('frameIntents', () => {
 	it('makes one intent per command', () => {
-		expect(frameIntents('duplicate', 's', frame(false))).toEqual([
+		expect(frameIntents('duplicate', { spread: 's' }, frame(false))).toEqual([
 			{ type: 'DuplicateFrame', on: { spread: 's' }, frame: 'f' },
 		]);
-		expect(frameIntents('front', 's', frame(false))).toEqual([
+		expect(frameIntents('front', { spread: 's' }, frame(false))).toEqual([
 			{ type: 'Reorder', on: { spread: 's' }, frame: 'f', to: 'front' },
 		]);
-		expect(frameIntents('unlock', 's', frame(true))).toEqual([
+		expect(frameIntents('unlock', { spread: 's' }, frame(true))).toEqual([
 			{ type: 'LockFrame', on: { spread: 's' }, frame: 'f', locked: false },
 		]);
 	});
 	it('does not delete a locked frame', () => {
-		expect(frameIntents('delete', 's', frame(true))).toEqual([]);
-		expect(frameIntents('delete', 's', frame(false))).toHaveLength(1);
+		expect(frameIntents('delete', { spread: 's' }, frame(true))).toEqual([]);
+		expect(frameIntents('delete', { spread: 's' }, frame(false))).toHaveLength(1);
 	});
 });

@@ -12,6 +12,7 @@ import { frameIntents } from '../canvas/frameMenu';
 import { boxAt, newFrame, type NewFrameKind } from '../canvas/newFrames';
 import { spreadGeometry } from '../canvas/geometry';
 import { masterFurniture } from '../canvas/masterItems';
+import { masterOfPage, masterSpread, surfaceOf } from '../canvas/masterView';
 import { defaultTextStyle, styleChoices } from '../inspector/styleChoices';
 import { Shelf } from '../canvas/Shelf';
 import { shelfIntent } from '../canvas/shelfMenu';
@@ -25,6 +26,7 @@ import type { CommandId } from '../commands/appMenuModel';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import { Inspector } from '../inspector/Inspector';
+import { t } from '../i18n/messages';
 import {
 	editorAction,
 	editorState,
@@ -61,6 +63,8 @@ export function BookView({
 	const settings = useSettings();
 	const { client, store, dialogs } = useBooks();
 	const [spreadIndex, setSpreadIndex] = useState(0);
+	/** The master page being edited, in place of the shelf's spread, or `null`. */
+	const [editing, setEditing] = useState<string | null>(null);
 	const update = useUpdateSettings();
 	const marks = useMemo(() => marksOf(settings.marks), [settings.marks]);
 	const colours = useMemo(() => coloursOf(settings.marks), [settings.marks]);
@@ -71,9 +75,16 @@ export function BookView({
 	const zoomApi = useRef<ZoomApi | null>(null);
 	const book = copy.book;
 	const shown = Math.max(0, Math.min(spreadIndex, book.spreads.length - 1));
-	const spread = book.spreads[shown] ?? null;
+	const master = editing === null ? null : masterSpread(book, editing);
+	const spread = master ?? book.spreads[shown] ?? null;
 	const labels = shelfLabels(book);
-	const layout = useSpreadLayout(client, id, spread ? spread.id : null, copy.revision);
+	const layout = useSpreadLayout(
+		client,
+		id,
+		master ? editing : (spread?.id ?? null),
+		copy.revision,
+		master !== null,
+	);
 	const [selection, select] = useSelection(
 		spread?.id ?? null,
 		spread?.frames.map((f) => f.id) ?? [],
@@ -101,6 +112,7 @@ export function BookView({
 				marks,
 				snap,
 				rulers: rulers.on,
+				master: master !== null,
 			}
 		: null;
 	const editor = useMemo(
@@ -119,7 +131,25 @@ export function BookView({
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
 	}, [rulers.on, update]);
+
+	// Escape leaves the master page, unless it is ending the editing of some words.
+	useEffect(() => {
+		if (editing === null) return;
+		const onKey = (event: KeyboardEvent) => {
+			if (event.key !== 'Escape' || event.defaultPrevented) return;
+			if (
+				event.target instanceof HTMLElement &&
+				/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)
+			)
+				return;
+			setEditing(null);
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	}, [editing]);
 	if (!spread || !input) return null;
+	const surface = surfaceOf(spread);
+	const masterName = book.masterPages?.find((m) => m.id === editing)?.name ?? '';
 
 	const apply = (intent: Intent) => void store.apply(intent);
 
@@ -133,7 +163,7 @@ export function BookView({
 		};
 		const page = pages.find((p) => at.x >= p.trim.x && at.x <= p.trim.x + p.trim.w) ?? first;
 		const frame = newFrame(kind, boxAt(kind, at, page.trim), defaultTextStyle(choices));
-		apply({ type: 'AddFrame', on: { spread: spread.id }, frame });
+		apply({ type: 'AddFrame', on: surface, frame });
 		select([frame.id]);
 	};
 
@@ -179,7 +209,7 @@ export function BookView({
 		const right = page.trim.x + page.trim.w + (last ? book.bleed : 0);
 		apply({
 			type: 'MoveFrame',
-			on: { spread: spread.id },
+			on: surface,
 			frame: frame.id,
 			box: { x, y: -book.bleed, w: right - x, h: page.trim.h + book.bleed * 2 },
 		});
@@ -221,6 +251,14 @@ export function BookView({
 			case 'fit':
 				apply({ type: 'SetImage', frame: action.frame, asset: null, fit: action.fit });
 				break;
+			case 'editMaster': {
+				if (editing !== null) setEditing(null);
+				else {
+					const first = spread.pages.findIndex((p) => p.master);
+					setEditing(first === -1 ? null : masterOfPage(spread, first));
+				}
+				break;
+			}
 		}
 	};
 
@@ -249,10 +287,20 @@ export function BookView({
 				}
 			>
 				<div className={styles.stage}>
+					{master && (
+						<div className={styles.masterBanner} role="status">
+							<span>{t('master.editing', { name: masterName })}</span>
+							<span className={styles.masterHint}>{t('master.editing.hint')}</span>
+							<button type="button" onClick={() => setEditing(null)}>
+								{t('master.done')}
+							</button>
+						</div>
+					)}
 					<Stage
 						book={book}
 						spread={spread}
-						label={labels[shown] ?? ''}
+						label={master ? t('master.page', { name: masterName }) : (labels[shown] ?? '')}
+						heading={master ? t('master.editing', { name: masterName }) : undefined}
 						layout={layout}
 						marks={marks}
 						colours={colours}
@@ -263,15 +311,9 @@ export function BookView({
 						snap={snap}
 						rulers={{ on: rulers.on, unit: rulers.units }}
 						onRulerUnit={(units) => void update({ rulers: { units } } as SettingsPatch)}
-						onAddGuide={(axis, pos) =>
-							apply({ type: 'AddGuide', on: { spread: spread.id }, axis, pos })
-						}
-						onMoveGuide={(index, pos) =>
-							apply({ type: 'MoveGuide', on: { spread: spread.id }, index, pos })
-						}
-						onRemoveGuide={(index) =>
-							apply({ type: 'RemoveGuide', on: { spread: spread.id }, index })
-						}
+						onAddGuide={(axis, pos) => apply({ type: 'AddGuide', on: surface, axis, pos })}
+						onMoveGuide={(index, pos) => apply({ type: 'MoveGuide', on: surface, index, pos })}
+						onRemoveGuide={(index) => apply({ type: 'RemoveGuide', on: surface, index })}
 						onGuideCommand={(command, index) => {
 							for (const intent of guideIntents(command, spread, index)) apply(intent);
 						}}
@@ -284,13 +326,13 @@ export function BookView({
 								moves.length === 1
 									? {
 											type: 'MoveFrame',
-											on: { spread: spread.id },
+											on: surface,
 											frame: moves[0]!.id,
 											box: boxOf(moves[0]!.rect),
 										}
 									: {
 											type: 'MoveFrames',
-											on: { spread: spread.id },
+											on: surface,
 											moves: moves.map((m) => ({ frame: m.id, box: boxOf(m.rect) })),
 										},
 							)
@@ -304,6 +346,7 @@ export function BookView({
 							};
 							const kind = kinds[command];
 							if (kind) addFrame(kind, point);
+							else if (master) return;
 							else if (command === 'addPages') {
 								apply({ type: 'AddSpread', after: spread.id, duplicate: false });
 								setSpreadIndex(shown + 1);
@@ -327,7 +370,7 @@ export function BookView({
 							for (const frameId of ids) {
 								const target = spread.frames.find((f) => f.id === frameId);
 								if (!target) continue;
-								for (const intent of frameIntents(command, spread.id, target)) apply(intent);
+								for (const intent of frameIntents(command, surface, target)) apply(intent);
 							}
 						}}
 					/>
@@ -351,7 +394,10 @@ export function BookView({
 				book={book}
 				labels={labels}
 				selected={shown}
-				onSelect={setSpreadIndex}
+				onSelect={(index) => {
+					setEditing(null);
+					setSpreadIndex(index);
+				}}
 				onAdd={() => pageOp('add')}
 				onCommand={(command, index) => {
 					const intent = shelfIntent(command, book, index);

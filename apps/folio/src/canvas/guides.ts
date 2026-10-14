@@ -5,6 +5,7 @@
 
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
+import { isMasterSpread, surfaceOf } from './masterView';
 import { snapAxis, type SnapTargets } from './snap';
 
 export type GuideAxis = 'x' | 'y';
@@ -50,7 +51,9 @@ export type GuideCommand = 'lock' | 'unlock' | 'delete' | 'clearSpread' | 'clear
 
 /** The intents a choice from a guide's menu makes. */
 export function guideIntents(command: GuideCommand, spread: Spread, index: number): Intent[] {
-	const on = { on: { spread: spread.id } };
+	const on = { on: surfaceOf(spread) };
+	// A master's guides are cleared one at a time for now.
+	const master = isMasterSpread(spread);
 	switch (command) {
 		case 'lock':
 			return [{ type: 'LockGuide', ...on, index, locked: true }];
@@ -59,8 +62,8 @@ export function guideIntents(command: GuideCommand, spread: Spread, index: numbe
 		case 'delete':
 			return [{ type: 'RemoveGuide', ...on, index }];
 		case 'clearSpread':
-			return [{ type: 'ClearGuides', spread: spread.id }];
+			return master ? [] : [{ type: 'ClearGuides', spread: spread.id }];
 		case 'clearAll':
-			return [{ type: 'ClearGuides' }];
+			return master ? [] : [{ type: 'ClearGuides' }];
 	}
 }

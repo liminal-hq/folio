@@ -44,6 +44,8 @@ export interface StageProps {
 	spread: Spread;
 	/** What the shelf calls this spread: "Cover", "Pages 2–3". */
 	label: string;
+	/** Replaces the "Spread …" title, for a page that is not one of the book's spreads. */
+	heading?: string;
 	layout: SpreadLayout | null;
 	marks?: Marks;
 	colours?: MarkColours;
@@ -75,6 +77,7 @@ export function Stage({
 	book,
 	spread,
 	label,
+	heading,
 	layout,
 	marks,
 	colours,
@@ -153,7 +156,7 @@ export function Stage({
 	return (
 		<>
 			<div className={styles.header}>
-				<h1 className={styles.title}>{t('stage.spread', { label })}</h1>
+				<h1 className={styles.title}>{heading ?? t('stage.spread', { label })}</h1>
 				<div className={styles.tools}>
 					{onMarks && onMarkColour && (
 						<MarksMenu
