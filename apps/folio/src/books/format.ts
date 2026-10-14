@@ -23,6 +23,12 @@ export function formatTrim(trim: Book['trim'], units: 'inches' | 'millimetres'):
 	return `${inches(trim.w)} × ${inches(trim.h)} in`;
 }
 
+/** A length in points as the person reads it: `0.125 in`, or `3.2 mm`. */
+export function formatLength(points: number, units: 'inches' | 'millimetres'): string {
+	if (units === 'millimetres') return `${plain((points / POINTS_PER_INCH) * MM_PER_INCH, 1)} mm`;
+	return `${plain(points / POINTS_PER_INCH, 3)} in`;
+}
+
 /** The number of pages, not counting the cover (as `Book::page_count` in Rust). */
 export function pageCount(book: Book): number {
 	return book.spreads

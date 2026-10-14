@@ -5,7 +5,11 @@
 
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
+import { ContextMenu } from '@liminal-hq/folio-chrome/ContextMenu';
+import { useState } from 'react';
+import { AddPagesIcon } from '../icons/AppIcons';
 import { t } from '../i18n/messages';
+import { shelfMenuItems, type ShelfCommand } from './shelfMenu';
 import { spreadGeometry } from './geometry';
 import styles from './Shelf.module.css';
 
@@ -73,26 +77,86 @@ export interface ShelfProps {
 	labels: string[];
 	selected: number;
 	onSelect(index: number): void;
+	onAdd?(): void;
+	onCommand?(command: ShelfCommand, index: number): void;
+	/** A thumbnail was dragged to `to`. */
+	onMove?(from: number, to: number): void;
 }
 
-export function Shelf({ book, labels, selected, onSelect }: ShelfProps) {
+export function Shelf({ book, labels, selected, onSelect, onAdd, onCommand, onMove }: ShelfProps) {
+	const [menu, setMenu] = useState<{ index: number; x: number; y: number } | null>(null);
+	const [dragging, setDragging] = useState<number | null>(null);
+	const [over, setOver] = useState<number | null>(null);
+
 	return (
 		<section className={styles.shelf} aria-label={t('region.shelf')}>
 			<ul className={styles.list} aria-label={t('region.shelf.spreads')}>
-				{labels.map((label, index) => (
-					<li key={book.spreads[index]!.id}>
-						<button
-							type="button"
-							className={styles.item}
-							aria-current={index === selected ? 'true' : undefined}
-							onClick={() => onSelect(index)}
+				{labels.map((label, index) => {
+					const fixed = book.spreads[index]!.kind === 'cover';
+					return (
+						<li
+							key={book.spreads[index]!.id}
+							draggable={!fixed && onMove !== undefined}
+							data-over={over === index && dragging !== null && dragging !== index}
+							onDragStart={(event) => {
+								setDragging(index);
+								event.dataTransfer?.setData('text/plain', String(index));
+							}}
+							onDragOver={(event) => {
+								if (dragging === null || fixed) return;
+								event.preventDefault();
+								setOver(index);
+							}}
+							onDrop={(event) => {
+								event.preventDefault();
+								if (dragging !== null && !fixed && dragging !== index) onMove?.(dragging, index);
+								setDragging(null);
+								setOver(null);
+							}}
+							onDragEnd={() => {
+								setDragging(null);
+								setOver(null);
+							}}
 						>
-							<Thumb book={book} index={index} />
-							<span className={styles.label}>{label}</span>
+							<button
+								type="button"
+								className={styles.item}
+								aria-current={index === selected ? 'true' : undefined}
+								onClick={() => onSelect(index)}
+								onContextMenu={(event) => {
+									event.preventDefault();
+									onSelect(index);
+									setMenu({ index, x: event.clientX, y: event.clientY });
+								}}
+							>
+								<Thumb book={book} index={index} />
+								<span className={styles.label}>{label}</span>
+							</button>
+						</li>
+					);
+				})}
+				{onAdd && (
+					<li>
+						<button type="button" className={styles.add} onClick={onAdd}>
+							<AddPagesIcon />
+							{t('shelf.add')}
 						</button>
 					</li>
-				))}
+				)}
 			</ul>
+			{menu && (
+				<ContextMenu
+					items={shelfMenuItems(book, menu.index)}
+					position={menu}
+					ariaLabel={t('shelf.menu')}
+					onSelect={(item) => {
+						const index = menu.index;
+						setMenu(null);
+						onCommand?.(item.id as ShelfCommand, index);
+					}}
+					onClose={() => setMenu(null)}
+				/>
+			)}
 		</section>
 	);
 }

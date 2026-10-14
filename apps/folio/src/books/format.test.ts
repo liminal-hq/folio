@@ -5,7 +5,7 @@
 
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import { describe, expect, it } from 'vitest';
-import { formatTrim, pageCount } from './format';
+import { formatLength, formatTrim, pageCount } from './format';
 
 describe('formatTrim', () => {
 	it('writes inches with the decimals that matter', () => {
@@ -27,5 +27,13 @@ describe('pageCount', () => {
 			spreads: [spread('cover', 1), spread('opener', 1), spread('spread', 2)],
 		} as unknown as Book;
 		expect(pageCount(book)).toBe(3);
+	});
+});
+
+describe('formatLength', () => {
+	it('writes a length in the units the person reads', () => {
+		expect(formatLength(9, 'inches')).toBe('0.125 in');
+		expect(formatLength(9, 'millimetres')).toBe('3.2 mm');
+		expect(formatLength(72, 'inches')).toBe('1 in');
 	});
 });
