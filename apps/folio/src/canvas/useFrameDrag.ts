@@ -5,7 +5,7 @@
 
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { KeyboardEvent, PointerEvent, RefObject } from 'react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FrameCommand } from './frameMenu';
 import type { PlainRect, SpreadGeometry } from './geometry';
 import {
@@ -45,6 +45,12 @@ interface Point {
 	y: number;
 }
 
+/** A frame and the box it is to have. */
+export interface FrameBoxMove {
+	id: string;
+	rect: PlainRect;
+}
+
 export interface FrameDragOptions {
 	svg: RefObject<SVGSVGElement | null>;
 	geometry: SpreadGeometry;
@@ -55,8 +61,8 @@ export interface FrameDragOptions {
 	/** Whether a drag snaps to edges, centres and margins. Alt turns it off for one drag. */
 	snap?: boolean;
 	onSelect?(ids: string[]): void;
-	/** Commits a frame's new box; resolves once the book has it. */
-	onMove?(id: string, rect: PlainRect): Promise<void>;
+	/** Commits the new boxes of one or more frames as one change; resolves once the book has them. */
+	onMove?(moves: FrameBoxMove[]): Promise<void>;
 	/** A command on the selection, from the keys: duplicate, delete. */
 	onCommand?(command: FrameCommand, ids: string[]): void;
 }
@@ -82,8 +88,15 @@ export function useFrameDrag(options: FrameDragOptions) {
 		onCommand,
 	} = options;
 	const drag = useRef<Drag | null>(null);
+	/** Where each frame was last nudged to, until the book shows it there. */
+	const nudged = useRef(new Map<string, PlainRect>());
 	const [preview, setPreview] = useState<Record<string, PlainRect>>({});
 	const [lines, setLines] = useState<Snapped['lines']>([]);
+
+	// A new copy of the frames is the book answering, so what was asked for is no longer pending.
+	useEffect(() => {
+		nudged.current.clear();
+	}, [frames]);
 
 	const boxOf = (id: string): PlainRect | null => frames.find((f) => f.id === id)?.box ?? null;
 
@@ -228,17 +241,23 @@ export function useFrameDrag(options: FrameDragOptions) {
 			setPreview({});
 			return;
 		}
+		const moves = Object.entries(boxes).flatMap(([id, rect]) => {
+			const was = boxOf(id);
+			return was && !same(was, rect) ? [{ id, rect }] : [];
+		});
 		try {
-			for (const [id, rect] of Object.entries(boxes)) {
-				const was = boxOf(id);
-				if (was && !same(was, rect)) await onMove?.(id, rect);
-			}
+			if (moves.length > 0) await onMove?.(moves);
 		} finally {
 			setPreview({});
 		}
 	};
 
 	const onPointerUp = () => void finish(true);
+
+	/** The pointer was taken away (a touch or pen cancel, a dialog, Alt-Tab): the drag is dropped. */
+	const onPointerCancel = () => {
+		if (drag.current) void finish(false);
+	};
 
 	const onKeyDown = (event: KeyboardEvent) => {
 		if (event.key === 'Escape') {
@@ -273,11 +292,17 @@ export function useFrameDrag(options: FrameDragOptions) {
 		const delta = by[event.key];
 		if (!delta) return;
 		event.preventDefault();
+		// Each press builds on the last one asked for, since the book may not have answered it yet.
+		const moves: FrameBoxMove[] = [];
 		for (const id of selection) {
 			const frame = frames.find((f) => f.id === id);
 			if (!frame || !movable(frame)) continue;
-			void onMove?.(id, { ...frame.box, x: frame.box.x + delta[0], y: frame.box.y + delta[1] });
+			const from = nudged.current.get(id) ?? frame.box;
+			const rect = { ...from, x: from.x + delta[0], y: from.y + delta[1] };
+			nudged.current.set(id, rect);
+			moves.push({ id, rect });
 		}
+		if (moves.length > 0) void onMove?.(moves);
 	};
 
 	return {
@@ -288,6 +313,7 @@ export function useFrameDrag(options: FrameDragOptions) {
 		onBackgroundPointerDown,
 		onPointerMove,
 		onPointerUp,
+		onPointerCancel,
 		onKeyDown,
 	};
 }

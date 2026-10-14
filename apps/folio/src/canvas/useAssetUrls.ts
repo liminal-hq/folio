@@ -30,44 +30,59 @@ export function useAssetUrls(
 	bookId: string,
 	assets: string[],
 ): Record<string, string> {
-	const [urls, setUrls] = useState<Record<string, string>>({});
-	const held = useRef<{ book: string; urls: Map<string, string>; asked: Set<string> }>({
+	const [held, setHeld] = useState<{ book: string; urls: Record<string, string> }>({
 		book: bookId,
-		urls: new Map(),
-		asked: new Set(),
+		urls: {},
 	});
-
-	if (held.current.book !== bookId) {
-		held.current.urls.forEach((url) => URL.revokeObjectURL(url));
-		held.current = { book: bookId, urls: new Map(), asked: new Set() };
-	}
+	// What has been asked for and made, per book. A ref, because it is the effect's own bookkeeping.
+	const state = useRef<{
+		book: string;
+		urls: Map<string, string>;
+		asked: Set<string>;
+		closed: boolean;
+	} | null>(null);
 
 	const wanted = [...new Set(assets)].sort().join('\n');
 	useEffect(() => {
-		const current = held.current;
+		let current = state.current;
+		if (current === null || current.book !== bookId) {
+			current?.urls.forEach((url) => URL.revokeObjectURL(url));
+			current = { book: bookId, urls: new Map(), asked: new Set(), closed: false };
+			state.current = current;
+			setHeld({ book: bookId, urls: {} });
+		}
+		const mine = current;
 		for (const asset of wanted ? wanted.split('\n') : []) {
-			if (current.asked.has(asset)) continue;
-			current.asked.add(asset);
+			if (mine.asked.has(asset)) continue;
+			mine.asked.add(asset);
 			client
 				.assetData(bookId, asset)
 				.then((bytes) => {
-					if (held.current !== current) return;
+					// The book changed, or the page closed, while the picture was being read.
+					if (mine.closed || state.current !== mine) return;
 					const url = URL.createObjectURL(new Blob([bytes], { type: mediaTypeOf(asset) }));
-					current.urls.set(asset, url);
-					setUrls(Object.fromEntries(current.urls));
+					mine.urls.set(asset, url);
+					setHeld({ book: bookId, urls: Object.fromEntries(mine.urls) });
 				})
 				.catch(() => {
-					// The picture is missing from the book: the frame keeps its placeholder.
+					// Missing from the book for now: the frame keeps its placeholder, and may ask again.
+					mine.asked.delete(asset);
 				});
 		}
 	}, [client, bookId, wanted]);
 
 	useEffect(
 		() => () => {
-			held.current.urls.forEach((url) => URL.revokeObjectURL(url));
+			const current = state.current;
+			if (!current) return;
+			current.closed = true;
+			current.urls.forEach((url) => URL.revokeObjectURL(url));
+			state.current = null;
 		},
 		[],
 	);
 
-	return held.current.book === bookId ? urls : {};
+	return held.book === bookId ? held.urls : NONE;
 }
+
+const NONE: Record<string, string> = {};

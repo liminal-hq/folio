@@ -43,6 +43,8 @@ export function TextEditor({ frame, layout, scale, at, onCommit }: TextEditorPro
 	const run = first?.runs[0];
 	const initial = plainTextOf(frame) ?? '';
 	const done = useRef(false);
+	/** What is in the box now, kept as it is typed because the box is gone by the time an unmount cleans up. */
+	const typed = useRef(initial);
 
 	useEffect(() => {
 		const el = area.current;
@@ -54,9 +56,13 @@ export function TextEditor({ frame, layout, scale, at, onCommit }: TextEditorPro
 	const finish = () => {
 		if (done.current) return;
 		done.current = true;
-		const text = area.current?.value ?? initial;
+		const text = typed.current;
 		onCommit(text !== initial ? text : null);
 	};
+	// Showing another spread or losing the frame closes the editor without a blur: keep the words.
+	const latest = useRef(finish);
+	latest.current = finish;
+	useEffect(() => () => latest.current(), []);
 
 	return (
 		<textarea
@@ -65,6 +71,9 @@ export function TextEditor({ frame, layout, scale, at, onCommit }: TextEditorPro
 			aria-label={t('stage.edit.text')}
 			defaultValue={initial}
 			spellCheck={false}
+			onChange={(event) => {
+				typed.current = event.target.value;
+			}}
 			onBlur={finish}
 			onKeyDown={(event) => {
 				if (event.key === 'Escape') {

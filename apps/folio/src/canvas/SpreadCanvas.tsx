@@ -16,7 +16,7 @@ import type { FrameCommand } from './frameMenu';
 import { canEditText, TextEditor } from './TextEditor';
 import { DEFAULT_MARK_COLOURS, DEFAULT_MARKS, type MarkColours, type Marks } from './marksModel';
 import { HANDLES, type Handle } from './snap';
-import { movable, useFrameDrag } from './useFrameDrag';
+import { movable, useFrameDrag, type FrameBoxMove } from './useFrameDrag';
 
 export interface SpreadCanvasProps {
 	book: Book;
@@ -34,7 +34,7 @@ export interface SpreadCanvasProps {
 	snap?: boolean;
 	onSelect?(ids: string[]): void;
 	/** Commits a frame's new box; resolves once the book has it. */
-	onMove?(id: string, rect: PlainRect): Promise<void>;
+	onMove?(moves: FrameBoxMove[]): Promise<void>;
 	onCommand?(command: FrameCommand, ids: string[]): void;
 	/** The context menu was asked for on a frame, at these viewport coordinates. */
 	onFrameMenu?(frame: Frame, at: { x: number; y: number }): void;
@@ -238,6 +238,7 @@ export function SpreadCanvas({
 	const editable = onSelect !== undefined;
 	const [editing, setEditing] = useState<string | null>(null);
 	const editedFrame = frames.find((f) => f.id === editing);
+	if (editing !== null && !editedFrame) setEditing(null);
 	const startEditing = (frame: Frame) => {
 		if (onEditText && frame.type === 'text' && canEditText(frame)) setEditing(frame.id);
 	};
@@ -264,6 +265,8 @@ export function SpreadCanvas({
 				}
 				onPointerMove={editable ? drag.onPointerMove : undefined}
 				onPointerUp={editable ? drag.onPointerUp : undefined}
+				onPointerCancel={editable ? drag.onPointerCancel : undefined}
+				onLostPointerCapture={editable ? drag.onPointerCancel : undefined}
 				role="group"
 				aria-label={label}
 				width={bounds.w * scale}
@@ -311,26 +314,7 @@ export function SpreadCanvas({
 						);
 					}}
 				/>
-				{frames.map((frame) => (
-					<g key={frame.id}>
-						<Furniture frame={frame} images={images} />
-						{marks.frameEdges && (
-							<rect
-								data-mark="frame-edges"
-								x={frame.box.x}
-								y={frame.box.y}
-								width={frame.box.w}
-								height={frame.box.h}
-								fill="none"
-								stroke={colours.frameEdges}
-								strokeWidth={0.5}
-							/>
-						)}
-						{byFrame.has(frame.id) && frame.id !== editing && (
-							<Lines id={frame.id} at={frame.box} layout={byFrame.get(frame.id)!} />
-						)}
-					</g>
-				))}
+				{/* The master pages' own text sits behind the page's frames. */}
 				{layout?.frames.map((laid) =>
 					laid.origin ? (
 						<Lines key={laid.frame} id={laid.frame} at={laid.origin} layout={laid} />
@@ -516,6 +500,26 @@ export function SpreadCanvas({
 					}}
 				/>
 			)}
+			{frames.map((frame) => (
+				<g key={frame.id}>
+					<Furniture frame={frame} images={images} />
+					{marks.frameEdges && (
+						<rect
+							data-mark="frame-edges"
+							x={frame.box.x}
+							y={frame.box.y}
+							width={frame.box.w}
+							height={frame.box.h}
+							fill="none"
+							stroke={colours.frameEdges}
+							strokeWidth={0.5}
+						/>
+					)}
+					{byFrame.has(frame.id) && frame.id !== editing && (
+						<Lines id={frame.id} at={frame.box} layout={byFrame.get(frame.id)!} />
+					)}
+				</g>
+			))}
 		</div>
 	);
 }

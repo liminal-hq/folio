@@ -34,6 +34,14 @@ import type { SettingsPatch } from '@liminal-hq/folio-plugin-settings';
 import { useSettings, useUpdateSettings } from '../settings/useSettings';
 import styles from './MainScreen.module.css';
 
+/** A box with only the four numbers the book keeps. */
+const boxOf = (r: { x: number; y: number; w: number; h: number }) => ({
+	x: r.x,
+	y: r.y,
+	w: r.w,
+	h: r.h,
+});
+
 export function BookView({
 	id,
 	copy,
@@ -135,6 +143,8 @@ export function BookView({
 		if (picked === null) return;
 		try {
 			const asset = await client.importImage(id, picked);
+			// The book on show may have changed while the picker was open.
+			if (store.state.getState().activeId !== id) return;
 			await store.apply({ type: 'SetImage', frame, asset, fit: null });
 		} catch {
 			// The store keeps the refusal for the page to say.
@@ -236,13 +246,21 @@ export function BookView({
 						images={images}
 						selection={selection}
 						onSelect={select}
-						onMove={(frame, box) =>
-							store.apply({
-								type: 'MoveFrame',
-								spread: spread.id,
-								frame,
-								box: { x: box.x, y: box.y, w: box.w, h: box.h },
-							})
+						onMove={(moves) =>
+							store.apply(
+								moves.length === 1
+									? {
+											type: 'MoveFrame',
+											spread: spread.id,
+											frame: moves[0]!.id,
+											box: boxOf(moves[0]!.rect),
+										}
+									: {
+											type: 'MoveFrames',
+											spread: spread.id,
+											moves: moves.map((m) => ({ frame: m.id, box: boxOf(m.rect) })),
+										},
+							)
 						}
 						onEditText={(frame, text) => void store.apply({ type: 'SetText', frame, text })}
 						onPageCommand={(command, point) => {
@@ -305,7 +323,8 @@ export function BookView({
 					const moved = book.spreads[from];
 					if (!moved) return;
 					apply({ type: 'MoveSpread', spread: moved.id, to });
-					setSpreadIndex(Math.max(1, to));
+					// Nothing goes in front of a cover, and the selection follows the spread.
+					setSpreadIndex(Math.max(book.spreads[0]?.kind === 'cover' ? 1 : 0, to));
 				}}
 			/>
 		</>
