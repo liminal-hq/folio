@@ -42,3 +42,9 @@ tempfile = "3"
 # `cfg` once a bridge release matches Tauri's `windows` crate.
 [target.'cfg(not(windows))'.dependencies]
 tauri-plugin-mcp-bridge = "0.13"
+
+# The main thread must be a single-threaded COM apartment before anything else touches COM, or
+# the window library cannot set up native drag and drop (see `src/com.rs`). Matches the version
+# Tauri resolves, so the types line up.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = ["Win32_System_Ole"] }

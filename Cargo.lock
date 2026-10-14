@@ -989,6 +989,7 @@ dependencies = [
  "tauri-plugin-system-appearance",
  "tauri-plugin-window-manager",
  "tempfile",
+ "windows",
 ]
 
 [[package]]

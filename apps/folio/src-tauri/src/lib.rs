@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 mod app_info;
+mod com;
 mod settings;
 mod storage;
 mod windows;
@@ -22,6 +23,8 @@ fn log_level() -> log::LevelFilter {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    com::init_main_thread();
+
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
         // `tauri-plugin-log`'s own `plugin:log|log` command is what `src/services/logger.ts`
