@@ -17,6 +17,7 @@ const book = {
 	bleed: 9,
 	layout: 'fixed',
 	margins: { top: 36, bottom: 36, inside: 36, outside: 36 },
+	grid: { columns: 6, gutter: 12, baseline: null },
 	spreads: [
 		{ kind: 'cover', pages: [{}] },
 		{ kind: 'spread', pages: [{}, {}] },
@@ -57,6 +58,7 @@ function setup(selected: Frame[], extra: Partial<InspectorProps> = {}) {
 			styleFile={styleFile}
 			kindLabel="Picture book"
 			units="inches"
+			mode="easy"
 			spread={spread}
 			layout={null}
 			selected={selected}
@@ -172,5 +174,76 @@ describe('with several frames selected', () => {
 	it('counts them', () => {
 		setup([text(), text({ id: 'u' })]);
 		expect(screen.getByRole('heading', { name: '2 frames' })).toBeInTheDocument();
+	});
+});
+
+describe('in Expert mode', () => {
+	it('shows no number boxes in Easy mode', () => {
+		setup([]);
+		expect(screen.queryByRole('textbox', { name: /Top margin/ })).toBeNull();
+	});
+
+	it('edits the margins in the units the person reads, one change at a time', async () => {
+		const { apply } = setup([], { mode: 'expert' });
+		const top = screen.getByRole('textbox', { name: 'Top margin (in)' });
+		expect(top).toHaveValue('0.5');
+		await userEvent.clear(top);
+		await userEvent.type(top, '0.75{Enter}');
+		expect(apply).toHaveBeenCalledWith({
+			type: 'SetBookGeometry',
+			trim: null,
+			margins: { top: 54, bottom: 36, inside: 36, outside: 36 },
+			bleed: null,
+			grid: null,
+		});
+	});
+
+	it('puts a typo back instead of sending it, and Escape too', async () => {
+		const { apply } = setup([], { mode: 'expert' });
+		const top = screen.getByRole('textbox', { name: 'Top margin (in)' });
+		await userEvent.clear(top);
+		await userEvent.type(top, 'wide{Enter}');
+		expect(top).toHaveValue('0.5');
+		await userEvent.type(top, '9{Escape}');
+		expect(top).toHaveValue('0.5');
+		expect(apply).not.toHaveBeenCalled();
+	});
+
+	it('changes the bleed, the gutter and the columns', async () => {
+		const { apply } = setup([], { mode: 'expert', units: 'millimetres' });
+		const bleed = screen.getByRole('textbox', { name: 'Bleed (mm)' });
+		await userEvent.clear(bleed);
+		await userEvent.type(bleed, '5{Enter}');
+		expect(apply).toHaveBeenLastCalledWith(
+			expect.objectContaining({ type: 'SetBookGeometry', bleed: expect.closeTo(14.17, 1) }),
+		);
+		fireEvent.change(screen.getByRole('spinbutton', { name: 'Columns' }), {
+			target: { value: '3' },
+		});
+		expect(apply).toHaveBeenLastCalledWith(
+			expect.objectContaining({ grid: { columns: 3, gutter: 12, baseline: null } }),
+		);
+	});
+
+	it('moves and resizes the selected frame by number, and not a locked one', async () => {
+		const { apply } = setup([text()], { mode: 'expert' });
+		const x = screen.getByRole('textbox', { name: 'X (in)' });
+		await userEvent.clear(x);
+		await userEvent.type(x, '1{Enter}');
+		expect(apply).toHaveBeenLastCalledWith({
+			type: 'MoveFrame',
+			spread: 'sp',
+			frame: 't',
+			box: { x: 72, y: 0, w: 100, h: 40 },
+		});
+		const w = screen.getByRole('textbox', { name: 'Width (in)' });
+		await userEvent.clear(w);
+		await userEvent.type(w, '0{Enter}');
+		expect(apply).toHaveBeenCalledTimes(1);
+	});
+
+	it('disables the position boxes of a locked frame', () => {
+		setup([text({ locked: true })], { mode: 'expert' });
+		expect(screen.getByRole('textbox', { name: 'X (in)' })).toBeDisabled();
 	});
 });

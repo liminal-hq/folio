@@ -118,6 +118,7 @@ export function BookView({
 					styleFile={copy.styles}
 					kindLabel={kindLabel}
 					units={settings.units}
+					mode={settings.mode}
 					spread={spread}
 					layout={layout}
 					selected={selected}
