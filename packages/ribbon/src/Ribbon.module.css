@@ -9,7 +9,7 @@
 	border-bottom: 1px solid var(--folio-border-subtle);
 	font-size: 12px;
 	--folio-ribbon-tab-height: 32px;
-	--folio-ribbon-panel-height: 84px;
+	--folio-ribbon-panel-height: 102px;
 	--folio-ribbon-button-height: 58px;
 }
 .ribbon[data-density='compact'] {
@@ -108,10 +108,12 @@
 .panel {
 	display: flex;
 	align-items: stretch;
-	min-height: var(--folio-ribbon-panel-height);
+	height: var(--folio-ribbon-panel-height);
+	box-sizing: border-box;
 	padding: 4px 8px;
 	background: var(--folio-bg-chrome);
 	overflow-x: auto;
+	overflow-y: hidden;
 }
 .panel[data-overlay] {
 	position: absolute;
