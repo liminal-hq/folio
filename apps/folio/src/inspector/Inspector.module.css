@@ -169,3 +169,46 @@
 .check input {
 	accent-color: var(--folio-accent);
 }
+
+.lengths {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.lengths legend {
+	grid-column: 1 / -1;
+	margin-bottom: 4px;
+	padding: 0;
+	color: var(--folio-text-secondary);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.length {
+	display: grid;
+	gap: 4px;
+	color: var(--folio-text-secondary);
+	font-size: 11px;
+}
+
+.length input {
+	box-sizing: border-box;
+	inline-size: 100%;
+	min-block-size: 28px;
+	padding: 0 8px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-bg-window);
+	color: var(--folio-text-primary);
+	font: inherit;
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+}
+
+.length input:disabled {
+	opacity: 0.5;
+}

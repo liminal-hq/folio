@@ -16,6 +16,8 @@ import { spreadGeometry } from '../canvas/geometry';
 import type { Marks } from '../canvas/SpreadCanvas';
 import { t } from '../i18n/messages';
 import styles from './Inspector.module.css';
+import { LengthField } from './LengthField';
+import { unitLabel } from './units';
 import { styleChoices } from './styleChoices';
 
 export interface InspectorProps {
@@ -24,6 +26,7 @@ export interface InspectorProps {
 	styleFile: unknown;
 	kindLabel: string;
 	units: 'inches' | 'millimetres';
+	mode: 'easy' | 'expert';
 	spread: Spread;
 	layout: SpreadLayout | null;
 	selected: Frame[];
@@ -64,7 +67,7 @@ function Header({ title, badges }: { title: string; badges: string[] }) {
 	);
 }
 
-function BookSection({ book, kindLabel, units, marks, onMarks }: InspectorProps) {
+function BookSection({ book, kindLabel, units, mode, apply, marks, onMarks }: InspectorProps) {
 	const pages = pageCount(book);
 	return (
 		<>
@@ -81,6 +84,7 @@ function BookSection({ book, kindLabel, units, marks, onMarks }: InspectorProps)
 				/>
 				<Row label={t('inspector.book.bleed')} value={formatLength(book.bleed, units)} />
 			</dl>
+			{mode === 'expert' && <GeometrySection book={book} units={units} apply={apply} />}
 			<fieldset className={styles.group}>
 				<legend>{t('inspector.helpers')}</legend>
 				{MARK_ROWS.map((row) => (
@@ -95,6 +99,125 @@ function BookSection({ book, kindLabel, units, marks, onMarks }: InspectorProps)
 				))}
 			</fieldset>
 		</>
+	);
+}
+
+function GeometrySection({ book, units, apply }: Pick<InspectorProps, 'book' | 'units' | 'apply'>) {
+	const margins = (change: Partial<Book['margins']>): Intent => ({
+		type: 'SetBookGeometry',
+		trim: null,
+		margins: { ...book.margins, ...change },
+		bleed: null,
+		grid: null,
+	});
+	const rows: { key: keyof Book['margins']; label: string }[] = [
+		{ key: 'top', label: t('inspector.margin.top') },
+		{ key: 'bottom', label: t('inspector.margin.bottom') },
+		{ key: 'inside', label: t('inspector.margin.inside') },
+		{ key: 'outside', label: t('inspector.margin.outside') },
+	];
+	return (
+		<fieldset className={styles.lengths}>
+			<legend>
+				{t('inspector.geometry')} ({unitLabel(units)})
+			</legend>
+			{rows.map((row) => (
+				<LengthField
+					key={row.key}
+					label={row.label}
+					points={book.margins[row.key]}
+					units={units}
+					onCommit={(points) => apply(margins({ [row.key]: points }))}
+				/>
+			))}
+			<LengthField
+				label={t('inspector.bleed')}
+				points={book.bleed}
+				units={units}
+				onCommit={(points) =>
+					apply({ type: 'SetBookGeometry', trim: null, margins: null, bleed: points, grid: null })
+				}
+			/>
+			<LengthField
+				label={t('inspector.gutter')}
+				points={book.grid.gutter}
+				units={units}
+				onCommit={(points) =>
+					apply({
+						type: 'SetBookGeometry',
+						trim: null,
+						margins: null,
+						bleed: null,
+						grid: { ...book.grid, gutter: points },
+					})
+				}
+			/>
+			<label className={styles.length}>
+				<span>{t('inspector.columns')}</span>
+				<input
+					type="number"
+					min={1}
+					max={12}
+					value={book.grid.columns}
+					aria-label={t('inspector.columns')}
+					onChange={(event) => {
+						const columns = Math.round(Number(event.target.value));
+						if (columns >= 1 && columns <= 12 && columns !== book.grid.columns) {
+							apply({
+								type: 'SetBookGeometry',
+								trim: null,
+								margins: null,
+								bleed: null,
+								grid: { ...book.grid, columns },
+							});
+						}
+					}}
+				/>
+			</label>
+		</fieldset>
+	);
+}
+
+function PositionSection({
+	frame,
+	units,
+	spread,
+	apply,
+}: Pick<InspectorProps, 'units' | 'spread' | 'apply'> & { frame: Frame }) {
+	const box = frame.box;
+	const locked = frame.locked || frame.fromMaster != null;
+	const move = (change: Partial<typeof box>): Intent => ({
+		type: 'MoveFrame',
+		spread: spread.id,
+		frame: frame.id,
+		box: { x: box.x, y: box.y, w: box.w, h: box.h, ...change },
+	});
+	const rows: { key: 'x' | 'y' | 'w' | 'h'; label: string }[] = [
+		{ key: 'x', label: 'X' },
+		{ key: 'y', label: 'Y' },
+		{ key: 'w', label: t('inspector.width') },
+		{ key: 'h', label: t('inspector.height') },
+	];
+	return (
+		<fieldset className={styles.lengths}>
+			<legend>
+				{t('inspector.position')} ({unitLabel(units)})
+			</legend>
+			{rows.map((row) => (
+				<LengthField
+					key={row.key}
+					label={row.label}
+					points={box[row.key]}
+					units={units}
+					disabled={locked}
+					onCommit={(points) => {
+						const size = row.key === 'w' || row.key === 'h';
+						if (size && points < 4) return;
+						apply(move({ [row.key]: points }));
+					}}
+				/>
+			))}
+		</fieldset>
 	);
 }
 
@@ -265,6 +388,14 @@ export function Inspector(props: InspectorProps) {
 					<Header
 						title={t(frame.type === 'shape' ? 'inspector.title.shape' : 'inspector.title.group')}
 						badges={[]}
+					/>
+				)}
+				{props.mode === 'expert' && (
+					<PositionSection
+						frame={frame}
+						units={props.units}
+						spread={props.spread}
+						apply={props.apply}
 					/>
 				)}
 				{common}
