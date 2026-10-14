@@ -31,6 +31,8 @@ export function withExtension(path: string): string {
 export interface BookActions {
 	save(): Promise<ActionResult>;
 	saveAs(): Promise<ActionResult>;
+	/** Asks which book to open: its path, or `null` when the picker is cancelled. */
+	pick(): Promise<string | null>;
 	/** Opens a book from the picker, or from `path` when it is given (the recents list). */
 	open(path?: string): Promise<ActionResult>;
 	/** Closes the book being shown, asking `decide` first when it has changes worth keeping. */
@@ -63,6 +65,7 @@ export function createBookActions(
 	return {
 		save,
 		saveAs,
+		pick: () => dialogs.pickBook(),
 		async open(path) {
 			const target = path ?? (await dialogs.pickBook());
 			if (target === null) return 'cancelled';

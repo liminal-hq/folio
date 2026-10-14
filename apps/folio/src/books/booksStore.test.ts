@@ -22,6 +22,18 @@ const MOVE = {
 } as never;
 
 describe('createBooksStore', () => {
+	it('reads the six kinds of book from Rust', async () => {
+		const { store } = await started();
+		expect(store.state.getState().kinds.map((k) => k.kind)).toEqual([
+			'picture',
+			'novel',
+			'textbook',
+			'illustrated',
+			'poetry',
+			'memoir',
+		]);
+	});
+
 	it('starts with no books', async () => {
 		const { store } = await started();
 		expect(store.state.getState().summaries).toEqual([]);

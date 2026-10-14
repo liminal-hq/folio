@@ -9,6 +9,7 @@ import type {
 	BooksChanged,
 	BooksCommandError,
 	Intent,
+	KindInfo,
 	NewBookSpec,
 	PatchEvent,
 } from '@liminal-hq/folio-plugin-books';
@@ -34,6 +35,8 @@ export interface BooksState {
 	copies: Record<string, OpenBookCopy>;
 	/** The book this window is showing. */
 	activeId: string | null;
+	/** The kinds of book and their sizes, from Rust; empty until they have been read. */
+	kinds: KindInfo[];
 	/** The last refusal, until the next call succeeds. */
 	error: BooksCommandError | null;
 }
@@ -81,6 +84,7 @@ export function createBooksStore(client: BooksClient): BooksStore {
 		summaries: [],
 		copies: {},
 		activeId: null,
+		kinds: [],
 		error: null,
 	}));
 
@@ -158,6 +162,11 @@ export function createBooksStore(client: BooksClient): BooksStore {
 		state,
 		async start() {
 			const stop = await client.subscribe({ onPatch, onChanged });
+			try {
+				state.setState({ kinds: await client.presets() });
+			} catch {
+				// Not in Tauri: there is nothing to start a book from.
+			}
 			try {
 				const books = await client.list();
 				state.setState((s) => ({

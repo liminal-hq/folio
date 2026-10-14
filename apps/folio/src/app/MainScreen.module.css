@@ -124,3 +124,21 @@
 	align-items: center;
 	gap: 16px;
 }
+
+.chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.chip {
+	padding: 6px 12px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 8px;
+	background: var(--folio-bg-raised);
+	color: var(--folio-text-secondary);
+	font-size: 12px;
+}
