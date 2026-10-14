@@ -1,0 +1,12 @@
+.spread {
+	display: block;
+	flex: none;
+	overflow: visible;
+	box-shadow: 0 6px 24px rgb(0 0 0 / 18%);
+	user-select: none;
+}
+
+/* The page is always paper, in every theme. */
+.paper {
+	shape-rendering: crispEdges;
+}

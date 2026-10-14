@@ -1,0 +1,60 @@
+// The stage: a spread on the table with its title and zoom, fitted to the room there is
+//
+// (c) Copyright 2026 Liminal HQ, Scott Morris
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
+import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
+import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
+import { t } from '../i18n/messages';
+import { fitZoom, spreadGeometry } from './geometry';
+import { SpreadCanvas } from './SpreadCanvas';
+import styles from './Stage.module.css';
+import { useElementSize } from './useElementSize';
+import { useStageZoom } from './useStageZoom';
+
+export interface StageProps {
+	book: Book;
+	spread: Spread;
+	/** What the shelf calls this spread: "Cover", "Pages 2–3". */
+	label: string;
+	layout: SpreadLayout | null;
+}
+
+export function Stage({ book, spread, label, layout }: StageProps) {
+	const [ref, size] = useElementSize<HTMLDivElement>();
+	const geometry = spreadGeometry(book, spread);
+	const zoom = useStageZoom(fitZoom(geometry.bounds, size));
+	const percent = Math.round(zoom.zoom * 100);
+
+	return (
+		<>
+			<div className={styles.header}>
+				<h1 className={styles.title}>{t('stage.spread', { label })}</h1>
+				<div className={styles.zoom} role="group" aria-label={t('stage.zoom.group')}>
+					<button type="button" onClick={zoom.zoomOut} aria-label={t('stage.zoom.out')}>
+						−
+					</button>
+					<output aria-label={t('stage.zoom.level', { percent })}>{percent}%</output>
+					<button type="button" onClick={zoom.zoomIn} aria-label={t('stage.zoom.in')}>
+						+
+					</button>
+					<button type="button" onClick={zoom.fit} aria-pressed={zoom.fitting}>
+						{t('stage.zoom.fit')}
+					</button>
+				</div>
+			</div>
+			<div ref={ref} className={styles.table}>
+				<div className={styles.sheet}>
+					<SpreadCanvas
+						book={book}
+						spread={spread}
+						layout={layout}
+						zoom={zoom.zoom}
+						label={t('region.stage')}
+					/>
+				</div>
+			</div>
+		</>
+	);
+}

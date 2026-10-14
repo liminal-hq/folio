@@ -135,9 +135,32 @@ describe('a book in the main window', () => {
 			'Picture book · 8.5 × 8.5 in',
 		);
 		expect(screen.getByRole('contentinfo', { name: 'Status' })).toHaveTextContent('Not saved yet');
-		expect(screen.getByRole('heading', { name: 'Page' })).toBeInTheDocument();
+		expect(screen.getByRole('heading', { name: /^Spread / })).toBeInTheDocument();
+		expect(screen.getByRole('group', { name: 'Page' })).toBeInTheDocument();
 		expect(screen.getByRole('list', { name: 'Spreads' })).toBeInTheDocument();
 		expect(await screen.findByText('Folio 1.2.3')).toBeInTheDocument();
+	});
+
+	it('shows the spread the shelf selects, and zooms it', async () => {
+		const { books } = setup();
+		await startBook();
+		const shelf = screen.getByRole('list', { name: 'Spreads' });
+		const items = within(shelf).getAllByRole('button');
+		expect(items.length).toBeGreaterThan(1);
+		expect(items[0]).toHaveAttribute('aria-current', 'true');
+		await userEvent.click(items[1]!);
+		expect(items[1]).toHaveAttribute('aria-current', 'true');
+		expect(screen.getByRole('heading', { name: /^Spread / })).toHaveTextContent(/Page/);
+		await waitFor(() =>
+			expect(books.calls.filter((c) => c.startsWith('layoutSpread')).length).toBeGreaterThan(1),
+		);
+		const before = screen.getByRole('group', { name: 'Zoom' }).querySelector('output')!.textContent;
+		await userEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
+		expect(
+			screen.getByRole('group', { name: 'Zoom' }).querySelector('output')!.textContent,
+		).not.toBe(before);
+		await userEvent.click(screen.getByRole('button', { name: 'Fit' }));
+		expect(screen.getByRole('button', { name: 'Fit' })).toHaveAttribute('aria-pressed', 'true');
 	});
 
 	it('saves with Ctrl+S, asking where the first time', async () => {

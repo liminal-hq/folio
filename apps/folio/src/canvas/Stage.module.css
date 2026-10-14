@@ -1,0 +1,62 @@
+.header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 36px;
+	padding: 0 16px;
+	color: var(--folio-text-secondary);
+}
+
+.title {
+	margin: 0;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.zoom {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 12px;
+}
+
+.zoom button {
+	min-inline-size: 28px;
+	min-block-size: 28px;
+	padding: 0 8px;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.zoom button:hover {
+	background: var(--folio-bg-hover);
+}
+
+.zoom button[aria-pressed='true'] {
+	background: var(--folio-bg-selected);
+	color: var(--folio-accent);
+}
+
+.zoom output {
+	min-inline-size: 44px;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+}
+
+/* The table the spread sits on: it scrolls when the spread is larger than the room. */
+.table {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	display: grid;
+}
+
+/* `margin: auto` centres the spread when it fits and lets it scroll from its edge when it does not. */
+.sheet {
+	margin: auto;
+	padding: 32px;
+}
