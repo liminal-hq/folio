@@ -215,6 +215,9 @@ export const messages = {
 	'inspector.align.right': 'Right',
 	'inspector.align.justify': 'Justify',
 	'inspector.picture.choose': 'Choose picture…',
+	'inspector.picture.fit': 'Fit',
+	'inspector.picture.fill': 'Fill frame',
+	'inspector.picture.inside': 'Fit inside',
 	'inspector.picture.stretch': 'Stretch to the bleed line',
 	'inspector.picture.none': 'No picture yet. You can choose one once pictures can be brought in.',
 	'inspector.master':

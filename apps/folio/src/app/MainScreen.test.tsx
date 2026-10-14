@@ -40,6 +40,7 @@ function setup(picks: { open?: string | null; save?: string | null } = {}) {
 	const dialogs: FileDialogs = {
 		pickBook: async () => picks.open ?? null,
 		pickSavePath: async () => picks.save ?? null,
+		pickImage: async () => null,
 	};
 	render(
 		<SettingsProvider client={settings}>

@@ -21,7 +21,7 @@ export function BooksProvider({
 }) {
 	const value = useMemo(() => {
 		const store = createBooksStore(client);
-		return { store, client, actions: createBookActions(store, client, dialogs) };
+		return { store, client, dialogs, actions: createBookActions(store, client, dialogs) };
 	}, [client, dialogs]);
 
 	useEffect(() => {

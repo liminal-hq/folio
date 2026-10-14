@@ -684,3 +684,39 @@ fn a_copy_of_a_locked_frame_is_not_locked() {
     .unwrap();
     assert!(!s.book().spreads[1].frames.last().unwrap().base().locked);
 }
+
+#[test]
+fn a_picture_is_set_and_fitted_and_only_on_a_picture_frame() {
+    let mut s = session();
+    s.apply(Intent::SetImage {
+        frame: frame("fr_pic"),
+        asset: Some("assets/images/abc.jpg".into()),
+        fit: None,
+    })
+    .unwrap();
+    let image = |s: &Session| match &s.book().spreads[1].frames[0] {
+        Frame::Image(i) => i.image.clone(),
+        _ => unreachable!(),
+    };
+    assert_eq!(image(&s).asset.as_deref(), Some("assets/images/abc.jpg"));
+    // Leaving the asset out keeps the picture and changes the fit alone.
+    s.apply(Intent::SetImage {
+        frame: frame("fr_pic"),
+        asset: None,
+        fit: Some(folio_model::Fit::Fit),
+    })
+    .unwrap();
+    assert_eq!(image(&s).asset.as_deref(), Some("assets/images/abc.jpg"));
+    assert_eq!(image(&s).fit, folio_model::Fit::Fit);
+    s.undo().unwrap();
+    assert_eq!(image(&s).fit, folio_model::Fit::Fill);
+    assert_eq!(
+        s.apply(Intent::SetImage {
+            frame: frame("fr_text"),
+            asset: Some("x".into()),
+            fit: None,
+        })
+        .unwrap_err(),
+        SessionError::NotImage("fr_text".into())
+    );
+}

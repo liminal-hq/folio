@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::book::Grid;
-use crate::frame::{Frame, StyleOverrides};
+use crate::frame::{Fit, Frame, StyleOverrides};
 use crate::ids::{FrameId, SpreadId, StyleId};
 use crate::units::{Margins, Pt, Rect, Size};
 
@@ -32,6 +32,15 @@ pub enum Intent {
         spread: SpreadId,
         frame: FrameId,
         locked: bool,
+    },
+    /// Puts a picture in a picture frame (an asset path from the package) and says how it sits in
+    /// the frame. Either part left out stays as it was.
+    SetImage {
+        frame: FrameId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        asset: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        fit: Option<Fit>,
     },
     SetText {
         frame: FrameId,

@@ -16,6 +16,7 @@ import { shelfIntent } from '../canvas/shelfMenu';
 import { DEFAULT_MARKS, type Marks } from '../canvas/SpreadCanvas';
 import { Stage } from '../canvas/Stage';
 import { useSelection } from '../canvas/useSelection';
+import { useAssetUrls } from '../canvas/useAssetUrls';
 import { useSpreadLayout } from '../canvas/useSpreadLayout';
 import { Inspector } from '../inspector/Inspector';
 import { useSettings } from '../settings/useSettings';
@@ -31,7 +32,7 @@ export function BookView({
 	kindLabel: string;
 }) {
 	const settings = useSettings();
-	const { client, store } = useBooks();
+	const { client, store, dialogs } = useBooks();
 	const [spreadIndex, setSpreadIndex] = useState(0);
 	const [marks, setMarks] = useState<Marks>(DEFAULT_MARKS);
 	const book = copy.book;
@@ -42,6 +43,13 @@ export function BookView({
 	const [selection, select] = useSelection(
 		spread?.id ?? null,
 		spread?.frames.map((f) => f.id) ?? [],
+	);
+	const images = useAssetUrls(
+		client,
+		id,
+		(spread?.frames ?? []).flatMap((f) =>
+			f.type === 'image' && f.image.asset ? [f.image.asset] : [],
+		),
 	);
 	if (!spread) return null;
 	const selected = spread.frames.filter((f) => selection.includes(f.id));
@@ -61,6 +69,7 @@ export function BookView({
 						label={labels[shown] ?? ''}
 						layout={layout}
 						marks={marks}
+						images={images}
 						selection={selection}
 						onSelect={select}
 						onMove={(frame, box) =>
@@ -125,6 +134,16 @@ export function BookView({
 					marks={marks}
 					onMarks={setMarks}
 					apply={(intent) => void store.apply(intent)}
+					choosePicture={async (frame) => {
+						const picked = await dialogs.pickImage();
+						if (picked === null) return;
+						try {
+							const asset = await client.importImage(id, picked);
+							await store.apply({ type: 'SetImage', frame, asset, fit: null });
+						} catch {
+							// The store keeps the refusal for the page to say.
+						}
+					}}
 				/>
 			</main>
 			<Shelf

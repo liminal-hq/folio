@@ -30,6 +30,12 @@ pub enum BookEvent {
 /// Runs after a book opens, saves or closes, outside the plugin's locks.
 pub type BookHook = Arc<dyn Fn(&BookEvent) + Send + Sync>;
 
+/// The kinds of file a picture frame can show, which the webview can draw.
+const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "svg"];
+
+/// The largest picture file taken in whole.
+const MAX_IMAGE_BYTES: u64 = 100 * 1024 * 1024;
+
 struct OpenBook {
     id: String,
     session: Session,
@@ -280,6 +286,52 @@ impl<R: Runtime> Books<R> {
             .layout_spread(&SpreadId(spread.to_string()))?
             .ok_or_else(|| Error::NoSuchSpread(spread.to_string()))?;
         Ok(SpreadLayoutResult { revision, layout })
+    }
+
+    /// Reads a picture file into the book's package and returns its path there. The same bytes give
+    /// the same path, so choosing a picture twice stores it once.
+    pub fn import_image(&self, id: &str, path: &Path) -> Result<String, Error> {
+        let extension = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(str::to_ascii_lowercase)
+            .unwrap_or_default();
+        if !IMAGE_EXTENSIONS.contains(&extension.as_str()) {
+            return Err(Error::BadImage(format!(
+                "`{}` is not a picture Folio can place (PNG, JPEG, GIF, WebP or SVG)",
+                path.display()
+            )));
+        }
+        let size = std::fs::metadata(path)
+            .map_err(|e| Error::BadImage(format!("`{}` could not be read: {e}", path.display())))?
+            .len();
+        if size > MAX_IMAGE_BYTES {
+            return Err(Error::BadImage(format!(
+                "`{}` is larger than {} MB",
+                path.display(),
+                MAX_IMAGE_BYTES / (1024 * 1024)
+            )));
+        }
+        let bytes = std::fs::read(path)
+            .map_err(|e| Error::BadImage(format!("`{}` could not be read: {e}", path.display())))?;
+        let mut inner = locked(&self.inner);
+        let open = inner
+            .books
+            .iter_mut()
+            .find(|b| b.id == id)
+            .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+        Ok(open.package.add_image(bytes, &extension))
+    }
+
+    /// The bytes of one of the book's pictures, for drawing it.
+    pub fn asset_data(&self, id: &str, asset: &str) -> Result<Vec<u8>, Error> {
+        let inner = locked(&self.inner);
+        let open = inner
+            .books
+            .iter()
+            .find(|b| b.id == id)
+            .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+        Ok(open.package.asset_bytes(asset)?)
     }
 
     /// Applies an intent to a book, tells every window, and answers with what changed.

@@ -50,6 +50,8 @@ export interface SpreadCanvasProps {
 	/** The context menu was asked for on a frame, at these viewport coordinates. */
 	onFrameMenu?(frame: Frame, at: { x: number; y: number }): void;
 	/** The menu was asked for on the bare page: where on screen, and where on the spread in points. */
+	/** An address to draw for each picture's asset path, once it has been read. */
+	images?: Record<string, string>;
 	onPageMenu?(at: { x: number; y: number }, point: { x: number; y: number }): void;
 	/** New words for a text frame, after it was edited in place. */
 	onEditText?(id: string, text: string): void;
@@ -101,9 +103,37 @@ function Lines({ frame, layout }: { frame: Frame; layout: FrameLayout }) {
 	);
 }
 
-function Furniture({ frame }: { frame: Frame }) {
+function Furniture({ frame, images }: { frame: Frame; images: Record<string, string> }) {
 	const { x, y, w, h } = frame.box;
 	if (frame.type === 'image') {
+		const url = frame.image.asset ? images[frame.image.asset] : undefined;
+		if (url) {
+			const clip = `folio-clip-${frame.id}`;
+			// Fill covers the frame and crops the rest, Fit shows the whole picture inside it, and
+			// Stretch pulls it to the frame's shape.
+			const fit =
+				frame.image.fit === 'fit'
+					? 'xMidYMid meet'
+					: frame.image.fit === 'stretch'
+						? 'none'
+						: 'xMidYMid slice';
+			return (
+				<g role="img" aria-label={frame.description ?? frame.placeholderLabel ?? undefined}>
+					<clipPath id={clip}>
+						<rect x={x} y={y} width={w} height={h} />
+					</clipPath>
+					<image
+						href={url}
+						x={x}
+						y={y}
+						width={w}
+						height={h}
+						preserveAspectRatio={fit}
+						clipPath={`url(#${clip})`}
+					/>
+				</g>
+			);
+		}
 		const label = frame.placeholderLabel ?? frame.description ?? '';
 		return (
 			<g role="img" aria-label={label || undefined}>
@@ -186,6 +216,7 @@ export function SpreadCanvas({
 	onFrameMenu,
 	onEditText,
 	onPageMenu,
+	images = {},
 }: SpreadCanvasProps) {
 	const svg = useRef<SVGSVGElement | null>(null);
 	const geometry = spreadGeometry(book, spread);
@@ -282,7 +313,7 @@ export function SpreadCanvas({
 				/>
 				{frames.map((frame) => (
 					<g key={frame.id}>
-						<Furniture frame={frame} />
+						<Furniture frame={frame} images={images} />
 						{marks.frameEdges && (
 							<rect
 								data-mark="frame-edges"

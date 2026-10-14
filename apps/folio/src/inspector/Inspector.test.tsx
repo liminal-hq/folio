@@ -247,3 +247,29 @@ describe('in Expert mode', () => {
 		expect(screen.getByRole('textbox', { name: 'X (in)' })).toBeDisabled();
 	});
 });
+
+describe('choosing a picture', () => {
+	const frame = (asset: string | null, fit = 'fill') =>
+		({
+			type: 'image',
+			id: 'i',
+			box: { x: 0, y: 0, w: 100, h: 100 },
+			locked: false,
+			image: { asset, fit },
+		}) as unknown as Frame;
+
+	it('asks for a picture for the frame', async () => {
+		const choosePicture = vi.fn();
+		setup([frame(null)], { choosePicture });
+		await userEvent.click(screen.getByRole('button', { name: 'Choose picture…' }));
+		expect(choosePicture).toHaveBeenCalledWith('i');
+		expect(screen.queryByRole('radio', { name: 'Fit inside' })).toBeNull();
+	});
+
+	it('offers how the picture sits once there is one', async () => {
+		const { apply } = setup([frame('assets/images/a.png')], { choosePicture: vi.fn() });
+		expect(screen.getByRole('radio', { name: 'Fill frame' })).toBeChecked();
+		await userEvent.click(screen.getByRole('radio', { name: 'Fit inside' }));
+		expect(apply).toHaveBeenCalledWith({ type: 'SetImage', frame: 'i', asset: null, fit: 'fit' });
+	});
+});

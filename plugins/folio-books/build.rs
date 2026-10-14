@@ -17,6 +17,8 @@ const COMMANDS: &[&str] = &[
     "undo",
     "redo",
     "layout_spread",
+    "import_image",
+    "asset_data",
 ];
 
 fn main() {

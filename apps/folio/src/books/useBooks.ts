@@ -8,11 +8,13 @@ import { createContext, useContext } from 'react';
 import { useStore } from 'zustand';
 import type { BookActions } from './bookActions';
 import type { BooksClient } from './booksClient';
+import type { FileDialogs } from './dialogs';
 import { activeBook, type BooksState, type BooksStore, type OpenBookCopy } from './booksStore';
 
 export interface BooksContextValue {
 	store: BooksStore;
 	client: BooksClient;
+	dialogs: FileDialogs;
 	actions: BookActions;
 }
 

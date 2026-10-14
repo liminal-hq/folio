@@ -348,3 +348,53 @@ fn laying_out_an_unknown_book_or_spread_is_a_typed_error() {
         "noSuchSpread"
     );
 }
+
+#[test]
+fn a_picture_file_goes_into_the_book_and_comes_back_by_its_path() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("Otter.PNG");
+    std::fs::write(&file, b"not really a png, but bytes").unwrap();
+    let asset = books(&app).import_image(&id, &file).unwrap();
+    assert!(
+        asset.starts_with("assets/images/") && asset.ends_with(".png"),
+        "{asset}"
+    );
+    assert_eq!(
+        books(&app).asset_data(&id, &asset).unwrap(),
+        b"not really a png, but bytes"
+    );
+    // The same bytes are stored once.
+    assert_eq!(books(&app).import_image(&id, &file).unwrap(), asset);
+}
+
+#[test]
+fn a_file_that_is_not_a_picture_is_refused_with_a_typed_error() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("notes.txt");
+    std::fs::write(&file, b"hello").unwrap();
+    let refused = books(&app).import_image(&id, &file).unwrap_err();
+    assert_eq!(serde_json::to_value(&refused).unwrap()["kind"], "image");
+    let missing = books(&app)
+        .import_image(&id, &dir.path().join("gone.png"))
+        .unwrap_err();
+    assert_eq!(serde_json::to_value(&missing).unwrap()["kind"], "image");
+    assert!(books(&app)
+        .asset_data(&id, "assets/images/nope.png")
+        .is_err());
+    assert!(matches!(
+        books(&app).import_image("bk_none", &dir.path().join("a.png")),
+        Err(Error::BadImage(_) | Error::NoSuchBook(_))
+    ));
+}
