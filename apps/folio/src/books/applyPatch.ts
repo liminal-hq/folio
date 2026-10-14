@@ -29,6 +29,16 @@ function applyOp(book: Book, op: PatchOp): Book {
 			});
 			return { ...book, spreads };
 		}
+		case 'setMasters': {
+			// Rust leaves these out of the book when there are none, and so does the copy.
+			const { masterPages: _pages, pageNumbers: _numbers, ...rest } = book;
+			return {
+				...rest,
+				masters: op.ids,
+				...(op.masters.length > 0 ? { masterPages: op.masters } : {}),
+				...(op.numbers !== 'none' ? { pageNumbers: op.numbers } : {}),
+			};
+		}
 		case 'setGeometry':
 			return {
 				...book,

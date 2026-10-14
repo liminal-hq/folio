@@ -83,6 +83,15 @@ describe('with nothing selected', () => {
 	});
 });
 
+describe('page numbers', () => {
+	it('shows the choice and sends a new one', async () => {
+		const { apply } = setup([]);
+		expect(screen.getByRole('radio', { name: 'None' })).toBeChecked();
+		await userEvent.click(screen.getByRole('radio', { name: 'Outside' }));
+		expect(apply).toHaveBeenCalledWith({ type: 'SetPageNumbers', position: 'outside' });
+	});
+});
+
 describe('with a text frame selected', () => {
 	it('changes the words when the box loses focus, and only if they changed', () => {
 		const { apply } = setup([text()]);

@@ -87,6 +87,19 @@ function BookSection({ book, kindLabel, units, mode, apply, marks, onMarks }: In
 				/>
 				<Row label={t('inspector.book.bleed')} value={formatLength(book.bleed, units)} />
 			</dl>
+			<div className={styles.field}>
+				<span>{t('inspector.pageNumbers')}</span>
+				<Segmented
+					label={t('inspector.pageNumbers')}
+					value={book.pageNumbers ?? 'none'}
+					options={[
+						{ value: 'none', label: t('inspector.pageNumbers.none') },
+						{ value: 'centre', label: t('inspector.pageNumbers.centre') },
+						{ value: 'outside', label: t('inspector.pageNumbers.outside') },
+					]}
+					onChange={(position) => apply({ type: 'SetPageNumbers', position })}
+				/>
+			</div>
 			{mode === 'expert' && <GeometrySection book={book} units={units} apply={apply} />}
 			<fieldset className={styles.group}>
 				<legend>{t('inspector.helpers')}</legend>
