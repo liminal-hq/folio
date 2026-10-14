@@ -2,13 +2,14 @@
 import type { ColourMode } from "./ColourMode";
 import type { InterfaceSettings } from "./InterfaceSettings";
 import type { JaxHelp } from "./JaxHelp";
+import type { MarksSettings } from "./MarksSettings";
 import type { Mode } from "./Mode";
 import type { Units } from "./Units";
 
 /**
  * The application settings: one document every window reads.
  */
-export type Settings = { mode: Mode, colourMode: ColourMode, units: Units, jax: JaxHelp, interface: InterfaceSettings, 
+export type Settings = { mode: Mode, colourMode: ColourMode, units: Units, jax: JaxHelp, interface: InterfaceSettings, marks: MarksSettings, 
 /**
  * The paths of recently opened books, newest first.
  */
