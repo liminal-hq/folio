@@ -146,6 +146,9 @@ export function MainScreen({ client = tauriAppInfoClient }: { client?: AppInfoCl
 											box: { x: box.x, y: box.y, w: box.w, h: box.h },
 										})
 									}
+									onEditText={(id, text) =>
+										void booksStore.apply({ type: 'SetText', frame: id, text })
+									}
 									onCommand={(command, ids) => {
 										for (const id of ids) {
 											const target = spread.frames.find((f) => f.id === id);
