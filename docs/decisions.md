@@ -13,6 +13,7 @@ Product and engineering decisions for Folio. D-01 to D-07 and D-12 are defined w
 | D-07 | Ribbon and classic toolbar both ship; the user picks                                                                                                 | `spec/06-ui.md`              |
 | D-12 | Grouped sidebar, tear-off panels, document tabs as windows                                                                                           | `spec/12-sidebar-windows.md` |
 | D-20 | Layout is Rust-owned and drawn by the UI from lines Rust positions                                                                                   | `docs/decisions.md`          |
+| D-19 | The ribbon is its own package, depending one-way on the chrome                                                                                       | `docs/decisions.md`          |
 
 ## D-08 · Shared chrome and unpublished plugins are copied; published ones are dependencies
 
@@ -57,3 +58,7 @@ The six kinds, their sizes, styles and sample spreads are data in `crates/folio-
 ## D-20 · Layout is Rust-owned, and the canvas draws what Rust positions
 
 `folio-layout` shapes text (`rustybuzz`), breaks it into lines (Knuth–Plass, first-fit while typing), hyphenates (Liang patterns), pours it through frames and columns (widows and orphans, baseline grid, overset) and checks print geometry. The UI never lays text out: it asks the books plugin for `layout_spread(id, spread)` and draws the lines, with the revision the layout came from, so a stale answer is never drawn over a newer book. The four bundled families (Literata, Source Serif 4, Inter, Atkinson Hyperlegible, all OFL) are always available, so text breaks the same on every machine; installed fonts are offered as well. Dictionaries for hyphenation are embedded (en-US for Canadian English, en-GB, French).
+
+## D-19 · The ribbon is its own package
+
+`packages/ribbon` (`@liminal-hq/folio-ribbon`) holds the ribbon and nothing else: the chrome stays about windowing, and the ribbon knows nothing about books. Folio supplies a `RibbonModel` and handles `onCommand`. The ribbon depends one-way on the chrome for its dropdowns, so menus look and behave the same everywhere. Another Liminal app can take it without taking Folio.

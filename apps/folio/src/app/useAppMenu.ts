@@ -9,7 +9,7 @@ import type { BookSummary } from '@liminal-hq/folio-plugin-books';
 import { useCallback, useMemo } from 'react';
 import type { CloseChoice } from '../books/bookActions';
 import { useActiveBook, useBooks } from '../books/useBooks';
-import { buildAppMenu, buildMenuBar } from '../commands/appMenuModel';
+import { buildAppMenu, buildMenuBar, type CommandId } from '../commands/appMenuModel';
 import {
 	availableCommands,
 	runCommand,
@@ -25,6 +25,8 @@ export interface AppMenuModel {
 	/** The menu bar's menus. */
 	barItems: MenuItem[];
 	onSelect: (item: SelectableMenuItem) => void;
+	/** The commands that can be run now. */
+	available: ReadonlySet<CommandId>;
 	/** Runs a command by id, as a key does. */
 	run: (id: string) => Promise<void>;
 }
@@ -91,5 +93,5 @@ export function useAppMenu(ask: (summary: BookSummary) => Promise<CloseChoice>):
 
 	const onSelect = useCallback((item: SelectableMenuItem) => void run(item.id), [run]);
 
-	return { items, barItems, onSelect, run };
+	return { items, barItems, onSelect, available, run };
 }
