@@ -3,7 +3,15 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { Fragment, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import {
+	Fragment,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	type FocusEvent,
+	type KeyboardEvent,
+} from 'react';
 import { defaultRibbonLabels, type RibbonLabels } from './labels';
 import styles from './Ribbon.module.css';
 import { RibbonModeSwitch } from './RibbonModeSwitch';
@@ -82,6 +90,13 @@ export function Ribbon(props: RibbonProps) {
 	const tabs = useMemo(() => visibleTabs(model, mode, contextual), [model, mode, contextual]);
 	const wanted = props.tab ?? tabState;
 	const active = tabs.find((t) => t.id === wanted) ?? tabs[0];
+	// A remembered tab that has gone (a contextual tab whose subject was deselected) is forgotten,
+	// so it is not restored the next time it reappears.
+	const stale =
+		props.tab === undefined && tabState !== null && !tabs.some((t) => t.id === tabState);
+	useEffect(() => {
+		if (stale) setTabState(null);
+	}, [stale]);
 	const collapsed = variant === 'collapsed';
 	const simplified = variant === 'simplified';
 	const panelShown = !collapsed || open || pinned;
@@ -90,17 +105,23 @@ export function Ribbon(props: RibbonProps) {
 	const peers = useMemo(
 		() =>
 			model.tabs.flatMap((tab) =>
-				tab.groups.flatMap((group) => [...(group.items ?? []), ...(group.rows ?? []).flat(2)]),
+				tab.groups.flatMap((group) =>
+					[...(group.items ?? []), ...(group.rows ?? []).flat(2)].map((item) => ({
+						scope: `${tab.id}/${group.id}`,
+						item,
+					})),
+				),
 			),
 		[model],
 	);
 	const emit = (command: RibbonCommand) => onCommand(command);
 	const controls = useRibbonControls(peers, labels, emit);
 
-	const pickTab = (id: string) => {
+	/** Moving across tabs with the arrows only selects; activating a tab also drops the panel down or closes it. */
+	const pickTab = (id: string, activate: boolean) => {
 		setTabState(id);
 		emit({ id: 'tab', value: id });
-		if (collapsed) setOpen(id !== active?.id || !open);
+		if (collapsed && activate) setOpen(id !== active?.id || !open);
 	};
 
 	const onTabKeys = (event: KeyboardEvent) => {
@@ -123,7 +144,22 @@ export function Ribbon(props: RibbonProps) {
 		event.preventDefault();
 		buttons[next]?.focus();
 		const id = tabs[next]?.id;
-		if (id) pickTab(id);
+		if (id) pickTab(id, false);
+	};
+
+	// Roving tabindex: one control in the panel is a Tab stop, the arrows move it.
+	const roving = useRef<HTMLElement | null>(null);
+	useEffect(() => {
+		const all = focusables(panelRef.current);
+		const stop = roving.current && all.includes(roving.current) ? roving.current : all[0];
+		for (const el of all) el.tabIndex = el === stop ? 0 : -1;
+	});
+	const onPanelFocus = (event: FocusEvent<HTMLElement>) => {
+		const target = event.target as HTMLElement;
+		const all = focusables(panelRef.current);
+		if (!all.includes(target)) return;
+		roving.current = target;
+		for (const el of all) el.tabIndex = el === target ? 0 : -1;
 	};
 
 	const onPanelKeys = (event: KeyboardEvent) => {
@@ -153,38 +189,41 @@ export function Ribbon(props: RibbonProps) {
 	};
 
 	const perColumn = density === 'compact' ? 2 : 3;
-	const renderGroup = (group: RibbonGroup) => (
-		<div key={group.id} role="group" aria-label={group.label} className={styles.group}>
-			<div className={styles.groupBody}>
-				{group.rows ? (
-					<div className={styles.rows}>
-						{group.rows.map((row, r) => (
-							<div key={r} className={styles.row}>
-								{row.map((cluster, c) => (
-									<div key={c} className={styles.cluster}>
-										{cluster.map((item) => controls.control(item, false))}
-									</div>
-								))}
-							</div>
-						))}
-					</div>
-				) : (
-					columns(group.items ?? [], perColumn).map((col, i) => (
-						<div key={i} className={styles.column}>
-							{col.map((item) => controls.control(item, labelled))}
+	const renderGroup = (group: RibbonGroup) => {
+		const scope = `${active?.id ?? ''}/${group.id}`;
+		return (
+			<div key={group.id} role="group" aria-label={group.label} className={styles.group}>
+				<div className={styles.groupBody}>
+					{group.rows ? (
+						<div className={styles.rows}>
+							{group.rows.map((row, r) => (
+								<div key={r} className={styles.row}>
+									{row.map((cluster, c) => (
+										<div key={c} className={styles.cluster}>
+											{cluster.map((item) => controls.control(item, false, scope))}
+										</div>
+									))}
+								</div>
+							))}
 						</div>
-					))
+					) : (
+						columns(group.items ?? [], perColumn).map((col, i) => (
+							<div key={i} className={styles.column}>
+								{col.map((item) => controls.control(item, labelled, scope))}
+							</div>
+						))
+					)}
+				</div>
+				{density === 'comfortable' && !simplified && (
+					<span className={styles.groupLabel}>{group.label}</span>
 				)}
 			</div>
-			{density === 'comfortable' && !simplified && (
-				<span className={styles.groupLabel}>{group.label}</span>
-			)}
-		</div>
-	);
+		);
+	};
 
 	return (
 		<div
-			role="toolbar"
+			role="group"
 			aria-label={labels.ribbon}
 			className={styles.ribbon}
 			data-variant={variant}
@@ -220,7 +259,7 @@ export function Ribbon(props: RibbonProps) {
 							tabIndex={tab.id === active?.id ? 0 : -1}
 							className={styles.tab}
 							data-contextual={tab.contextual ? '' : undefined}
-							onClick={() => pickTab(tab.id)}
+							onClick={() => pickTab(tab.id, true)}
 						>
 							{tab.label}
 						</button>
@@ -229,9 +268,10 @@ export function Ribbon(props: RibbonProps) {
 				{simplified && (
 					<div
 						className={styles.inlinePanel}
-						role="group"
-						aria-label={active?.label}
+						role="toolbar"
+						aria-label={labels.toolbar}
 						onKeyDown={onPanelKeys}
+						onFocus={onPanelFocus}
 						ref={panelRef}
 					>
 						{active?.groups.map((group) => (
@@ -266,8 +306,11 @@ export function Ribbon(props: RibbonProps) {
 					className={styles.panel}
 					data-overlay={collapsed && !pinned ? '' : undefined}
 					onKeyDown={onPanelKeys}
+					onFocus={onPanelFocus}
 				>
-					{active.groups.map(renderGroup)}
+					<div role="toolbar" aria-label={labels.toolbar} className={styles.toolbar}>
+						{active.groups.map(renderGroup)}
+					</div>
 				</div>
 			)}
 			{controls.overlays}

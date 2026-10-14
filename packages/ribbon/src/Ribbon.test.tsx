@@ -98,9 +98,17 @@ function setup(props: Partial<RibbonProps> = {}) {
 }
 
 describe('Ribbon', () => {
-	it('is a toolbar with tabs and a panel of named groups', () => {
+	it('is a labelled region whose toolbar holds only the controls, not the tabs', () => {
 		setup();
-		expect(screen.getByRole('toolbar', { name: 'Ribbon' })).toBeInTheDocument();
+		expect(screen.getByRole('group', { name: 'Ribbon' })).toBeInTheDocument();
+		const toolbar = screen.getByRole('toolbar', { name: 'Ribbon controls' });
+		expect(within(toolbar).queryByRole('tab')).toBeNull();
+		expect(within(toolbar).getByRole('group', { name: 'History' })).toBeInTheDocument();
+		expect(screen.getByRole('tabpanel')).toContainElement(toolbar);
+	});
+
+	it('is a ribbon with tabs and a panel of named groups', () => {
+		setup();
 		expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Home', 'Insert']);
 		expect(screen.getByRole('group', { name: 'History' })).toBeInTheDocument();
 		expect(screen.getByRole('tab', { name: 'Home' })).toHaveAttribute('aria-selected', 'true');
@@ -261,6 +269,21 @@ describe('Ribbon', () => {
 			expect(screen.getByRole('tab', { name: 'Home' })).toHaveFocus();
 		});
 
+		it('keeps one control in the panel as the Tab stop and moves it with the arrows', async () => {
+			setup();
+			const panel = screen.getByRole('tabpanel');
+			const stops = () =>
+				within(panel)
+					.getAllByRole('button')
+					.filter((b) => b.tabIndex === 0 && !(b as HTMLButtonElement).disabled);
+			expect(stops()).toHaveLength(1);
+			expect(stops()[0]).toHaveAccessibleName('Undo');
+			screen.getByRole('button', { name: 'Undo' }).focus();
+			await userEvent.keyboard('{ArrowRight}');
+			expect(stops()).toHaveLength(1);
+			expect(stops()[0]).toHaveAccessibleName('Left');
+		});
+
 		it('activates a focused button with Enter', async () => {
 			const { onCommand } = setup();
 			screen.getByRole('button', { name: 'Undo' }).focus();
@@ -285,6 +308,18 @@ describe('Ribbon', () => {
 			expect(screen.queryByRole('tabpanel')).toBeNull();
 		});
 
+		it('does not toggle a collapsed ribbon when arrowing across tabs, only when activating', async () => {
+			setup({ variant: 'collapsed' });
+			screen.getByRole('tab', { name: 'Home' }).focus();
+			await userEvent.keyboard('{ArrowRight}');
+			expect(screen.getByRole('tab', { name: 'Insert' })).toHaveFocus();
+			expect(screen.queryByRole('tabpanel')).toBeNull();
+			await userEvent.keyboard('{Enter}');
+			expect(screen.getByRole('tabpanel')).toBeInTheDocument();
+			await userEvent.keyboard('{ArrowLeft}');
+			expect(screen.getByRole('tabpanel')).toBeInTheDocument();
+		});
+
 		it('keeps a pinned collapsed ribbon open', async () => {
 			setup({ variant: 'collapsed' });
 			await userEvent.click(screen.getByRole('button', { name: 'Keep the ribbon open' }));
@@ -296,6 +331,40 @@ describe('Ribbon', () => {
 			expect(screen.queryByText('History')).toBeNull();
 			expect(screen.getByRole('group', { name: 'History' })).toBeInTheDocument();
 		});
+	});
+
+	it('forgets a contextual tab that went away, so it is not restored when it returns', async () => {
+		const { rerender, onCommand } = setup({ contextual: ['picture'] });
+		await userEvent.click(screen.getByRole('tab', { name: 'Picture' }));
+		rerender(<Ribbon model={model} mode="easy" onCommand={onCommand} />);
+		rerender(<Ribbon model={model} mode="easy" onCommand={onCommand} contextual={['picture']} />);
+		expect(screen.getByRole('tab', { name: 'Home' })).toHaveAttribute('aria-selected', 'true');
+	});
+
+	it('keeps ribbon-held state per control, so two controls sharing an id are independent', async () => {
+		const twin = (id: string) => ({
+			id,
+			label: id,
+			groups: [
+				{
+					id: `${id}-a`,
+					label: `${id} A`,
+					items: [{ id: 'bold', label: `Bold ${id}A`, d, kind: 'toggle' as const }],
+				},
+				{
+					id: `${id}-b`,
+					label: `${id} B`,
+					items: [{ id: 'bold', label: `Bold ${id}B`, d, kind: 'toggle' as const }],
+				},
+			],
+		});
+		setup({ model: { tabs: [twin('x')] } });
+		await userEvent.click(screen.getByRole('button', { name: 'Bold xA' }));
+		expect(screen.getByRole('button', { name: 'Bold xA' })).toHaveAttribute('aria-pressed', 'true');
+		expect(screen.getByRole('button', { name: 'Bold xB' })).toHaveAttribute(
+			'aria-pressed',
+			'false',
+		);
 	});
 
 	describe('tooltips', () => {
@@ -329,6 +398,63 @@ describe('Ribbon', () => {
 			fireEvent.pointerEnter(undo);
 			fireEvent.pointerLeave(undo);
 			act(() => void vi.advanceTimersByTime(TOOLTIP_DELAY_MS * 2));
+			expect(screen.queryByRole('tooltip')).toBeNull();
+		});
+
+		it('hides when a control is pressed', () => {
+			setup();
+			const undo = screen.getByRole('button', { name: 'Undo' });
+			fireEvent.pointerEnter(undo);
+			act(() => void vi.advanceTimersByTime(TOOLTIP_DELAY_MS));
+			expect(screen.getByRole('tooltip')).toBeInTheDocument();
+			fireEvent.click(undo);
+			expect(screen.queryByRole('tooltip')).toBeNull();
+		});
+
+		it('hides when a control opens a menu', () => {
+			setup();
+			const spacing = screen.getByRole('button', { name: 'Line spacing' });
+			fireEvent.pointerEnter(spacing);
+			act(() => void vi.advanceTimersByTime(TOOLTIP_DELAY_MS));
+			fireEvent.click(spacing);
+			expect(screen.queryByRole('tooltip')).toBeNull();
+			expect(screen.getByRole('menu')).toBeInTheDocument();
+		});
+
+		it('hides on Escape', () => {
+			setup();
+			fireEvent.pointerEnter(screen.getByRole('button', { name: 'Undo' }));
+			act(() => void vi.advanceTimersByTime(TOOLTIP_DELAY_MS));
+			fireEvent.keyDown(document.body, { key: 'Escape' });
+			expect(screen.queryByRole('tooltip')).toBeNull();
+		});
+
+		it('does not show for a disabled anchor', () => {
+			setup();
+			fireEvent.pointerEnter(screen.getByRole('button', { name: 'Redo' }));
+			act(() => void vi.advanceTimersByTime(TOOLTIP_DELAY_MS));
+			expect(screen.queryByRole('tooltip')).toBeNull();
+		});
+
+		it('does not show, or throw, when the anchor unmounts before the delay', () => {
+			const { rerender, onCommand } = setup({ contextual: ['picture'] });
+			fireEvent.click(screen.getByRole('tab', { name: 'Picture' }));
+			fireEvent.pointerEnter(screen.getByRole('button', { name: 'Replace' }));
+			rerender(<Ribbon model={model} mode="easy" onCommand={onCommand} />);
+			act(() => void vi.advanceTimersByTime(TOOLTIP_DELAY_MS));
+			expect(screen.queryByRole('tooltip')).toBeNull();
+		});
+
+		it('hides when its anchor unmounts while shown', async () => {
+			const { rerender, onCommand } = setup({ contextual: ['picture'] });
+			fireEvent.click(screen.getByRole('tab', { name: 'Picture' }));
+			fireEvent.pointerEnter(screen.getByRole('button', { name: 'Replace' }));
+			act(() => void vi.advanceTimersByTime(TOOLTIP_DELAY_MS));
+			expect(screen.getByRole('tooltip')).toBeInTheDocument();
+			rerender(<Ribbon model={model} mode="easy" onCommand={onCommand} />);
+			await act(async () => {
+				await Promise.resolve();
+			});
 			expect(screen.queryByRole('tooltip')).toBeNull();
 		});
 	});

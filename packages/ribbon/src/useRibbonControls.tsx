@@ -20,9 +20,17 @@ interface OpenMenu {
 	y: number;
 }
 
+/** An item that can share a `radio` key, with the scope (its group) that keeps its state apart from same-id items elsewhere. */
+export interface RibbonPeer {
+	scope: string;
+	item: RibbonItem;
+}
+
+const keyOf = (scope: string, item: RibbonItem) => `${scope}/${item.id}`;
+
 export interface RibbonControls {
-	/** Draws one item as its control. */
-	control: (item: RibbonItem, showLabel: boolean) => ReactNode;
+	/** Draws one item as its control; state is kept per `scope` and id, so same-id controls in different scopes stay independent. */
+	control: (item: RibbonItem, showLabel: boolean, scope?: string) => ReactNode;
 	/** Opens the File menu under `anchor`. */
 	openFile: (anchor: HTMLElement, label: string, items: [string, string][]) => void;
 	/** The tooltip and the open menu, to render once inside the ribbon. */
@@ -34,7 +42,7 @@ export interface RibbonControls {
  * `peers` lists every item that can share a `radio` key with another.
  */
 export function useRibbonControls(
-	peers: readonly RibbonItem[],
+	peers: readonly RibbonPeer[],
 	labels: RibbonLabels,
 	emit: (command: RibbonCommand) => void,
 ): RibbonControls {
@@ -43,10 +51,11 @@ export function useRibbonControls(
 	const [values, setValues] = useState<Record<string, RibbonValue>>({});
 	const [menu, setMenu] = useState<OpenMenu | null>(null);
 
-	const toggleOn = (item: RibbonItem) => item.active ?? toggles[item.id] ?? false;
-	const valueOf = (item: RibbonItem) => item.value ?? values[item.id];
+	const toggleOn = (scope: string, item: RibbonItem) =>
+		item.active ?? toggles[keyOf(scope, item)] ?? false;
+	const valueOf = (scope: string, item: RibbonItem) => item.value ?? values[keyOf(scope, item)];
 
-	const onPress = (item: RibbonItem, anchor: HTMLElement) => {
+	const onPress = (scope: string, item: RibbonItem, anchor: HTMLElement) => {
 		const kind = item.kind ?? 'button';
 		if (kind === 'menu') {
 			const rect = anchor.getBoundingClientRect();
@@ -60,12 +69,14 @@ export function useRibbonControls(
 			return;
 		}
 		if (kind === 'toggle') {
-			const next = !toggleOn(item);
+			const next = !toggleOn(scope, item);
 			setToggles((prev) => {
-				const out = { ...prev, [item.id]: next };
+				const key = keyOf(scope, item);
+				const out = { ...prev, [key]: next };
 				if (item.radio && next) {
 					for (const peer of peers) {
-						if (peer.radio === item.radio && peer.id !== item.id) out[peer.id] = false;
+						const peerKey = keyOf(peer.scope, peer.item);
+						if (peer.item.radio === item.radio && peerKey !== key) out[peerKey] = false;
 					}
 				}
 				return out;
@@ -76,8 +87,8 @@ export function useRibbonControls(
 		emit({ id: item.id, item });
 	};
 
-	const onValue = (item: RibbonItem, value: RibbonValue) => {
-		setValues((prev) => ({ ...prev, [item.id]: value }));
+	const onValue = (scope: string, item: RibbonItem, value: RibbonValue) => {
+		setValues((prev) => ({ ...prev, [keyOf(scope, item)]: value }));
 		emit({ id: item.id, value, item });
 	};
 
@@ -88,17 +99,17 @@ export function useRibbonControls(
 	};
 
 	return {
-		control: (item, showLabel) => (
+		control: (item, showLabel, scope = '') => (
 			<RibbonControl
 				key={item.id}
 				item={item}
 				showLabel={showLabel}
 				tooltip={tooltip}
-				pressed={toggleOn(item)}
-				value={valueOf(item)}
+				pressed={toggleOn(scope, item)}
+				value={valueOf(scope, item)}
 				labels={labels}
-				onPress={onPress}
-				onValue={onValue}
+				onPress={(i, anchor) => onPress(scope, i, anchor)}
+				onValue={(i, value) => onValue(scope, i, value)}
 			/>
 		),
 		openFile: (anchor, label, items) => {

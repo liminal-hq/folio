@@ -115,6 +115,10 @@
 	overflow-x: auto;
 	overflow-y: hidden;
 }
+.toolbar {
+	display: flex;
+	align-items: stretch;
+}
 .panel[data-overlay] {
 	position: absolute;
 	top: 100%;

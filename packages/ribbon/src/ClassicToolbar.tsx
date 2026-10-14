@@ -30,13 +30,17 @@ export function ClassicToolbar({
 	...props
 }: ClassicToolbarProps) {
 	const labels = { ...defaultRibbonLabels, ...props.labels };
-	const peers = useMemo(() => model.groups.flat(), [model]);
+	const peers = useMemo(
+		() =>
+			model.groups.flatMap((group, index) => group.map((item) => ({ scope: `${index}`, item }))),
+		[model],
+	);
 	const controls = useRibbonControls(peers, labels, onCommand);
 	return (
 		<div role="toolbar" aria-label={label ?? labels.ribbon} className={styles.classic}>
 			{model.groups.map((group, index) => (
 				<div key={index} role="group" className={styles.classicGroup}>
-					{group.map((item) => controls.control(item, false))}
+					{group.map((item) => controls.control(item, false, `${index}`))}
 				</div>
 			))}
 			<div className={styles.end}>
