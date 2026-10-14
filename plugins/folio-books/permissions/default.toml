@@ -13,4 +13,5 @@ permissions = [
   "allow-apply-intent",
   "allow-undo",
   "allow-redo",
+  "allow-layout-spread",
 ]

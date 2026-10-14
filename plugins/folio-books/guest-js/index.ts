@@ -14,6 +14,7 @@ import type { NewBookSpec } from '@liminal-hq/folio-protocol/generated/NewBookSp
 import type { Patch } from '@liminal-hq/folio-protocol/generated/Patch';
 import type { PatchEvent } from '@liminal-hq/folio-protocol/generated/PatchEvent';
 import type { PluginStatus } from '@liminal-hq/folio-protocol/generated/PluginStatus';
+import type { SpreadLayoutResult } from '@liminal-hq/folio-protocol/generated/SpreadLayoutResult';
 
 const PREFIX = 'plugin:folio-books|';
 
@@ -96,6 +97,11 @@ export function undo(id: string): Promise<Patch | null> {
 /** Redoes the last undone step; `null` when there is nothing to redo. */
 export function redo(id: string): Promise<Patch | null> {
 	return cmd<Patch | null>('redo', { id });
+}
+
+/** Lays out one spread of an open book: where every line of text goes, and the preflight checks on it. */
+export function layoutSpread(id: string, spread: string): Promise<SpreadLayoutResult> {
+	return cmd<SpreadLayoutResult>('layout_spread', { id, spread });
 }
 
 /** Hears every change to every open book. Read `snapshot` first and apply patches with a higher revision. */

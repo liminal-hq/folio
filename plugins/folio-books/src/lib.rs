@@ -42,6 +42,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::apply_intent,
             commands::undo,
             commands::redo,
+            commands::layout_spread,
         ])
         .setup(|app, _api| {
             app.manage(Books::new(app.clone()));

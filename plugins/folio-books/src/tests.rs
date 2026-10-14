@@ -309,3 +309,42 @@ fn the_status_command_reports_the_plugin_available() {
     assert!(status.available);
     assert_eq!(status.features, vec!["books", "events"]);
 }
+
+#[test]
+fn a_spread_is_laid_out_at_the_revision_the_book_is_at() {
+    let app = app();
+    let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();
+    let spread = snapshot.book.spreads[1].id.0.clone();
+    let before = books(&app)
+        .layout_spread(&snapshot.summary.id, &spread)
+        .unwrap();
+    assert_eq!(before.revision, snapshot.revision);
+    assert_eq!(before.layout.spread.0, spread);
+    assert!(before.layout.frames.iter().any(|f| !f.lines.is_empty()));
+
+    books(&app)
+        .apply(&snapshot.summary.id, nudge(&app, &snapshot.summary.id, 5.0))
+        .unwrap();
+    let after = books(&app)
+        .layout_spread(&snapshot.summary.id, &spread)
+        .unwrap();
+    assert_eq!(after.revision, before.revision + 1);
+}
+
+#[test]
+fn laying_out_an_unknown_book_or_spread_is_a_typed_error() {
+    let app = app();
+    let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();
+    let missing = books(&app).layout_spread("nope", "x").unwrap_err();
+    assert_eq!(
+        serde_json::to_value(&missing).unwrap()["kind"],
+        "noSuchBook"
+    );
+    let spread = books(&app)
+        .layout_spread(&snapshot.summary.id, "no-such-spread")
+        .unwrap_err();
+    assert_eq!(
+        serde_json::to_value(&spread).unwrap()["kind"],
+        "noSuchSpread"
+    );
+}

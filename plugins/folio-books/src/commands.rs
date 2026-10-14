@@ -13,7 +13,7 @@ use tauri::{Runtime, State, WebviewWindow};
 
 use crate::error::Error;
 use crate::state::Books;
-use crate::wire::{BookSnapshot, BookSummary};
+use crate::wire::{BookSnapshot, BookSummary, SpreadLayoutResult};
 
 /// Reports that books work. They need nothing from the system, so this is always available.
 #[tauri::command]
@@ -132,4 +132,15 @@ pub async fn redo<R: Runtime>(
     id: String,
 ) -> Result<Option<Patch>, Error> {
     books.redo(&id)
+}
+
+/// Lays out one spread of a book: where every line of text goes, and the preflight checks on it.
+#[tauri::command]
+pub async fn layout_spread<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+    spread: String,
+) -> Result<SpreadLayoutResult, Error> {
+    books.layout_spread(&id, &spread)
 }

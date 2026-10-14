@@ -62,6 +62,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function redo(id) {
         return cmd('redo', { id });
     }
+    /** Lays out one spread of an open book: where every line of text goes, and the preflight checks on it. */
+    function layoutSpread(id, spread) {
+        return cmd('layout_spread', { id, spread });
+    }
     /** Hears every change to every open book. Read `snapshot` first and apply patches with a higher revision. */
     function onPatch(listener) {
         return event.listen(PATCH_EVENT, (e) => listener(e.payload));
@@ -77,6 +81,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.closeBook = closeBook;
     exports.defaultSavePath = defaultSavePath;
     exports.getStatus = getStatus;
+    exports.layoutSpread = layoutSpread;
     exports.listBooks = listBooks;
     exports.newBook = newBook;
     exports.onBooksChanged = onBooksChanged;

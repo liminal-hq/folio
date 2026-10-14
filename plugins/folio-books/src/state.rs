@@ -4,16 +4,17 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
-use folio_model::Intent;
+use folio_layout::{FontBook, Layouter, StyleSheet};
+use folio_model::{Intent, SpreadId};
 use folio_package::{Package, SaveOptions};
 use folio_presets::{kind_infos, new_book, suggest_save_path, KindInfo, NewBookSpec};
 use folio_session::{Patch, Session};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::error::Error;
-use crate::wire::{BookSnapshot, BookSummary, BooksChanged, PatchEvent};
+use crate::wire::{BookSnapshot, BookSummary, BooksChanged, PatchEvent, SpreadLayoutResult};
 use crate::{CHANGED_EVENT, PATCH_EVENT};
 
 /// What happened to the open books, for the app to react to (the recents list, for one).
@@ -79,6 +80,8 @@ pub struct Books<R: Runtime> {
     inner: Mutex<Inner>,
     hooks: Mutex<Vec<BookHook>>,
     generator: String,
+    /// The bundled fonts and the system's, found the first time a spread is laid out.
+    fonts: OnceLock<FontBook>,
 }
 
 impl<R: Runtime> Books<R> {
@@ -89,6 +92,7 @@ impl<R: Runtime> Books<R> {
             inner: Mutex::new(Inner::default()),
             hooks: Mutex::new(Vec::new()),
             generator,
+            fonts: OnceLock::new(),
         }
     }
 
@@ -251,6 +255,27 @@ impl<R: Runtime> Books<R> {
             .find(|b| b.id == id)
             .map(OpenBook::snapshot)
             .ok_or_else(|| Error::NoSuchBook(id.into()))
+    }
+
+    /// Lays out one spread of a book at the revision it is at now. The book is held still while it
+    /// is laid out, so the answer and its revision agree.
+    pub fn layout_spread(&self, id: &str, spread: &str) -> Result<SpreadLayoutResult, Error> {
+        let fonts = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let inner = locked(&self.inner);
+        let open = inner
+            .books
+            .iter()
+            .find(|b| b.id == id)
+            .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+        let styles = StyleSheet::from_value(open.package.styles());
+        let layouter = Layouter::new(open.session.book(), &styles, fonts);
+        let layout = layouter
+            .layout_spread(&SpreadId(spread.to_string()))?
+            .ok_or_else(|| Error::NoSuchSpread(spread.to_string()))?;
+        Ok(SpreadLayoutResult {
+            revision: open.session.revision(),
+            layout,
+        })
     }
 
     /// Applies an intent to a book, tells every window, and answers with what changed.

@@ -16,6 +16,7 @@ const COMMANDS: &[&str] = &[
     "apply_intent",
     "undo",
     "redo",
+    "layout_spread",
 ];
 
 fn main() {

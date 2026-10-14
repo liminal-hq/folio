@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use folio_layout::wire::SpreadLayout;
 use folio_model::{Book, BookKind};
 use folio_session::Patch;
 use serde::{Deserialize, Serialize};
@@ -23,6 +24,17 @@ pub struct BookSummary {
     pub path: Option<String>,
     /// There is something to save: a new book that was never saved, or changes since the last save.
     pub dirty: bool,
+}
+
+/// A spread laid out, and the revision of the book it was laid out from. A window draws it only
+/// while that is the revision it holds.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct SpreadLayoutResult {
+    #[ts(type = "number")]
+    pub revision: u64,
+    pub layout: SpreadLayout,
 }
 
 /// An open book in full, for a window that is showing it.
