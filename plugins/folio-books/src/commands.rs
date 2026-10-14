@@ -143,7 +143,9 @@ pub async fn layout_spread<R: Runtime>(
     id: String,
     spread: String,
 ) -> Result<SpreadLayoutResult, Error> {
-    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().layout_spread(&id, &spread))
-        .await
-        .expect("the layout task does not panic")
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Books<R>>().layout_spread(&id, &spread)
+    })
+    .await
+    .expect("the layout task does not panic")
 }
