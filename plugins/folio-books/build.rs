@@ -17,6 +17,7 @@ const COMMANDS: &[&str] = &[
     "undo",
     "redo",
     "layout_spread",
+    "layout_master",
     "import_image",
     "asset_data",
 ];

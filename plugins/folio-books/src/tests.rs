@@ -332,6 +332,38 @@ fn a_spread_is_laid_out_at_the_revision_the_book_is_at() {
 }
 
 #[test]
+fn a_master_page_is_laid_out_with_its_tokens_as_written() {
+    let app = app();
+    let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();
+    let id = snapshot.summary.id.clone();
+    books(&app)
+        .apply(
+            &id,
+            Intent::SetPageNumbers {
+                position: folio_model::PageNumbers::Centre,
+            },
+        )
+        .unwrap();
+    let laid = books(&app).layout_master(&id, "mst_a").unwrap();
+    assert_eq!(laid.layout.spread.0, "mst_a");
+    assert_eq!(laid.layout.frames.len(), 1);
+    let text: String = laid.layout.frames[0]
+        .lines
+        .iter()
+        .flat_map(|l| l.runs.iter().map(|r| r.text.clone()))
+        .collect();
+    assert!(
+        text.contains("{page}"),
+        "the token stays as written: {text}"
+    );
+    let missing = books(&app).layout_master(&id, "mst_nope").unwrap_err();
+    assert_eq!(
+        serde_json::to_value(&missing).unwrap()["kind"],
+        "noSuchMaster"
+    );
+}
+
+#[test]
 fn laying_out_an_unknown_book_or_spread_is_a_typed_error() {
     let app = app();
     let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();

@@ -259,6 +259,16 @@ export function createFakeBooksClient(): FakeBooks {
 				.map((f) => ({ frame: f.id, lines: [], overset: false }));
 			return { revision: h.snapshot.revision, layout: { spread, frames, preflight: [] } };
 		},
+		async layoutMaster(id, master) {
+			await call('layoutMaster', [id, master]);
+			const h = find(id);
+			const found = h.snapshot.book.masterPages?.find((m) => m.id === master);
+			if (!found) throw { kind: 'noSuchMaster', message: `there is no master page \`${master}\`` };
+			const frames = found.frames
+				.filter((f) => f.type === 'text')
+				.map((f) => ({ frame: f.id, lines: [], overset: false }));
+			return { revision: h.snapshot.revision, layout: { spread: master, frames, preflight: [] } };
+		},
 		async importImage(id, path) {
 			await call('importImage', [id, path]);
 			find(id);

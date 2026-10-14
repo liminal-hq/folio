@@ -109,6 +109,11 @@ export function redo(id: string): Promise<Patch | null> {
 	return cmd<Patch | null>('redo', { id });
 }
 
+/** A master page's text laid out on a page of its own, with `{page}` and other tokens as written. */
+export function layoutMaster(id: string, master: string): Promise<SpreadLayoutResult> {
+	return cmd<SpreadLayoutResult>('layout_master', { id, master });
+}
+
 /** Lays out one spread of an open book: where every line of text goes, and the preflight checks on it. */
 export function layoutSpread(id: string, spread: string): Promise<SpreadLayoutResult> {
 	return cmd<SpreadLayoutResult>('layout_spread', { id, spread });

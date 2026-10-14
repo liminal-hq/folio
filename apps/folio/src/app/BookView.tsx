@@ -11,6 +11,7 @@ import { useBooks } from '../books/useBooks';
 import { frameIntents } from '../canvas/frameMenu';
 import { boxAt, newFrame, type NewFrameKind } from '../canvas/newFrames';
 import { spreadGeometry } from '../canvas/geometry';
+import { masterFurniture } from '../canvas/masterItems';
 import { defaultTextStyle, styleChoices } from '../inspector/styleChoices';
 import { Shelf } from '../canvas/Shelf';
 import { shelfIntent } from '../canvas/shelfMenu';
@@ -80,7 +81,7 @@ export function BookView({
 	const images = useAssetUrls(
 		client,
 		id,
-		(spread?.frames ?? []).flatMap((f) =>
+		[...(spread?.frames ?? []), ...(spread ? masterFurniture(book, spread) : [])].flatMap((f) =>
 			f.type === 'image' && f.image.asset ? [f.image.asset] : [],
 		),
 	);

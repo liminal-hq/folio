@@ -150,6 +150,21 @@ pub async fn layout_spread<R: Runtime>(
     .expect("the layout task does not panic")
 }
 
+/// Lays out the text of one master page of a book, with `{page}` and the other tokens as written.
+#[tauri::command]
+pub async fn layout_master<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    master: String,
+) -> Result<SpreadLayoutResult, Error> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Books<R>>().layout_master(&id, &master)
+    })
+    .await
+    .expect("the layout task does not panic")
+}
+
 /// Reads a picture file into a book and answers with its path in the book's package.
 #[tauri::command]
 pub async fn import_image<R: Runtime>(

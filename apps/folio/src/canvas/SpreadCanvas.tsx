@@ -15,6 +15,7 @@ import { PX_PER_POINT, spreadGeometry, type PlainRect } from './geometry';
 import type { FrameCommand } from './frameMenu';
 import { canEditText, TextEditor } from './TextEditor';
 import { DEFAULT_MARK_COLOURS, DEFAULT_MARKS, type MarkColours, type Marks } from './marksModel';
+import { masterFurniture } from './masterItems';
 import { HANDLES, type Handle } from './snap';
 import type { GuideAxis } from './guides';
 import type { GuideDragState } from './useGuideDrag';
@@ -332,6 +333,11 @@ export function SpreadCanvas({
 						<Lines key={laid.frame} id={laid.frame} at={laid.origin} layout={laid} />
 					) : null,
 				)}
+				{masterFurniture(book, spread).map((frame) => (
+					<g key={frame.id} data-master-item={frame.id} pointerEvents="none">
+						<Furniture frame={frame} images={images} />
+					</g>
+				))}
 				{frames.map((frame) => (
 					<g key={frame.id}>
 						<Furniture frame={frame} images={images} />

@@ -43,6 +43,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::undo,
             commands::redo,
             commands::layout_spread,
+            commands::layout_master,
             commands::import_image,
             commands::asset_data,
         ])

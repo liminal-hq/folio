@@ -303,6 +303,30 @@ impl<R: Runtime> Books<R> {
         Ok(SpreadLayoutResult { revision, layout })
     }
 
+    /// Lays out the text of one master page of a book, with its tokens as written, at the revision
+    /// the book is at now.
+    pub fn layout_master(&self, id: &str, master: &str) -> Result<SpreadLayoutResult, Error> {
+        let (book, styles, revision) = {
+            let inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            (
+                open.session.book().clone(),
+                StyleSheet::from_value(open.package.styles()),
+                open.session.revision(),
+            )
+        };
+        let fonts = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let layouter = Layouter::new(&book, &styles, fonts);
+        let layout = layouter
+            .layout_master(&folio_model::MasterId(master.to_string()))?
+            .ok_or_else(|| Error::NoSuchMaster(master.to_string()))?;
+        Ok(SpreadLayoutResult { revision, layout })
+    }
+
     /// Reads a picture file into the book's package and returns its path there. The same bytes give
     /// the same path, so choosing a picture twice stores it once.
     pub fn import_image(&self, id: &str, path: &Path) -> Result<String, Error> {

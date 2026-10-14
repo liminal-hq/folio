@@ -30,6 +30,9 @@ pub enum Error {
     /// A window asked for a spread the book does not have.
     #[error("the book has no spread `{0}`")]
     NoSuchSpread(String),
+    /// A window asked for a master page the book does not have.
+    #[error("the book has no master page `{0}`")]
+    NoSuchMaster(String),
 }
 
 impl Error {
@@ -47,6 +50,7 @@ impl Error {
             Error::Session(_) => "session",
             Error::Layout(_) => "layout",
             Error::NoSuchSpread(_) => "noSuchSpread",
+            Error::NoSuchMaster(_) => "noSuchMaster",
             Error::BadImage(_) => "image",
         }
     }

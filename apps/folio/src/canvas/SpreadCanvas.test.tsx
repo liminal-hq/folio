@@ -245,6 +245,37 @@ describe('master pages', () => {
 		expect(group).toHaveTextContent('7');
 	});
 
+	it('draws a master shape on its page, behind the frames and out of the way of the pointer', () => {
+		const withShape = {
+			...book,
+			masterPages: [
+				{
+					id: 'mst_a',
+					name: 'A',
+					frames: [
+						{
+							type: 'shape',
+							id: 'rule',
+							box: { x: 10, y: 90, w: 80, h: 2 },
+							shape: 'rect',
+							fill: '#336699',
+						},
+					],
+				},
+			],
+		} as unknown as Book;
+		const onMaster = {
+			...spread,
+			pages: [{ id: 'p1', master: 'mst_a' }],
+		} as unknown as Spread;
+		const { container } = render(
+			<SpreadCanvas book={withShape} spread={onMaster} layout={null} zoom={1} label="Page" />,
+		);
+		const item = container.querySelector('[data-master-item="rule@p1"]')!;
+		expect(item).toHaveAttribute('pointer-events', 'none');
+		expect(item.querySelector('rect')).toHaveAttribute('fill', '#336699');
+	});
+
 	describe('ruler guides', () => {
 		const guided = {
 			...spread,
