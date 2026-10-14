@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: Check formatting
+        run: bun run format:check
+
+  repository-checks:
+    name: Repository checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check licence headers
+        run: bash scripts/check-headers.sh
+      - name: Check plugin boundaries
+        run: bash scripts/check-plugin-boundaries.sh
+      # Two modules that differ only by case are one file on Windows.
+      - name: Check module names for case collisions
+        run: bash scripts/check-case-collisions.sh
+      # Preferences and window state live in the settings plugin, never in browser storage.
+      - name: Check for browser storage
+        run: bash scripts/check-browser-storage.sh
+
+  frontend-tests:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+
+      - name: Type-check
+        id: typecheck
+        run: bun run typecheck
+
+      - name: Run tests
+        id: tests
+        run: bun run test:js:ci
+
+      - name: Build
+        id: build
+        run: bun run build
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## Frontend tests"
+            echo "| Step | Result | Command |"
+            echo "|---|---|---|"
+            echo "| Type-check | \`${{ steps.typecheck.outcome }}\` | \`bun run typecheck\` |"
+            echo "| Tests | \`${{ steps.tests.outcome }}\` | \`bun run test:js:ci\` |"
+            echo "| Build | \`${{ steps.build.outcome }}\` | \`bun run build\` |"
+            echo
+            bash scripts/junit-summary.sh test-results/chrome-junit.xml test-results/junit.xml
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload frontend test artefacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-test-results
+          path: test-results/*.xml
+          if-no-files-found: error
+
+  rust-tests:
+    name: Rust tests
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/liminal-hq/tauri-ci-desktop:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Trust the GitHub workspace
+        run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      # The Tauri build script needs the built frontend (`frontendDist`).
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - uses: taiki-e/install-action@nextest
+
+      - name: Run tests
+        run: cargo nextest run --workspace --profile ci
+
+      # Regenerates every ts-rs directory from scratch and diffs it against the committed copy.
+      - name: Check generated bindings for drift
+        run: bash scripts/check-bindings-drift.sh
+
+      - name: Upload Rust test artefacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rust-test-results
+          path: target/nextest/ci/junit.xml
+          if-no-files-found: error
+
+  # Windows 11 is a real target: the whole workspace must keep compiling and linting there.
+  windows-lint:
+    name: Windows lint
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      # `bun run build` runs `tsc` first, so a module-name collision that only a case-insensitive file
+      # system sees fails here, before Cargo embeds a stale `dist`.
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - uses: Swatinem/rust-cache@v2
+      - name: Lint
+        run: cargo clippy --workspace --all-targets -- -D warnings

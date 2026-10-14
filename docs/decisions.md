@@ -2,16 +2,16 @@
 
 Product and engineering decisions for Folio. D-01 to D-07 and D-12 are defined where they arise in `spec/` and are listed here so they can be found in one place. New decisions are added here first.
 
-| ID | Decision | Where |
-|---|---|---|
-| D-01 | Easy and Expert modes; chosen on the welcome screen, remembered per user, never removes data | `spec/01-product.md` |
-| D-02 | The document model lives in Rust and is the source of truth; the UI sends intents and receives patches | `spec/02-architecture.md` |
-| D-03 | Window chrome comes from the shared Liminal chrome package (title bar, app menu button, window menu, context menu) | `spec/02-architecture.md` |
-| D-04 | Theming follows the system colour scheme and accent; book pages are never themed. Tokens are Folio's own (`--folio-*`, `data-folio-theme`), see D-09 | `spec/02-architecture.md` |
-| D-05 | `.folio` schema is an integer with migrations on open; files are never rewritten silently | `spec/03-project-format.md` |
-| D-06 | App menu in the title bar's start slot; menu bar hidden by default | `spec/06-ui.md` |
-| D-07 | Ribbon and classic toolbar both ship; the user picks | `spec/06-ui.md` |
-| D-12 | Grouped sidebar, tear-off panels, document tabs as windows | `spec/12-sidebar-windows.md` |
+| ID   | Decision                                                                                                                                             | Where                        |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| D-01 | Easy and Expert modes; chosen on the welcome screen, remembered per user, never removes data                                                         | `spec/01-product.md`         |
+| D-02 | The document model lives in Rust and is the source of truth; the UI sends intents and receives patches                                               | `spec/02-architecture.md`    |
+| D-03 | Window chrome comes from the shared Liminal chrome package (title bar, app menu button, window menu, context menu)                                   | `spec/02-architecture.md`    |
+| D-04 | Theming follows the system colour scheme and accent; book pages are never themed. Tokens are Folio's own (`--folio-*`, `data-folio-theme`), see D-09 | `spec/02-architecture.md`    |
+| D-05 | `.folio` schema is an integer with migrations on open; files are never rewritten silently                                                            | `spec/03-project-format.md`  |
+| D-06 | App menu in the title bar's start slot; menu bar hidden by default                                                                                   | `spec/06-ui.md`              |
+| D-07 | Ribbon and classic toolbar both ship; the user picks                                                                                                 | `spec/06-ui.md`              |
+| D-12 | Grouped sidebar, tear-off panels, document tabs as windows                                                                                           | `spec/12-sidebar-windows.md` |
 
 ## D-08 · Shared chrome and unpublished plugins are copied; published ones are dependencies
 

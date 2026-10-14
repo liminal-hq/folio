@@ -52,12 +52,12 @@ If Rust tooling is not installed locally, run the Rust and Tauri commands in the
 
 ## Documentation
 
-| Location                             | What it covers                                                                       |
-| ------------------------------------ | ------------------------------------------------------------------------------------ |
-| [`spec/`](spec/README.md)            | The specification: product, architecture, project format, layout, export, UI, Jax    |
-| [`docs/decisions.md`](docs/decisions.md) | The decision log (D-numbers) lifted from the specification                       |
-| [`design/`](design/)                 | The Claude Design prototype files — reference only, not the source of truth          |
-| [`site/`](site/)                     | The public documentation site                                                        |
+| Location                                 | What it covers                                                                    |
+| ---------------------------------------- | --------------------------------------------------------------------------------- |
+| [`spec/`](spec/README.md)                | The specification: product, architecture, project format, layout, export, UI, Jax |
+| [`docs/decisions.md`](docs/decisions.md) | The decision log (D-numbers) lifted from the specification                        |
+| [`design/`](design/)                     | The Claude Design prototype files — reference only, not the source of truth       |
+| [`site/`](site/)                         | The public documentation site                                                     |
 
 ## Contributing
 

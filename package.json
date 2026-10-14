@@ -1,0 +1,34 @@
+{
+	"name": "folio",
+	"private": true,
+	"version": "0.0.0",
+	"workspaces": [
+		"apps/*",
+		"packages/*",
+		"plugins/*"
+	],
+	"scripts": {
+		"dev": "bun run --cwd apps/folio dev",
+		"tauri": "bun run --cwd apps/folio tauri",
+		"tauri:dev": "bun run --cwd apps/folio tauri:dev",
+		"build": "bun run --cwd apps/folio build",
+		"typecheck": "bun run --cwd packages/chrome typecheck && bun run --cwd apps/folio typecheck",
+		"test:js": "bun run --cwd packages/chrome test && bun run --cwd apps/folio test",
+		"test:js:ci": "bun run --cwd packages/chrome test:ci && bun run --cwd apps/folio test:ci",
+		"test:rust": "cargo nextest run --workspace",
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"check:headers": "bash scripts/check-headers.sh",
+		"check:boundaries": "bash scripts/check-plugin-boundaries.sh",
+		"check:case": "bash scripts/check-case-collisions.sh",
+		"check:storage": "bash scripts/check-browser-storage.sh",
+		"check:bindings": "bash scripts/check-bindings-drift.sh",
+		"bindings": "bash scripts/generate-protocol-bindings.sh",
+		"build:plugins": "bun run --cwd plugins/window-tearoff build && bun run --cwd plugins/window-effects build && bun run --cwd plugins/folio-settings build",
+		"validate": "bun run format:check && bun run check:headers && bun run check:boundaries && bun run check:case && bun run check:storage && bun run check:bindings && bun run typecheck && bun run test:js && bun run build && cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings && bun run test:rust"
+	},
+	"devDependencies": {
+		"@rollup/plugin-typescript": "^12.1.4",
+		"prettier": "^3.3.0"
+	}
+}
