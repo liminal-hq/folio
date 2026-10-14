@@ -228,8 +228,50 @@ describe('a book in the main window', () => {
 	it('switches between Easy and Expert through the settings', async () => {
 		const { settings } = setup();
 		await startBook();
-		const toolbar = screen.getByRole('toolbar', { name: 'Toolbar' });
+		const toolbar = screen.getByRole('group', { name: 'Toolbar' });
 		await userEvent.click(within(toolbar).getByRole('radio', { name: 'Expert' }));
 		await waitFor(async () => expect((await settings.get()).settings.mode).toBe('expert'));
+	});
+
+	it('shows the ribbon with its tabs, and Expert reveals the expert groups', async () => {
+		setup();
+		await startBook();
+		expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+			'Home',
+			'Insert',
+			'Pages',
+			'Layout',
+			'View',
+			'Export',
+		]);
+		await userEvent.click(screen.getByRole('tab', { name: 'Pages' }));
+		expect(screen.queryByRole('group', { name: 'Masters' })).not.toBeInTheDocument();
+		await userEvent.click(screen.getByRole('radio', { name: 'Expert' }));
+		expect(await screen.findByRole('group', { name: 'Masters' })).toBeInTheDocument();
+	});
+
+	it('switches to the classic toolbar when the setting says so, and back with its ribbon button', async () => {
+		const { settings } = setup();
+		await startBook();
+		await settings.update({ interface: { toolbar: 'classic' } });
+		const toolbar = await screen.findByRole('toolbar', { name: 'Toolbar' });
+		expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+		await userEvent.click(within(toolbar).getByRole('button', { name: 'Switch to the ribbon' }));
+		await waitFor(async () =>
+			expect((await settings.get()).settings.interface.toolbar).toBe('ribbon'),
+		);
+		expect(await screen.findAllByRole('tab')).not.toHaveLength(0);
+	});
+
+	it('runs undo from the ribbon once there is something to undo', async () => {
+		const { books } = setup();
+		await startBook();
+		expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
+		const id = (await books.client.list())[0]!.id;
+		await act(async () => {
+			await books.client.apply(id, { type: 'MoveFrame' } as never);
+		});
+		await userEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+		await waitFor(() => expect(books.calls.some((c) => c.startsWith('undo('))).toBe(true));
 	});
 });

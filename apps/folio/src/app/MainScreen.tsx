@@ -10,15 +10,15 @@ import { formatTrim, pageCount } from '../books/format';
 import { useActiveBook, useBooksSelector } from '../books/useBooks';
 import { APP_MENU_MNEMONICS } from '../commands/appMenuModel';
 import { t } from '../i18n/messages';
+import { FolioToolbar } from '../ribbon/FolioToolbar';
 import { tauriAppInfoClient, type AppInfoClient } from '../services/appInfoClient';
-import { useSettings, useUpdateSettings } from '../settings/useSettings';
+import { useSettings } from '../settings/useSettings';
 import { WelcomeScreen } from '../welcome/WelcomeScreen';
 import { AppMenu } from './AppMenu';
 import { BookView } from './BookView';
 import { AppTitleBar } from './AppTitleBar';
 import { useCloseQuestion } from './CloseBookDialog';
 import styles from './MainScreen.module.css';
-import { Segmented } from './Segmented';
 import { useAppMenu } from './useAppMenu';
 import { useBookKeys } from './useBookKeys';
 
@@ -51,7 +51,6 @@ function savedText(path: string | null, dirty: boolean): string {
 
 export function MainScreen({ client = tauriAppInfoClient }: { client?: AppInfoClient }) {
 	const settings = useSettings();
-	const update = useUpdateSettings();
 	const { ask, dialog } = useCloseQuestion();
 	const menu = useAppMenu(ask);
 	useBookKeys(menu.run);
@@ -86,25 +85,7 @@ export function MainScreen({ client = tauriAppInfoClient }: { client?: AppInfoCl
 					<WelcomeScreen />
 				) : (
 					<>
-						<div className={styles.toolbar} role="toolbar" aria-label={t('region.toolbar')}>
-							<p className={styles.toolbarNote}>
-								{settings.interface.toolbar === 'ribbon'
-									? t('region.toolbar.ribbon')
-									: t('region.toolbar.classic')}
-							</p>
-							<div className={styles.mode}>
-								<span>{t('mode.label')}</span>
-								<Segmented
-									label={t('mode.label')}
-									value={settings.mode}
-									options={[
-										{ value: 'easy', label: t('mode.easy') },
-										{ value: 'expert', label: t('mode.expert') },
-									]}
-									onChange={(mode) => void update({ mode })}
-								/>
-							</div>
-						</div>
+						<FolioToolbar available={menu.available} run={menu.run} />
 						<BookView id={active.summary.id} copy={active.copy} kindLabel={kindLabel} />
 					</>
 				)}

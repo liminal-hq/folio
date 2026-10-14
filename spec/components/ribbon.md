@@ -50,6 +50,10 @@ interface RibbonItem { id: string; label: string; d: string /* 16 px SVG path */
 - Every button has an accessible name. Toggles expose `aria-pressed`.
 - Minimum 26 px targets (44 px in Larger controls mode).
 
+## Built so far
+
+`packages/ribbon` (`@liminal-hq/folio-ribbon`, D-19) implements the model, the three variants, both densities, tabs with contextual tabs, the Easy/Expert switch, buttons, toggles with `radio` sets, menus (through the chrome's `ContextMenu`), selects, steppers, swatch underlines, tooltips and the keyboard model except Alt key tips. It lives in Folio's workspace, not in the chrome, so the chrome stays about windowing.
+
 ## Building the component set
 
 Split the DC into `Ribbon`, `RibbonTab`, `RibbonGroup`, `RibbonButton`, `RibbonRow`/`RibbonCluster`, `RibbonModeSwitch` and `RibbonTooltip` once a second app adopts it. Ship it in `@liminal-hq/waypoint-chrome` beside `WindowTitleBar` and `ContextMenu`. The model format stays the same.
