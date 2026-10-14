@@ -8,9 +8,12 @@ import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { FrameLayout } from '@liminal-hq/folio-protocol/generated/FrameLayout';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
+import { useRef } from 'react';
 import styles from './SpreadCanvas.module.css';
 import './fonts.css';
-import { PX_PER_POINT, spreadGeometry } from './geometry';
+import { PX_PER_POINT, spreadGeometry, type PlainRect } from './geometry';
+import { HANDLES, type Handle } from './snap';
+import { movable, useFrameDrag } from './useFrameDrag';
 
 export interface Marks {
 	bleed: boolean;
@@ -36,6 +39,12 @@ export interface SpreadCanvasProps {
 	/** 1 is 100%. */
 	zoom: number;
 	marks?: Marks;
+	/** The ids of the selected frames. The canvas is read-only without `onSelect`. */
+	selection?: string[];
+	onSelect?(ids: string[]): void;
+	/** Commits a frame's new box; resolves once the book has it. */
+	onMove?(id: string, rect: PlainRect): Promise<void>;
+	onDelete?(ids: string[]): void;
 	/** The accessible name of the page area. */
 	label: string;
 }
@@ -125,6 +134,36 @@ function Furniture({ frame }: { frame: Frame }) {
 	return null;
 }
 
+const HANDLE_PX = 8;
+
+/** What a frame is called to a screen reader: its description, its label, or the start of its words. */
+export function frameLabel(frame: Frame): string {
+	if (frame.description) return frame.description;
+	if (frame.type === 'image') return frame.placeholderLabel ?? 'Picture';
+	if (frame.type === 'text') {
+		const words = frame.content?.inline.map((r) => r.text).join(' ') ?? '';
+		return words ? words.slice(0, 60) : 'Text';
+	}
+	return frame.type === 'shape' ? 'Shape' : 'Group';
+}
+
+function handlePosition(box: PlainRect, handle: Handle) {
+	const x = handle.includes('w') ? box.x : handle.includes('e') ? box.x + box.w : box.x + box.w / 2;
+	const y = handle.includes('n') ? box.y : handle.includes('s') ? box.y + box.h : box.y + box.h / 2;
+	return { x, y };
+}
+
+const CURSORS: Record<Handle, string> = {
+	nw: 'nwse-resize',
+	se: 'nwse-resize',
+	ne: 'nesw-resize',
+	sw: 'nesw-resize',
+	n: 'ns-resize',
+	s: 'ns-resize',
+	e: 'ew-resize',
+	w: 'ew-resize',
+};
+
 export function SpreadCanvas({
 	book,
 	spread,
@@ -132,16 +171,40 @@ export function SpreadCanvas({
 	zoom,
 	marks = DEFAULT_MARKS,
 	label,
+	selection = [],
+	onSelect,
+	onMove,
+	onDelete,
 }: SpreadCanvasProps) {
+	const svg = useRef<SVGSVGElement | null>(null);
 	const geometry = spreadGeometry(book, spread);
 	const { bounds } = geometry;
 	const scale = zoom * PX_PER_POINT;
+	const drag = useFrameDrag({
+		svg,
+		geometry,
+		frames: spread.frames,
+		scale,
+		selection,
+		onSelect,
+		onMove,
+		onDelete,
+	});
+	const frames = spread.frames.map((f) =>
+		drag.preview[f.id] ? ({ ...f, box: drag.preview[f.id] } as Frame) : f,
+	);
+	const editable = onSelect !== undefined;
 	const byFrame = new Map(layout?.frames.map((f) => [f.frame, f]));
 	const grid = book.grid;
 
 	return (
 		<svg
+			ref={svg}
 			className={styles.spread}
+			tabIndex={editable ? 0 : undefined}
+			onKeyDown={editable ? drag.onKeyDown : undefined}
+			onPointerMove={editable ? drag.onPointerMove : undefined}
+			onPointerUp={editable ? drag.onPointerUp : undefined}
 			role="group"
 			aria-label={label}
 			width={bounds.w * scale}
@@ -167,8 +230,9 @@ export function SpreadCanvas({
 				height={bounds.h}
 				fill="var(--folio-paper)"
 				className={styles.paper}
+				onPointerDown={editable ? drag.onBackgroundPointerDown : undefined}
 			/>
-			{spread.frames.map((frame) => (
+			{frames.map((frame) => (
 				<g key={frame.id}>
 					<Furniture frame={frame} />
 					{marks.frameEdges && (
@@ -269,6 +333,79 @@ export function SpreadCanvas({
 							},
 						)}
 				</g>
+			))}
+			{editable && (
+				<g role="listbox" aria-multiselectable="true" aria-label={label}>
+					{frames.map((frame) => (
+						<rect
+							key={frame.id}
+							role="option"
+							aria-selected={selection.includes(frame.id)}
+							aria-label={frameLabel(frame)}
+							data-hit={frame.id}
+							x={frame.box.x}
+							y={frame.box.y}
+							width={frame.box.w}
+							height={frame.box.h}
+							fill="transparent"
+							style={{ cursor: movable(frame) ? 'move' : 'default' }}
+							onPointerDown={(event) => drag.onFramePointerDown(event, frame)}
+						/>
+					))}
+				</g>
+			)}
+			{frames
+				.filter((f) => selection.includes(f.id))
+				.map((frame) => (
+					<g key={frame.id} data-selected={frame.id} pointerEvents="none">
+						<rect
+							x={frame.box.x}
+							y={frame.box.y}
+							width={frame.box.w}
+							height={frame.box.h}
+							fill="none"
+							stroke="var(--folio-accent)"
+							strokeWidth={1.5 / scale}
+							strokeDasharray={frame.locked ? `${4 / scale} ${3 / scale}` : undefined}
+						/>
+					</g>
+				))}
+			{selection.length === 1 &&
+				frames
+					.filter((f) => f.id === selection[0] && movable(f))
+					.map((frame) =>
+						HANDLES.map((handle) => {
+							const at = handlePosition(frame.box, handle);
+							const size = HANDLE_PX / scale;
+							return (
+								<rect
+									key={handle}
+									data-handle={handle}
+									x={at.x - size / 2}
+									y={at.y - size / 2}
+									width={size}
+									height={size}
+									fill="#fff"
+									stroke="var(--folio-accent)"
+									strokeWidth={1.5 / scale}
+									style={{ cursor: CURSORS[handle] }}
+									onPointerDown={(event) => drag.onHandlePointerDown(event, frame.id, handle)}
+								/>
+							);
+						}),
+					)}
+			{drag.lines.map((line, i) => (
+				<line
+					key={i}
+					data-snap={line.axis}
+					x1={line.axis === 'x' ? line.pos : bounds.x}
+					x2={line.axis === 'x' ? line.pos : bounds.x + bounds.w}
+					y1={line.axis === 'y' ? line.pos : bounds.y}
+					y2={line.axis === 'y' ? line.pos : bounds.y + bounds.h}
+					stroke="#e0368f"
+					strokeWidth={1 / scale}
+					pointerEvents="none"
+				/>
 			))}
 		</svg>
 	);

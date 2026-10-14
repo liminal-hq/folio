@@ -11,6 +11,7 @@ import { formatTrim, pageCount } from '../books/format';
 import { shelfLabels } from '../books/shelfLabels';
 import { Shelf } from '../canvas/Shelf';
 import { Stage } from '../canvas/Stage';
+import { useSelection } from '../canvas/useSelection';
 import { useSpreadLayout } from '../canvas/useSpreadLayout';
 import { useActiveBook, useBooks, useBooksSelector } from '../books/useBooks';
 import { APP_MENU_MNEMONICS } from '../commands/appMenuModel';
@@ -63,7 +64,7 @@ export function MainScreen({ client = tauriAppInfoClient }: { client?: AppInfoCl
 	const active = useActiveBook();
 	const kinds = useBooksSelector((s) => s.kinds);
 	const menuBar = settings.interface.menuBar;
-	const { client: booksClient } = useBooks();
+	const { client: booksClient, store: booksStore } = useBooks();
 	const [spreadIndex, setSpreadIndex] = useState(0);
 	const spreads = active?.copy.book.spreads ?? [];
 	const shown = Math.max(0, Math.min(spreadIndex, spreads.length - 1));
@@ -74,6 +75,10 @@ export function MainScreen({ client = tauriAppInfoClient }: { client?: AppInfoCl
 		active?.summary.id ?? '',
 		active && spread ? spread.id : null,
 		active?.copy.revision ?? 0,
+	);
+	const [selection, select] = useSelection(
+		spread?.id ?? null,
+		spread?.frames.map((f) => f.id) ?? [],
 	);
 	const inspectorWidth = { '--folio-inspector-width': `${settings.interface.sidebarWidth}px` };
 
@@ -130,6 +135,26 @@ export function MainScreen({ client = tauriAppInfoClient }: { client?: AppInfoCl
 									spread={spread}
 									label={labels[shown] ?? ''}
 									layout={layout}
+									selection={selection}
+									onSelect={select}
+									onMove={(id, box) =>
+										booksStore.apply({
+											type: 'MoveFrame',
+											spread: spread.id,
+											frame: id,
+											box: { x: box.x, y: box.y, w: box.w, h: box.h },
+										})
+									}
+									onDelete={(ids) =>
+										ids.forEach(
+											(id) =>
+												void booksStore.apply({
+													type: 'DeleteFrame',
+													spread: spread.id,
+													frame: id,
+												}),
+										)
+									}
 								/>
 							)}
 							<aside className={styles.inspector} aria-label={t('region.inspector')}>

@@ -7,7 +7,7 @@ import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
 import { t } from '../i18n/messages';
-import { fitZoom, spreadGeometry } from './geometry';
+import { fitZoom, spreadGeometry, type PlainRect } from './geometry';
 import { SpreadCanvas } from './SpreadCanvas';
 import styles from './Stage.module.css';
 import { useElementSize } from './useElementSize';
@@ -19,9 +19,22 @@ export interface StageProps {
 	/** What the shelf calls this spread: "Cover", "Pages 2–3". */
 	label: string;
 	layout: SpreadLayout | null;
+	selection?: string[];
+	onSelect?(ids: string[]): void;
+	onMove?(id: string, rect: PlainRect): Promise<void>;
+	onDelete?(ids: string[]): void;
 }
 
-export function Stage({ book, spread, label, layout }: StageProps) {
+export function Stage({
+	book,
+	spread,
+	label,
+	layout,
+	selection,
+	onSelect,
+	onMove,
+	onDelete,
+}: StageProps) {
 	const [ref, size] = useElementSize<HTMLDivElement>();
 	const geometry = spreadGeometry(book, spread);
 	const zoom = useStageZoom(fitZoom(geometry.bounds, size));
@@ -44,7 +57,14 @@ export function Stage({ book, spread, label, layout }: StageProps) {
 					</button>
 				</div>
 			</div>
-			<div ref={ref} className={styles.table}>
+			<div
+				ref={ref}
+				className={styles.table}
+				onPointerDown={(event) => {
+					// A press on the bare table, not on the page, lets go of the selection.
+					if (!(event.target as Element).closest('svg')) onSelect?.([]);
+				}}
+			>
 				<div className={styles.sheet}>
 					<SpreadCanvas
 						book={book}
@@ -52,6 +72,10 @@ export function Stage({ book, spread, label, layout }: StageProps) {
 						layout={layout}
 						zoom={zoom.zoom}
 						label={t('region.stage')}
+						selection={selection}
+						onSelect={onSelect}
+						onMove={onMove}
+						onDelete={onDelete}
 					/>
 				</div>
 			</div>

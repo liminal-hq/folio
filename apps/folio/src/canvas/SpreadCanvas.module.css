@@ -10,3 +10,12 @@
 .paper {
 	shape-rendering: crispEdges;
 }
+
+.spread {
+	touch-action: none;
+}
+
+.spread:focus-visible {
+	outline: 2px solid var(--folio-accent);
+	outline-offset: 4px;
+}
