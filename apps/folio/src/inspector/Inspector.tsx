@@ -19,6 +19,7 @@ import styles from './Inspector.module.css';
 import { LengthField } from './LengthField';
 import { unitLabel } from './units';
 import { styleChoices } from './styleChoices';
+import { effectiveSize, withOverrides } from './textFacts';
 
 export interface InspectorProps {
 	book: Book;
@@ -228,23 +229,12 @@ const ALIGNS = ['left', 'center', 'right', 'justify'] as const;
 function TextSection({ frame, props }: { frame: TextFrame; props: InspectorProps }) {
 	const { layout, styleFile, apply } = props;
 	const choices = styleChoices(styleFile);
-	const laid = layout?.frames.find((f) => f.frame === frame.id);
-	const chosen = choices.find((c) => c.id === frame.style);
-	const size =
-		Math.round(
-			(frame.overrides?.size ?? laid?.lines[0]?.runs[0]?.size ?? chosen?.size ?? 12) * 10,
-		) / 10;
+	const size = effectiveSize(frame, layout, choices);
 	const words = plainTextOf(frame);
 	const overrides = (change: Partial<NonNullable<TextFrame['overrides']>>): Intent => ({
 		type: 'OverrideStyle',
 		frame: frame.id,
-		overrides: {
-			size: frame.overrides?.size ?? null,
-			align: frame.overrides?.align ?? null,
-			bold: frame.overrides?.bold ?? null,
-			italic: frame.overrides?.italic ?? null,
-			...change,
-		},
+		overrides: withOverrides(frame, change),
 	});
 	const align = frame.overrides?.align ?? 'left';
 	return (

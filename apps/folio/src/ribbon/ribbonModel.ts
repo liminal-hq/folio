@@ -12,6 +12,7 @@ import type {
 import type { Settings } from '@liminal-hq/folio-plugin-settings';
 import type { CommandId } from '../commands/appMenuModel';
 import { t, type MessageKey } from '../i18n/messages';
+import type { EditorState } from './editorCommands';
 import { RIBBON_ICONS } from './ribbonIcons';
 import { RIBBON_LAYOUT, type LayoutItem } from './ribbonLayout';
 
@@ -34,6 +35,8 @@ export const RIBBON_COMMANDS: Readonly<Record<string, CommandId>> = {
 export interface RibbonContext {
 	settings: Settings;
 	available: ReadonlySet<CommandId>;
+	/** The document's controls, when a book is open: which are live and how they are set. */
+	editor?: EditorState;
 }
 
 /** The glyphs of classic toolbar controls that are not named after their id. */
@@ -59,7 +62,8 @@ const FILE_COMMANDS: readonly [CommandId, MessageKey][] = [
 
 function isAvailable(id: string, context: RibbonContext): boolean {
 	const command = RIBBON_COMMANDS[id];
-	return command !== undefined && context.available.has(command);
+	if (command !== undefined && context.available.has(command)) return true;
+	return context.editor?.available.has(id) ?? false;
 }
 
 function toRibbonItem(
@@ -81,6 +85,10 @@ function toRibbonItem(
 		...(source.radio ? { radio: source.radio } : {}),
 	};
 	if (source.id === 'menubar') item.active = context.settings.interface.menuBar;
+	const pressed = context.editor?.active[source.id];
+	if (kind === 'toggle' && pressed !== undefined) item.active = pressed;
+	const shown = context.editor?.values[source.id];
+	if (shown !== undefined) item.value = shown;
 	if (kind === 'select') {
 		item.options = [['', t(`ribbon.value.${source.id}` as MessageKey)]];
 		item.width = source.id === 'font' ? 150 : 130;

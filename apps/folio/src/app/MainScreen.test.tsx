@@ -275,4 +275,36 @@ describe('a book in the main window', () => {
 		await userEvent.click(await screen.findByRole('button', { name: 'Undo' }));
 		await waitFor(() => expect(books.calls.some((c) => c.startsWith('undo('))).toBe(true));
 	});
+
+	it('adds a text box from the ribbon, and turns on the text controls for a selected text frame', async () => {
+		const { books } = setup();
+		await startBook();
+		await userEvent.click(screen.getByRole('button', { name: 'Text box' }));
+		await waitFor(() =>
+			expect(books.calls.some((c) => c.startsWith('apply(') && c.includes('AddFrame'))).toBe(true),
+		);
+		expect(screen.getByRole('button', { name: 'Bold' })).toBeDisabled();
+		await userEvent.click(screen.getByRole('button', { name: /^Page 1/ }));
+		// Pressing each frame in turn, one of the sample's frames is text and wakes the text controls.
+		let woke = false;
+		for (const option of screen.getAllByRole('option')) {
+			fireEvent.pointerDown(option, { button: 0 });
+			fireEvent.pointerUp(option);
+			if (!(screen.getByRole('button', { name: 'Bold' }) as HTMLButtonElement).disabled)
+				woke = true;
+		}
+		expect(woke).toBe(true);
+	});
+
+	it('zooms the stage from the ribbon', async () => {
+		setup();
+		await startBook();
+		const level = () => screen.getByLabelText(/^Zoom \d+%/).textContent;
+		const before = level();
+		await userEvent.click(screen.getByRole('tab', { name: 'View' }));
+		await userEvent.click(
+			within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Zoom in' }),
+		);
+		await waitFor(() => expect(level()).not.toBe(before));
+	});
 });

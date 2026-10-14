@@ -52,6 +52,8 @@ export interface FrameDragOptions {
 	/** Screen pixels per point. */
 	scale: number;
 	selection: string[];
+	/** Whether a drag snaps to edges, centres and margins. Alt turns it off for one drag. */
+	snap?: boolean;
 	onSelect?(ids: string[]): void;
 	/** Commits a frame's new box; resolves once the book has it. */
 	onMove?(id: string, rect: PlainRect): Promise<void>;
@@ -68,7 +70,17 @@ const same = (a: PlainRect, b: PlainRect) =>
 	a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 
 export function useFrameDrag(options: FrameDragOptions) {
-	const { svg, geometry, frames, scale, selection, onSelect, onMove, onCommand } = options;
+	const {
+		svg,
+		geometry,
+		frames,
+		scale,
+		selection,
+		snap = true,
+		onSelect,
+		onMove,
+		onCommand,
+	} = options;
 	const drag = useRef<Drag | null>(null);
 	const [preview, setPreview] = useState<Record<string, PlainRect>>({});
 	const [lines, setLines] = useState<Snapped['lines']>([]);
@@ -161,7 +173,7 @@ export function useFrameDrag(options: FrameDragOptions) {
 			const lead = d.origin.get(d.ids[0]!)!;
 			let applied = { dx, dy };
 			let drawn: Snapped['lines'] = [];
-			if (!event.altKey) {
+			if (snap && !event.altKey) {
 				const snapped = snapMove({ ...lead, x: lead.x + dx, y: lead.y + dy }, targets, threshold);
 				applied = { dx: snapped.rect.x - lead.x, dy: snapped.rect.y - lead.y };
 				drawn = snapped.lines;
@@ -179,7 +191,7 @@ export function useFrameDrag(options: FrameDragOptions) {
 		}
 		let next = resizeRect(d.origin, d.handle, dx, dy, event.shiftKey);
 		const drawn: Snapped['lines'] = [];
-		if (!event.altKey) {
+		if (snap && !event.altKey) {
 			// Snap the edges this handle is dragging, then resize again with the correction.
 			const xs = [
 				...(d.handle.includes('w') ? [next.x] : []),
