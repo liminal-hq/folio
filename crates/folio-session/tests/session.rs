@@ -609,6 +609,13 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
         })
         .unwrap()
     });
+    record("put page numbers on the outside", &mut s, &|s| {
+        s.apply(Intent::SetPageNumbers {
+            position: folio_model::PageNumbers::Outside,
+        })
+        .unwrap()
+    });
+    record("undo the page numbers", &mut s, &|s| s.undo().unwrap());
 
     let text = serde_json::to_string_pretty(&cases).unwrap() + "\n";
     let path = fixture_path();
@@ -718,5 +725,122 @@ fn a_picture_is_set_and_fitted_and_only_on_a_picture_frame() {
         })
         .unwrap_err(),
         SessionError::NotImage("fr_text".into())
+    );
+}
+
+fn master_of_pages(s: &Session) -> Vec<Option<String>> {
+    s.book()
+        .spreads
+        .iter()
+        .flat_map(|sp| {
+            sp.pages
+                .iter()
+                .map(|p| p.master.as_ref().map(|m| m.0.clone()))
+        })
+        .collect()
+}
+
+#[test]
+fn page_numbers_make_a_master_and_give_every_page_after_the_cover_its_master() {
+    let mut s = session();
+    let patch = s
+        .apply(Intent::SetPageNumbers {
+            position: folio_model::PageNumbers::Centre,
+        })
+        .unwrap();
+    assert!(patch
+        .ops
+        .iter()
+        .any(|op| matches!(op, PatchOp::SetMasters { masters, .. } if masters.len() == 1)));
+    assert_eq!(
+        master_of_pages(&s),
+        vec![
+            None,
+            Some("mst_a".into()),
+            Some("mst_a".into()),
+            Some("mst_a".into())
+        ]
+    );
+    assert_eq!(s.book().master_pages[0].frames.len(), 1);
+    // Taking them off, and undoing that, are each one step.
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::None,
+    })
+    .unwrap();
+    assert!(s.book().master_pages.is_empty());
+    assert!(master_of_pages(&s).iter().all(Option::is_none));
+    s.undo().unwrap();
+    assert_eq!(s.book().page_numbers, folio_model::PageNumbers::Centre);
+    assert_eq!(s.book().master_pages.len(), 1);
+}
+
+#[test]
+fn numbers_on_the_outside_use_a_master_for_each_side_of_the_spread() {
+    let mut s = session();
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::Outside,
+    })
+    .unwrap();
+    assert_eq!(s.book().master_pages.len(), 2);
+    // The opener is a lone right-hand page; the pair after it is left then right.
+    assert_eq!(
+        master_of_pages(&s),
+        vec![
+            None,
+            Some("mst_a".into()),
+            Some("mst_b".into()),
+            Some("mst_a".into())
+        ]
+    );
+}
+
+#[test]
+fn pages_added_later_are_numbered_too_and_it_all_undoes_together() {
+    let mut s = session();
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::Centre,
+    })
+    .unwrap();
+    s.apply(Intent::AddSpread {
+        after: spread("sp_2"),
+        duplicate: false,
+    })
+    .unwrap();
+    let masters = master_of_pages(&s);
+    assert_eq!(masters.len(), 6);
+    assert!(masters[1..].iter().all(|m| m.as_deref() == Some("mst_a")));
+    s.undo().unwrap();
+    assert_eq!(master_of_pages(&s).len(), 4);
+}
+
+#[test]
+fn a_master_item_is_hidden_on_one_page_and_shown_again() {
+    let mut s = session();
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::Centre,
+    })
+    .unwrap();
+    let hide = |hide| Intent::HideMasterItem {
+        spread: spread("sp_1"),
+        page: folio_model::PageId("pg_1".into()),
+        frame: frame("fr_pn_a"),
+        hide,
+    };
+    s.apply(hide(true)).unwrap();
+    let hidden = |s: &Session| s.book().spreads[1].master_overrides.clone();
+    assert_eq!(hidden(&s).len(), 1);
+    assert_eq!(hidden(&s)[0].hide, vec![frame("fr_pn_a")]);
+    s.apply(hide(false)).unwrap();
+    assert!(hidden(&s).is_empty());
+    // A frame that is not on the page's master is refused.
+    assert_eq!(
+        s.apply(Intent::HideMasterItem {
+            spread: spread("sp_1"),
+            page: folio_model::PageId("pg_1".into()),
+            frame: frame("fr_other"),
+            hide: true,
+        })
+        .unwrap_err(),
+        SessionError::NoSuchFrame("fr_other".into())
     );
 }

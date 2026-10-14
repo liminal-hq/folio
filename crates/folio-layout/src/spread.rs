@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    Book, Flow, Frame, FrameId, InlineContent, Spread, SpreadId, StyleId, TextFrame,
+    Book, Flow, Frame, FrameId, InlineContent, Pt, Spread, SpreadId, SpreadKind, StyleId, TextFrame,
 };
 
 use crate::error::LayoutError;
@@ -13,7 +13,9 @@ use crate::fonts::{FontBook, FontRequest};
 use crate::paragraph::{Span, Wrap};
 use crate::preflight::geometry_checks;
 use crate::styles::{ResolvedStyle, StyleSheet};
-use crate::wire::{FrameLayout, LayoutLine, LayoutRun, PreflightItem, PreflightKind, SpreadLayout};
+use crate::wire::{
+    FrameLayout, LayoutLine, LayoutRun, Origin, PreflightItem, PreflightKind, SpreadLayout,
+};
 
 /// Lays out the text of a book. Cheap to make; holds nothing but what it was given.
 pub struct Layouter<'a> {
@@ -115,11 +117,76 @@ impl<'a> Layouter<'a> {
             }
             frames.push(layout.clone());
         }
+        frames.extend(self.master_frames(spread)?);
         Ok(SpreadLayout {
             spread: spread.id.clone(),
             frames,
             preflight,
         })
+    }
+
+    /// The text frames of the master pages the spread's pages use, laid out where they sit on the
+    /// spread, with `{page}` and `{book.title}` filled in.
+    fn master_frames(&self, spread: &Spread) -> Result<Vec<FrameLayout>, LayoutError> {
+        let mut out = Vec::new();
+        let first = self.first_page_number(spread);
+        for (index, page) in spread.pages.iter().enumerate() {
+            let Some(master) = page
+                .master
+                .as_ref()
+                .and_then(|id| self.book.master_pages.iter().find(|m| &m.id == id))
+            else {
+                continue;
+            };
+            let hidden = spread
+                .master_overrides
+                .iter()
+                .find(|o| o.page_id == page.id)
+                .map(|o| o.hide.as_slice())
+                .unwrap_or(&[]);
+            let number = first + index;
+            let left = self.book.trim.w.0 * index as f64;
+            for frame in &master.frames {
+                let Frame::Text(text) = frame else {
+                    continue;
+                };
+                if hidden.contains(&text.base.id) {
+                    continue;
+                }
+                let mut copy = text.clone();
+                copy.base.rect.x = Pt(copy.base.rect.x.0 + left);
+                copy.base.id = FrameId(format!("{}@{}", text.base.id.0, page.id.0));
+                if let Some(content) = &mut copy.content {
+                    for run in &mut content.inline {
+                        run.text = run
+                            .text
+                            .replace("{page}", &number.to_string())
+                            .replace("{book.title}", &self.book.title);
+                    }
+                }
+                let (mut laid, _) = self.own_text(&copy)?;
+                laid.origin = Some(Origin {
+                    x: copy.base.rect.x.0,
+                    y: copy.base.rect.y.0,
+                });
+                out.push(laid);
+            }
+        }
+        Ok(out)
+    }
+
+    /// The number of the first page of `spread`: pages count from the first after the cover.
+    fn first_page_number(&self, spread: &Spread) -> usize {
+        let mut count = 0;
+        for earlier in &self.book.spreads {
+            if earlier.id == spread.id {
+                break;
+            }
+            if earlier.kind != SpreadKind::Cover {
+                count += earlier.pages.len();
+            }
+        }
+        count + 1
     }
 
     /// A text frame that holds its own words.
@@ -390,6 +457,7 @@ fn frame_layout(
             .map(|l| wire_line(l, styles))
             .collect(),
         overset: flowed.overset && frame + 1 == flowed.used_height.len().max(1),
+        origin: None,
     }
 }
 
@@ -405,6 +473,7 @@ fn flow_frame(
             frame: id.clone(),
             lines: Vec::new(),
             overset: false,
+            origin: None,
         };
     };
     FrameLayout {
@@ -416,5 +485,6 @@ fn flow_frame(
             .map(|l| wire_line(l, styles))
             .collect(),
         overset: laid.overset && index + 1 == laid.used_height.len(),
+        origin: None,
     }
 }

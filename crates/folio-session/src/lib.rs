@@ -14,6 +14,7 @@
 mod apply;
 mod delta;
 mod error;
+mod masters;
 mod patch;
 mod session;
 

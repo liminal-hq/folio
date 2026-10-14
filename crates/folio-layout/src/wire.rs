@@ -47,6 +47,19 @@ pub struct FrameLayout {
     pub lines: Vec<LayoutLine>,
     /// The frame's text carries on past its last line, in a frame with no room.
     pub overset: bool,
+    /// For a frame that comes from a master page: where its top-left sits on the spread, since the
+    /// spread has no such frame to say. `frame` is then the master frame's id and the page's, joined
+    /// by `@`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<Origin>,
+}
+
+/// A point on a spread, in points from the top-left of the first page's trim.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct Origin {
+    pub x: f64,
+    pub y: f64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]

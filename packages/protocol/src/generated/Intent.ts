@@ -4,6 +4,8 @@ import type { Frame } from "./Frame";
 import type { FrameId } from "./FrameId";
 import type { Grid } from "./Grid";
 import type { Margins } from "./Margins";
+import type { PageId } from "./PageId";
+import type { PageNumbers } from "./PageNumbers";
 import type { Pt } from "./Pt";
 import type { Rect } from "./Rect";
 import type { ReorderTo } from "./ReorderTo";
@@ -12,4 +14,4 @@ import type { SpreadId } from "./SpreadId";
 import type { StyleId } from "./StyleId";
 import type { StyleOverrides } from "./StyleOverrides";
 
-export type Intent = { "type": "MoveFrame", spread: SpreadId, frame: FrameId, box: Rect, } | { "type": "DuplicateFrame", spread: SpreadId, frame: FrameId, } | { "type": "LockFrame", spread: SpreadId, frame: FrameId, locked: boolean, } | { "type": "SetImage", frame: FrameId, asset?: string | null, fit?: Fit | null, } | { "type": "SetText", frame: FrameId, text: string, } | { "type": "SetStyle", frame: FrameId, style: StyleId, } | { "type": "OverrideStyle", frame: FrameId, overrides: StyleOverrides, } | { "type": "AddFrame", spread: SpreadId, frame: Frame, } | { "type": "DeleteFrame", spread: SpreadId, frame: FrameId, } | { "type": "Reorder", spread: SpreadId, frame: FrameId, to: ReorderTo, } | { "type": "AddSpread", after: SpreadId, duplicate: boolean, } | { "type": "DeleteSpread", spread: SpreadId, } | { "type": "MoveSpread", spread: SpreadId, to: number, } | { "type": "SetBookGeometry", trim: Size | null, margins: Margins | null, bleed: Pt | null, grid: Grid | null, };
+export type Intent = { "type": "MoveFrame", spread: SpreadId, frame: FrameId, box: Rect, } | { "type": "DuplicateFrame", spread: SpreadId, frame: FrameId, } | { "type": "LockFrame", spread: SpreadId, frame: FrameId, locked: boolean, } | { "type": "SetImage", frame: FrameId, asset?: string | null, fit?: Fit | null, } | { "type": "SetPageNumbers", position: PageNumbers, } | { "type": "HideMasterItem", spread: SpreadId, page: PageId, frame: FrameId, hide: boolean, } | { "type": "SetText", frame: FrameId, text: string, } | { "type": "SetStyle", frame: FrameId, style: StyleId, } | { "type": "OverrideStyle", frame: FrameId, overrides: StyleOverrides, } | { "type": "AddFrame", spread: SpreadId, frame: Frame, } | { "type": "DeleteFrame", spread: SpreadId, frame: FrameId, } | { "type": "Reorder", spread: SpreadId, frame: FrameId, to: ReorderTo, } | { "type": "AddSpread", after: SpreadId, duplicate: boolean, } | { "type": "DeleteSpread", spread: SpreadId, } | { "type": "MoveSpread", spread: SpreadId, to: number, } | { "type": "SetBookGeometry", trim: Size | null, margins: Margins | null, bleed: Pt | null, grid: Grid | null, };

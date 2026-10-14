@@ -6,9 +6,9 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::book::Grid;
+use crate::book::{Grid, PageNumbers};
 use crate::frame::{Fit, Frame, StyleOverrides};
-use crate::ids::{FrameId, SpreadId, StyleId};
+use crate::ids::{FrameId, PageId, SpreadId, StyleId};
 use crate::units::{Margins, Pt, Rect, Size};
 
 // ── Intents (UI → core) ──
@@ -41,6 +41,17 @@ pub enum Intent {
         asset: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         fit: Option<Fit>,
+    },
+    /// Puts page numbers on every page after the cover, or takes them off.
+    SetPageNumbers {
+        position: PageNumbers,
+    },
+    /// Hides a master page's frame on one page, or shows it again.
+    HideMasterItem {
+        spread: SpreadId,
+        page: PageId,
+        frame: FrameId,
+        hide: bool,
     },
     SetText {
         frame: FrameId,

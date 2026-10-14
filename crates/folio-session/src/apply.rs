@@ -12,6 +12,7 @@ use folio_model::{
 const DUPLICATE_OFFSET: f64 = 12.0;
 
 use crate::error::SessionError;
+use crate::masters::apply_page_numbers;
 use crate::session::IdSource;
 
 /// What an intent will touch, worked out before anything changes, so it can be refused whole or
@@ -97,6 +98,24 @@ fn every_id(frame: &Frame, out: &mut Vec<FrameId>) {
 
 /// Works out what `intent` touches, or says why it cannot be done.
 pub fn plan(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, SessionError> {
+    let mut made = plan_one(book, intent, ids)?;
+    // Page numbers follow the pages, so a change to which pages there are, and where, redoes them
+    // all and every spread is part of the change.
+    let restructures = matches!(
+        intent,
+        Intent::AddSpread { .. } | Intent::DeleteSpread { .. } | Intent::MoveSpread { .. }
+    );
+    if restructures && !book.page_numbers.is_none() {
+        for spread in &book.spreads {
+            if !made.touched.contains(&spread.id) {
+                made.touched.push(spread.id.clone());
+            }
+        }
+    }
+    Ok(made)
+}
+
+fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, SessionError> {
     let one = |id: SpreadId, merge: Option<MergeKey>| Plan {
         touched: vec![id],
         new_spread: None,
@@ -127,6 +146,33 @@ pub fn plan(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 return Err(SessionError::Locked(frame.0.clone()));
             }
             Ok(one(spread_of(book, frame)?, None))
+        }
+        Intent::SetPageNumbers { .. } => Ok(Plan {
+            touched: book.spreads.iter().map(|s| s.id.clone()).collect(),
+            new_spread: None,
+            merge: None,
+        }),
+        Intent::HideMasterItem {
+            spread: s,
+            page,
+            frame,
+            ..
+        } => {
+            let found = spread(book, s)?;
+            let on = found
+                .pages
+                .iter()
+                .find(|p| &p.id == page)
+                .ok_or_else(|| SessionError::NotOnSpread(page.0.clone(), s.0.clone()))?;
+            let owns = on.master.as_ref().is_some_and(|m| {
+                book.master_pages
+                    .iter()
+                    .any(|mp| &mp.id == m && mp.frames.iter().any(|f| &f.base().id == frame))
+            });
+            if !owns {
+                return Err(SessionError::NoSuchFrame(frame.0.clone()));
+            }
+            Ok(one(s.clone(), None))
         }
         Intent::SetText { frame, .. } => {
             check_text(book, frame)?;
@@ -254,6 +300,17 @@ fn renew(frame: &mut Frame, ids: &mut IdSource) {
 
 /// Applies an intent that `plan` accepted.
 pub fn run(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
+    let restructures = matches!(
+        intent,
+        Intent::AddSpread { .. } | Intent::DeleteSpread { .. } | Intent::MoveSpread { .. }
+    );
+    run_one(book, intent, plan, ids);
+    if restructures && !book.page_numbers.is_none() {
+        apply_page_numbers(book);
+    }
+}
+
+fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
     match intent {
         Intent::MoveFrame {
             spread: s,
@@ -280,6 +337,39 @@ pub fn run(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 }
                 if let Some(fit) = fit {
                     img.image.fit = fit;
+                }
+            }
+        }
+        Intent::SetPageNumbers { position } => {
+            book.page_numbers = position;
+            apply_page_numbers(book);
+        }
+        Intent::HideMasterItem {
+            spread: s,
+            page,
+            frame,
+            hide,
+        } => {
+            if let Some(sp) = book.spreads.iter_mut().find(|sp| sp.id == s) {
+                let at = sp.master_overrides.iter().position(|o| o.page_id == page);
+                match (at, hide) {
+                    (Some(at), true) => {
+                        let hidden = &mut sp.master_overrides[at].hide;
+                        if !hidden.contains(&frame) {
+                            hidden.push(frame);
+                        }
+                    }
+                    (None, true) => sp.master_overrides.push(folio_model::MasterOverride {
+                        page_id: page,
+                        hide: vec![frame],
+                    }),
+                    (Some(at), false) => {
+                        sp.master_overrides[at].hide.retain(|f| f != &frame);
+                        if sp.master_overrides[at].hide.is_empty() {
+                            sp.master_overrides.remove(at);
+                        }
+                    }
+                    (None, false) => {}
                 }
             }
         }
