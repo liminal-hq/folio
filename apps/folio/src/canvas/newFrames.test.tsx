@@ -10,7 +10,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { boxAt, newFrame, newFrameId } from './newFrames';
 import { pageMenuItems } from './pageMenu';
-import { DEFAULT_MARKS, SpreadCanvas } from './SpreadCanvas';
+import { DEFAULT_MARKS } from './marksModel';
+import { SpreadCanvas } from './SpreadCanvas';
 
 const page = { x: 0, y: 0, w: 400, h: 400 };
 

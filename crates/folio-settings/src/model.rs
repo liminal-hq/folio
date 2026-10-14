@@ -115,6 +115,70 @@ impl Default for InterfaceSettings {
     }
 }
 
+/// How many curated colours each page mark can be drawn in (the index is `0..MARK_COLOURS`).
+pub const MARK_COLOURS: u8 = 4;
+
+/// One page mark: whether it is drawn, and which of its four curated colours.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct MarkSetting {
+    pub on: bool,
+    /// An index into the mark's curated colours, `0` to `3`.
+    pub colour: u8,
+}
+
+impl MarkSetting {
+    const fn new(on: bool) -> Self {
+        Self { on, colour: 0 }
+    }
+}
+
+impl Default for MarkSetting {
+    fn default() -> Self {
+        Self::new(false)
+    }
+}
+
+/// The marks drawn over a page (spec 06): none of them prints or exports.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct MarksSettings {
+    pub bleed: MarkSetting,
+    pub margins: MarkSetting,
+    pub columns: MarkSetting,
+    pub baseline: MarkSetting,
+    pub frame_edges: MarkSetting,
+    /// Whether dragging snaps to the page's edges, margins and other frames.
+    pub snap: bool,
+}
+
+impl Default for MarksSettings {
+    fn default() -> Self {
+        Self {
+            bleed: MarkSetting::new(true),
+            margins: MarkSetting::new(true),
+            columns: MarkSetting::new(false),
+            baseline: MarkSetting::new(false),
+            frame_edges: MarkSetting::new(false),
+            snap: true,
+        }
+    }
+}
+
+impl MarksSettings {
+    fn each(&mut self) -> [(&'static str, &mut MarkSetting); 5] {
+        [
+            ("marks.bleed.colour", &mut self.bleed),
+            ("marks.margins.colour", &mut self.margins),
+            ("marks.columns.colour", &mut self.columns),
+            ("marks.baseline.colour", &mut self.baseline),
+            ("marks.frameEdges.colour", &mut self.frame_edges),
+        ]
+    }
+}
+
 /// The application settings: one document every window reads.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
@@ -125,6 +189,7 @@ pub struct Settings {
     pub units: Units,
     pub jax: JaxHelp,
     pub interface: InterfaceSettings,
+    pub marks: MarksSettings,
     /// The paths of recently opened books, newest first.
     pub recent_books: Vec<String>,
 }
@@ -155,6 +220,16 @@ impl Settings {
                 max: SIDEBAR_WIDTH_MAX,
             });
         }
+        let mut marks = self.marks;
+        for (field, mark) in marks.each() {
+            if mark.colour >= MARK_COLOURS {
+                return Err(SettingsError::OutOfRange {
+                    field,
+                    min: 0,
+                    max: u32::from(MARK_COLOURS) - 1,
+                });
+            }
+        }
         if self.recent_books.len() > RECENT_BOOKS_MAX {
             return Err(SettingsError::OutOfRange {
                 field: "recentBooks",
@@ -172,6 +247,9 @@ impl Settings {
             .interface
             .sidebar_width
             .clamp(SIDEBAR_WIDTH_MIN, SIDEBAR_WIDTH_MAX);
+        for (_, mark) in self.marks.each() {
+            mark.colour = mark.colour.min(MARK_COLOURS - 1);
+        }
         self.recent_books.truncate(RECENT_BOOKS_MAX);
         self
     }
@@ -326,5 +404,41 @@ mod tests {
         assert_eq!(s.interface.sidebar_width, SIDEBAR_WIDTH_MIN);
         assert_eq!(s.recent_books.len(), RECENT_BOOKS_MAX);
         assert!(s.validate().is_ok());
+    }
+
+    #[test]
+    fn the_marks_start_with_the_bleed_and_margins_on_and_snapping_on() {
+        let marks = Settings::default().marks;
+        assert!(marks.bleed.on && marks.margins.on && marks.snap);
+        assert!(!marks.columns.on && !marks.baseline.on && !marks.frame_edges.on);
+        assert_eq!(marks.bleed.colour, 0);
+    }
+
+    #[test]
+    fn a_mark_is_changed_by_a_patch_that_names_only_what_changes() {
+        let patched = Settings::default()
+            .patched(&json!({ "marks": { "columns": { "on": true, "colour": 2 } } }))
+            .unwrap();
+        assert!(patched.marks.columns.on);
+        assert_eq!(patched.marks.columns.colour, 2);
+        assert!(patched.marks.bleed.on, "the others are left alone");
+    }
+
+    #[test]
+    fn a_colour_past_the_fourth_is_refused_and_clamped_when_read() {
+        let refused = Settings::default()
+            .patched(&json!({ "marks": { "margins": { "colour": 4 } } }))
+            .unwrap_err();
+        assert!(matches!(
+            refused,
+            SettingsError::OutOfRange {
+                field: "marks.margins.colour",
+                min: 0,
+                max: 3
+            }
+        ));
+        let mut stored = Settings::default();
+        stored.marks.baseline.colour = 9;
+        assert_eq!(stored.clamped().marks.baseline.colour, 3);
     }
 }

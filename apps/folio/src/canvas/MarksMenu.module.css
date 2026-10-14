@@ -1,0 +1,72 @@
+.root {
+	position: relative;
+}
+
+.button {
+	min-block-size: 28px;
+	padding: 0 10px;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.button:hover,
+.button[aria-expanded='true'] {
+	background: var(--folio-bg-hover);
+}
+
+.panel {
+	position: absolute;
+	inset-block-start: calc(100% + 4px);
+	inset-inline-end: 0;
+	z-index: 20;
+	display: grid;
+	gap: 4px;
+	min-inline-size: 260px;
+	padding: 8px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 10px;
+	background: var(--folio-bg-raised);
+	color: var(--folio-text-primary);
+	box-shadow: 0 8px 24px rgb(0 0 0 / 28%);
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	min-block-size: 28px;
+	font-size: 13px;
+}
+
+.check {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.check input {
+	accent-color: var(--folio-accent);
+}
+
+.swatches {
+	display: flex;
+	gap: 6px;
+}
+
+.swatch {
+	inline-size: 16px;
+	block-size: 16px;
+	padding: 0;
+	border: 2px solid transparent;
+	border-radius: 50%;
+	cursor: pointer;
+}
+
+.swatch[aria-pressed='true'] {
+	border-color: var(--folio-text-primary);
+}

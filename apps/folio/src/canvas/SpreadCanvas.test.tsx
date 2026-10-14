@@ -8,7 +8,8 @@ import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_MARKS, SpreadCanvas } from './SpreadCanvas';
+import { DEFAULT_MARKS } from './marksModel';
+import { SpreadCanvas } from './SpreadCanvas';
 
 const book = {
 	trim: { w: 100, h: 100 },

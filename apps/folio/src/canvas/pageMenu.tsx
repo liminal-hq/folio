@@ -6,7 +6,7 @@
 import type { MenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
 import { AddPagesIcon, DuplicateIcon } from '../icons/AppIcons';
 import { t } from '../i18n/messages';
-import type { Marks } from './SpreadCanvas';
+import type { Marks } from './marksModel';
 
 export type PageCommand =
 	| 'addText'

@@ -20,6 +20,14 @@ export const DEFAULT_SETTINGS: Settings = {
 		sidebarCollapsed: false,
 		largerControls: false,
 	},
+	marks: {
+		bleed: { on: true, colour: 0 },
+		margins: { on: true, colour: 0 },
+		columns: { on: false, colour: 0 },
+		baseline: { on: false, colour: 0 },
+		frameEdges: { on: false, colour: 0 },
+		snap: true,
+	},
 	recentBooks: [],
 };
 

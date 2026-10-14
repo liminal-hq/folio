@@ -13,7 +13,7 @@ import { Segmented } from '../app/Segmented';
 import { formatLength, formatTrim, pageCount } from '../books/format';
 import { plainTextOf } from '../canvas/TextEditor';
 import { spreadGeometry } from '../canvas/geometry';
-import type { Marks } from '../canvas/SpreadCanvas';
+import type { Marks } from '../canvas/marksModel';
 import { t } from '../i18n/messages';
 import styles from './Inspector.module.css';
 import { LengthField } from './LengthField';

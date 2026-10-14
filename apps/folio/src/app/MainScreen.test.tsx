@@ -307,4 +307,14 @@ describe('a book in the main window', () => {
 		);
 		await waitFor(() => expect(level()).not.toBe(before));
 	});
+
+	it('keeps the page marks in the settings, so they hold for the next book', async () => {
+		const { settings } = setup();
+		await startBook();
+		await userEvent.click(screen.getByRole('checkbox', { name: 'Columns' }));
+		await waitFor(async () => expect((await settings.get()).settings.marks.columns.on).toBe(true));
+		await userEvent.click(screen.getByRole('button', { name: 'Marks' }));
+		await userEvent.click(screen.getByRole('button', { name: 'Margins colour 3' }));
+		await waitFor(async () => expect((await settings.get()).settings.marks.margins.colour).toBe(2));
+	});
 });

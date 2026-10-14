@@ -6,7 +6,7 @@
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_MARKS } from '../canvas/SpreadCanvas';
+import { DEFAULT_MARKS } from '../canvas/marksModel';
 import { editorAction, editorState, type EditorInput } from './editorCommands';
 
 const spread = (kind = 'spread') =>

@@ -13,7 +13,15 @@ import { t } from '../i18n/messages';
 import { frameMenuItems, type FrameCommand } from './frameMenu';
 import { pageMenuItems, type PageCommand } from './pageMenu';
 import { fitZoom, spreadGeometry, type PlainRect } from './geometry';
-import { DEFAULT_MARKS, SpreadCanvas, type Marks } from './SpreadCanvas';
+import { MarksMenu } from './MarksMenu';
+import {
+	DEFAULT_MARK_COLOURS,
+	DEFAULT_MARKS,
+	type MarkColours,
+	type MarkKey,
+	type Marks,
+} from './marksModel';
+import { SpreadCanvas } from './SpreadCanvas';
 import styles from './Stage.module.css';
 import { useElementSize } from './useElementSize';
 import { useStageZoom, type StageZoom } from './useStageZoom';
@@ -27,6 +35,9 @@ export interface StageProps {
 	label: string;
 	layout: SpreadLayout | null;
 	marks?: Marks;
+	colours?: MarkColours;
+	onMarks?(next: Partial<Marks>): void;
+	onMarkColour?(key: MarkKey, index: number): void;
 	snap?: boolean;
 	/** Filled in with the stage's zoom controls, for the ribbon and the keys to use. */
 	zoomApi?: MutableRefObject<ZoomApi | null>;
@@ -46,6 +57,9 @@ export function Stage({
 	label,
 	layout,
 	marks,
+	colours,
+	onMarks,
+	onMarkColour,
 	snap,
 	zoomApi,
 	images,
@@ -72,17 +86,27 @@ export function Stage({
 		<>
 			<div className={styles.header}>
 				<h1 className={styles.title}>{t('stage.spread', { label })}</h1>
-				<div className={styles.zoom} role="group" aria-label={t('stage.zoom.group')}>
-					<button type="button" onClick={zoom.zoomOut} aria-label={t('stage.zoom.out')}>
-						−
-					</button>
-					<output aria-label={t('stage.zoom.level', { percent })}>{percent}%</output>
-					<button type="button" onClick={zoom.zoomIn} aria-label={t('stage.zoom.in')}>
-						+
-					</button>
-					<button type="button" onClick={zoom.fit} aria-pressed={zoom.fitting}>
-						{t('stage.zoom.fit')}
-					</button>
+				<div className={styles.tools}>
+					{onMarks && onMarkColour && (
+						<MarksMenu
+							marks={marks ?? DEFAULT_MARKS}
+							colours={colours ?? DEFAULT_MARK_COLOURS}
+							onMarks={onMarks}
+							onColour={onMarkColour}
+						/>
+					)}
+					<div className={styles.zoom} role="group" aria-label={t('stage.zoom.group')}>
+						<button type="button" onClick={zoom.zoomOut} aria-label={t('stage.zoom.out')}>
+							−
+						</button>
+						<output aria-label={t('stage.zoom.level', { percent })}>{percent}%</output>
+						<button type="button" onClick={zoom.zoomIn} aria-label={t('stage.zoom.in')}>
+							+
+						</button>
+						<button type="button" onClick={zoom.fit} aria-pressed={zoom.fitting}>
+							{t('stage.zoom.fit')}
+						</button>
+					</div>
 				</div>
 			</div>
 			<div
@@ -101,6 +125,7 @@ export function Stage({
 						zoom={zoom.zoom}
 						label={t('region.stage')}
 						marks={marks}
+						colours={colours}
 						snap={snap}
 						images={images}
 						selection={selection}

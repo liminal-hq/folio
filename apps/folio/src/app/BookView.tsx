@@ -14,7 +14,7 @@ import { spreadGeometry } from '../canvas/geometry';
 import { defaultTextStyle, styleChoices } from '../inspector/styleChoices';
 import { Shelf } from '../canvas/Shelf';
 import { shelfIntent } from '../canvas/shelfMenu';
-import { DEFAULT_MARKS, type Marks } from '../canvas/SpreadCanvas';
+import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../canvas/marksModel';
 import { Stage, type ZoomApi } from '../canvas/Stage';
 import { useSelection } from '../canvas/useSelection';
 import { useAssetUrls } from '../canvas/useAssetUrls';
@@ -30,7 +30,8 @@ import {
 	type EditorInput,
 } from '../ribbon/editorCommands';
 import { FolioToolbar } from '../ribbon/FolioToolbar';
-import { useSettings } from '../settings/useSettings';
+import type { SettingsPatch } from '@liminal-hq/folio-plugin-settings';
+import { useSettings, useUpdateSettings } from '../settings/useSettings';
 import styles from './MainScreen.module.css';
 
 export function BookView({
@@ -50,8 +51,12 @@ export function BookView({
 	const settings = useSettings();
 	const { client, store, dialogs } = useBooks();
 	const [spreadIndex, setSpreadIndex] = useState(0);
-	const [marks, setMarks] = useState<Marks>(DEFAULT_MARKS);
-	const [snap, setSnap] = useState(true);
+	const update = useUpdateSettings();
+	const marks = useMemo(() => marksOf(settings.marks), [settings.marks]);
+	const colours = useMemo(() => coloursOf(settings.marks), [settings.marks]);
+	const snap = settings.marks.snap;
+	/** Changes which marks are drawn; the choice is kept in the settings, for every book. */
+	const setMarks = (next: Partial<Marks>) => void update(marksPatch(marks, next));
 	const zoomApi = useRef<ZoomApi | null>(null);
 	const book = copy.book;
 	const shown = Math.max(0, Math.min(spreadIndex, book.spreads.length - 1));
@@ -163,10 +168,10 @@ export function BookView({
 				addFrame(action.shape);
 				break;
 			case 'marks':
-				setMarks({ ...marks, ...action.marks });
+				setMarks(action.marks);
 				break;
 			case 'snap':
-				setSnap(!snap);
+				void update({ marks: { snap: !snap } } as SettingsPatch);
 				break;
 			case 'zoom':
 				if (action.zoom === 'in') zoomApi.current?.zoomIn();
@@ -221,6 +226,11 @@ export function BookView({
 						label={labels[shown] ?? ''}
 						layout={layout}
 						marks={marks}
+						colours={colours}
+						onMarks={setMarks}
+						onMarkColour={(key: MarkKey, colour: number) =>
+							void update({ marks: { [key]: { colour } } } as SettingsPatch)
+						}
 						snap={snap}
 						zoomApi={zoomApi}
 						images={images}
@@ -247,10 +257,10 @@ export function BookView({
 								apply({ type: 'AddSpread', after: spread.id, duplicate: false });
 								setSpreadIndex(shown + 1);
 							} else if (command === 'duplicateSpread') pageOp('duplicate');
-							else if (command === 'toggleMargins') setMarks({ ...marks, margins: !marks.margins });
+							else if (command === 'toggleMargins') setMarks({ margins: !marks.margins });
 							else if (command === 'toggleGrid') {
 								const on = !(marks.columns || marks.baseline);
-								setMarks({ ...marks, columns: on, baseline: on });
+								setMarks({ columns: on, baseline: on });
 							}
 						}}
 						onCommand={(command, ids) => {
@@ -272,7 +282,7 @@ export function BookView({
 					layout={layout}
 					selected={selected}
 					marks={marks}
-					onMarks={setMarks}
+					onMarks={(next) => setMarks(next)}
 					apply={apply}
 					choosePicture={(frame) => void choosePicture(frame)}
 				/>
