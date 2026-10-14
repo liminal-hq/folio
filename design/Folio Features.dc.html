@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/waypoint.css">
+  <style>html,body{margin:0;background:#0f0d0c}a{color:#fb923c}a:hover{color:#fdba74}</style>
+</helmet>
+<section data-screen-label="Feature workbenches" style="padding:64px 72px 96px;display:flex;flex-direction:column;gap:30px;background:#0f0d0c;color:#f5f1ed;font-family:system-ui,sans-serif;width:max-content;">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:1100px;">
+    <span style="font-size:13px;color:#9a918a;">Round 3 · Folio · feature workbenches</span>
+    <h1 style="margin:0;font-size:34px;font-weight:600;letter-spacing:-0.01em;">Eight areas, one working artboard each</h1>
+    <p style="margin:0;font-size:15px;line-height:1.5;color:#c9c1ba;text-wrap:pretty;">Each is its own file, so it can be refined on its own, then ported into the main prototype. Every control works. Jax appears only as an optional chip — he never interrupts. Specs: <a href="spec/features/README.md">spec/features/</a> (one per feature). The main app: <a href="Folio.dc.html">Folio.dc.html</a> · its board: <a href="Folio Board.dc.html">Folio Board</a>.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(2,1180px);gap:48px 44px;">
+    <sc-for list="{{ boards }}" as="b" hint-placeholder-count="8">
+      <div id="{{ b.id }}" data-ab="{{ b.id }}" style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:baseline;gap:10px;"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:#4a2a1a;color:#fb923c;font-family:var(--font-mono);font-size:12px;font-weight:600;">{{ b.id }}</span><span style="font-size:16px;font-weight:600;">{{ b.title }}</span><span style="font-size:12px;color:#9a918a;">{{ b.file }}</span></div>
+        <span style="font-size:12px;color:#9a918a;line-height:1.45;max-width:1100px;text-wrap:pretty;">{{ b.note }}</span>
+        <div style="width:1180px;height:760px;border-radius:12px;background:#1c1917;box-shadow:0 0 0 1px rgba(255,255,255,0.06);">
+          <sc-if value="{{ b.vis }}"><iframe src="{{ b.file }}" title="{{ b.title }}" style="width:1180px;height:760px;border:0;display:block;border-radius:12px;background:#1c1917;"></iframe></sc-if>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const B = [
+  ['3a', 'Book structure', 'Folio Structure', 'Front matter wizard, live contents with page numbers, copyright page, back matter, index and glossary builders, and the footnote ↔ endnote switch.', 'dark'],
+  ['3b', 'Typesetting quality', 'Folio Typesetting', 'Widows, orphans and runts with one-click fixes; overset text and auto-add pages; smart punctuation with a diff; rivers; stray styles; a per-book hyphenation dictionary.', 'light'],
+  ['3c', 'Pictures', 'Folio Pictures', 'Real resolution check while resizing; linked vs embedded with relink; CMYK soft-proof with a compare divider; background removal and line tracing; picture library.', 'dark'],
+  ['3d', 'Proofing and review', 'Folio Proofing', 'Sticky comments with replies and resolve; home-printed booklet imposition; version history and compare; read-aloud with word highlighting; review PDF round trip.', 'light'],
+  ['3e', 'Publishing helpers', 'Folio Publishing', 'KDP / IngramSpark / Kobo upload checklist with copy buttons; keywords and categories; Jax-drafted blurbs (local, optional); royalty calculator; launch timeline.', 'dark'],
+  ['3f', 'Series and editions', 'Folio Series', 'Shared styles and cover template across a series; translations side by side; large-print edition; audiobook script; editions with their own trim and ISBN.', 'light'],
+  ['3g', 'Accessibility', 'Folio Accessibility', 'Alt-text queue with suggestions; EPUB accessibility check with reading order; dyslexia-friendly preview; larger controls for the app itself.', 'dark'],
+  ['3h', 'Picture-book extras', 'Folio Picture Book', 'Page-turn planner with a tension line; read-aloud pacing by age; character and colour consistency board; sketch-to-final layers and progress.', 'light'],
+];
+class Component extends DCLogic {
+  state = { vis: {} };
+  componentDidMount() {
+    const near = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.bottom > -400 && r.top < innerHeight + 400 && r.right > -400 && r.left < innerWidth + 400; };
+    this.t = setInterval(() => { const add = {}; document.querySelectorAll('[data-ab]').forEach((el) => { const id = el.getAttribute('data-ab'); if (!this.state.vis[id] && near(el)) add[id] = true; }); if (Object.keys(add).length) this.setState((s) => ({ vis: Object.assign({}, s.vis, add) })); }, 500);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  renderVals() { return { boards: B.map(([id, title, name, note, theme]) => ({ id, title, name, file: name + '.dc.html', note, theme, vis: !!this.state.vis[id] })) }; }
+}
+</script>
+</body>
+</html>

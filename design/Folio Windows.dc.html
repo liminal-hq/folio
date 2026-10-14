@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/typography.css">
+  <style>html,body{margin:0;background:#0f0d0c}a{color:#fb923c}a:hover{color:#fdba74}</style>
+</helmet>
+<section data-screen-label="Windows" style="padding:64px 72px 96px;display:flex;flex-direction:column;gap:30px;background:#0f0d0c;color:#f5f1ed;font-family:var(--font-body);width:max-content;">
+  <div style="display:flex;flex-direction:column;gap:8px;max-width:1200px;">
+    <span style="font-size:13px;color:#9a918a;">Folio · every Tauri window and in-window sheet, live</span>
+    <h1 style="margin:0;font-family:var(--font-heading);font-size:34px;font-weight:700;letter-spacing:-0.02em;">Windows</h1>
+    <p style="margin:0;font-size:15px;line-height:1.55;color:#c9c1ba;text-wrap:pretty;">What opens where. <b style="color:#fff;">Windows</b> are separate Tauri <span style="font-family:var(--font-mono);color:#fb923c;">WebviewWindow</span>s with Waypoint chrome; <b style="color:#fff;">sheets</b> open inside the main window over the book. Each frame is the real thing.</p>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:2px;border:1px solid #3a3531;border-radius:12px;overflow:hidden;max-width:1400px;">
+    <div style="display:grid;grid-template-columns:200px 110px 130px 220px minmax(0,1fr);gap:12px;padding:10px 16px;background:#1c1917;font-size:12px;font-weight:600;color:#9a918a;"><span>Window</span><span>Kind</span><span>Size</span><span>Tauri label · config</span><span>Opened from</span></div>
+    <sc-for list="{{ rows }}" as="r"><div style="display:grid;grid-template-columns:200px 110px 130px 220px minmax(0,1fr);gap:12px;padding:9px 16px;background:#171412;font-size:12.5px;align-items:center;"><a href="{{ r.href }}" style="color:#f5f1ed;font-weight:600;">{{ r.id }} · {{ r.t }}</a><span style="{{ r.kindStyle }}">{{ r.kind }}</span><span style="font-family:var(--font-mono);font-size:11.5px;color:#c9c1ba;">{{ r.size }}</span><span style="font-family:var(--font-mono);font-size:11px;color:#9a918a;">{{ r.cfg }}</span><span style="color:#c9c1ba;">{{ r.from }}</span></div></sc-for>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:40px 44px;align-items:flex-start;max-width:2400px;">
+    <sc-for list="{{ wins }}" as="w">
+      <div id="{{ w.id }}" data-ab="{{ w.id }}" style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:baseline;gap:10px;"><span style="{{ w.badge }}">{{ w.id }}</span><span style="font-size:16px;font-weight:600;">{{ w.t }}</span><span style="{{ w.kindStyle }}">{{ w.kind }}</span></div>
+        <span style="{{ w.noteStyle }}">{{ w.note }}</span>
+        <div style="{{ w.frame }}">
+          <sc-if value="{{ w.vis }}">
+            <sc-if value="{{ w.isApp }}"><div style="{{ w.inner }}"><dc-import name="Folio" dc-props="{{ w.props }}" hint-size="1440px,900px" style="width:1440px;height:900px;display:block;"></dc-import></div></sc-if>
+            <sc-if value="{{ w.isWiz }}"><div style="{{ w.inner }}"><dc-import name="Folio Wizard" kind="{{ w.wiz }}" hint-size="880px,640px"></dc-import></div></sc-if>
+            <sc-if value="{{ w.isAbout }}"><div style="{{ w.inner }}"><dc-import name="Folio About" hint-size="560px,760px"></dc-import></div></sc-if>
+            <sc-if value="{{ w.isFrame }}"><div style="{{ w.inner }}"><iframe src="{{ w.src }}" title="{{ w.t }}" style="{{ w.iframe }}"></iframe></div></sc-if>
+          </sc-if>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const W = [
+  ['w1', 'Main window', 'Window', '1440 × 900 · min 1024 × 680', 'main · decorations:false · resizable', 'App launch · New window', 'The book editor. One per open book session; document tabs live inside it.', { app: { theme: 'dark', platform: 'win11', jaxOpen: false } }, 0.5, 1440, 900],
+  ['w2', 'About Folio', 'Window', '560 × 760 · fixed', 'about · resizable:false · centre · skipTaskbar', 'Folio menu → About Folio', 'Drag the 3D book to spin it; click to open the cover. Version line copies build details.', { about: true }, 1, 560, 760],
+  ['w3', 'Book tools', 'Window', '1180 × 760 · min 900 × 600', 'tool-<area> · utility · parent:main', 'Folio menu → Book tools · Tools menu', 'Eight workbenches (structure, typesetting, pictures…). One window per tool; reopening focuses it.', { src: 'Folio Structure.dc.html' }, 0.5, 1180, 760],
+  ['w4', 'Torn-off document', 'Window', 'as dragged · min 1024 × 680', 'doc-<id> · same as main', 'Drag a document tab down', 'A book in its own window, with the same chrome. Drag its tab back onto another window to merge.', null, 0.5, 1440, 900],
+  ['w5', 'Floating panels', 'Window', '300 × 520', 'panel-<group> · utility · alwaysOnTop(owner) · skipTaskbar', 'Sidebar ↗, or Sidebar layout → Floating panels', 'Sidebar groups as their own small windows. Wayland: transient children placed by the compositor.', { app: { theme: 'light', platform: 'gnome', mode: 'expert', sidebar: 'floating', kind: 'illustrated', selId: 'tt', jaxOpen: false } }, 0.5, 1440, 900],
+  ['w6', 'Export book', 'Sheet', '960 × 640', 'in main window', 'Export tab · Ctrl+E', 'Targets, KDP cover maths, preflight, progress. Hide keeps it running.', { app: { theme: 'light', platform: 'win11', exportOpen: true, exTarget: 'paperback', kind: 'picture', jaxOpen: false } }, 0.5, 1440, 900],
+  ['w7', 'Spread templates', 'Sheet', '900 × auto', 'in main window', 'Insert / Pages → Spread templates', 'Filter chips by kind; inserts after the current spread.', { app: { theme: 'dark', platform: 'kde', tplOpen: true, kind: 'picture', jaxOpen: false } }, 0.5, 1440, 900],
+  ['w8', 'Welcome', 'Window state', 'main', 'main · route /welcome', 'Launch with no book · New book', 'Pick a book, Easy or Expert, and whether Jax helps.', { app: { theme: 'dark', platform: 'win11', screen: 'welcome' } }, 0.5, 1440, 900],
+  ['w10', 'New book wizard', 'Window', '880 × 640 · fixed', 'wizard-new · resizable:false · parent:main', 'Welcome → Guide me · Folio menu → New book…', 'Optional seven-step setup: kind, size and paper, title, import words, Easy/Expert + Jax, look, review. “Skip the wizard” is always there.', { wiz: 'newbook' }, 1, 880, 640],
+  ['w11', 'Publish wizard', 'Window', '880 × 640 · fixed', 'wizard-publish · resizable:false · parent:main', 'Export tab → Walk me through publishing', 'Optional: where it\'s going, details, ISBN and barcode, price, a quick check, make the files, then a KDP upload checklist. The Export dialog does the same in one screen.', { wiz: 'publish' }, 1, 880, 640],
+  ['w9', 'Preferences', 'Window', '720 × 560', 'prefs · resizable:false (planned)', 'Folio menu → Preferences · Ctrl+,', 'Planned: units, theme, toolbar and sidebar layout, menu bar, larger controls, Jax, experimental native menus.', null, 0.5, 720, 560],
+];
+class Component extends DCLogic {
+  state = { vis: {} };
+  componentDidMount() { const near = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.bottom > -300 && r.top < innerHeight + 300 && r.right > -300 && r.left < innerWidth + 300; }; this.t = setInterval(() => { const add = {}; document.querySelectorAll('[data-ab]').forEach((el) => { const id = el.getAttribute('data-ab'); if (!this.state.vis[id] && near(el)) add[id] = true; }); if (Object.keys(add).length) this.setState((s) => ({ vis: Object.assign({}, s.vis, add) })); }, 500); }
+  componentWillUnmount() { clearInterval(this.t); }
+  renderVals() {
+    const st = this.state, kc = (k) => ({ fontSize: 11, padding: '2px 8px', borderRadius: 10, width: 'max-content', background: k === 'Window' ? 'rgba(249,115,22,0.15)' : k === 'Sheet' ? 'rgba(96,165,250,0.15)' : 'rgba(167,139,250,0.15)', color: k === 'Window' ? '#fb923c' : k === 'Sheet' ? '#60a5fa' : '#a78bfa' });
+    return {
+      rows: W.map(([id, t, kind, size, cfg, from]) => ({ id, t, kind, size, cfg, from, href: '#' + id, kindStyle: kc(kind) })),
+      wins: W.map(([id, t, kind, size, cfg, from, note, p, sc, w, h]) => { const fw = Math.round(w * sc), fh = Math.round(h * sc);
+        return { id, t, kind, note: note + (p ? '' : ' (no live preview yet)'), vis: !!st.vis[id] && !!p, isApp: !!(p && p.app), isAbout: !!(p && p.about), isWiz: !!(p && p.wiz), wiz: p && p.wiz, isFrame: !!(p && p.src), props: p && p.app, src: p && p.src,
+          badge: { display: 'inline-flex', alignItems: 'center', height: 22, padding: '0 8px', borderRadius: 6, background: '#4a2a1a', color: '#fb923c', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600 }, kindStyle: kc(kind), noteStyle: { fontSize: 12.5, color: '#9a918a', lineHeight: 1.5, maxWidth: fw, minHeight: 38, textWrap: 'pretty' },
+          frame: { position: 'relative', width: fw, height: fh, borderRadius: 12, overflow: 'hidden', background: p ? 'transparent' : 'repeating-linear-gradient(45deg, #1c1917 0 12px, #171412 12px 24px)', boxShadow: '0 0 0 1px rgba(255,255,255,0.08)', display: 'block', color: '#57534e', fontSize: 13 },
+          inner: { position: 'absolute', left: 0, top: 0, width: w, height: h, transform: 'scale(' + sc + ')', transformOrigin: '0 0' }, iframe: { width: w, height: h, border: 0, display: 'block' } }; }),
+    };
+  }
+}
+</script>
+</body>
+</html>

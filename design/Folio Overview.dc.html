@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/waypoint.css">
+  <style>html,body{margin:0;background:#0f0d0c}a{color:#fb923c}a:hover{color:#fdba74}</style>
+</helmet>
+<section data-screen-label="Overview" style="padding:72px 80px 40px;display:flex;flex-direction:column;gap:36px;background:#0f0d0c;color:#f5f1ed;font-family:system-ui,sans-serif;width:1760px;box-sizing:border-box;">
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) 520px;gap:48px;align-items:end;">
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;align-items:center;gap:10px;"><svg width="28" height="28" viewBox="0 0 16 16" style="fill:rgba(249,115,22,0.25);stroke:#f97316;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round;"><path d="M3 2.5h8a2 2 0 012 2v9.5H5a2 2 0 01-2-2zM3 11.5a2 2 0 012-2h8"></path></svg><span style="font-size:15px;color:#9a918a;">Folio · Liminal HQ</span></div>
+      <h1 style="margin:0;font-size:56px;font-weight:600;letter-spacing:-0.02em;line-height:1.05;">Books, laid out by hand,<br>without the hard parts.</h1>
+      <p style="margin:0;font-size:18px;line-height:1.55;color:#c9c1ba;max-width:860px;text-wrap:pretty;">A local-first book layout app for Linux and Windows 11. Easy mode gets a first-time author from a blank page to a KDP paperback, a Kindle eBook and a Kobo EPUB. Expert mode opens up grids, masters, PDF/X and every number. Jax the otter helps if you want him to.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <sc-for list="{{ facts }}" as="f"><div style="padding:14px 16px;border-radius:12px;background:#1c1917;border:1px solid #3a3531;display:flex;flex-direction:column;gap:4px;"><span style="font-size:24px;font-weight:600;font-family:var(--font-mono);color:#fb923c;">{{ f.n }}</span><span style="font-size:13px;color:#c9c1ba;line-height:1.4;">{{ f.t }}</span></div></sc-for>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:14px;">
+    <h2 style="margin:0;font-size:26px;font-weight:600;">The walkthrough</h2>
+    <p style="margin:0;font-size:14px;color:#9a918a;">Ten steps, from opening the app to sending files to Amazon. Pick a step — the live app on the right jumps there. Everything in it works.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:420px minmax(0,1fr);gap:28px;">
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <sc-for list="{{ steps }}" as="s" hint-placeholder-count="10">
+        <button onClick="{{ s.onClick }}" style="{{ s.style }}" style-hover="border-color:#57534e">
+          <span style="{{ s.num }}">{{ s.n }}</span>
+          <span style="display:flex;flex-direction:column;gap:3px;text-align:left;min-width:0;">
+            <span style="font-size:15px;font-weight:600;color:#f5f1ed;">{{ s.title }}</span>
+            <span style="font-size:12.5px;color:#c9c1ba;line-height:1.45;text-wrap:pretty;">{{ s.body }}</span>
+            <sc-if value="{{ s.on }}"><span style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;"><sc-for list="{{ s.tries }}" as="t"><span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#292524;color:#fdba74;">{{ t }}</span></sc-for></span></sc-if>
+          </span>
+        </button>
+      </sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;align-items:center;gap:10px;"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:#f97316;color:#1c1917;font-family:var(--font-mono);font-size:12px;font-weight:700;">{{ cur.n }}</span><span style="font-size:16px;font-weight:600;">{{ cur.title }}</span><div style="flex:1;"></div><button onClick="{{ prev }}" style="height:30px;padding:0 12px;border:1px solid #3a3531;border-radius:8px;background:transparent;color:#c9c1ba;font:inherit;font-size:13px;cursor:pointer;" style-hover="background:#292524">← Back</button><button onClick="{{ next }}" style="height:30px;padding:0 14px;border:none;border-radius:8px;background:#f97316;color:#1c1917;font:inherit;font-size:13px;font-weight:600;cursor:pointer;" style-hover="background:#fb923c">{{ nextLabel }}</button></div>
+      <div style="width:1240px;height:775px;border-radius:12px;overflow:hidden;background:#1c1917;box-shadow:0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);">
+        <sc-if value="{{ appA }}"><div style="width:1440px;height:900px;transform:scale(0.8611);transform-origin:0 0;"><dc-import name="Folio" dc-props="{{ appProps }}" hint-size="1440px,900px" style="width:1440px;height:900px;display:block;"></dc-import></div></sc-if>
+        <sc-if value="{{ appB }}"><div style="width:1440px;height:900px;transform:scale(0.8611);transform-origin:0 0;"><dc-import name="Folio" dc-props="{{ appProps }}" hint-size="1440px,900px" style="width:1440px;height:900px;display:block;"></dc-import></div></sc-if>
+        <sc-if value="{{ toolOn }}"><div style="width:1240px;height:775px;display:flex;align-items:center;justify-content:center;background:#171412;"><iframe src="{{ toolSrc }}" title="{{ cur.title }}" style="width:1180px;height:760px;border:0;border-radius:12px;"></iframe></div></sc-if>
+      </div>
+      <span style="font-size:12px;color:#9a918a;">{{ cur.foot }}</span>
+    </div>
+  </div>
+</section>
+
+<section data-screen-label="Map" style="padding:40px 80px 40px;display:flex;flex-direction:column;gap:22px;background:#0f0d0c;color:#f5f1ed;font-family:system-ui,sans-serif;width:1760px;box-sizing:border-box;">
+  <h2 style="margin:0;font-size:26px;font-weight:600;">Anatomy of the window</h2>
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;">
+    <sc-for list="{{ anatomy }}" as="a"><div style="padding:16px 18px;border-radius:12px;background:#1c1917;border:1px solid #3a3531;display:flex;flex-direction:column;gap:6px;"><div style="display:flex;align-items:center;gap:8px;"><span style="{{ a.dot }}"></span><span style="font-size:15px;font-weight:600;">{{ a.t }}</span></div><span style="font-size:13px;color:#c9c1ba;line-height:1.5;text-wrap:pretty;">{{ a.b }}</span></div></sc-for>
+  </div>
+  <h2 style="margin:18px 0 0;font-size:26px;font-weight:600;">Easy or Expert</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    <sc-for list="{{ modes }}" as="m"><div style="{{ m.style }}"><span style="font-size:18px;font-weight:600;">{{ m.t }}</span><span style="font-size:13px;color:#9a918a;">{{ m.sub }}</span><sc-for list="{{ m.items }}" as="i"><span style="font-size:13.5px;color:#e7e2dc;line-height:1.5;">· {{ i }}</span></sc-for></div></sc-for>
+  </div>
+</section>
+
+<section data-screen-label="Everything else" style="padding:40px 80px 110px;display:flex;flex-direction:column;gap:22px;background:#0f0d0c;color:#f5f1ed;font-family:system-ui,sans-serif;width:1760px;box-sizing:border-box;">
+  <h2 style="margin:0;font-size:26px;font-weight:600;">Where everything lives</h2>
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;">
+    <sc-for list="{{ links }}" as="l"><a href="{{ l.href }}" style="text-decoration:none;padding:16px 18px;border-radius:12px;background:#1c1917;border:1px solid #3a3531;display:flex;flex-direction:column;gap:6px;color:#f5f1ed;" style-hover="border-color:#f97316"><span style="font-size:15px;font-weight:600;">{{ l.t }} →</span><span style="font-family:var(--font-mono);font-size:11.5px;color:#fb923c;">{{ l.f }}</span><span style="font-size:13px;color:#c9c1ba;line-height:1.5;text-wrap:pretty;">{{ l.b }}</span></a></sc-for>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const STEPS = [
+  { title: 'Open Folio, pick a book', body: 'The welcome screen asks three things: what you\'re making, Easy or Expert, and whether Jax should help. Six kinds of book, each with real sample spreads.', tries: ['Click “Picture book”', 'Pick a size', '“Yes, walk me through it”', 'Start →'], props: { screen: 'welcome', theme: 'dark', platform: 'win11' }, foot: 'Windows 11 chrome · follows the system light or dark setting in the desktop app.' },
+  { title: 'Lay out a spread', body: 'Drag frames and they snap to margins, the centre and each other with cyan guides. Resize from a corner, nudge with arrows, undo anything.', tries: ['Drag the small picture', 'Hold Alt to ignore guides', 'Ctrl+Z', 'Right-click the page'], props: { kind: 'picture', spreadIdx: 0, selId: 'i2', theme: 'dark', platform: 'win11', jaxOpen: false }, foot: 'Pink dashed = bleed · purple = safe margins · Marks (top right of the page) switches and recolours them.' },
+  { title: 'Write and style the words', body: 'Double-click any text to type on the page. The Home tab has full Font and Paragraph tools; a mini toolbar floats above the box. Expert mode styles single words.', tries: ['Select a word, press Bold', 'Change the font', 'Bullets', 'Find & replace'], props: { kind: 'picture', editId: 'p1', mode: 'expert', theme: 'light', platform: 'gnome', jaxOpen: false }, foot: 'Text tools spec: spec/09-text-tools.md' },
+  { title: 'Add pages and templates', body: 'The shelf along the bottom holds every spread — drag to reorder, with a marker showing where it lands. Spread templates add ready-made layouts sized to your book.', tries: ['Drag a thumbnail', '“Panorama + words below”', 'Filter by Picture book'], props: { kind: 'picture', tplOpen: true, theme: 'dark', platform: 'kde', jaxOpen: false }, foot: '23 templates · picture books, cookbooks, textbooks, photos, poetry, chapter openers.' },
+  { title: 'Pictures, shapes and backgrounds', body: 'A contextual Picture tab appears when a picture is selected: crop, rotate, borders, corners, filters, text wrap. Add speech bubbles, shapes, tables and page backgrounds.', tries: ['Corners → Circle', 'Filter → Warm', 'Wrap text → Around', 'Pages → Page background'], props: { kind: 'memoir', selId: 'mp', tab: 'picture', theme: 'light', platform: 'win11', jaxOpen: false }, foot: 'Tools spec: spec/11-tools.md' },
+  { title: 'Make the cover', body: 'The Cover sits first in the shelf: back, spine and front as one sheet. The spine grows as pages are added, the barcode area is guarded, and the ISBN barcode creator builds a real EAN-13.', tries: ['Dust jacket', 'eBook crop', 'ISBN barcode…', 'Edit the blurb'], props: { kind: 'novel', onCover: true, coverMode: 'paperback', mode: 'expert', theme: 'dark', platform: 'gnome', jaxOpen: false }, foot: 'Covers spec: spec/10-covers.md' },
+  { title: 'Check it on a Kindle', body: 'Print, Kindle and Kobo previews. Flowing books reflow on a live e-reader with adjustable text size; picture books show in a device frame.', tries: ['Reader text size A / A', 'Switch to Kobo'], props: { kind: 'novel', target: 'kindle', theme: 'dark', platform: 'win11', jaxOpen: false }, foot: 'Reflow uses the same CSS the EPUB export writes.' },
+  { title: 'Get help from Jax (optional)', body: 'Jax lives on the status bar. Open him for a tip, a page checklist, a step-by-step guide, or ask “how do I…?” — answered on this computer.', tries: ['Ask: how wide is the spine?', 'This page', 'Pet Jax'], props: { kind: 'picture', jaxOpen: true, jaxTab: 'ask', askQ: 'how wide is the spine?', theme: 'dark', platform: 'win11' }, foot: '3D otter built like Jar\'s fish · 12 poses with props · spec/07-jax.md' },
+  { title: 'Polish with the book tools', body: 'Folio menu → Book tools opens eight workbenches: structure, typesetting checks, pictures, proofing, publishing, series, accessibility and picture-book extras.', tries: ['Front matter wizard', 'Contents page', 'Footnotes ↔ endnotes'], tool: 'Folio Structure.dc.html', foot: 'All eight on one board: Folio Features.dc.html · spec/features/' },
+  { title: 'Export for Amazon, Kobo and print', body: 'One dialog builds every file in one pass: Kindle EPUB, Kobo EPUB + KEPUB, KDP paperback and hardcover PDFs, PDF/X for a local printer and a light PDF for sharing — with calm checks first.', tries: ['Tick Hardcover', 'Change page count', 'Export'], props: { kind: 'picture', exportOpen: true, exTarget: 'paperback', theme: 'light', platform: 'win11', jaxOpen: false }, foot: 'Export spec: spec/05-export.md · numbers marked ⚠ need checking against current KDP docs.' },
+];
+class Component extends DCLogic {
+  state = { i: 0, key: 0 };
+  go(i) { this.setState({ i: Math.max(0, Math.min(STEPS.length - 1, i)), key: this.state.key + 1 }); }
+  renderVals() {
+    const st = this.state, cur = STEPS[st.i];
+    return {
+      facts: [{ n: '6', t: 'kinds of book, with sample spreads' }, { n: '6', t: 'export targets in one pass' }, { n: '8 + 6', t: 'toolbar and sidebar layouts to choose from' }, { n: '41', t: 'feature specs, ready to turn into code' }],
+      steps: STEPS.map((s, i) => ({ n: String(i + 1), title: s.title, body: s.body, tries: s.tries, on: i === st.i, onClick: () => this.go(i),
+        num: { width: 28, height: 28, borderRadius: 14, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, background: i === st.i ? '#f97316' : i < st.i ? '#4a2a1a' : '#292524', color: i === st.i ? '#1c1917' : i < st.i ? '#fb923c' : '#9a918a' },
+        style: { display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px', borderRadius: 12, border: '1px solid ' + (i === st.i ? '#f97316' : '#3a3531'), background: i === st.i ? '#211b17' : '#171412', color: 'inherit', font: 'inherit', cursor: 'pointer', textAlign: 'left' } })),
+      cur: { n: String(st.i + 1), title: cur.title, foot: cur.foot },
+      appA: !cur.tool && st.key % 2 === 0, appB: !cur.tool && st.key % 2 === 1, toolOn: !!cur.tool, toolSrc: cur.tool || '', appProps: Object.assign({ _k: st.key }, cur.props || {}),
+      prev: () => this.go(st.i - 1), next: () => this.go(st.i === STEPS.length - 1 ? 0 : st.i + 1), nextLabel: st.i === STEPS.length - 1 ? 'Start again' : 'Next step →',
+      anatomy: [
+        { t: 'Title bar + app menu', b: 'Waypoint window chrome — GNOME, KDE or Windows 11 controls, title exactly centred. The Folio menu holds everything; the menu bar is hidden until you want it (F10).', c: '#f97316' },
+        { t: 'Document tabs', b: 'Every open book is a tab. Drag one down to tear it into its own window.', c: '#a78bfa' },
+        { t: 'Ribbon or toolbar', b: 'Home · Insert · Pages · Layout · View · Export, plus Picture, Shape and Table tabs that appear for a selection. Eight layouts, from classic toolbar to command search.', c: '#60a5fa' },
+        { t: 'The page', b: 'Spreads on paper with bleed, margins, grids and guides you can switch and recolour. Right-click anywhere for what you can do there.', c: '#fbfaf6' },
+        { t: 'Sidebar', b: 'Properties and Pages in Easy; Design, Structure and Book in Expert. Resize it, collapse it, or pop a group into its own window.', c: '#2dd4bf' },
+        { t: 'Page shelf', b: 'Cover first, then every spread. Drag to reorder; Add pages at the end. Jax sits beside it when he\'s open.', c: '#fde68a' },
+        { t: 'Status bar + Jax', b: 'Book, size and pages · snapping · saved state · Jax\'s perch (click to call him).', c: '#e25d75' },
+        { t: '.folio files', b: 'An open zip — JSON, Markdown and your original pictures. Unzip it and your words are always there.', c: '#4ade80' },
+      ].map((a) => Object.assign(a, { dot: { width: 10, height: 10, borderRadius: 3, background: a.c, flexShrink: 0 } })),
+      _m: null,
+      modes: [
+        { t: 'Easy', sub: 'Plain words and the essentials', border: '#3a3531', items: ['Styles by name — Story text, Heading, Caption', 'Smaller / Bigger instead of point sizes', 'Formatting applies to the whole box', '“Pink dashed line” instead of “bleed 0.125 in”', 'Sidebar: Properties and Pages'] },
+        { t: 'Expert', sub: 'Every number, nothing hidden', border: '#f97316', items: ['X / Y / W / H in inches or millimetres, rotation', 'Style single words; OpenType, tracking, baseline grid', 'Master pages, text threads, layers, history', 'PDF/X, colour profiles, image downsampling', 'Sidebar adds Design, Structure and Book'] },
+      ].map((m) => Object.assign(m, { style: { padding: '18px 20px', borderRadius: 12, background: '#1c1917', border: '1px solid ' + m.border, display: 'flex', flexDirection: 'column', gap: 8 } })),
+      links: [
+        { t: 'The working prototype', f: 'Folio.dc.html', b: 'The whole app. Tweaks: platform, theme, toolbar and sidebar layout, mode, book kind.', href: 'Folio.dc.html' },
+        { t: 'Examples board', f: 'Folio Board.dc.html', b: 'Rounds 1 and 2: every screen and state, toolbar and sidebar arrangements, Jax\'s poses.', href: 'Folio Board.dc.html' },
+        { t: 'Feature workbenches', f: 'Folio Features.dc.html', b: 'Eight working tool windows waiting to be ported into the main app.', href: 'Folio Features.dc.html' },
+        { t: 'Specs', f: 'spec/README.md', b: 'Product, architecture, .folio format, layout engine, export, UI, Jax, import, text, covers, tools, sidebar — plus types in TS and Rust.', href: 'spec/README.md' },
+        { t: 'Feature specs', f: 'spec/features/', b: '41 short specs, one per feature, each with UI, model and how Jax (optionally) helps.', href: 'spec/features/README.md' },
+        { t: 'Jax', f: 'jax3d.js', b: 'The 3D otter: extruded silhouettes like Jar\'s fish, 12 moods with props, renders only while visible.', href: 'spec/07-jax.md' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

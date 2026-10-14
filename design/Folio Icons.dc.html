@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/colours.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/waypoint.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/base.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/styles.css">
+  <script src="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/_ds_bundle.js"></script>
+  <style>html,body{margin:0;background:#0f0d0c}a{color:#fb923c}a:hover{color:#fdba74}</style>
+</helmet>
+<section data-screen-label="Icons" style="padding:64px 72px 56px;display:flex;flex-direction:column;gap:28px;background:#0f0d0c;color:#f5f1ed;font-family:system-ui,sans-serif;width:max-content;">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:900px;">
+    <span style="font-size:13px;color:#9a918a;">Round 1 · Folio app icon · chosen: <a href="#1a">1a Between pages</a></span>
+    <h1 style="margin:0;font-size:34px;font-weight:600;letter-spacing:-0.01em;">Five icon directions</h1>
+    <p style="margin:0;font-size:15px;line-height:1.5;color:#c9c1ba;text-wrap:pretty;">Built from the Liminal HQ family: ink tile, plum → ember → amber stroke, and the pale slit of light. Each is shown large, at desktop sizes, and on dark and light taskbars.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(5,300px);gap:40px;">
+    <sc-for list="{{ icons }}" as="ic" hint-placeholder-count="5">
+      <div id="{{ ic.id }}" style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:baseline;gap:10px;"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:#4a2a1a;color:#fb923c;font-family:var(--font-mono);font-size:12px;font-weight:600;">{{ ic.id }}</span><span style="font-size:15px;font-weight:600;">{{ ic.title }}</span></div>
+        <span style="font-size:12px;color:#9a918a;line-height:1.45;min-height:52px;text-wrap:pretty;">{{ ic.note }}</span>
+        <div style="height:300px;border-radius:10px;background:radial-gradient(circle at 50% 60%, rgba(241,155,24,0.08), transparent 65%), #171412;box-shadow:0 0 0 1px rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;">
+          <img src="{{ ic.src }}" alt="{{ ic.title }}" style="width:192px;height:192px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.5));">
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:18px;padding:14px 16px;border-radius:10px;background:#1c1917;box-shadow:0 0 0 1px rgba(255,255,255,0.06);">
+          <img src="{{ ic.src }}" alt="" style="width:64px;height:64px;">
+          <img src="{{ ic.src }}" alt="" style="width:48px;height:48px;">
+          <img src="{{ ic.src }}" alt="" style="width:32px;height:32px;">
+          <img src="{{ ic.src }}" alt="" style="width:24px;height:24px;">
+          <img src="{{ ic.src }}" alt="" style="width:16px;height:16px;">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div style="display:flex;align-items:center;gap:8px;height:40px;padding:0 10px;border-radius:8px;background:#211e1b;box-shadow:0 0 0 1px rgba(255,255,255,0.06);">
+            <img src="{{ ic.src }}" alt="" style="width:24px;height:24px;">
+            <span style="font-size:12px;color:#e7e5e4;">Folio</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;height:40px;padding:0 10px;border-radius:8px;background:#f4f1ee;">
+            <img src="{{ ic.src }}" alt="" style="width:24px;height:24px;">
+            <span style="font-size:12px;color:#292524;">Folio</span>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return { icons: [
+      { id: '1a', title: 'Between pages', src: 'icons/folio-a-between-pages.svg', note: 'An open spread drawn like the studio brackets; the gutter is the slit of light.' },
+      { id: '1b', title: 'Bookmark', src: 'icons/folio-b-bookmark.svg', note: 'The Liminal mark itself, with the slit turned into a ribbon. Closest to the family.' },
+      { id: '1c', title: 'Typeset page', src: 'icons/folio-c-typeset-page.svg', note: 'A single page with a drop cap and text block. Says “layout” most plainly.' },
+      { id: '1d', title: 'Folded sheet', src: 'icons/folio-d-signature.svg', note: 'A folio in the printer’s sense: one sheet folded once, the fold catching the light.' },
+      { id: '1e', title: 'Afterglow cover', src: 'icons/folio-e-afterglow-cover.svg', note: 'A closed book with the Afterglow horizon on its cover. Most illustrative.' }
+    ] };
+  }
+}
+</script>
+</body>
+</html>

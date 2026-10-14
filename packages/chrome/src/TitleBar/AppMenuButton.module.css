@@ -1,0 +1,35 @@
+.button {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 28px;
+	padding: 0 8px;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-weight: 600;
+	cursor: default;
+}
+
+.button:hover,
+.button[aria-expanded='true'] {
+	background: var(--folio-control-bg-hover);
+}
+
+.button:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: -2px;
+}
+
+.mark {
+	display: inline-flex;
+	width: 16px;
+	height: 16px;
+}
+
+/* The name with nothing to open: no hover, and the title bar's own drag and window menu apply. */
+.plain:hover {
+	background: transparent;
+}

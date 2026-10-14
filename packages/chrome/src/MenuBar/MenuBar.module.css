@@ -1,0 +1,71 @@
+.bar {
+	position: relative;
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 2px;
+	min-height: calc(var(--folio-control-height) + 6px);
+	padding: 3px 8px;
+	overflow: hidden;
+	border-bottom: 1px solid var(--folio-border-subtle);
+	background: var(--folio-bg-chrome);
+	color: var(--folio-text-primary);
+}
+
+/* The title bar's own mix, so a translucent window shows the same through both rows. */
+.bar[data-transparent] {
+	background: color-mix(
+		in srgb,
+		var(--folio-bg-chrome) calc(var(--folio-title-bar-opacity) * 100%),
+		transparent
+	);
+}
+
+.cell {
+	position: relative;
+	display: flex;
+	flex: none;
+}
+
+/* A menu that did not fit stays in the document, out of sight and out of the focus order, so its width can still be measured. */
+.cell[data-overflow] {
+	position: absolute;
+	visibility: hidden;
+	pointer-events: none;
+}
+
+.button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 28px;
+	height: var(--folio-control-height);
+	padding: 0 10px;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-size: 13px;
+	white-space: nowrap;
+	cursor: default;
+}
+
+.button:hover {
+	background: var(--folio-control-bg);
+}
+
+.button[aria-expanded='true'] {
+	background: var(--folio-control-bg-hover);
+}
+
+.button:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.button {
+		transition: background-color 80ms ease-out;
+	}
+}

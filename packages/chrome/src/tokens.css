@@ -1,0 +1,111 @@
+/*
+ * Default values for every custom property the chrome reads, so it renders sensibly in a host that
+ * defines none. This is the one place the chrome's colour literals live: component CSS uses only
+ * `var(--folio-*)`. The defaults sit in `:where(:root)`, which has no specificity, so a host's own
+ * `:root` tokens always win regardless of stylesheet order. Dark first, light under
+ * `prefers-color-scheme: light`; a host that sets `data-theme` on the root overrides both.
+ */
+:where(:root) {
+	color-scheme: dark light;
+
+	/* Surfaces and text */
+	--folio-bg-raised: #2b2d31;
+	--folio-bg-chrome: #1e1f22;
+	--folio-bg-chrome-unfocused: var(--folio-bg-chrome);
+	/* Transparency hooks: a host that makes its windows see-through redefines these (see-through is opt-in, so each defaults to the solid colour it replaces). */
+	--folio-bg-menu: var(--folio-bg-raised);
+	--folio-menu-backdrop: none;
+	--folio-bg-shell: var(--folio-bg-raised);
+	--folio-bg-settings-pane: transparent;
+	--folio-bg-settings-nav: var(--folio-bg-chrome);
+	--folio-text-primary: #e6e6e6;
+	--folio-text-secondary: #c4c4c4;
+	--folio-text-muted: #9a9a9a;
+	--folio-border-subtle: rgb(255 255 255 / 12%);
+
+	/* Accent, danger and focus */
+	--folio-accent: #3584e4;
+	--folio-accent-contrast: #ffffff;
+	--folio-danger: #e5484d;
+	--folio-danger-fg: #ffffff;
+	--folio-focus-ring: #78aeed;
+	--folio-focus-ring-on-accent: #ffffff;
+
+	/* Title bar controls */
+	--folio-control-bg: rgb(255 255 255 / 8%);
+	--folio-control-bg-hover: rgb(255 255 255 / 14%);
+	--folio-window-close-hover-bg: #c42b1c;
+	--folio-window-close-hover-fg: #ffffff;
+	--folio-title-bar-height: 40px;
+	--folio-title-bar-opacity: 0.85;
+
+	/* Window frame: no margin and no shadow unless the host draws its own */
+	--folio-window-radius: 12px;
+	--folio-window-shadow: none;
+	--folio-window-shadow-unfocused: var(--folio-window-shadow);
+	--folio-window-shadow-margin: 0px;
+
+	/* Menus */
+	--folio-shadow-menu: 0 8px 24px rgb(0 0 0 / 35%);
+	--folio-z-menu: 1000;
+	--folio-menu-viewport-margin: 4px;
+	--folio-font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+	/* Dialogs: the scrim and shadow, the stacking layer, and sizes. The opacity is the transparency hook. */
+	--folio-scrim: rgb(0 0 0 / 50%);
+	--folio-shadow-dialog: 0 16px 48px rgb(0 0 0 / 45%);
+	--folio-z-dialog: 1100;
+	--folio-dialog-opacity: 1;
+	--folio-dialog-width-small: 380px;
+	--folio-dialog-width-medium: 520px;
+	--folio-dialog-width-large: 720px;
+	--folio-dialog-viewport-margin: 16px;
+	--folio-dialog-motion: 140ms;
+
+	/* Controls: a host raises the height for touch mode (44px) */
+	--folio-control-height: 28px;
+	--folio-field-bg: rgb(0 0 0 / 22%);
+	--folio-switch-off: rgb(255 255 255 / 25%);
+	--folio-switch-thumb: #ffffff;
+
+	/* Settings shell */
+	--folio-settings-nav-width: 220px;
+	--folio-settings-row-padding: 10px;
+}
+
+@media (prefers-color-scheme: light) {
+	:where(:root:not([data-theme='dark'])) {
+		--folio-bg-raised: #ffffff;
+		--folio-bg-chrome: #ebebed;
+		--folio-text-primary: #1e1f22;
+		--folio-text-secondary: #4a4a4f;
+		--folio-text-muted: #6b6b70;
+		--folio-border-subtle: rgb(0 0 0 / 12%);
+		--folio-focus-ring: #1c71d8;
+		--folio-control-bg: rgb(0 0 0 / 6%);
+		--folio-control-bg-hover: rgb(0 0 0 / 12%);
+		--folio-shadow-menu: 0 8px 24px rgb(0 0 0 / 20%);
+		--folio-scrim: rgb(0 0 0 / 35%);
+		--folio-shadow-dialog: 0 16px 48px rgb(0 0 0 / 25%);
+		--folio-field-bg: rgb(0 0 0 / 5%);
+		--folio-switch-off: rgb(0 0 0 / 28%);
+	}
+}
+
+/* A host that forces the light theme while the OS is dark gets the same values. */
+:where(:root[data-theme='light']) {
+	--folio-bg-raised: #ffffff;
+	--folio-bg-chrome: #ebebed;
+	--folio-text-primary: #1e1f22;
+	--folio-text-secondary: #4a4a4f;
+	--folio-text-muted: #6b6b70;
+	--folio-border-subtle: rgb(0 0 0 / 12%);
+	--folio-focus-ring: #1c71d8;
+	--folio-control-bg: rgb(0 0 0 / 6%);
+	--folio-control-bg-hover: rgb(0 0 0 / 12%);
+	--folio-shadow-menu: 0 8px 24px rgb(0 0 0 / 20%);
+	--folio-scrim: rgb(0 0 0 / 35%);
+	--folio-shadow-dialog: 0 16px 48px rgb(0 0 0 / 25%);
+	--folio-field-bg: rgb(0 0 0 / 5%);
+	--folio-switch-off: rgb(0 0 0 / 28%);
+}

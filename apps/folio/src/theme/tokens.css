@@ -1,0 +1,146 @@
+/*
+ * Folio's semantic theme tokens. Components use these, never raw colours. The scheme follows the
+ * OS by default; `data-theme="light"` or `data-theme="dark"` on the root element overrides it.
+ * Book pages are never themed: paper stays paper (`--folio-paper`, `--folio-ink`).
+ */
+:root {
+	color-scheme: light dark;
+
+	/* What a window draws: the window colour, the work area behind the book, and the page chrome. */
+	--folio-solid-window: #f4f1ee;
+	--folio-solid-stage: #e7e2dd;
+	--folio-solid-content: #fbf9f7;
+	--folio-bg-window: var(--folio-solid-window);
+	--folio-bg-stage: var(--folio-solid-stage);
+	--folio-bg-content: var(--folio-solid-content);
+	--folio-bg-screen: var(--folio-solid-window);
+	--folio-bg-body: var(--folio-solid-content);
+	--folio-bg-raised: #ffffff;
+	--folio-bg-hover: #e3ded9;
+	--folio-bg-selected: #f6d9c8;
+	--folio-border-subtle: #d9d3cd;
+	--folio-text-primary: #211d1a;
+	--folio-text-secondary: #57504a;
+	--folio-text-muted: #7d756e;
+	--folio-accent: #c2410c;
+	--folio-accent-fg: #ffffff;
+	/* What the chrome reads for text on the accent: always the same colour as `--folio-accent-fg`, whatever the scheme. */
+	--folio-accent-contrast: var(--folio-accent-fg);
+	--folio-danger: #b91c1c;
+	--folio-success: #15803d;
+	--folio-warning: #a16207;
+	--folio-focus-ring: #2563eb;
+
+	/* The book page: never themed, in light or dark. */
+	--folio-paper: #fbfaf6;
+	--folio-ink: #1c1b20;
+
+	/* On-page marks drawn over the paper (spec 06 "Page marks"). */
+	--folio-mark-bleed: #f43f5e;
+	--folio-mark-margin: #8b5cf6;
+	--folio-mark-grid: #f97316;
+	--folio-mark-guide: #22d3ee;
+
+	/* Window chrome (packages/chrome). Derived from the palette so they follow the scheme. */
+	--folio-bg-chrome: var(--folio-bg-raised);
+	--folio-control-bg: color-mix(in srgb, var(--folio-text-primary) 6%, transparent);
+	--folio-control-bg-hover: color-mix(in srgb, var(--folio-text-primary) 12%, transparent);
+	--folio-title-bar-height: 40px;
+	--folio-title-bar-opacity: 1;
+	--folio-window-radius: 12px;
+
+	/* Control size: 28px, or 44px with Preferences → Interface → Larger controls. */
+	--folio-hit-target: 28px;
+	--folio-text-scale: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) {
+		color-scheme: dark;
+		--folio-solid-window: #1c1917;
+		--folio-solid-stage: #131110;
+		--folio-solid-content: #171412;
+		--folio-bg-raised: #292524;
+		--folio-bg-hover: #332e2b;
+		--folio-bg-selected: #4a2a1a;
+		--folio-border-subtle: #3a3531;
+		--folio-text-primary: #f5f1ed;
+		--folio-text-secondary: #c9c1ba;
+		--folio-text-muted: #9a918a;
+		--folio-accent: #f97316;
+		--folio-accent-fg: #1c1917;
+		--folio-danger: #f87171;
+		--folio-success: #4ade80;
+		--folio-warning: #facc15;
+		--folio-focus-ring: #60a5fa;
+	}
+}
+
+:root[data-theme='light'] {
+	color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+	color-scheme: dark;
+	--folio-solid-window: #1c1917;
+	--folio-solid-stage: #131110;
+	--folio-solid-content: #171412;
+	--folio-bg-raised: #292524;
+	--folio-bg-hover: #332e2b;
+	--folio-bg-selected: #4a2a1a;
+	--folio-border-subtle: #3a3531;
+	--folio-text-primary: #f5f1ed;
+	--folio-text-secondary: #c9c1ba;
+	--folio-text-muted: #9a918a;
+	--folio-accent: #f97316;
+	--folio-accent-fg: #1c1917;
+	--folio-danger: #f87171;
+	--folio-success: #4ade80;
+	--folio-warning: #facc15;
+	--folio-focus-ring: #60a5fa;
+}
+
+/*
+ * Window frame per platform. Windows draws the window shadow itself (`shadow: true`, set in
+ * `src-tauri/src/windows.rs`), so the CSS adds no margin or shadow there. Linux draws no shadow
+ * for a frameless window (GNOME paints none and Tauri's option is unsupported), so the frame keeps
+ * a transparent margin and draws the shadow in CSS. On Windows 11 the OS also rounds the corners,
+ * so the CSS radius is dropped there to avoid two mismatched radii. With no platform set (a plain
+ * browser), the frame uses no margin and no shadow.
+ */
+:root[data-platform='linux'] {
+	/* The resize hit area is a fixed 5px strip at the window's outer edge, so a small margin
+	   keeps it close to the visible edge. The shadow must fit inside the margin to avoid a hard clip. */
+	--folio-window-shadow-margin: 8px;
+	--folio-window-shadow: 0 2px 8px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(0, 0, 0, 0.22);
+	/* No drop shadow while unfocused, only the hairline ring so the edge stays visible. */
+	--folio-window-shadow-unfocused: 0 0 0 1px rgba(0, 0, 0, 0.22);
+}
+
+:root[data-platform='windows'][data-windows11='true'] {
+	--folio-window-radius: 0px;
+}
+
+html,
+body,
+#root {
+	margin: 0;
+	height: 100%;
+	/* The window is transparent so the frame can round its own corners. */
+	background: transparent;
+}
+
+body {
+	font-family: system-ui, sans-serif;
+	font-size: calc(14px * var(--folio-text-scale, 1));
+	color: var(--folio-text-primary);
+	/* A window is not a web page: labels and chrome are not selectable text. */
+	-webkit-user-select: none;
+	user-select: none;
+	cursor: default;
+}
+
+/* Larger controls (Preferences → Interface): 44px targets instead of 28px. */
+:root[data-larger-controls='true'] {
+	--folio-hit-target: 44px;
+}

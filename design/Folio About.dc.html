@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/colours.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/waypoint.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/styles.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&amp;display=swap">
+  <script src="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/_ds_bundle.js"></script>
+  <style>html,body{margin:0;background:transparent}a{color:var(--wp-accent)}a:hover{color:#fb923c}</style>
+</helmet>
+<div data-wp-theme="{{ themeAttr }}" style="width:560px;height:760px;display:flex;flex-direction:column;background:var(--wp-bg-window);color:var(--wp-text-primary);font-family:var(--wp-font-ui);font-size:13px;border-radius:12px;overflow:hidden;box-shadow:var(--wp-window-shadow), 0 20px 60px rgba(0,0,0,0.45);box-sizing:border-box;">
+  <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:40px;padding:0 8px;background:var(--wp-bg-chrome);border-bottom:1px solid var(--wp-border-subtle);flex-shrink:0;user-select:none;">
+    <span></span><span style="font-size:13px;">About Folio</span>
+    <div style="display:flex;justify-content:flex-end;"><button onClick="{{ close }}" title="Close" style="width:24px;height:24px;border:none;border-radius:50%;background:var(--wp-control-bg);color:inherit;display:flex;align-items:center;justify-content:center;padding:0;" style-hover="background:var(--wp-danger);color:var(--wp-danger-fg)"><svg width="14" height="14" viewBox="0 0 16 16" style="fill:none;stroke:currentColor;stroke-width:1.3;stroke-linecap:round;"><path d="M4 4l8 8M12 4l-8 8"></path></svg></button></div>
+  </div>
+  <div style="flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;padding:6px 32px 20px;gap:10px;background:radial-gradient(ellipse 70% 55% at 50% 30%, rgba(167,139,250,0.14), transparent 70%), radial-gradient(ellipse 60% 40% at 50% 46%, rgba(255,170,64,0.12), transparent 70%), var(--wp-bg-window);">
+    <div ref="{{ bookRef }}" title="Drag to spin · click to open" style="width:260px;height:260px;flex-shrink:0;"></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;">
+      <span style="font-family:var(--font-heading);font-size:30px;font-weight:700;letter-spacing:-0.02em;line-height:1.15;">Folio</span>
+      <span style="font-family:'Literata',Georgia,serif;font-style:italic;font-size:14px;color:var(--wp-text-secondary);">Books, laid out by hand, without the hard parts.</span>
+      <button onClick="{{ copy }}" title="Copy version details" style="margin-top:6px;display:flex;align-items:center;gap:8px;height:24px;padding:0 10px;border:1px solid var(--wp-border-subtle);border-radius:12px;background:var(--wp-control-bg);color:var(--wp-text-secondary);font-family:var(--font-mono);font-size:11px;cursor:default;white-space:nowrap;" style-hover="background:var(--wp-control-bg-hover)">{{ versionLine }}<svg width="12" height="12" viewBox="0 0 16 16" style="fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;"><path d="{{ copyIcon }}"></path></svg></button>
+    </div>
+    <div style="display:flex;padding:2px;gap:2px;border-radius:8px;background:var(--wp-control-bg);margin-top:4px;flex-shrink:0;">
+      <sc-for list="{{ tabs }}" as="t"><button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
+    </div>
+    <div style="width:100%;flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:8px;padding-bottom:2px;">
+      <sc-if value="{{ isAbout }}">
+        <p style="margin:0;font-size:12.5px;line-height:1.6;color:var(--wp-text-secondary);text-align:center;text-wrap:pretty;">A local-first book layout app for picture books, novels, cookbooks, textbooks, poetry and memoirs. Made by Liminal HQ in Kitchener, Ontario — with help from a small otter named Jax.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;"><sc-for list="{{ facts }}" as="f"><div style="display:flex;justify-content:space-between;gap:8px;padding:6px 10px;border-radius:7px;background:var(--wp-control-bg);font-size:12px;"><span style="color:var(--wp-text-muted);">{{ f.k }}</span><span style="font-family:var(--font-mono);font-size:11px;">{{ f.v }}</span></div></sc-for></div>
+      </sc-if>
+      <sc-if value="{{ isCredits }}">
+        <sc-for list="{{ credits }}" as="c"><div style="display:flex;justify-content:space-between;gap:10px;padding:6px 10px;border-bottom:1px solid var(--wp-border-subtle);font-size:12px;"><span>{{ c.k }}</span><span style="color:var(--wp-text-muted);text-align:right;">{{ c.v }}</span></div></sc-for>
+      </sc-if>
+      <sc-if value="{{ isLicence }}">
+        <div style="font-size:12px;line-height:1.6;color:var(--wp-text-secondary);padding:10px 12px;border-radius:8px;background:var(--wp-control-bg);text-wrap:pretty;">Folio is free software, licensed under the Apache License 2.0 or the MIT licence, at your option. Your books are yours: .folio files are open zips of plain files, and nothing leaves this computer unless you export it.</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--wp-text-muted);line-height:1.6;">Bundled fonts (Literata, Source Serif 4, Atkinson Hyperlegible, Inter) are under the SIL Open Font License 1.1.</div>
+      </sc-if>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;flex-shrink:0;">
+      <sc-for list="{{ links }}" as="l"><a href="{{ l.href }}" style="display:flex;align-items:center;gap:6px;height:28px;padding:0 12px;border:1px solid var(--wp-border-subtle);border-radius:7px;color:var(--wp-text-secondary);font-size:12px;text-decoration:none;white-space:nowrap;" style-hover="background:var(--wp-bg-hover);color:var(--wp-text-primary)">{{ l.t }}</a></sc-for>
+    </div>
+    <span style="font-size:11px;color:var(--wp-text-muted);flex-shrink:0;">Designed &amp; Coded in Canada 🍁 · © 2026 Liminal HQ</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:560,&quot;height&quot;:760},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;system&quot;,&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;system&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;open&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  bookRef = React.createRef();
+  state = { tab: 'about', copied: false, sysLight: false };
+  componentDidMount() {
+    this.mq = matchMedia('(prefers-color-scheme: light)'); this.mqf = () => this.setState({ sysLight: this.mq.matches }); this.mq.addEventListener('change', this.mqf); this.setState({ sysLight: this.mq.matches });
+    const h = this.bookRef.current; if (h) import(new URL('book3d.js', document.baseURI).href).then((m) => m.mountBook(h, { size: 260 })).then((b) => { this.book = b; if (this.props.open) b.toggle(); }).catch(() => {});
+  }
+  componentWillUnmount() { this.mq && this.mq.removeEventListener('change', this.mqf); clearTimeout(this.ct); if (this.book) this.book.dispose(); }
+  renderVals() {
+    const st = this.state, light = this.props.theme === 'light' || (this.props.theme !== 'dark' && st.sysLight), ver = 'Version 0.2.0 (2026.10)';
+    return {
+      bookRef: this.bookRef, themeAttr: light ? 'light' : 'dark', versionLine: st.copied ? 'Copied' : ver, copyIcon: st.copied ? 'M3.5 8.5l3 3 6-7' : 'M5.5 4h6.5v10.5H5.5zM3.5 12V1.5H10',
+      copy: () => { try { navigator.clipboard && navigator.clipboard.writeText('Folio 0.2.0 · Tauri 2.1 · ' + navigator.platform); } catch (e) {} this.setState({ copied: true }); clearTimeout(this.ct); this.ct = setTimeout(() => this.setState({ copied: false }), 1600); },
+      close: () => {},
+      tabs: [['about', 'About'], ['credits', 'Credits'], ['licence', 'Licence']].map(([v, l]) => ({ label: l, onClick: () => this.setState({ tab: v }), style: { height: 24, padding: '0 14px', border: 'none', borderRadius: 6, background: st.tab === v ? 'var(--wp-bg-raised)' : 'transparent', color: st.tab === v ? 'var(--wp-text-primary)' : 'var(--wp-text-muted)', boxShadow: st.tab === v ? '0 1px 2px rgba(0,0,0,0.18)' : 'none', font: 'inherit', fontSize: 12, fontWeight: st.tab === v ? 600 : 400, cursor: 'default' } })),
+      isAbout: st.tab === 'about', isCredits: st.tab === 'credits', isLicence: st.tab === 'licence',
+      facts: [['Build', '2026.10.13'], ['Engine', 'Tauri 2 · Rust'], ['Platform', 'Linux · Windows 11'], ['Chrome', 'waypoint-chrome']].map(([k, v]) => ({ k, v })),
+      credits: [['Design and code', 'Scott Morris · Liminal HQ'], ['Companion', 'Jax 🦦'], ['Window chrome', 'Waypoint'], ['Layout ideas', 'Spindle'], ['3D otter + book', 'built like Jar\'s fish'], ['Text shaping', 'rustybuzz'], ['PDF', 'pdf-writer · subsetter'], ['Colour', 'lcms2'], ['Fonts', 'Literata · Inter · Atkinson · Source Serif'], ['Tested by', 'Mom, with tea']].map(([k, v]) => ({ k, v })),
+      links: [['Website', 'Folio Website.dc.html'], ['Manual', 'Folio Website.dc.html'], ['Release notes', 'spec/README.md'], ['Source', 'https://github.com/liminal-hq']].map(([t, href]) => ({ t, href })),
+    };
+  }
+}
+</script>
+</body>
+</html>

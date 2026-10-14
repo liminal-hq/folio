@@ -1,0 +1,55 @@
+# 08 · Import
+
+Two doors:
+
+- **Import text** (Easy + Expert) brings **words with structure** into the current book's flows and styles.
+- **Import layout** (Expert) brings a **whole designed document** in as spreads and frames.
+
+Every import ends with an **Import report**: what came across, what was approximated, and what was skipped, with the original kept in `assets/imports/` so nothing is lost.
+
+## Import text
+
+| Source | How | Notes |
+|---|---|---|
+| Word `.docx` | zip → `word/document.xml`, `styles.xml`, `numbering.xml`, `media/` | Heading 1/2/3 → chapter/section; Normal → Body; Quote → Epigraph/Block quote; lists; footnotes → endnotes (or footnotes in Expert); images → anchored picture frames; comments dropped (listed in report); tracked changes: accept all (ask first) |
+| Google Docs | user exports `.docx` (preferred) or "Web page (.html, zipped)" | Same as docx/HTML. A "How to export from Google Docs" help card is linked from the dialog |
+| LibreOffice `.odt` | zip → `content.xml`, `styles.xml` | ODF paragraph styles map by name and outline level |
+| Pages / RTF | `.rtf` parser; Pages users export RTF or DOCX | Pages bundles aren't read directly (proprietary). The dialog says so kindly |
+| Markdown / plain text | `pulldown-cmark` with Folio attributes (`{style=…}`) | `#` → chapter; blank-line paragraphs; `***` → scene break |
+| Paste with formatting | clipboard `text/html` → sanitise → same mapping as HTML | Plain paste with Ctrl+Shift+V |
+
+### Style mapping dialog (Easy shows a summary; Expert shows the table)
+
+"We found 4 kinds of text in your document" → each source style is shown next to the Folio style it will use (Chapter title → Heading, Normal → Body, Caption → Caption, Intense Quote → Note box), with a live sample. Easy just says "Looks good?" with Change… for adjustments.
+
+### Chapter detection
+
+Heading 1, or the page-break + bold-centred-line heuristic for documents without styles. A chapter can start on a recto (novel default), on the next page, or continue.
+
+## Import layout (Expert)
+
+| Source | Status | What maps |
+|---|---|---|
+| **Scribus `.sla`** | v1 | XML: `DOCUMENT` (page size, bleed, margins), `MASTERPAGE`, `PAGEOBJECT` (text frames with `StoryText`, image frames, shapes), paragraph/character styles, layers (flattened, listed), linked text frames (`NEXTITEM`) → flows. Colours → swatches (CMYK preserved) |
+| **IDML** (InDesign, Affinity Publisher export) | v1 | zip of XML: `designmap.xml`, `Spreads/*.xml`, `Stories/*.xml`, `Resources/Styles.xml`, `MasterSpreads`. Text frames, threads, rectangles/images, paragraph/character styles, swatches. Unsupported (reported): tables (v1.1), anchored objects inside tables, GREP styles, scripts |
+| **EPUB** | v1 | Reflowable → flows + styles from CSS (best effort) → re-layout into the chosen kind. Fixed-layout → one spread per page pair with absolutely positioned frames |
+| Affinity `.afpub` | not planned | Proprietary; use IDML export from Affinity Publisher 2 |
+| PDF | not planned (v1) | The report suggests importing the original text instead |
+
+### Fidelity rules
+
+- Geometry is converted to points exactly; rotated frames keep their rotation.
+- Fonts that are missing on this machine get a substitute (shown with a dotted underline in Expert) and are listed in the report with "Find font…".
+- Anything not understood is **kept** in `book.json` under `extensions.<source>` so that a later Folio version can do better, and so that nothing silently disappears.
+
+## Import report (example)
+
+```
+Imported "Watercolour Basics.idml"
+✓ 24 spreads, 2 master spreads
+✓ 31 text frames in 6 threads · 214 paragraphs
+✓ 18 pictures (4 linked files found next to the IDML, 14 embedded)
+• 3 tables imported as pictures — editable tables arrive in Folio 1.1
+• Font "Freight Text Pro" isn't installed — using Literata for now
+That's everything.
+```

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/colours.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/waypoint.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/styles.css">
+  <script src="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/_ds_bundle.js"></script>
+  <style>html,body{margin:0}a{color:#f97316}a:hover{color:#fb923c}</style>
+</helmet>
+<div ref="{{ rootRef }}" data-wp-theme="{{ themeAttr }}" role="toolbar" aria-label="{{ ariaLabel }}" style="position:relative;width:100%;min-width:0;font-family:var(--wp-font-ui);font-size:13px;color:var(--wp-text-primary);background:var(--wp-bg-chrome);border-bottom:1px solid var(--wp-border-subtle);user-select:none;">
+  <div role="tablist" style="{{ tabRowStyle }}">
+    <sc-if value="{{ hasFile }}"><button onClick="{{ onFile }}" data-rtip="{{ fileLabel }}" style="{{ fileStyle }}">{{ fileLabel }}</button></sc-if>
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+      <button role="tab" aria-selected="{{ t.on }}" onClick="{{ t.onClick }}" style="{{ t.style }}" style-hover="color:var(--wp-text-primary)">{{ t.label }}</button>
+    </sc-for>
+    <sc-if value="{{ isSimple }}">
+      <div style="width:1px;height:20px;background:var(--wp-border-subtle);margin:0 6px;flex-shrink:0;"></div>
+      <div style="display:flex;align-items:center;gap:1px;overflow-x:auto;min-width:0;">
+        <sc-for list="{{ flat }}" as="it"><button data-rid="{{ it.id }}" data-rtip="{{ it.tip }}" aria-label="{{ it.tip }}" aria-pressed="{{ it.pressed }}" disabled="{{ it.disabled }}" onClick="{{ it.onClick }}" style="{{ it.iconStyle }}" style-hover="background:var(--wp-bg-hover);color:var(--wp-text-primary)"><svg width="16" height="16" viewBox="0 0 16 16" style="fill:none;stroke:currentColor;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round;"><path d="{{ it.d }}"></path></svg><sc-if value="{{ it.caret }}"><svg width="8" height="8" viewBox="0 0 8 8" style="fill:none;stroke:currentColor;stroke-width:1.2;stroke-linecap:round;opacity:0.7;"><path d="M1.5 3l2.5 2.5L6.5 3"></path></svg></sc-if></button></sc-for>
+      </div>
+    </sc-if>
+    <div style="flex:1;"></div>
+    <sc-if value="{{ isCollapsed }}"><button onClick="{{ togglePin }}" data-rtip="{{ pinTip }}" style="height:22px;padding:0 8px;border:none;border-radius:5px;background:transparent;color:var(--wp-text-muted);font:inherit;font-size:11px;cursor:default;" style-hover="background:var(--wp-bg-hover)">{{ pinLabel }}</button></sc-if>
+    <sc-if value="{{ hasModes }}"><div style="display:flex;padding:2px;gap:2px;border-radius:8px;background:var(--wp-control-bg);"><sc-for list="{{ modes }}" as="o"><button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div></sc-if>
+  </div>
+  <sc-if value="{{ showGroups }}" hint-placeholder-val="{{ true }}">
+    <div role="tabpanel" style="{{ groupsStyle }}">
+      <sc-for list="{{ groups }}" as="g" hint-placeholder-count="4">
+        <div role="group" aria-label="{{ g.label }}" style="{{ g.style }}">
+          <div style="display:flex;gap:2px;flex:1;align-items:flex-start;padding-top:2px;">
+            <sc-if value="{{ g.isRows }}">
+              <div style="display:flex;flex-direction:column;gap:{{ rowGap }}px;padding:1px 2px 0;">
+                <sc-for list="{{ g.rows }}" as="row"><div style="{{ row.style }}"><sc-for list="{{ row.clusters }}" as="cl"><div style="{{ cl.style }}"><sc-for list="{{ cl.items }}" as="it">
+                  <sc-if value="{{ it.isBtn }}"><button data-rid="{{ it.id }}" data-rtip="{{ it.tip }}" aria-label="{{ it.tip }}" aria-pressed="{{ it.pressed }}" disabled="{{ it.disabled }}" onMouseDown="{{ keep }}" onClick="{{ it.onClick }}" style="{{ it.iconStyle }}" style-hover="background:var(--wp-bg-hover);color:var(--wp-text-primary)"><span style="position:relative;display:flex;"><svg width="16" height="16" viewBox="0 0 16 16" style="fill:none;stroke:currentColor;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round;"><path d="{{ it.d }}"></path></svg><sc-if value="{{ it.hasSwatch }}"><span style="{{ it.swatch }}"></span></sc-if></span><sc-if value="{{ it.caret }}"><svg width="8" height="8" viewBox="0 0 8 8" style="fill:none;stroke:currentColor;stroke-width:1.2;stroke-linecap:round;opacity:0.7;"><path d="M1.5 3l2.5 2.5L6.5 3"></path></svg></sc-if></button></sc-if>
+                  <sc-if value="{{ it.isSelect }}"><select data-rtip="{{ it.tip }}" aria-label="{{ it.tip }}" value="{{ it.value }}" onChange="{{ it.onChange }}" disabled="{{ it.disabled }}" style="{{ it.selStyle }}"><sc-for list="{{ it.options }}" as="o"><option value="{{ o.value }}">{{ o.label }}</option></sc-for></select></sc-if>
+                  <sc-if value="{{ it.isStepper }}"><div data-rtip="{{ it.tip }}" style="display:flex;align-items:center;height:{{ ctl }}px;border:1px solid var(--wp-border-subtle);border-radius:6px;background:var(--wp-bg-raised);overflow:hidden;"><button onClick="{{ it.dec }}" aria-label="Decrease" style="width:22px;height:100%;border:none;background:transparent;color:var(--wp-text-secondary);padding:0;font-size:14px;" style-hover="background:var(--wp-bg-hover)">−</button><input value="{{ it.value }}" onChange="{{ it.onChange }}" aria-label="{{ it.tip }}" style="width:32px;height:100%;padding:0;border:none;border-left:1px solid var(--wp-border-subtle);border-right:1px solid var(--wp-border-subtle);background:var(--wp-bg-content);color:var(--wp-text-primary);font-family:var(--font-mono);font-size:11px;text-align:center;outline:none;box-sizing:border-box;"><button onClick="{{ it.inc }}" aria-label="Increase" style="width:22px;height:100%;border:none;background:transparent;color:var(--wp-text-secondary);padding:0;font-size:14px;" style-hover="background:var(--wp-bg-hover)">+</button></div></sc-if>
+                </sc-for></div></sc-for></div></sc-for>
+              </div>
+            </sc-if>
+            <sc-for list="{{ g.bigs }}" as="it">
+              <button data-rid="{{ it.id }}" data-rtip="{{ it.tip }}" aria-label="{{ it.tip }}" aria-pressed="{{ it.pressed }}" disabled="{{ it.disabled }}" onMouseDown="{{ keep }}" onClick="{{ it.onClick }}" style="{{ it.bigStyle }}" style-hover="background:var(--wp-bg-hover);color:var(--wp-text-primary)">
+                <svg width="{{ bigIcon }}" height="{{ bigIcon }}" viewBox="0 0 16 16" style="fill:none;stroke:currentColor;stroke-width:1.1;stroke-linecap:round;stroke-linejoin:round;"><path d="{{ it.d }}"></path></svg>
+                <sc-if value="{{ showLabels }}"><span style="font-size:11px;line-height:1.2;text-align:center;white-space:nowrap;">{{ it.label }}<sc-if value="{{ it.caret }}"> ▾</sc-if></span></sc-if>
+              </button>
+            </sc-for>
+            <sc-if value="{{ g.hasSmalls }}"><div style="{{ g.smallGrid }}"><sc-for list="{{ g.smalls }}" as="it">
+              <button data-rid="{{ it.id }}" data-rtip="{{ it.tip }}" aria-label="{{ it.tip }}" aria-pressed="{{ it.pressed }}" disabled="{{ it.disabled }}" onMouseDown="{{ keep }}" onClick="{{ it.onClick }}" style="{{ it.smallStyle }}" style-hover="background:var(--wp-bg-hover);color:var(--wp-text-primary)"><svg width="14" height="14" viewBox="0 0 16 16" style="fill:none;stroke:currentColor;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;"><path d="{{ it.d }}"></path></svg><sc-if value="{{ showLabels }}"><span>{{ it.label }}</span></sc-if><sc-if value="{{ it.caret }}"><svg width="8" height="8" viewBox="0 0 8 8" style="fill:none;stroke:currentColor;stroke-width:1.2;stroke-linecap:round;opacity:0.7;"><path d="M1.5 3l2.5 2.5L6.5 3"></path></svg></sc-if></button>
+            </sc-for></div></sc-if>
+          </div>
+          <sc-if value="{{ showGroupLabels }}"><div style="font-size:11px;color:var(--wp-text-muted);text-align:center;white-space:nowrap;padding-top:1px;">{{ g.label }}</div></sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{ menuOpen }}">
+    <div onPointerDown="{{ closeMenu }}" style="position:fixed;inset:0;z-index:40;"></div>
+    <div style="{{ menuPos }}"><x-import component-from-global-scope="LiminalHQDesignSystem_6cba27.ContextMenu" items="{{ menuItems }}" palette="native" on-select="{{ onMenuSelect }}" on-close="{{ closeMenu }}" min-width="{{ 200 }}" hint-size="200px,160px"></x-import></div>
+  </sc-if>
+  <sc-if value="{{ tipOn }}"><div style="{{ tipStyle }}"><div style="display:flex;align-items:center;gap:10px;"><span style="font-size:12px;font-weight:600;white-space:nowrap;">{{ tipLabel }}</span><sc-if value="{{ tipHasKey }}"><span style="margin-left:auto;font-family:var(--font-mono);font-size:10.5px;color:var(--wp-text-muted);padding:1px 5px;border:1px solid var(--wp-border-subtle);border-radius:4px;">{{ tipKey }}</span></sc-if></div><sc-if value="{{ tipHasDesc }}"><span style="font-size:11px;color:var(--wp-text-secondary);line-height:1.35;">{{ tipDesc }}</span></sc-if></div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;1200px&quot;,&quot;height&quot;:&quot;260px&quot;},&quot;variant&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;full&quot;,&quot;simplified&quot;,&quot;collapsed&quot;],&quot;default&quot;:&quot;full&quot;,&quot;tsType&quot;:&quot;'full'|'simplified'|'collapsed'&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;comfortable&quot;,&quot;compact&quot;],&quot;default&quot;:&quot;comfortable&quot;,&quot;tsType&quot;:&quot;'comfortable'|'compact'&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;showLabels&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;groupLabels&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark'|'light'&quot;,&quot;section&quot;:&quot;Look&quot;},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;easy&quot;,&quot;expert&quot;],&quot;default&quot;:&quot;easy&quot;,&quot;tsType&quot;:&quot;'easy'|'expert'&quot;,&quot;section&quot;:&quot;Behaviour&quot;},&quot;showModes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Behaviour&quot;},&quot;showFile&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Behaviour&quot;},&quot;activeTab&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;home&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Behaviour&quot;},&quot;contextual&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string[]&quot;},&quot;model&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;RibbonModel&quot;},&quot;onCommand&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(e: { id: string; value: unknown; item: RibbonItem }) =&gt; void&quot;},&quot;keepFocus&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;boolean&quot;},&quot;ariaLabel&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;}}">
+// Liminal HQ Ribbon — reusable, data-driven. Model: { file?, tabs: [{ id, label, contextual?, groups: [{ id, label, expert?, rows?, items? }] }] }
+// Item: { id, label, d (16px SVG path), size: 'large'|'small', kind: 'button'|'toggle'|'menu'|'select'|'stepper', active?, disabled?, expert?, tip?, key?, swatch?, options?, value? }
+// Rows group: rows: [[ [item, item], [item] ], …]  — row → clusters → items (2-row dense layout for fonts/paragraphs).
+const D = {
+  undo: 'M5.5 3.5L2.5 6.5l3 3M2.5 6.5H10a3.5 3.5 0 010 7H7', redo: 'M10.5 3.5l3 3-3 3M13.5 6.5H6a3.5 3.5 0 000 7h3', bold: 'M4.5 2.5h4.25a2.75 2.75 0 010 5.5H4.5zM4.5 8h5a3 3 0 010 6h-5z', italic: 'M7 2.5h6M3 13.5h6M10 2.5L6 13.5', underline: 'M4.5 2.5v5a3.5 3.5 0 007 0v-5M3.5 14h9', strike: 'M3 8h10M10.8 4.6C10.3 3.5 9.3 3 8 3 6.3 3 5 3.9 5 5.2c0 .9.5 1.5 1.4 1.9M5.2 11.2c.5 1.1 1.6 1.8 3 1.8 1.8 0 3-.9 3-2.3',
+  colour: 'M4 12L7.5 2.5h1L12 12M5.3 8.5h5.4', highlight: 'M9.5 2.5l4 4L8 12H4V8z', alignL: 'M2 3h12M2 6.5h8M2 10h12M2 13.5h8', alignC: 'M2 3h12M4 6.5h8M2 10h12M4 13.5h8', alignR: 'M2 3h12M6 6.5h8M2 10h12M6 13.5h8', justify: 'M2 3h12M2 6.5h12M2 10h12M2 13.5h12', bullets: 'M5.5 4h8M5.5 8h8M5.5 12h8M2.5 4h.5M2.5 8h.5M2.5 12h.5', numbers: 'M6 4h8M6 8h8M6 12h8M2 3l1-.5V5.5M2 10.5c.2-.4.6-.6 1-.6.5 0 .9.3.9.8 0 .7-1 1.1-1.9 2h2', spacing: 'M7 3.5h7M7 8h7M7 12.5h7M3.5 2v12M2 3.5L3.5 2 5 3.5M2 12.5L3.5 14 5 12.5',
+  text: 'M3 3.5h10M8 3.5v9.5M6 13h4', image: 'M2 3h12v10H2zM2 11l3.5-3.5 3 3 2-2L14 12M11 5a1 1 0 110 2 1 1 0 010-2z', table: 'M2 2.5h12v11H2zM2 6h12M2 9.75h12M6.5 2.5v11', shape: 'M5 3.5h6a2.5 2.5 0 012.5 2.5v4a2.5 2.5 0 01-2.5 2.5H5A2.5 2.5 0 012.5 10V6A2.5 2.5 0 015 3.5z', speech: 'M4 2.5h8a2 2 0 012 2v4a2 2 0 01-2 2H7l-3 3v-3a2 2 0 01-2-2v-4a2 2 0 012-2z', templates: 'M2 2.5h5.5v5.5H2zM9 2.5h5v3H9zM9 7h5v6.5H9zM2 9.5h5.5v4H2z',
+  grid: 'M2 2h12v12H2zM6 2v12M10 2v12', margins: 'M2 2h12v12H2zM4.5 4.5h7v7h-7z', snap: 'M4 2.5v5a4 4 0 008 0v-5M4 5.5h3M9 5.5h3', front: 'M6 6h8v8H6zM2 10V2h8', back: 'M2 2h8v8H2zM6 14h8V6', group: 'M2 2h5v5H2zM9 9h5v5H9z', alignLE: 'M2.5 1.5v13M4.5 4h8v3h-8zM4.5 9h5v3h-5z', alignCE: 'M8 1.5v13M3 4h10v3H3zM5 9h6v3H5z', distH: 'M2 2v12M14 2v12M6 5h4v6H6z',
+  zoomIn: 'M7 2.5a4.5 4.5 0 110 9 4.5 4.5 0 010-9zM10.5 10.5l3.5 3.5M5 7h4M7 5v4', zoomOut: 'M7 2.5a4.5 4.5 0 110 9 4.5 4.5 0 010-9zM10.5 10.5l3.5 3.5M5 7h4', print: 'M4.5 6V2h7v4M4.5 11.5H2V6h12v5.5h-2.5M4.5 9h7v5h-7z', reader: 'M4 1.5h8v13H4zM6 4h4M6 6h4M6 8h3M7 12.5h2', export: 'M8 10V2M5 5l3-3 3 3M3 9v5h10V9', check: 'M8 1.5a6.5 6.5 0 110 13 6.5 6.5 0 010-13zM5 8.2l2 2 4-4.2',
+  crop: 'M4.5 1.5v10h10M1.5 4.5h10v10', rotL: 'M3 6.5A5 5 0 1 1 4 11M3 2.5v4h4', flipH: 'M8 1.5v13M6 4L2.5 12H6zM10 4l3.5 8H10z', border: 'M2 2h12v12H2zM4.5 4.5h7v7h-7z', filter: 'M6 4.5a3.5 3.5 0 110 7 3.5 3.5 0 010-7zM10 4.5a3.5 3.5 0 110 7 3.5 3.5 0 010-7z', wrap: 'M2 3h12M2 6.5h5M2 10h5M2 13.5h12M9 5.5h5v6H9z', find: 'M7 2.5a4.5 4.5 0 110 9 4.5 4.5 0 010-9zM10.5 10.5l3.5 3.5', help: 'M8 1.5a6.5 6.5 0 110 13 6.5 6.5 0 010-13zM6.2 6.2a1.9 1.9 0 113 1.5c-.6.4-1.2.8-1.2 1.6M8 11.3v.2',
+  folder: 'M2 4h4l1.5 1.5H14v8H2z', copy: 'M5.5 4h6.5v10.5H5.5zM3.5 12V1.5H10', cut: 'M4.5 10.5a2 2 0 110 3 2 2 0 010-3zM11.5 10.5a2 2 0 110 3 2 2 0 010-3zM5.8 10.8L12 2.5M10.2 10.8L4 2.5', paste: 'M5 2.5h6v2H5zM4 3.5H3v11h10v-11h-1', trash: 'M3 4h10M6 4V2.5h4V4M4.5 4l.75 10h5.5L11.5 4', rename: 'M10.5 2.5l3 3-8 8H2.5v-3z', share: 'M11 2.5l3 3-3 3M14 5.5H7a4 4 0 00-4 4v3', list: 'M2 3.5h1.5M5.5 3.5H14M2 7.5h1.5M5.5 7.5H14M2 11.5h1.5M5.5 11.5H14', tiles: 'M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z', eye: 'M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8zM8 6a2 2 0 110 4 2 2 0 010-4z', sun: 'M8 5a3 3 0 110 6 3 3 0 010-6zM8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3', contrast: 'M8 1.5a6.5 6.5 0 110 13zM8 1.5a6.5 6.5 0 100 13', drop: 'M8 1.5c2.5 3 4.5 5.4 4.5 7.8a4.5 4.5 0 01-9 0C3.5 6.9 5.5 4.5 8 1.5z',
+};
+const it = (id, label, o) => Object.assign({ id, label, d: D[(o && o.icon) || id] || D.help }, o || {});
+const DEFAULT_MODEL = { file: { label: 'File' }, tabs: [
+  { id: 'home', label: 'Home', groups: [
+    { id: 'history', label: 'History', items: [it('undo', 'Undo', { size: 'small', key: 'Ctrl+Z' }), it('redo', 'Redo', { size: 'small', key: 'Ctrl+Shift+Z' })] },
+    { id: 'font', label: 'Font', rows: [[[it('style', 'Paragraph style', { kind: 'select', options: [['story', 'Story text'], ['h1', 'Heading'], ['caption', 'Caption']], value: 'story', width: 110 })], [it('font', 'Font', { kind: 'select', options: [['', 'Font from style'], ['Literata', 'Literata'], ['Inter', 'Inter']], value: '', width: 130 })], [it('size', 'Size (pt)', { kind: 'stepper', value: 19, step: 1, min: 5, max: 144 })]], [[it('bold', 'Bold', { kind: 'toggle', key: 'Ctrl+B' }), it('italic', 'Italic', { kind: 'toggle', key: 'Ctrl+I' }), it('underline', 'Underline', { kind: 'toggle', key: 'Ctrl+U' }), it('strike', 'Strikethrough', { kind: 'toggle' })], [it('colour', 'Text colour', { kind: 'menu', swatch: '#1c1b20', options: [['#1c1b20', 'Ink'], ['#c2410c', 'Orange'], ['#7c3aed', 'Purple'], ['#2563eb', 'Blue']] }), it('highlight', 'Highlight', { kind: 'menu', swatch: '#fde68a', options: [['#fde68a', 'Yellow'], ['#bbf7d0', 'Green'], ['', 'None']] })]]] },
+    { id: 'para', label: 'Paragraph', rows: [[[it('alignL', 'Left', { kind: 'toggle', active: true, radio: 'align' }), it('alignC', 'Centre', { kind: 'toggle', radio: 'align' }), it('alignR', 'Right', { kind: 'toggle', radio: 'align' }), it('justify', 'Justify', { kind: 'toggle', radio: 'align' })], [it('spacing', 'Line spacing', { kind: 'menu', options: [['1', '1.0'], ['1.3', '1.3'], ['1.6', '1.6'], ['2', '2.0']] })]], [[it('bullets', 'Bullets', { kind: 'toggle', radio: 'list' }), it('numbers', 'Numbering', { kind: 'toggle', radio: 'list' })]]] },
+    { id: 'insert', label: 'Add', items: [it('text', 'Text box', { size: 'large' }), it('image', 'Picture', { size: 'large' }), it('table', 'Table', { size: 'small' }), it('shape', 'Shape', { size: 'small', kind: 'menu', options: [['rect', 'Rectangle'], ['round', 'Rounded'], ['ellipse', 'Ellipse']] }), it('speech', 'Bubble', { size: 'small' })] },
+    { id: 'edit', label: 'Editing', items: [it('find', 'Find & replace', { size: 'large', key: 'Ctrl+F' })] },
+    { id: 'help', label: 'Help', items: [it('help', 'Ask Jax', { size: 'large' })] },
+  ] },
+  { id: 'insert', label: 'Insert', groups: [{ id: 'frames', label: 'Frames', items: [it('text', 'Text box', { size: 'large' }), it('image', 'Picture', { size: 'large' }), it('table', 'Table', { size: 'large' })] }, { id: 'shapes', label: 'Shapes', items: [it('shape', 'Rounded', { size: 'small' }), it('speech', 'Speech', { size: 'small' })] }, { id: 'tpl', label: 'Templates', items: [it('templates', 'Spread templates', { size: 'large' })] }] },
+  { id: 'layout', label: 'Layout', groups: [{ id: 'helpers', label: 'Helpers', items: [it('margins', 'Margins', { size: 'small', kind: 'toggle', active: true }), it('grid', 'Grid', { size: 'small', kind: 'toggle' }), it('snap', 'Snap', { size: 'small', kind: 'toggle', active: true })] }, { id: 'arrange', label: 'Arrange', items: [it('front', 'To front', { size: 'small' }), it('back', 'To back', { size: 'small' }), it('group', 'Group', { size: 'small', key: 'Ctrl+G' })] }, { id: 'align', label: 'Align', expert: true, items: [it('alignLE', 'Left edges', { size: 'small' }), it('alignCE', 'Centres', { size: 'small' }), it('distH', 'Distribute', { size: 'small' })] }] },
+  { id: 'view', label: 'View', groups: [{ id: 'preview', label: 'Preview', items: [it('print', 'Print', { size: 'large', kind: 'toggle', active: true, radio: 'pv' }), it('reader', 'Kindle', { size: 'large', kind: 'toggle', radio: 'pv' })] }, { id: 'zoom', label: 'Zoom', items: [it('zoomIn', 'Zoom in', { size: 'small' }), it('zoomOut', 'Zoom out', { size: 'small' })] }] },
+  { id: 'picture', label: 'Picture', contextual: true, groups: [{ id: 'pic', label: 'Picture', items: [it('crop', 'Crop', { size: 'large' }), it('rotL', 'Rotate', { size: 'small' }), it('flipH', 'Flip', { size: 'small' })] }, { id: 'look', label: 'Look', items: [it('border', 'Border', { size: 'large', kind: 'menu', options: [['none', 'None'], ['hair', 'Hairline'], ['thick', 'Thick']] }), it('filter', 'Filter', { size: 'large', kind: 'menu', options: [['none', 'Original'], ['warm', 'Warm'], ['bw', 'Black & white']] }), it('wrap', 'Wrap text', { size: 'large', kind: 'menu', options: [['over', 'Over'], ['around', 'Around']] })] }] },
+  { id: 'export', label: 'Export', groups: [{ id: 'check', label: 'Check', items: [it('check', 'Check book', { size: 'large' })] }, { id: 'out', label: 'Export', items: [it('export', 'Export book', { size: 'large', key: 'Ctrl+E' })] }] },
+] };
+
+class Component extends DCLogic {
+  rootRef = React.createRef();
+  state = { tab: null, mode: null, toggles: {}, values: {}, menu: null, pinned: false, open: false, tip: null };
+  componentDidMount() {
+    const r = this.rootRef.current; if (!r) return;
+    this.over = (e) => { const el = e.target.closest && e.target.closest('[data-rtip]'); if (!el || !r.contains(el)) return; clearTimeout(this.tt); this.tt = setTimeout(() => { if (!el.isConnected) return; const rr = r.getBoundingClientRect(), b = el.getBoundingClientRect(), s = rr.width / r.offsetWidth || 1, item = this.findItem(el.getAttribute('data-rid')); this.setState({ tip: { label: el.getAttribute('data-rtip'), key: item && item.key, desc: item && item.desc, x: (b.left + b.width / 2 - rr.left) / s, y: (b.bottom - rr.top) / s + 6 } }); }, this.state.tip ? 60 : 450); };
+    this.out = (e) => { const el = e.target.closest && e.target.closest('[data-rtip]'); if (el && el.contains(e.relatedTarget)) return; clearTimeout(this.tt); if (this.state.tip) this.setState({ tip: null }); };
+    this.down = () => { clearTimeout(this.tt); if (this.state.tip) this.setState({ tip: null }); };
+    r.addEventListener('mouseover', this.over); r.addEventListener('mouseout', this.out); r.addEventListener('pointerdown', this.down, true);
+  }
+  componentWillUnmount() { const r = this.rootRef.current; clearTimeout(this.tt); if (r) { r.removeEventListener('mouseover', this.over); r.removeEventListener('mouseout', this.out); r.removeEventListener('pointerdown', this.down, true); } }
+  model() { return this.props.model || DEFAULT_MODEL; }
+  findItem(id) { let f = null; this.model().tabs.forEach((t) => t.groups.forEach((g) => (g.items || []).concat(...(g.rows || []).map((r) => [].concat(...r))).forEach((x) => { if (x.id === id) f = x; }))); return f; }
+  emit(id, value, item) { const fn = this.props.onCommand; if (fn) fn({ id, value, item }); }
+  isOn(x) { const t = this.state.toggles; return t[x.id] != null ? t[x.id] : !!x.active; }
+  press(x, e) {
+    if (x.disabled) return;
+    if (x.kind === 'menu') { const r = this.rootRef.current.getBoundingClientRect(), b = e.currentTarget.getBoundingClientRect(), s = r.width / this.rootRef.current.offsetWidth || 1; return this.setState({ menu: { item: x, x: (b.left - r.left) / s, y: (b.bottom - r.top) / s + 2 } }); }
+    if (x.kind === 'toggle') {
+      const on = !this.isOn(x), t = Object.assign({}, this.state.toggles);
+      if (x.radio) { this.model().tabs.forEach((tb) => tb.groups.forEach((g) => (g.items || []).concat(...(g.rows || []).map((r) => [].concat(...r))).forEach((y) => { if (y.radio === x.radio) t[y.id] = false; }))); t[x.id] = true; } else t[x.id] = on;
+      this.setState({ toggles: t }); return this.emit(x.id, x.radio ? true : on, x);
+    }
+    this.emit(x.id, null, x);
+    if (this.variant() === 'collapsed' && !this.state.pinned) this.setState({ open: false });
+  }
+  variant() { return this.props.variant || 'full'; }
+  renderVals() {
+    const P = this.props, st = this.state, M = this.model(), v = this.variant(), dense = P.density === 'compact', expert = (st.mode || P.mode || 'easy') === 'expert';
+    const labels = P.showLabels !== false, accent = 'var(--wp-accent)';
+    const vis = M.tabs.filter((t) => !t.contextual || (P.contextual || []).includes(t.id));
+    let tab = st.tab || P.activeTab || (vis[0] && vis[0].id); if (!vis.some((t) => t.id === tab)) tab = vis[0] && vis[0].id;
+    const T = vis.find((t) => t.id === tab) || { groups: [] };
+    const ctl = dense ? 22 : 26, bigH = dense ? 48 : 58, bigIcon = dense ? 18 : 22, rowH = dense ? 18 : 20;
+    const onS = (on) => ({ background: on ? 'var(--wp-bg-selected)' : 'transparent', color: on ? accent : 'var(--wp-text-secondary)' });
+    const base = { border: 'none', borderRadius: 5, font: 'inherit', cursor: 'default', boxSizing: 'border-box' };
+    const mk = (x) => { const on = x.kind === 'toggle' && this.isOn(x), cur = st.values[x.id] != null ? st.values[x.id] : x.value;
+      return Object.assign({}, x, { tip: x.label, pressed: x.kind === 'toggle' ? on : undefined, caret: x.kind === 'menu', disabled: !!x.disabled, onClick: (e) => this.press(x, e), isBtn: x.kind !== 'select' && x.kind !== 'stepper', isSelect: x.kind === 'select', isStepper: x.kind === 'stepper',
+        hasSwatch: !!x.swatch, swatch: { position: 'absolute', left: 1, right: 1, bottom: -3, height: 3, borderRadius: 1, background: st.values[x.id] || x.swatch },
+        bigStyle: Object.assign({ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, minWidth: labels ? 52 : 40, height: labels ? bigH : bigH - 14, padding: '4px 6px', opacity: x.disabled ? 0.4 : 1 }, base, onS(on)),
+        smallStyle: Object.assign({ display: 'flex', alignItems: 'center', gap: 5, height: rowH, padding: labels ? '0 6px' : '0 4px', fontSize: 12, whiteSpace: 'nowrap', opacity: x.disabled ? 0.4 : 1 }, base, onS(on)),
+        iconStyle: Object.assign({ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, height: ctl, minWidth: ctl + 2, padding: x.kind === 'menu' ? '0 4px 0 6px' : '0 6px', opacity: x.disabled ? 0.4 : 1 }, base, onS(on)),
+        selStyle: { height: ctl, width: x.width || 120, padding: '0 6px', border: '1px solid var(--wp-border-subtle)', borderRadius: 6, background: 'var(--wp-bg-raised)', color: 'var(--wp-text-primary)', font: 'inherit', fontSize: 12 },
+        value: cur, options: (x.options || []).map(([value, label]) => ({ value, label })), onChange: (e) => { const val = x.kind === 'stepper' ? parseFloat(e.target.value) || cur : e.target.value; this.setState({ values: Object.assign({}, st.values, { [x.id]: val }) }); this.emit(x.id, val, x); },
+        dec: () => { const val = Math.max(x.min != null ? x.min : -1e9, (+cur || 0) - (x.step || 1)); this.setState({ values: Object.assign({}, st.values, { [x.id]: val }) }); this.emit(x.id, val, x); },
+        inc: () => { const val = Math.min(x.max != null ? x.max : 1e9, (+cur || 0) + (x.step || 1)); this.setState({ values: Object.assign({}, st.values, { [x.id]: val }) }); this.emit(x.id, val, x); } }); };
+    const groups = T.groups.filter((g) => expert || !g.expert).map((g, gi, arr) => {
+      const items = (g.items || []).filter((x) => expert || !x.expert).map(mk);
+      return { label: g.label, isRows: !!g.rows, rows: (g.rows || []).map((row) => ({ style: { display: 'flex', alignItems: 'center', height: ctl }, clusters: row.map((cl, ci) => ({ style: { display: 'flex', alignItems: 'center', gap: 1, paddingRight: ci === row.length - 1 ? 0 : 6, marginRight: ci === row.length - 1 ? 0 : 6, borderRight: ci === row.length - 1 ? 'none' : '1px solid var(--wp-border-subtle)', height: ctl - 4 }, items: cl.filter((x) => expert || !x.expert).map(mk) })) })),
+        bigs: items.filter((x) => x.size === 'large'), smalls: items.filter((x) => x.size !== 'large'), hasSmalls: items.some((x) => x.size !== 'large'),
+        smallGrid: { display: 'grid', gridTemplateRows: 'repeat(' + (dense ? 2 : 3) + ', ' + rowH + 'px)', gridAutoFlow: 'column', gap: '1px 2px' },
+        style: { display: 'flex', flexDirection: 'column', padding: '0 6px', borderRight: gi === arr.length - 1 ? 'none' : '1px solid var(--wp-border-subtle)', flexShrink: 0 } };
+    });
+    const flat = [].concat(...groups.map((g) => [].concat(g.bigs, g.smalls, ...g.rows.map((r) => [].concat(...r.clusters.map((c) => c.items.filter((x) => x.isBtn))))))).map((x) => Object.assign({}, x));
+    const open = v === 'full' || (v === 'collapsed' && (st.open || st.pinned));
+    const tip = st.tip, W = this.rootRef.current ? this.rootRef.current.offsetWidth : 1200;
+    return {
+      tabRowStyle: { display: 'flex', alignItems: 'center', gap: 2, height: dense ? 28 : 32, padding: '0 8px', minWidth: 0, overflow: 'hidden' }, rootRef: this.rootRef, themeAttr: P.theme === 'light' ? 'light' : 'dark', ariaLabel: P.ariaLabel || 'Ribbon', tabRowH: dense ? 28 : 32, ctl, bigIcon, rowGap: dense ? 3 : 5, showLabels: labels, showGroupLabels: P.groupLabels !== false && !dense,
+      hasFile: !!M.file && P.showFile !== false, fileLabel: (M.file && M.file.label) || 'File', onFile: (e) => { this.emit('file', null, M.file); if (M.file && M.file.items) this.press({ kind: 'menu', id: 'file', options: M.file.items }, e); },
+      fileStyle: { height: dense ? 22 : 26, padding: '0 12px', border: 'none', borderRadius: 6, background: accent, color: 'var(--wp-accent-fg)', font: 'inherit', fontSize: 12, fontWeight: 600, cursor: 'default', marginRight: 4 },
+      tabs: vis.map((t) => { const on = t.id === tab && (v !== 'collapsed' || open); return { label: t.label, on, onClick: () => { this.setState({ tab: t.id, open: v === 'collapsed' ? !(st.open && st.tab === t.id) : st.open }); this.emit('tab', t.id); }, style: { height: dense ? 22 : 26, padding: '0 12px', border: 'none', borderRadius: 6, background: on ? 'var(--wp-bg-selected)' : 'transparent', color: on || t.contextual ? accent : 'var(--wp-text-secondary)', font: 'inherit', fontSize: 12, fontWeight: on || t.contextual ? 600 : 500, cursor: 'default', boxShadow: t.contextual ? 'inset 0 -2px 0 ' + accent : 'none' } }; }),
+      isSimple: v === 'simplified', flat, isCollapsed: v === 'collapsed', pinLabel: st.pinned ? 'Unpin' : 'Pin ribbon', pinTip: st.pinned ? 'Collapse to tabs' : 'Keep the ribbon open', togglePin: () => this.setState({ pinned: !st.pinned, open: false }),
+      hasModes: P.showModes !== false, modes: [['easy', 'Easy'], ['expert', 'Expert']].map(([m, l]) => { const on = (st.mode || P.mode || 'easy') === m; return { label: l, onClick: () => { this.setState({ mode: m }); this.emit('mode', m); }, style: { height: 20, padding: '0 8px', border: 'none', borderRadius: 6, background: on ? 'var(--wp-bg-raised)' : 'transparent', color: on ? 'var(--wp-text-primary)' : 'var(--wp-text-muted)', boxShadow: on ? '0 1px 2px rgba(0,0,0,0.18)' : 'none', font: 'inherit', fontSize: 11, fontWeight: on ? 600 : 400, cursor: 'default' } }; }),
+      showGroups: open && v !== 'simplified', groups,
+      groupsStyle: Object.assign({ display: 'flex', alignItems: 'stretch', height: dense ? 60 : 84, padding: '0 4px 4px', overflowX: 'auto', overflowY: 'hidden', background: 'var(--wp-bg-chrome)' }, v === 'collapsed' && !st.pinned ? { position: 'absolute', left: 0, right: 0, top: dense ? 28 : 32, zIndex: 30, borderBottom: '1px solid var(--wp-border-subtle)', boxShadow: 'var(--wp-shadow-menu)' } : {}),
+      keep: (e) => { if (P.keepFocus) e.preventDefault(); },
+      menuOpen: !!st.menu, closeMenu: () => this.setState({ menu: null }),
+      menuItems: st.menu ? (st.menu.item.options || []).map(([value, label]) => ({ id: String(value), label, type: 'checkbox', checked: (st.values[st.menu.item.id] != null ? st.values[st.menu.item.id] : st.menu.item.value) === value, icon: React.createElement('svg', { width: 16, height: 16, viewBox: '0 0 16 16' }, /^#/.test(value) ? React.createElement('rect', { x: 2, y: 2, width: 12, height: 12, rx: 3, fill: value }) : React.createElement('path', { d: st.menu.item.d, fill: 'none', stroke: 'currentColor', strokeWidth: 1.3 })) })) : [],
+      onMenuSelect: (m) => { const x = st.menu && st.menu.item; this.setState({ menu: null, values: Object.assign({}, st.values, { [x.id]: m.id }) }); this.emit(x.id, m.id, x); },
+      menuPos: st.menu ? { position: 'absolute', left: Math.max(4, Math.min(st.menu.x, W - 210)), top: st.menu.y, zIndex: 41 } : {},
+      tipOn: !!tip, tipLabel: tip ? tip.label : '', tipKey: tip ? tip.key : '', tipHasKey: !!(tip && tip.key), tipDesc: tip ? tip.desc : '', tipHasDesc: !!(tip && tip.desc),
+      tipStyle: tip ? { position: 'absolute', left: Math.max(6, Math.min(tip.x - 90, W - 200)), top: tip.y, width: 'max-content', maxWidth: 220, padding: '6px 9px', borderRadius: 7, background: 'var(--wp-bg-raised)', border: '1px solid var(--wp-border-subtle)', boxShadow: 'var(--wp-shadow-menu)', zIndex: 50, pointerEvents: 'none', display: 'flex', flexDirection: 'column', gap: 2 } : {},
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+.screen {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	background: var(--folio-bg-screen);
+	color: var(--folio-text-primary);
+}
+
+.body {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 32px;
+	text-align: center;
+	background: var(--folio-bg-body);
+}
+
+.mark {
+	inline-size: 128px;
+	block-size: 128px;
+	margin-block-end: 16px;
+}
+
+.name {
+	margin: 0;
+	font-size: 32px;
+	font-weight: 700;
+}
+
+.tagline {
+	margin: 0;
+	color: var(--folio-text-secondary);
+	font-size: 16px;
+}
+
+.fact {
+	margin: 0;
+	color: var(--folio-text-muted);
+}
+
+.copy {
+	margin-block-start: 16px;
+	min-block-size: var(--folio-hit-target);
+	padding: 0 16px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 8px;
+	background: var(--folio-control-bg);
+	color: var(--folio-text-primary);
+	font: inherit;
+	cursor: pointer;
+}
+
+.copy:hover {
+	background: var(--folio-control-bg-hover);
+}
+
+.copy:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: 2px;
+}

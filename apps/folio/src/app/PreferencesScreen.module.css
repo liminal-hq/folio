@@ -1,0 +1,14 @@
+.screen {
+	display: flex;
+	flex-direction: column;
+	background: var(--folio-bg-screen);
+	color: var(--folio-text-primary);
+}
+
+.content {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	flex-direction: column;
+	background: var(--folio-bg-body);
+}

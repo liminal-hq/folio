@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/waypoint.css">
+  <style>html,body{margin:0;background:#0f0d0c}a{color:#fb923c}a:hover{color:#fdba74}</style>
+</helmet>
+<section data-screen-label="Ribbon kit" style="padding:64px 72px 96px;display:flex;flex-direction:column;gap:34px;background:#0f0d0c;color:#f5f1ed;font-family:system-ui,sans-serif;width:1480px;box-sizing:border-box;">
+  <div style="display:flex;flex-direction:column;gap:8px;max-width:1000px;">
+    <span style="font-size:13px;color:#9a918a;">Liminal HQ · reusable component · <a href="Ribbon.dc.html">Ribbon.dc.html</a> · spec <a href="spec/components/ribbon.md">spec/components/ribbon.md</a></span>
+    <h1 style="margin:0;font-size:36px;font-weight:600;letter-spacing:-0.01em;">Ribbon</h1>
+    <p style="margin:0;font-size:15px;line-height:1.55;color:#c9c1ba;text-wrap:pretty;">A data-driven ribbon that any Liminal desktop app can drop in: pass a model of tabs, groups and items and listen for one <span style="font-family:var(--font-mono);color:#fb923c;">onCommand</span> event. Everything below is the same component with different props.</p>
+  </div>
+
+  <div id="r1" style="display:flex;flex-direction:column;gap:10px;">
+    <div style="display:flex;align-items:baseline;gap:10px;"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:#f97316;color:#1c1917;font-family:var(--font-mono);font-size:12px;font-weight:700;">r1</span><span style="font-size:16px;font-weight:600;">Playground</span><span style="font-size:12px;color:#9a918a;">Click anything — events land in the log</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;padding:12px 14px;border:1px solid #3a3531;border-radius:10px;background:#171412;">
+      <sc-for list="{{ ctrls }}" as="c"><div style="display:flex;align-items:center;gap:6px;"><span style="font-size:12px;color:#9a918a;">{{ c.label }}</span><div style="display:flex;padding:2px;gap:2px;border-radius:7px;background:#211e1b;"><sc-for list="{{ c.opts }}" as="o"><button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div></div></sc-for>
+    </div>
+    <div style="border-radius:10px;overflow:visible;box-shadow:0 0 0 1px rgba(255,255,255,0.08);">
+      <dc-import name="Ribbon" dc-props="{{ playProps }}" hint-size="100%,118px"></dc-import>
+      <div style="{{ pageStyle }}">
+        <div style="flex:1;display:flex;flex-direction:column;gap:3px;font-family:var(--font-mono);font-size:11.5px;color:#a8a29e;overflow:hidden;"><span style="color:#fb923c;">onCommand</span><sc-for list="{{ log }}" as="l"><span>{{ l }}</span></sc-for></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:28px 28px;">
+    <sc-for list="{{ variants }}" as="v">
+      <div id="{{ v.id }}" style="display:flex;flex-direction:column;gap:8px;min-width:0;">
+        <div style="display:flex;align-items:baseline;gap:10px;"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:#4a2a1a;color:#fb923c;font-family:var(--font-mono);font-size:12px;font-weight:600;">{{ v.id }}</span><span style="font-size:15px;font-weight:600;">{{ v.title }}</span></div>
+        <span style="font-size:12px;color:#9a918a;line-height:1.45;min-height:34px;">{{ v.note }}</span>
+        <div style="{{ v.box }}">
+          <dc-import name="Ribbon" dc-props="{{ v.props }}" hint-size="100%,118px"></dc-import>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div id="r9" style="display:flex;flex-direction:column;gap:14px;">
+    <div style="display:flex;align-items:baseline;gap:10px;"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:#4a2a1a;color:#fb923c;font-family:var(--font-mono);font-size:12px;font-weight:600;">r9</span><span style="font-size:16px;font-weight:600;">Anatomy → component set</span></div>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;">
+      <sc-for list="{{ parts }}" as="p"><div style="padding:14px 16px;border-radius:12px;background:#1c1917;border:1px solid #3a3531;display:flex;flex-direction:column;gap:6px;"><span style="font-family:var(--font-mono);font-size:12px;color:#fb923c;">{{ p.c }}</span><span style="font-size:14px;font-weight:600;">{{ p.t }}</span><span style="font-size:12.5px;color:#c9c1ba;line-height:1.5;">{{ p.b }}</span></div></sc-for>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const d = { folder: 'M2 4h4l1.5 1.5H14v8H2z', copy: 'M5.5 4h6.5v10.5H5.5zM3.5 12V1.5H10', cut: 'M4.5 10.5a2 2 0 110 3 2 2 0 010-3zM11.5 10.5a2 2 0 110 3 2 2 0 010-3zM5.8 10.8L12 2.5M10.2 10.8L4 2.5', paste: 'M5 2.5h6v2H5zM4 3.5H3v11h10v-11h-1', trash: 'M3 4h10M6 4V2.5h4V4M4.5 4l.75 10h5.5L11.5 4', rename: 'M10.5 2.5l3 3-8 8H2.5v-3z', share: 'M11 2.5l3 3-3 3M14 5.5H7a4 4 0 00-4 4v3', list: 'M2 3.5h1.5M5.5 3.5H14M2 7.5h1.5M5.5 7.5H14M2 11.5h1.5M5.5 11.5H14', tiles: 'M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z', eye: 'M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8zM8 6a2 2 0 110 4 2 2 0 010-4z', sun: 'M8 5a3 3 0 110 6 3 3 0 010-6zM8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3', contrast: 'M8 1.5a6.5 6.5 0 110 13zM8 1.5a6.5 6.5 0 100 13', drop: 'M8 1.5c2.5 3 4.5 5.4 4.5 7.8a4.5 4.5 0 01-9 0C3.5 6.9 5.5 4.5 8 1.5z', crop: 'M4.5 1.5v10h10M1.5 4.5h10v10', rotL: 'M3 6.5A5 5 0 1 1 4 11M3 2.5v4h4', newF: 'M2 4h4l1.5 1.5H14v8H2zM8 7.5v4M6 9.5h4', terminal: 'M2 3h12v10H2zM4.5 6.5l2 1.5-2 1.5M8 10h3.5', zip: 'M4 1.5h8v13H4zM8 1.5v2M8 4.5v1M8 6.5v1M7 8.5h2v2H7z', star: 'M8 1.5l1.9 4 4.4.5-3.3 3 .9 4.4L8 11.2l-3.9 2.2.9-4.4-3.3-3 4.4-.5z', play: 'M4.5 2.5l9 5.5-9 5.5z', clock: 'M8 1.5a6.5 6.5 0 110 13 6.5 6.5 0 010-13zM8 4.5V8l2.5 1.5' };
+const I = (id, label, o) => Object.assign({ id, label, d: d[(o && o.icon) || id] }, o || {});
+const FILES = { file: { label: 'File', items: [['new', 'New window'], ['prefs', 'Preferences'], ['quit', 'Quit']] }, tabs: [
+  { id: 'home', label: 'Home', groups: [{ id: 'clip', label: 'Clipboard', items: [I('paste', 'Paste', { size: 'large', key: 'Ctrl+V' }), I('cut', 'Cut', { size: 'small', key: 'Ctrl+X' }), I('copy', 'Copy', { size: 'small', key: 'Ctrl+C' })] }, { id: 'org', label: 'Organise', items: [I('folder', 'Move to', { size: 'large', kind: 'menu', options: [['docs', 'Documents'], ['pics', 'Pictures'], ['other', 'Choose…']] }), I('rename', 'Rename', { size: 'small', key: 'F2' }), I('trash', 'Move to bin', { size: 'small', key: 'Del' })] }, { id: 'new', label: 'New', items: [I('newF', 'New folder', { size: 'large', key: 'Ctrl+Shift+N' })] }, { id: 'open', label: 'Open', items: [I('terminal', 'Terminal here', { size: 'small', expert: true }), I('zip', 'Compress', { size: 'small' }), I('star', 'Add to places', { size: 'small' })] }] },
+  { id: 'share', label: 'Share', groups: [{ id: 's', label: 'Send', items: [I('share', 'Share…', { size: 'large' }), I('zip', 'Zip and email', { size: 'small' })] }] },
+  { id: 'view', label: 'View', groups: [{ id: 'layout', label: 'Layout', items: [I('list', 'List', { size: 'large', kind: 'toggle', radio: 'v', active: true }), I('tiles', 'Grid', { size: 'large', kind: 'toggle', radio: 'v' })] }, { id: 'show', label: 'Show', items: [I('eye', 'Hidden files', { size: 'small', kind: 'toggle', key: 'Ctrl+H' }), I('star', 'Places sidebar', { size: 'small', kind: 'toggle', active: true })] }] },
+] };
+const PHOTO = { tabs: [
+  { id: 'adjust', label: 'Adjust', groups: [{ id: 'light', label: 'Light', rows: [[[I('exp', 'Exposure', { icon: 'sun', kind: 'stepper', value: 0, step: 0.1 })], [I('con', 'Contrast', { icon: 'contrast', kind: 'stepper', value: 0, step: 5 })]], [[I('sun', 'Auto', {}), I('contrast', 'Black & white', { kind: 'toggle' })], [I('drop', 'White balance', { kind: 'menu', options: [['auto', 'Auto'], ['day', 'Daylight'], ['cloud', 'Cloudy'], ['tung', 'Tungsten']] })]]] }, { id: 'look', label: 'Look', items: [I('drop', 'Warm', { size: 'large', kind: 'toggle', radio: 'f' }), I('contrast', 'Mono', { size: 'large', kind: 'toggle', radio: 'f' }), I('sun', 'Faded', { size: 'large', kind: 'toggle', radio: 'f' })] }] },
+  { id: 'crop', label: 'Crop', groups: [{ id: 'c', label: 'Crop', items: [I('crop', 'Crop', { size: 'large' }), I('rotL', 'Rotate', { size: 'small' })] }] },
+  { id: 'export', label: 'Export', groups: [{ id: 'e', label: 'Export', items: [I('share', 'Export…', { size: 'large', key: 'Ctrl+E' })] }] },
+] };
+const MEDIA = { tabs: [{ id: 'home', label: 'Library', groups: [{ id: 'p', label: 'Playback', items: [I('play', 'Play', { size: 'large', key: 'Space' }), I('clock', 'Recently added', { size: 'small' }), I('star', 'Favourites', { size: 'small', kind: 'toggle' })] }, { id: 'v', label: 'View', items: [I('list', 'List', { size: 'small', kind: 'toggle', radio: 'v', active: true }), I('tiles', 'Covers', { size: 'small', kind: 'toggle', radio: 'v' })] }] }] };
+class Component extends DCLogic {
+  state = { variant: 'full', density: 'comfortable', labels: true, theme: 'dark', mode: 'easy', ctx: true, log: ['ready — try Bold, the colour menu, or Expert'] };
+  seg(key, opts) { return { label: { variant: 'Variant', density: 'Density', labels: 'Labels', theme: 'Theme', mode: 'Mode', ctx: 'Picture selected' }[key], opts: opts.map(([v, l]) => ({ label: l, onClick: () => this.setState({ [key]: v }), style: { height: 24, padding: '0 9px', border: 'none', borderRadius: 5, background: this.state[key] === v ? '#3a3531' : 'transparent', color: this.state[key] === v ? '#f5f1ed' : '#9a918a', font: 'inherit', fontSize: 12, cursor: 'pointer' } })) }; }
+  renderVals() {
+    const st = this.state, push = (e) => this.setState((s) => ({ log: [e.id + (e.value != null ? ' → ' + JSON.stringify(e.value) : '')].concat(s.log).slice(0, 7) }));
+    return {
+      ctrls: [this.seg('variant', [['full', 'Full'], ['simplified', 'Simplified'], ['collapsed', 'Collapsed']]), this.seg('density', [['comfortable', 'Comfortable'], ['compact', 'Compact']]), this.seg('labels', [[true, 'On'], [false, 'Icons only']]), this.seg('theme', [['dark', 'Dark'], ['light', 'Light']]), this.seg('mode', [['easy', 'Easy'], ['expert', 'Expert']]), this.seg('ctx', [[true, 'Yes'], [false, 'No']])],
+      playProps: { variant: st.variant, density: st.density, showLabels: st.labels, theme: st.theme, mode: st.mode, contextual: st.ctx ? ['picture'] : [], onCommand: push, keepFocus: true }, log: st.log, pageStyle: { height: 150, background: st.theme === 'light' ? '#fbf9f7' : '#171412', borderRadius: '0 0 10px 10px', display: 'flex', gap: 16, padding: '12px 14px', boxSizing: 'border-box' },
+      variants: [
+        { id: 'r2', title: 'Simplified', note: 'One row — tabs plus the current tab as icons. For small laptop screens.', props: { variant: 'simplified', activeTab: 'home' }, bg: '#171412', h: 34 },
+        { id: 'r3', title: 'Collapsed', note: 'Tabs only; click one and the ribbon drops over the page. Pin keeps it open.', props: { variant: 'collapsed' }, bg: '#171412', h: 34 },
+        { id: 'r4', title: 'Compact, light, icons only', note: 'Dense spacing, no labels — tooltips carry the names and shortcuts.', props: { density: 'compact', showLabels: false, theme: 'light' }, bg: '#fbf9f7', h: 90 },
+        { id: 'r5', title: 'Contextual tab', note: 'A Picture tab appears, underlined, when a picture is selected.', props: { contextual: ['picture'], activeTab: 'picture' }, bg: '#171412', h: 118 },
+        { id: 'r6', title: 'In a file manager', note: 'Waypoint-style model: clipboard, organise, new, open — Expert reveals “Terminal here”.', props: { model: FILES, showModes: true }, bg: '#171412', h: 118 },
+        { id: 'r7', title: 'In a photo editor', note: 'Steppers and a white-balance menu in a two-row group; radio toggles for looks. No File button.', props: { model: PHOTO, showModes: false, theme: 'light' }, bg: '#fbf9f7', h: 118 },
+        { id: 'r8', title: 'Minimal, one tab', note: 'A media library with a single tab and small buttons only.', props: { model: MEDIA, showModes: false, showFile: false, density: 'compact' }, bg: '#171412', h: 90 },
+      ].map((v) => Object.assign(v, { box: { minWidth: 0, overflow: 'hidden', borderRadius: 10, boxShadow: '0 0 0 1px rgba(255,255,255,0.08)', background: v.bg, minHeight: v.h } })),
+      parts: [['<Ribbon>', 'Root', 'Model in, onCommand out. Owns tabs, toggles, values, menus and tooltips.'], ['<RibbonTab>', 'Tab', 'Normal or contextual (accent + underline). role="tab".'], ['<RibbonGroup>', 'Group', 'Label underneath, hairline divider. Hidden in Easy when expert.'], ['<RibbonButton>', 'Button', 'large or small · button, toggle (radio sets), menu with ▾.'], ['<RibbonRow>', 'Rows + clusters', 'The dense two-row layout used for Font and Paragraph.'], ['<RibbonSelect> · <RibbonStepper>', 'Inputs', 'Native select; − value + stepper. 26 px.'], ['<RibbonModeSwitch>', 'Easy / Expert', 'Optional. Filters expert groups and items.'], ['<RibbonTooltip>', 'Tooltip', 'Name, shortcut chip, one line of help.']].map(([c, t, b]) => ({ c, t, b })),
+    };
+  }
+}
+</script>
+</body>
+</html>

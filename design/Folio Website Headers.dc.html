@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/typography.css">
+  <style>html,body{margin:0;background:#0f0d0c}a{color:#fb923c}a:hover{color:#fdba74}</style>
+</helmet>
+<section data-screen-label="Header options" style="padding:64px 72px 96px;display:flex;flex-direction:column;gap:28px;background:#0f0d0c;color:#f5f1ed;font-family:var(--font-body);width:max-content;">
+  <div style="display:flex;flex-direction:column;gap:8px;max-width:1200px;">
+    <span style="font-size:13px;color:#9a918a;">Folio website · header options · the site itself is unchanged: <a href="Folio Website.dc.html">Folio Website.dc.html</a></span>
+    <h1 style="margin:0;font-family:var(--font-heading);font-size:34px;font-weight:700;letter-spacing:-0.02em;">Same site, five headers</h1>
+    <p style="margin:0;font-size:15px;line-height:1.55;color:#c9c1ba;text-wrap:pretty;">Each frame is the real website with a different header — click the tabs, the Folio ▾ menu and the links. Tell me an id (or a mix) and I'll make it the site's header.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(2,820px);gap:40px 44px;">
+    <sc-for list="{{ heads }}" as="h" hint-placeholder-count="5">
+      <div id="{{ h.id }}" data-ab="{{ h.id }}" style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:baseline;gap:10px;"><span style="{{ h.badge }}">{{ h.id }}</span><span style="font-size:16px;font-weight:600;">{{ h.title }}</span></div>
+        <span style="font-size:12.5px;color:#9a918a;line-height:1.5;min-height:38px;max-width:800px;text-wrap:pretty;">{{ h.note }}</span>
+        <div style="width:820px;height:520px;overflow:hidden;border-radius:10px;box-shadow:0 0 0 1px rgba(255,255,255,0.08);background:#050507;">
+          <sc-if value="{{ h.vis }}"><div style="width:1440px;height:913px;transform:scale(0.5694);transform-origin:0 0;overflow:auto;"><dc-import name="Folio Website" header="{{ h.key }}" hint-size="1440px,913px" style="display:block;width:1440px;"></dc-import></div></sc-if>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const H = [
+  ['1a', 'bar', 'Current — top bar', 'For comparison: logo, three links, GitHub and Download in a thin bar.', true],
+  ['1b', 'window', 'App window', 'The header is a Folio window: “Folio ▾” opens the site menu, the title sits dead centre, and Home / Walkthrough / Manual are document tabs. The site feels like the app.'],
+  ['1c', 'island', 'Floating island', 'A glass pill that floats just off the top edge with the logo, links, GitHub and an orange Download. Compact; gives the hero more air.'],
+  ['1d', 'ribbon', 'Mini ribbon', 'The nav row plus a slim ribbon of jump links — Start · Make · Finish · Help — straight into manual pages.'],
+  ['1e', 'masthead', 'Masthead', 'A title-page masthead (big Folio, a rule, an edition line) with a sticky nav strip under it. Bookish, without leaving the dark site.'],
+];
+class Component extends DCLogic {
+  state = { vis: {} };
+  componentDidMount() {
+    const near = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.bottom > -300 && r.top < innerHeight + 300 && r.right > -300 && r.left < innerWidth + 300; };
+    this.t = setInterval(() => { const add = {}; document.querySelectorAll('[data-ab]').forEach((el) => { const id = el.getAttribute('data-ab'); if (!this.state.vis[id] && near(el)) add[id] = true; }); if (Object.keys(add).length) this.setState((s) => ({ vis: Object.assign({}, s.vis, add) })); }, 500);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  renderVals() { return { heads: H.map(([id, key, title, note, base]) => ({ id, key, title, note, vis: !!this.state.vis[id], badge: { display: 'inline-flex', alignItems: 'center', height: 22, padding: '0 8px', borderRadius: 6, background: base ? '#292524' : '#4a2a1a', color: base ? '#9a918a' : '#fb923c', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600 } })) }; }
+}
+</script>
+</body>
+</html>

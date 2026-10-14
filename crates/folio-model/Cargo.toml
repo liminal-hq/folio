@@ -1,0 +1,17 @@
+[package]
+name = "folio-model"
+version = "0.1.0"
+description = "The Folio document model: units, identifiers and book kinds. The model is the source of truth and lives in Rust"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+serde = { workspace = true }
+ts-rs = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

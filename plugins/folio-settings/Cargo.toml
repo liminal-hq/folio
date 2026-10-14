@@ -1,0 +1,35 @@
+[package]
+name = "tauri-plugin-folio-settings"
+version = "0.1.0"
+description = "Folio's settings plugin: the application settings in one place, saved by the app, with a change event to every window, over the folio-settings crate"
+authors = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+publish = false
+build = "build.rs"
+links = "tauri-plugin-folio-settings"
+
+[package.metadata.platforms.support]
+linux = { level = "full", notes = "Nothing platform-specific; the document is saved through the storage the app injects" }
+windows = { level = "partial", notes = "Builds and is linted for the Windows target in CI; the mock-runtime tests need the Common Controls manifest the build script embeds" }
+
+[lib]
+name = "tauri_plugin_folio_settings"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tauri = { workspace = true }
+thiserror = { workspace = true }
+folio-protocol = { path = "../../crates/folio-protocol" }
+folio-settings = { path = "../../crates/folio-settings" }
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+tauri = { workspace = true, features = ["test"] }

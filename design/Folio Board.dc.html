@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/colours.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/waypoint.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/tokens/base.css">
+  <link rel="stylesheet" href="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/styles.css">
+  <script src="_ds/liminal-hq-design-system-6cba2760-aafe-4956-b98a-086ca9e6ecd3/_ds_bundle.js"></script>
+  <style>html,body{margin:0;background:#0f0d0c}a{color:#fb923c}a:hover{color:#fdba74}</style>
+</helmet>
+<section data-screen-label="Round 2" style="padding:64px 72px 24px;display:flex;flex-direction:column;gap:28px;background:#0f0d0c;color:#f5f1ed;font-family:system-ui,sans-serif;width:max-content;border-bottom:1px solid #3a3531;">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:1100px;">
+    <span style="font-size:13px;color:#9a918a;">Round 2 · newest first</span>
+    <h1 style="margin:0;font-size:34px;font-weight:600;letter-spacing:-0.01em;">Text tools, covers, new tools and layouts</h1>
+    <p style="margin:0;font-size:15px;line-height:1.5;color:#c9c1ba;text-wrap:pretty;">Live app, not mockups. Use the switchers above <a href="#2a">2a</a> and <a href="#2b">2b</a> to flip between arrangements. Specs: <a href="spec/09-text-tools.md">09</a> · <a href="spec/10-covers.md">10</a> · <a href="spec/11-tools.md">11</a> · <a href="spec/12-sidebar-windows.md">12</a> · <a href="spec/07-jax.md">07</a>.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(2,960px);gap:44px 40px;">
+    <sc-for list="{{ layoutBoards }}" as="lb" hint-placeholder-count="2">
+      <div id="{{ lb.id }}" data-ab="{{ lb.id }}" style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:baseline;gap:10px;"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:#4a2a1a;color:#fb923c;font-family:var(--font-mono);font-size:12px;font-weight:600;">{{ lb.id }}</span><span style="font-size:15px;font-weight:600;">{{ lb.title }}</span></div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          <sc-for list="{{ lb.opts }}" as="o"><button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button></sc-for>
+        </div>
+        <span style="font-size:12px;color:#9a918a;line-height:1.45;min-height:34px;text-wrap:pretty;">{{ lb.note }}</span>
+        <div style="width:960px;height:600px;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.42), 0 0 0 1px rgba(255,255,255,0.06);background:#1c1917;">
+          <sc-if value="{{ lb.vis }}"><div style="width:1440px;height:900px;transform:scale(0.6667);transform-origin:0 0;"><dc-import name="Folio" dc-props="{{ lb.props }}" hint-size="1440px,900px" style="width:1440px;height:900px;display:block;"></dc-import></div></sc-if>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,720px);gap:44px 40px;">
+    <div id="2c" style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;align-items:baseline;gap:10px;"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:#4a2a1a;color:#fb923c;font-family:var(--font-mono);font-size:12px;font-weight:600;">2c</span><span style="font-size:15px;font-weight:600;">Jax props and poses</span></div>
+      <span style="font-size:12px;color:#9a918a;line-height:1.45;min-height:34px;text-wrap:pretty;">Every prop is extruded and layered like his body. Each is tied to something Folio is doing. Click to replay.</span>
+      <div style="width:720px;height:450px;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.42), 0 0 0 1px rgba(255,255,255,0.06);background:#1c1917;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr);">
+        <sc-for list="{{ moods2 }}" as="m" hint-placeholder-count="12">
+          <div onClick="{{ m.onClick }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-right:1px solid #3a3531;border-bottom:1px solid #3a3531;">
+            <div data-mood2="{{ m.mood }}" style="width:110px;height:110px;border-radius:12px;background:radial-gradient(circle at 50% 78%, rgba(255,180,84,0.24), transparent 70%);"></div>
+            <span style="font-family:var(--font-mono);font-size:10.5px;color:#e25d75;">{{ m.caption }}</span>
+            <span style="font-size:10px;color:#9a918a;">{{ m.when }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <sc-for list="{{ examples2 }}" as="ex" hint-placeholder-count="5">
+      <div id="{{ ex.id }}" data-ab="{{ ex.id }}" style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:baseline;gap:10px;"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:#4a2a1a;color:#fb923c;font-family:var(--font-mono);font-size:12px;font-weight:600;">{{ ex.id }}</span><span style="font-size:15px;font-weight:600;">{{ ex.title }}</span></div>
+        <span style="font-size:12px;color:#9a918a;line-height:1.45;min-height:34px;text-wrap:pretty;">{{ ex.note }}</span>
+        <div style="width:720px;height:450px;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.42), 0 0 0 1px rgba(255,255,255,0.06);background:#1c1917;">
+          <sc-if value="{{ ex.vis }}"><div style="width:1440px;height:900px;transform:scale(0.5);transform-origin:0 0;"><dc-import name="Folio" dc-props="{{ ex.props }}" hint-size="1440px,900px" style="width:1440px;height:900px;display:block;"></dc-import></div></sc-if>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+<section data-screen-label="Examples" style="padding:64px 72px 40px;display:flex;flex-direction:column;gap:28px;background:#0f0d0c;color:#f5f1ed;font-family:system-ui,sans-serif;width:max-content;">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:900px;">
+    <span style="font-size:13px;color:#9a918a;">Round 1 · Folio · Liminal HQ · book layout for Linux and Windows 11</span>
+    <h1 style="margin:0;font-size:34px;font-weight:600;letter-spacing:-0.01em;">Examples</h1>
+    <p style="margin:0;font-size:15px;line-height:1.5;color:#c9c1ba;text-wrap:pretty;">Every artboard is the live app at half size — click into any of them. The full-size working prototype sits below. Specs live in <a href="spec/README.md">spec/</a>.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,720px);gap:44px 40px;">
+    <sc-for list="{{ examples }}" as="ex" hint-placeholder-count="12">
+      <div id="{{ ex.id }}" data-ab="{{ ex.id }}" style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:baseline;gap:10px;">
+          <span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:#4a2a1a;color:#fb923c;font-family:var(--font-mono);font-size:12px;font-weight:600;">{{ ex.id }}</span>
+          <span style="font-size:15px;font-weight:600;">{{ ex.title }}</span>
+        </div>
+        <span style="font-size:12px;color:#9a918a;line-height:1.45;min-height:34px;text-wrap:pretty;">{{ ex.note }}</span>
+        <div style="width:720px;height:450px;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.42), 0 0 0 1px rgba(255,255,255,0.06);position:relative;">
+          <sc-if value="{{ ex.vis }}"><div style="width:1440px;height:900px;transform:scale(0.5);transform-origin:0 0;">
+            <dc-import name="Folio" dc-props="{{ ex.props }}" hint-size="1440px,900px" style="width:1440px;height:900px;display:block;"></dc-import>
+          </div></sc-if>
+        </div>
+      </div>
+    </sc-for>
+    <div id="1o" style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;align-items:baseline;gap:10px;">
+        <span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:#4a2a1a;color:#fb923c;font-family:var(--font-mono);font-size:12px;font-weight:600;">1o</span>
+        <span style="font-size:15px;font-weight:600;">Jax moods</span>
+      </div>
+      <span style="font-size:12px;color:#9a918a;line-height:1.45;min-height:34px;text-wrap:pretty;">Extruded silhouettes layered in z, the way Jar builds its fish. Click one to replay the mood.</span>
+      <div style="width:720px;height:450px;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.42), 0 0 0 1px rgba(255,255,255,0.06);background:#1c1917;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:1fr 1fr;">
+        <sc-for list="{{ moods }}" as="m" hint-placeholder-count="6">
+          <div onClick="{{ m.onClick }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border-right:1px solid #3a3531;border-bottom:1px solid #3a3531;">
+            <div data-mood="{{ m.mood }}" style="width:150px;height:150px;border-radius:14px;background:radial-gradient(circle at 50% 78%, rgba(255,180,84,0.26), transparent 70%);"></div>
+            <span style="font-family:var(--font-mono);font-size:12px;color:#e25d75;">{{ m.caption }}</span>
+            <span style="font-size:11px;color:#9a918a;">{{ m.when }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</section>
+<section data-screen-label="Working prototype" style="padding:40px 72px 96px;display:flex;flex-direction:column;gap:18px;background:#0f0d0c;color:#f5f1ed;font-family:system-ui,sans-serif;width:max-content;">
+  <div id="1p" style="display:flex;flex-direction:column;gap:14px;">
+    <div style="display:flex;align-items:baseline;gap:10px;">
+      <span style="display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:6px;background:#f97316;color:#1c1917;font-family:var(--font-mono);font-size:13px;font-weight:700;">1p</span>
+      <h2 style="margin:0;font-size:26px;font-weight:600;">Working prototype</h2>
+    </div>
+    <span style="font-size:13px;color:#9a918a;max-width:1100px;line-height:1.5;text-wrap:pretty;">Full size, follows your system's light or dark setting. Try: drag a frame (cyan guides snap; Alt to ignore), resize from a corner, double-click text, right-click anything, arrow-key nudge, Ctrl+Z, drag thumbnails in the shelf, Kindle/Kobo preview, Folio menu → Show menu bar or Classic toolbar, Export book.</span>
+    <div style="width:1440px;height:900px;border-radius:12px;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);">
+      <dc-import name="Folio" platform="win11" theme="system" jax-help="guide" jax-tab="guide" hint-size="1440px,900px" style="width:1440px;height:900px;display:block;"></dc-import>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const EX = [
+  ['1a', 'Welcome — pick a book', 'Kind cards are live mini spreads. Asks Easy or Expert, and whether Jax should help. Light theme, Windows 11.', { screen: 'welcome', theme: 'light', platform: 'win11' }],
+  ['1b', 'Ribbon toolbar', 'Office-style tabs for Windows users. File opens the app menu; Easy hides Expert-only groups. Jax waits on his status-bar perch.', { kind: 'picture', selId: 'i2', theme: 'dark', platform: 'win11', jaxOpen: false }],
+  ['1c', 'Classic toolbar', 'One 44 px row with a style picker. Same commands, chosen in Folio menu → Use the ribbon.', { kind: 'textbook', toolbar: 'classic', selId: 'h', theme: 'light', platform: 'gnome', jaxOpen: false }],
+  ['1d', 'Picture book · fixed layout', 'The moon runs across the gutter. Pink dashed bleed, purple margins, faded trim-off area.', { kind: 'picture', spreadIdx: 2, theme: 'dark', platform: 'win11', jaxOpen: false }],
+  ['1e', 'Novel · flowing text', 'Chapter opener on the recto, master-page folios and running heads, justified body.', { kind: 'novel', spreadIdx: 1, theme: 'light', platform: 'gnome', jaxOpen: false }],
+  ['1f', 'Novel on a Kindle', 'Live reflow preview. Reader text size buttons show how chapters flow on e-ink.', { kind: 'novel', target: 'kindle', theme: 'dark', platform: 'kde', jaxOpen: false }],
+  ['1g', 'Textbook with grid · Expert', '12-column grid and baseline grid on; Layout tab shows Expert-only Type grid group.', { kind: 'textbook', showGrid: true, mode: 'expert', tab: 'layout', theme: 'dark', platform: 'win11', jaxOpen: false }],
+  ['1h', 'Export + KDP cover', 'Many targets in one pass. Spine measured from page count and paper; barcode area; calm preflight.', { kind: 'novel', exportOpen: true, exTarget: 'paperback', theme: 'light', platform: 'win11', jaxOpen: false }],
+  ['1i', 'Inspector · Easy', 'Words, style chips, Smaller / Bigger, alignment. No numbers.', { kind: 'illustrated', selId: 'tt', mode: 'easy', theme: 'dark', platform: 'win11', jaxOpen: false }],
+  ['1j', 'Inspector · Expert', 'Adds X / Y / W / H with in ↔ mm, and the ribbon gains Expert groups.', { kind: 'illustrated', selId: 'tt', mode: 'expert', theme: 'dark', platform: 'win11', jaxOpen: false }],
+  ['1k', 'GNOME chrome + app menu', 'Round GNOME controls, centred title. The app menu carries everything when the menu bar is hidden.', { kind: 'memoir', platform: 'gnome', theme: 'light', menuDemo: 'app', jaxOpen: false }],
+  ['1l', 'KDE chrome + menu bar on', 'Breeze-style controls. Menu bar is off by default — Folio menu → Show menu bar, or F10. Native-style context menu.', { kind: 'poetry', platform: 'kde', theme: 'dark', menuBar: true, selId: 'po1', menuDemo: 'frame', jaxOpen: false }],
+  ['1m', 'Windows 11 + Ask Jax', 'Free-form “how do I…?” answered from the help library, on this computer (ONNX later — see spec 07).', { kind: 'picture', platform: 'win11', theme: 'dark', jaxOpen: true, jaxTab: 'ask', askQ: 'how wide is the spine?' }],
+  ['1n', 'Jax walk-through · light', 'Chosen on welcome: “Yes, walk me through it”. Step, Show me, Next — plus the This page checklist.', { kind: 'picture', spreadIdx: 0, platform: 'gnome', theme: 'light', jaxOpen: true, jaxHelp: 'guide', jaxTab: 'guide' }],
+];
+const MOODS = [['chill', '🤓 reading the style guide', 'default'], ['wave', '👋 oh hi', 'panel opens · petted'], ['reading', "🎣 fishin' for typos", 'while you type'], ['party', '🎉 it worked!', 'export finished'], ['nap', '😴 zzz…', '45 s idle'], ['chill', '🦦 otter break', 'just hanging out']];
+
+const MOODS2 = [['chill', '🤓 reading', 'default'], ['flipping', '📖 flipping ahead', 'idle'], ['writing', '✏️ taking notes', 'while you type'], ['checking', '🔍 checking pages', 'export checks'], ['fishing', "🎣 fishin' for typos", 'idle'], ['tea', '🍵 tea break', 'idle'], ['wave', '👋 oh hi', 'panel opens · petted'], ['thumbsup', '👍 looking good', 'a check passes'], ['stuck', '🤔 hmm', '“I\u2019m lost”'], ['printing', '🖨️ tiny proof', 'export running'], ['party', '🎉 it worked!', 'export finished'], ['nap', '😴 floating', '45 s idle']];
+const TB = [['ribbon', 'Ribbon'], ['simple', 'Simplified ribbon'], ['collapsed', 'Collapsed ribbon'], ['rail', 'Tool rail + top bar'], ['search', 'Command search'], ['menubar', 'Menu bar + compact'], ['contextual', 'Contextual only']];
+const TB_NOTE = { ribbon: 'The full ribbon. Contextual Picture, Shape and Table tabs appear (underlined) when you select one.', simple: 'One row: tabs plus the current tab’s tools as icons. Saves 50 px of height on small laptops.', collapsed: 'Tabs only. Click a tab to drop the ribbon over the page; Pin keeps it open.', rail: 'Insert and formatting tools on a vertical rail; a slim top bar for file and preview.', search: 'Type to find any tool — try “bleed”, “bold” or “spine”. Enter runs the first match; no match asks Jax.', menubar: 'Classic desktop: menu bar plus the compact toolbar. The menu bar is otherwise hidden by default.', contextual: 'Nothing until you select something — then only the tools for it. Select the picture or a text box.' };
+const SB = [['right', 'Right, grouped tabs'], ['split', 'Tool rail + inspector'], ['flyout', 'Icon rail with flyouts'], ['dock2', 'Two-column dock'], ['floating', 'Floating panels'], ['drawer', 'Bottom drawer']];
+const SB_NOTE = { right: 'Properties · Pages · Design · Structure · Book. Drag the left edge to resize, › to collapse to icons, ↗ to pop a group out.', split: 'Tools on the left, properties on the right — the page sits between.', flyout: 'A slim icon rail. Click an icon and its panel flies out over the canvas; click again to close.', dock2: 'Expert two-column dock: properties beside the group you’re working in.', floating: 'Every group torn off as its own window — drag them by the title. Dock puts one back.', drawer: 'Properties and the current group open as a drawer above the page shelf. Good on wide, short screens.' };
+const EX2 = [
+  ['2d', 'Cover sheet · dust jacket', 'Flaps · back · spine · front as one sheet. Spine measured live from page count; barcode area guarded.', { kind: 'novel', onCover: true, coverMode: 'jacket', mode: 'expert', theme: 'dark', platform: 'gnome', jaxOpen: false }],
+  ['2e', 'Typing with the mini toolbar', 'Double-click any text. Expert styles single words; Easy styles the whole box. Home tab carries the full Font and Paragraph set.', { kind: 'picture', editId: 'p1', mode: 'expert', theme: 'light', platform: 'win11', jaxOpen: false }],
+  ['2f', 'Spread templates', 'Picture-book layouts, recipe, lesson with worksheet table, collage, poem, three chapter openers — sized to this book.', { kind: 'illustrated', tplOpen: true, theme: 'dark', platform: 'kde', jaxOpen: false }],
+  ['2g', 'Picture tools', 'Contextual Picture tab: crop, rotate, flip, border, corners, filters, wrap. Sidebar shows the same in plain words.', { kind: 'memoir', selId: 'mp', tab: 'picture', theme: 'light', platform: 'gnome', jaxOpen: false }],
+  ['2h', 'Structure panel · layers', 'Expert sidebar group: layers with hide/lock/order, master page toggles, text flow and notes.', { kind: 'textbook', mode: 'expert', sideTab: 'structure', selId: 'f', theme: 'dark', platform: 'win11', jaxOpen: false }],
+];
+
+class Component extends DCLogic {
+  state = { vis: {}, tb: 'ribbon', sb: 'right' };
+  jax = new Map();
+  componentDidMount() {
+    this.io = new IntersectionObserver((es) => { const add = {}; es.forEach((e) => { if (e.isIntersecting) add[e.target.getAttribute('data-ab')] = true; }); if (Object.keys(add).length) this.setState((s) => ({ vis: Object.assign({}, s.vis, add) })); }, { rootMargin: '300px' });
+    this.jio = new IntersectionObserver((es) => es.forEach((e) => this.toggleJax(e.target, e.isIntersecting)), { rootMargin: '100px' });
+    const near = (el, m) => { const r = el.getBoundingClientRect(); return r.bottom > -m && r.top < innerHeight + m && r.right > -m && r.left < innerWidth + m && r.width > 0; };
+    this.scan = setInterval(() => {
+      const add = {};
+      document.querySelectorAll('[data-ab]').forEach((el) => { const id = el.getAttribute('data-ab'); if (!this.state.vis[id] && near(el, 300)) add[id] = true; });
+      if (Object.keys(add).length) this.setState((s) => ({ vis: Object.assign({}, s.vis, add) }));
+      document.querySelectorAll('[data-mood],[data-mood2]').forEach((el) => this.toggleJax(el, near(el, 100)));
+    }, 500);
+    this.loop = setInterval(() => this.jax.forEach((j) => { if (['wave', 'party', 'thumbsup', 'stuck'].includes(j.mood)) j.h.setMood(j.mood); }), 3600);
+  }
+  async toggleJax(el, on) {
+    const have = this.jax.get(el);
+    if (!on) { if (have) { have.h.dispose(); this.jax.delete(el); } return; }
+    if (have || el.__mounting) return; el.__mounting = 1;
+    const m = await import(new URL('jax3d.js', document.baseURI).href);
+    const mood = el.getAttribute('data-mood') || el.getAttribute('data-mood2'), size = el.hasAttribute('data-mood2') ? 110 : 150;
+    const h = await m.mountJax(el, { size, fps: 20, maxDpr: 1.5 }); el.__mounting = 0; h.setMood(mood); this.jax.set(el, { h, mood });
+  }
+  componentWillUnmount() { clearInterval(this.scan); clearInterval(this.loop); this.io && this.io.disconnect(); this.jio && this.jio.disconnect(); this.jax.forEach((j) => j.h.dispose()); }
+  replay(sel, mood) { const el = document.querySelector(sel); const j = el && this.jax.get(el); if (j) j.h.setMood(mood); }
+  renderVals() {
+    const st = this.state, chip = (on) => ({ height: 26, padding: '0 10px', border: '1px solid ' + (on ? '#f97316' : '#3a3531'), borderRadius: 6, background: on ? '#4a2a1a' : 'transparent', color: on ? '#f5f1ed' : '#c9c1ba', font: 'inherit', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' });
+    return {
+      layoutBoards: [
+        { id: '2a', title: 'Toolbar and menu arrangements', note: TB_NOTE[st.tb], vis: !!st.vis['2a'], props: { toolbar: st.tb, kind: 'picture', theme: 'dark', platform: 'win11', jaxOpen: false, selId: st.tb === 'contextual' ? null : 'i2' }, opts: TB.map(([v, l]) => ({ label: l, style: chip(st.tb === v), onClick: () => this.setState({ tb: v }) })) },
+        { id: '2b', title: 'Sidebar arrangements', note: SB_NOTE[st.sb], vis: !!st.vis['2b'], props: { sidebar: st.sb, mode: 'expert', kind: 'illustrated', selId: 'tt', theme: 'light', platform: 'gnome', jaxOpen: false, sideTab: 'design' }, opts: SB.map(([v, l]) => ({ label: l, style: chip(st.sb === v), onClick: () => this.setState({ sb: v }) })) },
+      ],
+      moods2: MOODS2.map(([mood, caption, when]) => ({ mood, caption, when, onClick: () => this.replay('[data-mood2="' + mood + '"]', mood) })),
+      examples2: EX2.map(([id, title, note, props]) => ({ id, title, note, props, vis: !!st.vis[id] })),
+      examples: EX.map(([id, title, note, props]) => ({ id, title, note, props, vis: !!st.vis[id] })),
+      moods: MOODS.map(([mood, caption, when]) => ({ mood, caption, when, onClick: () => this.replay('[data-mood="' + mood + '"]', mood) })),
+    };
+  }
+}
+</script>
+</body>
+</html>

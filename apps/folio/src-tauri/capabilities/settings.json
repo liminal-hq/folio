@@ -1,0 +1,7 @@
+{
+	"$schema": "../gen/schemas/desktop-schema.json",
+	"identifier": "settings",
+	"description": "Every window shows the app's settings (mode, colour scheme, units, interface layout), so every window may read them, change them with a patch, reset them and hear changes.",
+	"windows": ["main", "about", "preferences", "book-tools"],
+	"permissions": ["folio-settings:default"]
+}
