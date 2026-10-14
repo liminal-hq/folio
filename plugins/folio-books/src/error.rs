@@ -24,6 +24,9 @@ pub enum Error {
     Session(#[from] SessionError),
     #[error(transparent)]
     Layout(#[from] folio_layout::LayoutError),
+    /// A file offered as a picture is not one Folio can place.
+    #[error("{0}")]
+    BadImage(String),
     /// A window asked for a spread the book does not have.
     #[error("the book has no spread `{0}`")]
     NoSuchSpread(String),
@@ -44,6 +47,7 @@ impl Error {
             Error::Session(_) => "session",
             Error::Layout(_) => "layout",
             Error::NoSuchSpread(_) => "noSuchSpread",
+            Error::BadImage(_) => "image",
         }
     }
 }

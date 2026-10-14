@@ -31,7 +31,17 @@ export const CHANGED_EVENT = 'folio-books://changed';
  * cannot be applied).
  */
 export interface BooksCommandError {
-	kind: 'noSuchBook' | 'needsPath' | 'preset' | 'notFolio' | 'newerVersion' | 'package' | 'session';
+	kind:
+		| 'noSuchBook'
+		| 'needsPath'
+		| 'preset'
+		| 'notFolio'
+		| 'newerVersion'
+		| 'package'
+		| 'session'
+		| 'layout'
+		| 'noSuchSpread'
+		| 'image';
 	message: string;
 }
 
@@ -125,3 +135,13 @@ export type {
 	PatchEvent,
 	PluginStatus,
 };
+
+/** Reads a picture file into the book; resolves to its path inside the book (`assets/images/…`). */
+export function importImage(id: string, path: string): Promise<string> {
+	return cmd<string>('import_image', { id, path });
+}
+
+/** One of the book's pictures as raw bytes. */
+export function assetData(id: string, asset: string): Promise<ArrayBuffer> {
+	return cmd<ArrayBuffer>('asset_data', { id, asset });
+}

@@ -114,6 +114,20 @@ pub fn plan(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             }
             Ok(one(s.clone(), Some(MergeKey::Move(frame.clone()))))
         }
+        Intent::SetImage { frame, .. } => {
+            let found = book
+                .spreads
+                .iter()
+                .find_map(|s| find(&s.frames, frame))
+                .ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
+            let Frame::Image(_) = found else {
+                return Err(SessionError::NotImage(frame.0.clone()));
+            };
+            if found.base().locked {
+                return Err(SessionError::Locked(frame.0.clone()));
+            }
+            Ok(one(spread_of(book, frame)?, None))
+        }
         Intent::SetText { frame, .. } => {
             check_text(book, frame)?;
             Ok(one(
@@ -253,6 +267,20 @@ pub fn run(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 .and_then(|sp| find_mut(&mut sp.frames, &frame))
             {
                 f.base_mut().rect = rect;
+            }
+        }
+        Intent::SetImage { frame, asset, fit } => {
+            if let Some(Frame::Image(img)) = book
+                .spreads
+                .iter_mut()
+                .find_map(|sp| find_mut(&mut sp.frames, &frame))
+            {
+                if let Some(asset) = asset {
+                    img.image.asset = Some(asset);
+                }
+                if let Some(fit) = fit {
+                    img.image.fit = fit;
+                }
             }
         }
         Intent::SetText { frame, text } => {

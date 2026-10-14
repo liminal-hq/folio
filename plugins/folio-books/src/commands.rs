@@ -149,3 +149,25 @@ pub async fn layout_spread<R: Runtime>(
     .await
     .expect("the layout task does not panic")
 }
+
+/// Reads a picture file into a book and answers with its path in the book's package.
+#[tauri::command]
+pub async fn import_image<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+    path: PathBuf,
+) -> Result<String, Error> {
+    books.import_image(&id, &path)
+}
+
+/// One of a book's pictures, as raw bytes.
+#[tauri::command]
+pub async fn asset_data<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+    asset: String,
+) -> Result<tauri::ipc::Response, Error> {
+    Ok(tauri::ipc::Response::new(books.asset_data(&id, &asset)?))
+}

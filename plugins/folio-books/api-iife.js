@@ -74,13 +74,23 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function onBooksChanged(listener) {
         return event.listen(CHANGED_EVENT, (e) => listener(e.payload));
     }
+    /** Reads a picture file into the book; resolves to its path inside the book (`assets/images/…`). */
+    function importImage(id, path) {
+        return cmd('import_image', { id, path });
+    }
+    /** One of the book's pictures as raw bytes. */
+    function assetData(id, asset) {
+        return cmd('asset_data', { id, asset });
+    }
 
     exports.CHANGED_EVENT = CHANGED_EVENT;
     exports.PATCH_EVENT = PATCH_EVENT;
     exports.applyIntent = applyIntent;
+    exports.assetData = assetData;
     exports.closeBook = closeBook;
     exports.defaultSavePath = defaultSavePath;
     exports.getStatus = getStatus;
+    exports.importImage = importImage;
     exports.layoutSpread = layoutSpread;
     exports.listBooks = listBooks;
     exports.newBook = newBook;
