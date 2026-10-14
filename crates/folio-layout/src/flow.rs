@@ -1,12 +1,12 @@
 // Flow: story text poured through a chain of frames and their columns
 //
+// (c) Copyright 2026 Liminal HQ, Scott Morris
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 // Paragraphs fill a column from the top; when the next line will not fit, the rest carries on in
 // the next column, in this frame or the next one in the chain. Widows and orphans are kept apart,
 // a baseline grid can hold lines to its rules, and what does not fit anywhere is reported as
 // overset.
-//
-// (c) Copyright 2026 Liminal HQ, Scott Morris
-// SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use crate::error::LayoutError;
 use crate::fonts::FontBook;
