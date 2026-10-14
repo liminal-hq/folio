@@ -40,3 +40,15 @@ App-wide preferences (mode, theme, units, toolbar and sidebar layout, window geo
 ## D-15 · Documentation site
 
 The public documentation and manual are built with Astro Starlight and deployed to GitHub Pages, with a hand-built landing page.
+
+## D-16 · Books are sessions in Rust, and windows are views onto them
+
+Every open book is a `folio-session` over its `folio-package`, held by the `folio-books` plugin. A window asks for a book, sends intents, and applies the patches and events it hears; nothing but Rust changes a book. Any window can show any open book, and undo is shared per book (spec 12).
+
+## D-17 · A new book lives in memory until it is first saved
+
+New writes nothing. Save and Save as… ask for a place, starting at `~/Books/<Title>/<Title>.folio` (`Documents\Books` on Windows). A book never saved asks about its changes on close only once it has been touched, so starting a book and closing it again costs nothing.
+
+## D-18 · Presets and sample pages are Rust-owned data
+
+The six kinds, their sizes, styles and sample spreads are data in `crates/folio-presets`, written once from the design prototype and owned there since. The UI asks Rust for them and keeps no copy. `NewBookSpec` carries every field the New book wizard asks for, so the wizard window is only a screen over it.

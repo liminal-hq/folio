@@ -35,6 +35,14 @@
 	--folio-paper: #fbfaf6;
 	--folio-ink: #1c1b20;
 
+	/* The tints sample pages are drawn in on the welcome screen and in thumbnails: never themed. */
+	--folio-tint-violet: #ddd6fe;
+	--folio-tint-sky: #bae6fd;
+	--folio-tint-green: #bbf7d0;
+	--folio-tint-orange: #fed7aa;
+	--folio-tint-rose: #fecdd3;
+	--folio-paper-rule: #a8a29e;
+
 	/* On-page marks drawn over the paper (spec 06 "Page marks"). */
 	--folio-mark-bleed: #f43f5e;
 	--folio-mark-margin: #8b5cf6;

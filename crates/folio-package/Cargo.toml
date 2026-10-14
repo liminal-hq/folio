@@ -1,0 +1,22 @@
+[package]
+name = "folio-package"
+version = "0.1.0"
+description = "Reads and writes `.folio` project files: an ODF-style zip of JSON, text flows and assets"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+folio-model = { path = "../folio-model" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = "0.10"
+thiserror = { workspace = true }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+tempfile = "3"

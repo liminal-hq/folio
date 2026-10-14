@@ -1,0 +1,40 @@
+[package]
+name = "tauri-plugin-folio-books"
+version = "0.1.0"
+description = "Folio's books plugin: the open books, their sessions and files, shared by every window"
+authors = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+publish = false
+build = "build.rs"
+links = "tauri-plugin-folio-books"
+
+[package.metadata.platforms.support]
+linux = { level = "full", notes = "Nothing platform-specific; books are read and written as ordinary files" }
+windows = { level = "partial", notes = "Builds and is linted for the Windows target in CI; the mock-runtime tests need the Common Controls manifest the build script embeds" }
+
+[lib]
+name = "tauri_plugin_folio_books"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+folio-model = { path = "../../crates/folio-model" }
+folio-package = { path = "../../crates/folio-package" }
+folio-presets = { path = "../../crates/folio-presets" }
+folio-protocol = { path = "../../crates/folio-protocol" }
+folio-session = { path = "../../crates/folio-session" }
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tauri = { workspace = true }
+thiserror = { workspace = true }
+ts-rs = { workspace = true }
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+tauri = { workspace = true, features = ["test"] }
+tempfile = "3"

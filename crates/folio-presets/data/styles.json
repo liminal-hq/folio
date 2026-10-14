@@ -1,0 +1,144 @@
+{
+	"display": {
+		"name": "Cover title",
+		"sizePt": 40,
+		"weight": 600,
+		"align": "center",
+		"lineHeight": 1.08
+	},
+	"title": {
+		"name": "Book title",
+		"sizePt": 28,
+		"weight": 600,
+		"align": "center",
+		"lineHeight": 1.1
+	},
+	"byline": {
+		"name": "Byline",
+		"sizePt": 13,
+		"align": "center",
+		"italic": true
+	},
+	"story": {
+		"name": "Story text",
+		"sizePt": 19,
+		"lineHeight": 1.32
+	},
+	"storyC": {
+		"name": "Story, centred",
+		"sizePt": 21,
+		"align": "center",
+		"lineHeight": 1.32,
+		"italic": true
+	},
+	"label": {
+		"name": "Label",
+		"sizePt": 9.5,
+		"weight": 500,
+		"sans": true,
+		"tracking": 0.02
+	},
+	"h1": {
+		"name": "Heading",
+		"sizePt": 20,
+		"weight": 600,
+		"lineHeight": 1.15
+	},
+	"h1big": {
+		"name": "Big heading",
+		"sizePt": 28,
+		"weight": 600,
+		"lineHeight": 1.1
+	},
+	"h2": {
+		"name": "Subheading",
+		"sizePt": 12.5,
+		"weight": 600,
+		"sans": true
+	},
+	"body": {
+		"name": "Body",
+		"sizePt": 10.5,
+		"align": "justify",
+		"lineHeight": 1.45
+	},
+	"bodyL": {
+		"name": "Body, ragged",
+		"sizePt": 10.5,
+		"lineHeight": 1.45
+	},
+	"caption": {
+		"name": "Caption",
+		"sizePt": 8.5,
+		"lineHeight": 1.35,
+		"sans": true
+	},
+	"callout": {
+		"name": "Note box",
+		"sizePt": 10,
+		"lineHeight": 1.45,
+		"sans": true,
+		"boxed": true
+	},
+	"epigraph": {
+		"name": "Epigraph",
+		"sizePt": 10,
+		"align": "center",
+		"lineHeight": 1.5,
+		"italic": true
+	},
+	"poem": {
+		"name": "Poem",
+		"sizePt": 11,
+		"lineHeight": 1.6
+	},
+	"folio": {
+		"name": "Page number",
+		"sizePt": 8,
+		"align": "center"
+	},
+	"rh": {
+		"name": "Running head",
+		"sizePt": 7.5,
+		"align": "center",
+		"sans": true,
+		"tracking": 0.04
+	},
+	"spine": {
+		"name": "Spine",
+		"sizePt": 11,
+		"weight": 600,
+		"align": "center"
+	},
+	"ornament": {
+		"name": "Ornament",
+		"sizePt": 18,
+		"align": "center",
+		"lineHeight": 1
+	},
+	"numeral": {
+		"name": "Chapter numeral",
+		"sizePt": 64,
+		"weight": 600,
+		"lineHeight": 1
+	},
+	"bubble": {
+		"name": "Bubble text",
+		"sizePt": 14,
+		"weight": 500,
+		"align": "center",
+		"lineHeight": 1.2,
+		"sans": true
+	},
+	"cell": {
+		"name": "Table cell",
+		"sizePt": 9.5,
+		"lineHeight": 1.3,
+		"sans": true
+	},
+	"footnote": {
+		"name": "Footnote",
+		"sizePt": 8,
+		"lineHeight": 1.35
+	}
+}

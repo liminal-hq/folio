@@ -151,6 +151,13 @@ export const BookToolsIcon = () => (
 	</Glyph>
 );
 
+export const CloseBookIcon = () => (
+	<Glyph>
+		<path d="M3.5 1.5h6l3 3v10h-9z" />
+		<path d="M6 7l4 4M10 7l-4 4" />
+	</Glyph>
+);
+
 /** The Folio mark for the title bar's menu button: an open spread with the slit of light. */
 export function AppMarkIcon({ size = 18 }: { size?: number }) {
 	return (

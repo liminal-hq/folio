@@ -1,0 +1,27 @@
+// Why an intent was refused
+//
+// (c) Copyright 2026 Liminal HQ, Scott Morris
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+use thiserror::Error;
+
+/// An intent that could not be applied. Nothing changed.
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum SessionError {
+    #[error("there is no spread `{0}`")]
+    NoSuchSpread(String),
+    #[error("there is no frame `{0}`")]
+    NoSuchFrame(String),
+    #[error("a frame `{0}` is already in the book")]
+    DuplicateFrame(String),
+    #[error("frame `{0}` is not a text frame")]
+    NotText(String),
+    #[error("the text of frame `{0}` comes from a flow, so it is not edited in place")]
+    FlowText(String),
+    #[error("a book needs at least one spread")]
+    LastSpread,
+    #[error("the cover stays where it is")]
+    CoverFixed,
+    #[error("the frame `{0}` is not on spread `{1}`")]
+    NotOnSpread(String, String),
+}

@@ -1,0 +1,20 @@
+[package]
+name = "folio-session"
+version = "0.1.0"
+description = "An open book in memory: applying intents, patches for the UI, undo and redo"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+folio-model = { path = "../folio-model" }
+serde = { workspace = true }
+thiserror = { workspace = true }
+ts-rs = { workspace = true }
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+serde_json = { workspace = true }

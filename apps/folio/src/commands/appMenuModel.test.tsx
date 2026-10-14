@@ -8,9 +8,12 @@ import type { MenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '../settings/fakeSettingsClient';
 import { buildAppMenu, buildMenuBar } from './appMenuModel';
-import { ENABLED_COMMANDS } from './runCommand';
+import { ALWAYS_AVAILABLE, availableCommands } from './runCommand';
 
-const available = { enabled: ENABLED_COMMANDS };
+const available = { enabled: ALWAYS_AVAILABLE };
+const withBook = {
+	enabled: availableCommands({ hasBook: true, canUndo: true, canRedo: false }),
+};
 
 function flatten(items: readonly MenuItem[]): MenuItem[] {
 	return items.flatMap((item) =>
@@ -56,6 +59,22 @@ describe('the app menu', () => {
 		expect(expert).toMatchObject({ disabled: false });
 	});
 
+	it('enables the book commands once a book is open, and undo and redo only when possible', () => {
+		const closed = buildAppMenu(DEFAULT_SETTINGS, available);
+		expect(find(closed, 'file.save')).toMatchObject({ disabled: true });
+		expect(find(closed, 'file.close')).toMatchObject({ disabled: true });
+		const open = buildMenuBar(DEFAULT_SETTINGS, withBook);
+		expect(find(open, 'file.save')).toMatchObject({ disabled: false });
+		expect(find(open, 'file.saveAs')).toMatchObject({ disabled: false });
+		expect(find(open, 'file.close')).toMatchObject({ disabled: false });
+		expect(find(open, 'edit.undo')).toMatchObject({ disabled: false });
+		expect(find(open, 'edit.redo')).toMatchObject({ disabled: true });
+		// New and Open work whatever is open; Export has no behaviour yet.
+		expect(find(closed, 'file.new')).toMatchObject({ disabled: false });
+		expect(find(closed, 'file.open')).toMatchObject({ disabled: false });
+		expect(find(open, 'file.export')).toMatchObject({ disabled: true });
+	});
+
 	it('names recent books, or says there are none', () => {
 		const none = find(buildAppMenu(DEFAULT_SETTINGS, available), 'file.openRecent');
 		expect(none?.type === 'submenu' && none.items[0]).toMatchObject({ label: 'No recent books' });
@@ -63,7 +82,11 @@ describe('the app menu', () => {
 			buildAppMenu({ ...DEFAULT_SETTINGS, recentBooks: ['/books/otter.folio'] }, available),
 			'file.openRecent',
 		);
-		expect(some?.type === 'submenu' && some.items[0]).toMatchObject({ label: 'otter.folio' });
+		expect(some?.type === 'submenu' && some.items[0]).toMatchObject({
+			id: 'file.openRecent:/books/otter.folio',
+			label: 'otter',
+		});
+		expect(some?.type === 'submenu' && some.items[0]).not.toHaveProperty('disabled');
 	});
 
 	it('gives the menu bar File, Edit, View and Help, matching the mnemonic ids', () => {

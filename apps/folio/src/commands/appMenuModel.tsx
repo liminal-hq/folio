@@ -10,6 +10,7 @@ import { t } from '../i18n/messages';
 import {
 	AboutIcon,
 	BookToolsIcon,
+	CloseBookIcon,
 	EditIcon,
 	ExpertIcon,
 	ExportIcon,
@@ -39,6 +40,7 @@ export type CommandId =
 	| 'file.importText'
 	| 'file.importLayout'
 	| 'file.save'
+	| 'file.close'
 	| 'file.saveAs'
 	| 'file.export'
 	| 'edit.undo'
@@ -54,6 +56,9 @@ export type CommandId =
 	| 'app.shortcuts'
 	| 'app.about'
 	| 'app.quit';
+
+/** The id prefix of a recent book's row; the rest is its path. */
+export const RECENT_PREFIX = 'file.openRecent:';
 
 /** Alt plus a letter opens the app menu with that menu open. */
 export const APP_MENU_MNEMONICS = {
@@ -121,11 +126,14 @@ function recentBooks(settings: Settings): MenuItem[] {
 	}
 	return settings.recentBooks.map((path) => ({
 		type: 'action' as const,
-		id: `file.openRecent:${path}`,
-		label: path.split('/').pop() ?? path,
+		id: `${RECENT_PREFIX}${path}`,
+		label:
+			path
+				.split(/[/\\]/)
+				.pop()
+				?.replace(/\.folio$/i, '') ?? path,
 		icon: <RecentIcon />,
-		disabled: true,
-		title: t('menu.unavailable'),
+		title: path,
 	}));
 }
 
@@ -148,6 +156,8 @@ function fileItems(settings: Settings, available: CommandAvailability): MenuItem
 		action('file.save', t('command.save'), <SaveIcon />, available, 'Ctrl+S'),
 		action('file.saveAs', t('command.saveAs'), <SaveIcon />, available, 'Ctrl+Shift+S'),
 		action('file.export', t('command.export'), <ExportIcon />, available, 'Ctrl+E'),
+		{ type: 'separator' },
+		action('file.close', t('command.close'), <CloseBookIcon />, available, 'Ctrl+W'),
 	];
 }
 

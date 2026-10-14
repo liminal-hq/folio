@@ -28,7 +28,7 @@ interface TextFrame { text: string; runs?: Run[]; /* box-level */ s: StyleId; fo
 - `text` is always the plain text, kept for search, the reader preview and EPUB fallbacks. `runs` exists only when the box has mixed styles.
 - Box-level properties are defaults; run properties override them. **Clear formatting** removes both.
 - Paragraphs are `\n`-separated. List, indent, first-line indent, space after and drop cap are paragraph-level and apply to every paragraph in the box (v1). Per-paragraph overrides are planned for 1.1 and will be stored as `paras: [{ list, ind, … }]`.
-- Rust: `Run` / `TextFrame` in `folio-model` (see `types/project.rs`); `runs` serialise as `content.inline` (03).
+- Rust: `Run` / `TextFrame` in `folio-model` (see `crates/folio-model`); `runs` serialise as `content.inline` (03).
 
 ## Editing
 
