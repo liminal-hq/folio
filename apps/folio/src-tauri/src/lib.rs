@@ -34,6 +34,8 @@ pub fn run() {
                 // (every handshake read and write poll) and drown out everything else.
                 .level_for("tungstenite", log::LevelFilter::Warn)
                 .level_for("tokio_tungstenite", log::LevelFilter::Warn)
+                // The async runtime polls constantly; at `Trace` it buries everything else.
+                .level_for("mio", log::LevelFilter::Warn)
                 .format(|out, message, record| {
                     out.finish(format_args!(
                         "[{}][{}][{}] {}",

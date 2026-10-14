@@ -34,7 +34,7 @@ bun run check:headers # licence-header check
 bun run check:case   # no two modules whose names differ only by case (one file on Windows)
 ```
 
-Also: `bun run tauri:dev` (MCP-drivable desktop shell — use this one for agent automation, not plain `tauri dev`; it merges `tauri.conf.dev.json` for `withGlobalTauri` and sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` so the undocked Web Inspector renders on Wayland), `bun run test:js`, `bun run test:rust`, `bun run build`. If host Rust tooling is unavailable, use the `ghcr.io/liminal-hq/tauri-dev-desktop:latest` container per `AGENTS.md` → Local Tooling.
+Also: `bun run tauri:dev` (MCP-drivable desktop shell — use this one for agent automation, not plain `tauri dev`; it merges `tauri.conf.dev.json` for `withGlobalTauri`), `bun run test:js`, `bun run test:rust`, `bun run build`. If host Rust tooling is unavailable, use the `ghcr.io/liminal-hq/tauri-dev-desktop:latest` container per `AGENTS.md` → Local Tooling.
 
 ## Architecture — the key things to understand
 
