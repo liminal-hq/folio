@@ -1135,6 +1135,7 @@ name = "folio-package"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "dunce",
  "folio-model",
  "serde",
  "serde_json",
@@ -4258,6 +4259,7 @@ dependencies = [
 name = "tauri-plugin-folio-books"
 version = "0.1.0"
 dependencies = [
+ "dunce",
  "folio-layout",
  "folio-model",
  "folio-package",

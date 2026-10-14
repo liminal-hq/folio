@@ -389,7 +389,7 @@ impl Package {
             return result;
         }
         // Everything is in the new file now, so what was in memory can be read from there.
-        let absolute = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        let absolute = dunce::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
         for blob in self.assets.values_mut() {
             *blob = Blob::Packed;
         }
