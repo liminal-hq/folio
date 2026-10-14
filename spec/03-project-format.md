@@ -10,7 +10,7 @@ mimetype                         # first entry, STORED (no compression), no extr
 META-INF/manifest.json           # every file, its media type, sha256, role
 book.json                        # the document model (see types/), pretty-printed, stable key order
 styles.json                      # paragraph + character styles, colour swatches
-masters.json                     # master pages
+masters.json                     # master pages (frames and `guides`; see D-22)
 text/
   flow-<id>.md                   # long text flows as CommonMark + Folio attributes (see below)
 assets/

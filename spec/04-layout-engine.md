@@ -12,7 +12,7 @@
 - **Frame** types: `text`, `image`, `shape` (rect/ellipse/rounded "note box"), `group`. Common fields: `box`, `rotation`, `locked`, `z` (array order), `fromMaster`.
 - **Text frame**: `style`, `content` (inline runs) or `flow` membership + `flowIndex`, `columns`, `inset`, `verticalAlign`, `baselineLock`.
 - **Image frame**: `asset`, `fit` (`fill` | `fit` | `stretch` | `manual`), `focus` point, `crop`, `effectivePpi` (computed).
-- **Master page**: frames with `token` text (`{page}`, `{book.title}`, `{chapter.title}`, `{section}`), applied per page. Spreads may hide master items per page (`masterOverrides`).
+- **Master page**: frames with `token` text (`{page}`, `{book.title}`, `{chapter.title}`, `{section}`) and ruler guides, applied per page. A master belongs to the book, not to Easy or Expert: page numbers are two managed frames on masters A and B, and any other frame or guide on a master is the person's own and is never rebuilt. Spreads may hide master items per page (`masterOverrides`). See D-22.
 
 ## Text
 
@@ -86,5 +86,5 @@ Fixed spreads render into a device frame at the device's landscape aspect. Guide
 - **Guides:** drag from the top ruler for a horizontal guide, or from the left ruler for a vertical one. While dragging, a tag shows the position in ruler units. Guides snap to margins, frame edges and other guides; otherwise they snap to a fine unit step (1/16 in, 1 mm, 6 pt, 0.5 pc, 5 px). Hold Alt to place freely.
 - To move a guide, drag it. Drag it back onto a ruler to delete it; the line turns red with "Release to remove".
 - Right-click a guide for: Lock · Put on every page (moves it to master page A) / Only on this spread · Clear guides on this spread · Clear all guides · Ruler units · Delete. Locked guides are dashed and don't move.
-- **Storage:** `spread.guides: [{ axis: 'x'|'y', pos: points, locked }]`, on the cover's own spread too. Every-page guides (`masterGuides`, shown in the margin colour) come with master page editing. Moving and deleting guides is undoable, one step each. See D-21.
+- **Storage:** `spread.guides: [{ axis: 'x'|'y', pos: points, locked }]`, on the cover's own spread too. Every-page guides (`master.guides`, in the page's own points, shown in the margin colour) come with master page editing and are kept on the master, not the spread (D-22). Moving and deleting guides is undoable, one step each. See D-21.
 - Ruler guides are snap targets for frames, and appear as their own row (with colour) in Marks.

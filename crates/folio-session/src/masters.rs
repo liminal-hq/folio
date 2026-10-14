@@ -70,12 +70,14 @@ pub fn apply_page_numbers(book: &mut Book) {
         id: MasterId(RECTO.into()),
         name: "A".into(),
         frames: vec![recto],
+        guides: Vec::new(),
     });
     if mode == PageNumbers::Outside {
         book.master_pages.push(Master {
             id: MasterId(VERSO.into()),
             name: "B".into(),
             frames: vec![number_frame("fr_pn_b", outside, y, "left")],
+            guides: Vec::new(),
         });
     }
     book.masters = book.master_pages.iter().map(|m| m.id.clone()).collect();

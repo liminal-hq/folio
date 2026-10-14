@@ -8,7 +8,7 @@ use ts_rs::TS;
 
 use crate::book::{Grid, PageNumbers};
 use crate::frame::{Fit, Frame, StyleOverrides};
-use crate::ids::{FrameId, PageId, SpreadId, StyleId};
+use crate::ids::{FrameId, MasterId, PageId, SpreadId, StyleId};
 use crate::spread::Axis;
 use crate::units::{Margins, Pt, Rect, Size};
 
@@ -19,6 +19,15 @@ pub struct FrameMove {
     pub frame: FrameId,
     #[serde(rename = "box")]
     pub rect: Rect,
+}
+
+/// Where a frame or a guide lives: on a spread, or on a master page that every page using it shows.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(rename_all = "camelCase")]
+pub enum Surface {
+    Spread(SpreadId),
+    Master(MasterId),
 }
 
 // ── Intents (UI → core) ──

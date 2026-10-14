@@ -476,6 +476,7 @@ fn with_numbers(book: &mut Book) {
         id: folio_model::MasterId("mst_a".into()),
         name: "A".into(),
         frames: vec![frame],
+        guides: Vec::new(),
     });
     for spread in book
         .spreads
