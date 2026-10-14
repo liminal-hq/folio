@@ -33,6 +33,21 @@ pub type BookHook = Arc<dyn Fn(&BookEvent) + Send + Sync>;
 /// The kinds of file a picture frame can show, which the webview can draw.
 const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "svg"];
 
+/// Whether the start of a file is what its extension says, so a renamed file is not taken.
+fn looks_like(extension: &str, bytes: &[u8]) -> bool {
+    match extension {
+        "png" => bytes.starts_with(b"\x89PNG\r\n\x1a\n"),
+        "jpg" | "jpeg" => bytes.starts_with(&[0xff, 0xd8, 0xff]),
+        "gif" => bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a"),
+        "webp" => bytes.len() > 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP",
+        "svg" => {
+            let head = String::from_utf8_lossy(&bytes[..bytes.len().min(2048)]);
+            head.contains("<svg")
+        }
+        _ => false,
+    }
+}
+
 /// The largest picture file taken in whole.
 const MAX_IMAGE_BYTES: u64 = 100 * 1024 * 1024;
 
@@ -302,9 +317,16 @@ impl<R: Runtime> Books<R> {
                 path.display()
             )));
         }
-        let size = std::fs::metadata(path)
-            .map_err(|e| Error::BadImage(format!("`{}` could not be read: {e}", path.display())))?
-            .len();
+        // A link could lead anywhere: only a plain file is taken.
+        let meta = std::fs::symlink_metadata(path)
+            .map_err(|e| Error::BadImage(format!("`{}` could not be read: {e}", path.display())))?;
+        if !meta.is_file() {
+            return Err(Error::BadImage(format!(
+                "`{}` is not a plain file",
+                path.display()
+            )));
+        }
+        let size = meta.len();
         if size > MAX_IMAGE_BYTES {
             return Err(Error::BadImage(format!(
                 "`{}` is larger than {} MB",
@@ -314,6 +336,13 @@ impl<R: Runtime> Books<R> {
         }
         let bytes = std::fs::read(path)
             .map_err(|e| Error::BadImage(format!("`{}` could not be read: {e}", path.display())))?;
+        if !looks_like(&extension, &bytes) {
+            return Err(Error::BadImage(format!(
+                "`{}` is not really a {} picture",
+                path.display(),
+                extension.to_ascii_uppercase()
+            )));
+        }
         let mut inner = locked(&self.inner);
         let open = inner
             .books

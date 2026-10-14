@@ -153,21 +153,29 @@ pub async fn layout_spread<R: Runtime>(
 /// Reads a picture file into a book and answers with its path in the book's package.
 #[tauri::command]
 pub async fn import_image<R: Runtime>(
+    app: AppHandle<R>,
     _window: WebviewWindow<R>,
-    books: State<'_, Books<R>>,
     id: String,
     path: PathBuf,
 ) -> Result<String, Error> {
-    books.import_image(&id, &path)
+    // Reading and hashing a large picture is work for a blocking thread, not the async runtime.
+    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().import_image(&id, &path))
+        .await
+        .expect("the import task does not panic")
 }
 
 /// One of a book's pictures, as raw bytes.
 #[tauri::command]
 pub async fn asset_data<R: Runtime>(
+    app: AppHandle<R>,
     _window: WebviewWindow<R>,
-    books: State<'_, Books<R>>,
     id: String,
     asset: String,
 ) -> Result<tauri::ipc::Response, Error> {
-    Ok(tauri::ipc::Response::new(books.asset_data(&id, &asset)?))
+    let bytes = tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Books<R>>().asset_data(&id, &asset)
+    })
+    .await
+    .expect("the read task does not panic")?;
+    Ok(tauri::ipc::Response::new(bytes))
 }
