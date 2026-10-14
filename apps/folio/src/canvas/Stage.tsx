@@ -11,7 +11,7 @@ import { useState } from 'react';
 import { t } from '../i18n/messages';
 import { frameMenuItems, type FrameCommand } from './frameMenu';
 import { fitZoom, spreadGeometry, type PlainRect } from './geometry';
-import { SpreadCanvas } from './SpreadCanvas';
+import { SpreadCanvas, type Marks } from './SpreadCanvas';
 import styles from './Stage.module.css';
 import { useElementSize } from './useElementSize';
 import { useStageZoom } from './useStageZoom';
@@ -22,6 +22,7 @@ export interface StageProps {
 	/** What the shelf calls this spread: "Cover", "Pages 2–3". */
 	label: string;
 	layout: SpreadLayout | null;
+	marks?: Marks;
 	selection?: string[];
 	onSelect?(ids: string[]): void;
 	onMove?(id: string, rect: PlainRect): Promise<void>;
@@ -34,6 +35,7 @@ export function Stage({
 	spread,
 	label,
 	layout,
+	marks,
 	selection,
 	onSelect,
 	onMove,
@@ -79,6 +81,7 @@ export function Stage({
 						layout={layout}
 						zoom={zoom.zoom}
 						label={t('region.stage')}
+						marks={marks}
 						selection={selection}
 						onSelect={onSelect}
 						onMove={onMove}

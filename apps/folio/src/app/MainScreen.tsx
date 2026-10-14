@@ -5,22 +5,16 @@
 
 import { MenuBar } from '@liminal-hq/folio-chrome/MenuBar/MenuBar';
 import { WindowFrame } from '@liminal-hq/folio-chrome/WindowFrame';
-import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 import { formatTrim, pageCount } from '../books/format';
-import { shelfLabels } from '../books/shelfLabels';
-import { frameIntents } from '../canvas/frameMenu';
-import { Shelf } from '../canvas/Shelf';
-import { Stage } from '../canvas/Stage';
-import { useSelection } from '../canvas/useSelection';
-import { useSpreadLayout } from '../canvas/useSpreadLayout';
-import { useActiveBook, useBooks, useBooksSelector } from '../books/useBooks';
+import { useActiveBook, useBooksSelector } from '../books/useBooks';
 import { APP_MENU_MNEMONICS } from '../commands/appMenuModel';
 import { t } from '../i18n/messages';
 import { tauriAppInfoClient, type AppInfoClient } from '../services/appInfoClient';
 import { useSettings, useUpdateSettings } from '../settings/useSettings';
 import { WelcomeScreen } from '../welcome/WelcomeScreen';
 import { AppMenu } from './AppMenu';
+import { BookView } from './BookView';
 import { AppTitleBar } from './AppTitleBar';
 import { useCloseQuestion } from './CloseBookDialog';
 import styles from './MainScreen.module.css';
@@ -65,24 +59,6 @@ export function MainScreen({ client = tauriAppInfoClient }: { client?: AppInfoCl
 	const active = useActiveBook();
 	const kinds = useBooksSelector((s) => s.kinds);
 	const menuBar = settings.interface.menuBar;
-	const { client: booksClient, store: booksStore } = useBooks();
-	const [spreadIndex, setSpreadIndex] = useState(0);
-	const spreads = active?.copy.book.spreads ?? [];
-	const shown = Math.max(0, Math.min(spreadIndex, spreads.length - 1));
-	const spread = spreads[shown] ?? null;
-	const labels = active ? shelfLabels(active.copy.book) : [];
-	const layout = useSpreadLayout(
-		booksClient,
-		active?.summary.id ?? '',
-		active && spread ? spread.id : null,
-		active?.copy.revision ?? 0,
-	);
-	const [selection, select] = useSelection(
-		spread?.id ?? null,
-		spread?.frames.map((f) => f.id) ?? [],
-	);
-	const inspectorWidth = { '--folio-inspector-width': `${settings.interface.sidebarWidth}px` };
-
 	const kindLabel = active
 		? (kinds.find((k) => k.kind === active.summary.kind)?.label ?? active.summary.kind)
 		: '';
@@ -129,48 +105,7 @@ export function MainScreen({ client = tauriAppInfoClient }: { client?: AppInfoCl
 								/>
 							</div>
 						</div>
-						<main className={styles.body} style={inspectorWidth as CSSProperties}>
-							{spread && (
-								<Stage
-									book={active.copy.book}
-									spread={spread}
-									label={labels[shown] ?? ''}
-									layout={layout}
-									selection={selection}
-									onSelect={select}
-									onMove={(id, box) =>
-										booksStore.apply({
-											type: 'MoveFrame',
-											spread: spread.id,
-											frame: id,
-											box: { x: box.x, y: box.y, w: box.w, h: box.h },
-										})
-									}
-									onEditText={(id, text) =>
-										void booksStore.apply({ type: 'SetText', frame: id, text })
-									}
-									onCommand={(command, ids) => {
-										for (const id of ids) {
-											const target = spread.frames.find((f) => f.id === id);
-											if (!target) continue;
-											for (const intent of frameIntents(command, spread.id, target)) {
-												void booksStore.apply(intent);
-											}
-										}
-									}}
-								/>
-							)}
-							<aside className={styles.inspector} aria-label={t('region.inspector')}>
-								<h2 className={styles.inspectorTitle}>{t('region.inspector')}</h2>
-								<p className={styles.muted}>{t('region.inspector.empty')}</p>
-							</aside>
-						</main>
-						<Shelf
-							book={active.copy.book}
-							labels={labels}
-							selected={shown}
-							onSelect={setSpreadIndex}
-						/>
+						<BookView id={active.summary.id} copy={active.copy} kindLabel={kindLabel} />
 					</>
 				)}
 				<footer className={styles.status} aria-label={t('status.bar')}>
