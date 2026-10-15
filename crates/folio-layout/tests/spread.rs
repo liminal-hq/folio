@@ -477,6 +477,7 @@ fn with_numbers(book: &mut Book) {
         name: "A".into(),
         frames: vec![frame],
         guides: Vec::new(),
+        bg: None,
     });
     for spread in book
         .spreads
