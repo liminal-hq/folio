@@ -1241,6 +1241,83 @@ fn turning_the_numbers_off_keeps_a_master_that_holds_more_than_numbers() {
     assert!(master(&s, "mst_b").is_none(), "B held only a number");
 }
 
+/// A session whose master `id` has the person's frame on it, after the numbers were `numbers`.
+fn with_frame_on(numbers: folio_model::PageNumbers, id: &str) -> Session {
+    let mut s = session();
+    s.apply(Intent::SetPageNumbers { position: numbers })
+        .unwrap();
+    let mut edited = s.book().clone();
+    edited
+        .master_pages
+        .iter_mut()
+        .find(|m| m.id.0 == id)
+        .unwrap()
+        .frames
+        .push(user_frame());
+    Session::new(edited)
+}
+
+#[test]
+fn a_new_spread_uses_the_master_the_person_kept_when_the_numbers_are_off() {
+    let mut s = with_frame_on(folio_model::PageNumbers::Centre, "mst_a");
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::None,
+    })
+    .unwrap();
+    s.apply(Intent::AddSpread {
+        after: spread("sp_1"),
+        duplicate: false,
+    })
+    .unwrap();
+    let masters = master_of_pages(&s);
+    assert_eq!(masters.len(), 6);
+    assert!(
+        masters[1..].iter().all(|m| m.as_deref() == Some("mst_a")),
+        "{masters:?}"
+    );
+}
+
+#[test]
+fn centring_the_numbers_keeps_a_master_b_the_person_filled_and_its_pages() {
+    let mut s = with_frame_on(folio_model::PageNumbers::Outside, "mst_b");
+    let before = master_of_pages(&s);
+    assert_eq!(
+        before,
+        vec![
+            None,
+            Some("mst_a".into()),
+            Some("mst_b".into()),
+            Some("mst_a".into())
+        ]
+    );
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::Centre,
+    })
+    .unwrap();
+    assert_eq!(
+        master_of_pages(&s),
+        before,
+        "the left page keeps its master"
+    );
+    let b = master(&s, "mst_b").unwrap();
+    assert!(b.frames.iter().any(|f| f.base().id.0 == "fr_mine"));
+    assert!(
+        b.frames.iter().any(|f| f.base().id.0 == "fr_pn_b"),
+        "so the left page still has a number"
+    );
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::None,
+    })
+    .unwrap();
+    let b = master(&s, "mst_b").unwrap();
+    assert_eq!(b.frames.len(), 1, "only the number goes");
+    // A held only a number, so it went; the left page keeps B.
+    assert_eq!(
+        master_of_pages(&s),
+        vec![None, None, Some("mst_b".into()), None]
+    );
+}
+
 #[test]
 fn a_copy_of_a_flowing_frame_is_not_another_slot_in_the_flow() {
     let mut s = session();

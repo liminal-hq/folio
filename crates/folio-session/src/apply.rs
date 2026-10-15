@@ -207,7 +207,7 @@ pub fn plan(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         intent,
         Intent::AddSpread { .. } | Intent::DeleteSpread { .. } | Intent::MoveSpread { .. }
     );
-    if restructures && !book.page_numbers.is_none() {
+    if restructures && (!book.page_numbers.is_none() || !book.master_pages.is_empty()) {
         for spread in &book.spreads {
             if !made.touched.contains(&spread.id) {
                 made.touched.push(spread.id.clone());
@@ -478,7 +478,7 @@ pub fn run(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
         Intent::AddSpread { .. } | Intent::DeleteSpread { .. } | Intent::MoveSpread { .. }
     );
     run_one(book, intent, plan, ids);
-    if restructures && !book.page_numbers.is_none() {
+    if restructures {
         apply_page_numbers(book);
     }
 }
