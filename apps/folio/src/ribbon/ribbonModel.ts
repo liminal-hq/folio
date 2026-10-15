@@ -85,6 +85,7 @@ function toRibbonItem(
 		...(source.radio ? { radio: source.radio } : {}),
 	};
 	if (source.id === 'menubar') item.active = context.settings.interface.menuBar;
+	if (source.id === 'spell') item.active = context.settings.spelling.enabled;
 	const pressed = context.editor?.active[source.id];
 	if (kind === 'toggle' && pressed !== undefined) item.active = pressed;
 	const shown = context.editor?.values[source.id];

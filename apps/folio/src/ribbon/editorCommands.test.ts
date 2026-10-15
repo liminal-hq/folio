@@ -47,6 +47,13 @@ const shape = (extra = {}) =>
 		...extra,
 	}) as unknown as Frame;
 
+describe('the spelling toggle', () => {
+	it('is always available and asks to be switched', () => {
+		expect(editorState(input()).available.has('spell')).toBe(true);
+		expect(editorAction('spell', undefined, input())).toEqual({ kind: 'spelling' });
+	});
+});
+
 describe('adding a table', () => {
 	it('is always available and asks for a table to be added', () => {
 		expect(editorState(input()).available.has('table')).toBe(true);

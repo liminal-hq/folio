@@ -47,6 +47,7 @@ export type EditorAction =
 	| { kind: 'marks'; marks: Partial<Marks> }
 	| { kind: 'snap' }
 	| { kind: 'rulers' }
+	| { kind: 'spelling' }
 	| { kind: 'zoom'; zoom: 'in' | 'out' | 'fit' }
 	| { kind: 'page'; op: 'add' | 'duplicate' | 'remove' }
 	| { kind: 'choosePicture'; frame: string }
@@ -86,6 +87,7 @@ export function editorState(input: EditorInput): EditorState {
 		'bleed',
 		'guides',
 		'rulers',
+		'spell',
 		'rguides',
 		'snap',
 		'zoomIn',
@@ -208,6 +210,8 @@ export function editorAction(
 			return { kind: 'snap' };
 		case 'rulers':
 			return { kind: 'rulers' };
+		case 'spell':
+			return { kind: 'spelling' };
 		case 'rguides':
 			return { kind: 'marks', marks: { guides: !input.marks.guides } };
 		case 'master':
