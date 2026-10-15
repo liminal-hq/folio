@@ -57,6 +57,17 @@ describe('pageMenuItems', () => {
 		expect(items.find((i) => i.id === 'toggleMargins')).toMatchObject({ checked: true });
 		expect(items.find((i) => i.id === 'toggleGrid')).toMatchObject({ checked: false });
 	});
+	it('offers no more pages, and no master items to hide, on a master page', () => {
+		const item = { page: 'p1', frame: 'fr_pn_a', label: 'Page number', hidden: false };
+		const items = pageMenuItems(DEFAULT_MARKS, true, [item], true);
+		expect(items.some((i) => i.id === 'addPages' || i.id === 'duplicateSpread')).toBe(false);
+		expect(items.some((i) => String(i.id).startsWith('hideMaster'))).toBe(false);
+		expect(items.some((i) => i.id === 'toggleMargins')).toBe(true);
+		expectEveryItemHasIcon(items.filter((i) => i.type !== 'checkbox'));
+		expect(
+			pageMenuItems(DEFAULT_MARKS, true, [item]).some((i) => i.id === 'hideMaster:p1:fr_pn_a'),
+		).toBe(true);
+	});
 	it('does not offer to duplicate the cover', () => {
 		expect(
 			pageMenuItems(DEFAULT_MARKS, false).find((i) => i.id === 'duplicateSpread'),

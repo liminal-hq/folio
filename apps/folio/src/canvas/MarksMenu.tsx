@@ -25,7 +25,10 @@ export function MarksMenu({ marks, colours, onMarks, onColour }: MarksMenuProps)
 			if (!root.current?.contains(event.target as Node)) setOpen(false);
 		};
 		const escape = (event: KeyboardEvent) => {
-			if (event.key === 'Escape') setOpen(false);
+			if (event.key !== 'Escape') return;
+			// Closing the menu is all this Escape does.
+			event.preventDefault();
+			setOpen(false);
 		};
 		document.addEventListener('pointerdown', away);
 		document.addEventListener('keydown', escape);

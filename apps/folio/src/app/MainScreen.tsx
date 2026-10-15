@@ -85,6 +85,7 @@ export function MainScreen({ client = tauriAppInfoClient }: { client?: AppInfoCl
 				) : (
 					<>
 						<BookView
+							key={active.summary.id}
 							id={active.summary.id}
 							copy={active.copy}
 							kindLabel={kindLabel}
