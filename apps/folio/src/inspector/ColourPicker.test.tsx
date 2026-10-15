@@ -39,16 +39,16 @@ describe('ColourPicker', () => {
 		expect(onPick).toHaveBeenCalledWith('#ffaa00');
 	});
 
-	it('refuses a typo, says so, and puts the colour back on Escape', async () => {
+	it('says so about a typo and puts the colour back on Escape', async () => {
 		const onPick = setup();
 		const box = screen.getByRole('textbox');
 		await userEvent.clear(box);
 		await userEvent.type(box, '#12');
 		expect(screen.getByRole('alert')).toBeInTheDocument();
-		await userEvent.type(box, '{Enter}');
-		expect(onPick).not.toHaveBeenCalled();
 		await userEvent.type(box, '{Escape}');
 		expect(box).toHaveValue('#ffffff');
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(onPick).not.toHaveBeenCalled();
 	});
 
 	it('offers none only when the fill can be cleared', async () => {

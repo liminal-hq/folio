@@ -53,9 +53,8 @@ pub fn new_book_with_ids(
     if !isbn.is_empty() && !is_valid_isbn13(isbn) {
         return Err(PresetError::BadIsbn(isbn.to_owned()));
     }
-    if !is_hex_colour(&spec.cover_colour) {
-        return Err(PresetError::BadColour(spec.cover_colour.clone()));
-    }
+    let cover_colour = Colour::parse(&spec.cover_colour)
+        .map_err(|_| PresetError::BadColour(spec.cover_colour.clone()))?;
 
     let samples = spec.words == Words::Samples;
     let title = match spec.title.trim() {
@@ -80,7 +79,7 @@ pub fn new_book_with_ids(
         used_styles: BTreeSet::new(),
     };
 
-    let mut spreads = vec![builder.cover(spec, width, height, bleed)];
+    let mut spreads = vec![builder.cover(spec, &cover_colour, width, height, bleed)];
     if samples {
         let skip = usize::from(is_sample_cover(&data.spreads));
         for sample in data.spreads.iter().skip(skip) {
@@ -151,7 +150,7 @@ pub fn new_book_with_ids(
         settings: json!({
             "paper": paper_name(spec.paper),
             "plannedPages": data.default_pages,
-            "coverColour": spec.cover_colour,
+            "coverColour": cover_colour.0,
         }),
     })
 }
@@ -162,10 +161,6 @@ fn paper_name(paper: Paper) -> &'static str {
         Paper::Cream => "cream",
         Paper::Colour => "colour",
     }
-}
-
-fn is_hex_colour(text: &str) -> bool {
-    text.len() == 7 && text.starts_with('#') && text[1..].chars().all(|c| c.is_ascii_hexdigit())
 }
 
 /// Whether the first sample spread is a cover the book can use as its own.
@@ -318,12 +313,19 @@ impl Builder<'_> {
 
     /// The cover: a full-bleed block of the chosen colour, with the kind's own cover pictures and
     /// words over it, or a title and byline when the kind has none.
-    fn cover(&mut self, spec: &NewBookSpec, width: f64, height: f64, bleed: f64) -> Spread {
+    fn cover(
+        &mut self,
+        spec: &NewBookSpec,
+        cover_colour: &Colour,
+        width: f64,
+        height: f64,
+        bleed: f64,
+    ) -> Spread {
         let colour = self.base(-bleed, -bleed, width + 2.0 * bleed, height + 2.0 * bleed);
         let mut frames = vec![Frame::Shape(ShapeFrame {
             base: colour,
             shape: Shape::Rect,
-            fill: Some(Colour(spec.cover_colour.clone())),
+            fill: Some(cover_colour.clone()),
             style: None,
         })];
         let data = self.data;

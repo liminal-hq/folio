@@ -1,4 +1,4 @@
-// Reads a colour the way the Rust model does: `#rgb` or `#rrggbb`, stored as lower-case `#rrggbb`
+// Reads a typed colour as `#rgb` or `#rrggbb`, stored as lower-case `#rrggbb` as the Rust model does
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT

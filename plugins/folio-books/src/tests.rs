@@ -74,7 +74,9 @@ fn the_six_kinds_are_offered() {
 
 #[test]
 fn the_palette_is_offered() {
-    let paints = folio_presets::paint_presets();
+    let app = app();
+    let window = app.get_webview_window("main").expect("the main window");
+    let paints = tauri::async_runtime::block_on(commands::paint_presets(window)).unwrap();
     assert!(!paints.swatches.is_empty() && !paints.gradients.is_empty());
 }
 
