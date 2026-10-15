@@ -4,16 +4,25 @@ New tools are spread across the existing ribbon tabs. **Contextual tabs** (Pictu
 
 ## Page backgrounds
 
-`bg: { type: 'colour' | 'gradient' | 'texture' | 'picture', v }`
+A background is one of four kinds, stored as `{ "type": …, … }`:
+
+- `colour`: `{ colour: "#rrggbb" }`.
+- `gradient`: `{ angle, stops: [{ at, colour }] }`, with `angle` in degrees clockwise from up, as in CSS (90 runs left to right, 180 top to bottom). A preset is stored as the stops it expands to.
+- `texture`: `{ id, tint? }`, one of the bundled textures.
+- `picture`: `{ asset, fit: "fill" | "fit", focus: [x, y] }`.
 
 | Scope | Stored on | Notes |
 |---|---|---|
-| Left / Right / This page | `spread.bg[i]` | Reaches into the bleed on the outer edge |
-| Across both pages | `spread.bgSpan` | One background through the gutter, with a picture split at the gutter for EPUB fixed layout |
-| Every page | `masterBg` (master page A) | Pages with their own background keep it |
-| Cover | `cover.bg` | Whole sheet, into the bleed or wrap |
+| This page, Left or Right | `page.bg` | Reaches into the bleed on the outer edge |
+| Across both pages | `spread.bgSpan` | One background through the gutter, with a picture split at the gutter for EPUB fixed layout. Not offered on a single page. |
+| Every page | `master.bg` on each master in use | Pages with their own background keep it |
+| Cover | `page.bg` of the cover | Whole sheet, into the bleed or wrap |
 
-Bundled textures (Linen, Laid paper, Kraft, Watercolour wash, Dot grid) ship as small tileable PNGs in the app. The prototype draws them with CSS gradients. Gradients: Dusk, Meadow, Sea, Peach, Night. A picture background is an image asset with Fill / Fit, preflighted for resolution like any picture.
+A page shows its own background, else the one across its spread, else its master's, else the paper. See D-23.
+
+**Setting one:** the ribbon's Pages → Page background button, or "Page background…" on the page's context menu, opens a dialog. It asks where the background goes (both pages, the left or right page, or every page; a single page offers this page and every page), then what it is (Colour with the swatches and a hex box, a Gradient from the presets, a Texture with an optional tint, or a Picture). A choice applies at once, so the page behind shows it, and the tries on one page are one undo step. "Remove background" clears the chosen place. A Picture tab chooses an image (brought into the book like any picture) and whether it fills the page, cropped at the edges, or fits whole inside it. The picture's `focus` is stored but not yet used: a picture is cropped from its centre until the focus control is built.
+
+Bundled textures are Folio's own, drawn by the app as tiles of a fixed size in points so they look the same on every book and run on through the gutter: Linen (`linen`), Laid paper (`laid-paper`), Kraft (`kraft`), Watercolour wash (`watercolour`) and Dot grid (`dot-grid`). A texture may be tinted, which replaces its base colour. A book that names a texture an older build cannot draw shows the paper, and an intent naming an unknown id is refused. Gradients: Dawn, Meadow, Dusk, Lagoon, Paper fade. A picture background is an image asset with Fill / Fit. Checks for a missing picture or too few pixels come with picture preflight, for frames and backgrounds together.
 
 ## Shapes and bubbles (Insert → Shapes / Bubbles)
 

@@ -50,5 +50,12 @@
 				{ "at": 1, "colour": "#e9e2d0" }
 			]
 		}
+	],
+	"textures": [
+		{ "id": "linen", "name": "Linen" },
+		{ "id": "laid-paper", "name": "Laid paper" },
+		{ "id": "kraft", "name": "Kraft" },
+		{ "id": "watercolour", "name": "Watercolour wash" },
+		{ "id": "dot-grid", "name": "Dot grid" }
 	]
 }

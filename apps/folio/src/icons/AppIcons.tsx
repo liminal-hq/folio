@@ -256,3 +256,9 @@ export const AddPagesIcon = () => (
 		<path d="M8 7v4M6 9h4" />
 	</Glyph>
 );
+export const BackgroundIcon = () => (
+	<Glyph>
+		<path d="M2.5 2.5h11v11h-11z" />
+		<path d="M2.5 10l3.5-3 3 2.5 2-1.5 2.5 2" />
+	</Glyph>
+);
