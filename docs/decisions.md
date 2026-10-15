@@ -17,6 +17,7 @@ Product and engineering decisions for Folio. D-01 to D-07 and D-12 are defined w
 | D-21 | Ruler guides belong to a spread, are stored in points, and are named by their place in its list                                                      | `docs/decisions.md`          |
 | D-22 | Masters belong to the person, and frames and guides are addressed by a surface                                                                       | `docs/decisions.md`          |
 | D-23 | A page's background is a field on the page, its spread or its master, and the nearest wins                                                           | `docs/decisions.md`          |
+| D-24 | Shapes are frames with their own look, and the schema stays additive until the first release                                                         | `docs/decisions.md`          |
 
 ## D-08 · Shared chrome and unpublished plugins are copied; published ones are dependencies
 
@@ -77,3 +78,9 @@ Page numbers used to be the only thing on a master, so the session rebuilt maste
 ## D-23 · A page's background is a field on the page, its spread or its master, and the nearest wins
 
 The prototype kept backgrounds in a parallel array on the spread (`bg[i]`), which drifts from `pages` whenever one moves. A background is now a field of the thing it fills: `Page.bg` for one page, `Spread.bg_span` for one background through the gutter, and `Master.bg` for every page using a master. A page shows its own, else its spread's, else its master's, else the paper. All three sit on spreads and masters, so undo, redo and patches already cover them. `Background` is one of `colour`, `gradient` (an angle and explicit stops, so a book never depends on the palette it was made with), `texture` (a bundled id, optionally tinted) or `picture` (an asset, `fill` or `fit`, and a focus). A background is part of the page, not a frame: it reaches into the bleed on the outer edge, cannot be selected or moved, and is drawn behind every frame. Rust resolves the winner (`resolve`), the canvas and the shelf thumbnails use a twin written against one shared fixture, and preflight counts a background as bleeding. The three fields are optional and left out when empty, so a book without backgrounds is unchanged and the schema stays at 1.
+
+## D-24 · Shapes are frames with their own look, and the schema stays additive until the first release
+
+A shape is one frame, not a path: a `Shape` kind (`rect`, `round`, `ellipse`, `line`, `speech`, `thought`, `shout`) with a box, a `fill`, an optional `stroke` and `strokeWidth`, a `radius` for `round` and a `flip` for a line. There is no polygon or path model, so a shape cannot be edited point by point; each kind has a unit path the app scales to the box and draws with a non-scaling stroke, so an outline keeps its width as the frame is resized. A line is a box that may have no height or width. The note box is a `round` shape with a yellow fill. Text inside a shape, rotation and the shape's own style are added to these fields in their own steps, each optional so an older book opens unchanged.
+
+Until the first public release (the version is 0.0.0 and nothing is tagged), the schema stays at 1 and changes are additive: a new optional field or a new frame or shape kind is added without a migration. After it, a new kind of frame or shape bumps the schema with a migration (D-05), since a build that does not know the kind cannot open the book.

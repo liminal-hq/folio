@@ -172,7 +172,7 @@ function Furniture({ frame, images }: { frame: Frame; images: Record<string, str
 				y={y}
 				width={w}
 				height={h}
-				rx={frame.shape === 'rounded' ? Math.min(w, h) * 0.12 : 0}
+				rx={frame.shape === 'round' ? Math.min(w, h) * 0.12 : 0}
 				fill={fill}
 			/>
 		);

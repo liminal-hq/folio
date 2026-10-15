@@ -73,7 +73,7 @@ export function newFrame(kind: NewFrameKind, box: PlainRect, style: string): Fra
 	return {
 		...base,
 		type: 'shape',
-		shape: kind === 'round' ? 'rounded' : kind,
+		shape: kind,
 		fill: '#c9c4b8',
 		style: null,
 	} as unknown as Frame;
