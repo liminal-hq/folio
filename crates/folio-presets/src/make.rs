@@ -6,10 +6,10 @@
 use std::collections::BTreeSet;
 
 use folio_model::{
-    Book, BookId, BookKind, BookMetadata, Contributor, ContributorRole, Fit, Frame, FrameBase,
-    FrameId, Grid, ImageFrame, ImageRef, InlineContent, Isbns, LayoutMode, Margins, Page, PageId,
-    Pt, Rect, Run, Shape, ShapeFrame, Size, Spread, SpreadId, SpreadKind, StyleId, TextFrame,
-    SCHEMA_VERSION,
+    Book, BookId, BookKind, BookMetadata, Colour, Contributor, ContributorRole, Fit, Frame,
+    FrameBase, FrameId, Grid, ImageFrame, ImageRef, InlineContent, Isbns, LayoutMode, Margins,
+    Page, PageId, Pt, Rect, Run, Shape, ShapeFrame, Size, Spread, SpreadId, SpreadKind, StyleId,
+    TextFrame, SCHEMA_VERSION,
 };
 use serde_json::{json, Value};
 
@@ -323,7 +323,7 @@ impl Builder<'_> {
         let mut frames = vec![Frame::Shape(ShapeFrame {
             base: colour,
             shape: Shape::Rect,
-            fill: Some(spec.cover_colour.clone()),
+            fill: Some(Colour(spec.cover_colour.clone())),
             style: None,
         })];
         let data = self.data;

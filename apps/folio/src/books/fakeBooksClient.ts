@@ -9,6 +9,7 @@ import type {
 	Intent,
 	KindInfo,
 	NewBookSpec,
+	PaintPresets,
 	Patch,
 	PatchEvent,
 } from '@liminal-hq/folio-plugin-books';
@@ -19,6 +20,25 @@ import cases from './fixtures/patchCases.json';
 
 /** A real book from the Rust session's own fixtures, so the fake holds the shapes Rust makes. */
 const BASE_BOOK = (cases as unknown as Array<{ before: Book }>)[0]!.before;
+
+/** A palette like the plugin's, trimmed to what the tests read. */
+export const FAKE_PAINTS: PaintPresets = {
+	swatches: [
+		{ name: 'Paper white', colour: '#ffffff' },
+		{ name: 'Cream', colour: '#f6efdc' },
+		{ name: 'Slate', colour: '#1f3a5f' },
+	],
+	gradients: [
+		{
+			name: 'Dawn',
+			angle: 180,
+			stops: [
+				{ at: 0, colour: '#f7d9b5' },
+				{ at: 1, colour: '#f2b8c6' },
+			],
+		},
+	],
+};
 
 /** The six kinds as the plugin lists them, trimmed to what the screens read. */
 export const FAKE_KINDS: KindInfo[] = [
@@ -146,6 +166,10 @@ export function createFakeBooksClient(): FakeBooks {
 		async presets() {
 			await call('presets');
 			return FAKE_KINDS;
+		},
+		async paintPresets() {
+			await call('paintPresets');
+			return FAKE_PAINTS;
 		},
 		async defaultSavePath(title) {
 			await call('defaultSavePath', [title]);

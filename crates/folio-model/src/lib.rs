@@ -8,6 +8,7 @@
 // generates TypeScript into `packages/protocol`. All lengths are points (1/72 in).
 
 mod book;
+mod colour;
 mod cover;
 mod flow;
 mod frame;
@@ -18,6 +19,7 @@ mod spread;
 mod units;
 
 pub use book::*;
+pub use colour::*;
 pub use cover::*;
 pub use flow::*;
 pub use frame::*;

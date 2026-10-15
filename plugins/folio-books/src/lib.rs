@@ -32,6 +32,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         .invoke_handler(tauri::generate_handler![
             commands::get_status,
             commands::presets,
+            commands::paint_presets,
             commands::default_save_path,
             commands::new_book,
             commands::open_book,
