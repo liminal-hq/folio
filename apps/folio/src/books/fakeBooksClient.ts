@@ -28,6 +28,10 @@ export const FAKE_PAINTS: PaintPresets = {
 		{ name: 'Cream', colour: '#f6efdc' },
 		{ name: 'Slate', colour: '#1f3a5f' },
 	],
+	textures: [
+		{ id: 'linen', name: 'Linen' },
+		{ id: 'dot-grid', name: 'Dot grid' },
+	],
 	gradients: [
 		{
 			name: 'Dawn',

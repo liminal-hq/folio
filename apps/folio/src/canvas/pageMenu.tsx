@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { MenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
-import { AddPagesIcon, DuplicateIcon } from '../icons/AppIcons';
+import { AddPagesIcon, BackgroundIcon, DuplicateIcon } from '../icons/AppIcons';
 import { t } from '../i18n/messages';
 import type { MasterItem } from './masterItems';
 import type { Marks } from './marksModel';
@@ -17,10 +17,13 @@ export type PageCommand =
 	| 'duplicateSpread'
 	| 'toggleMargins'
 	| 'toggleGrid'
+	| 'pageBackground'
 	/** `editMaster:<master>` opens that master page to edit. */
 	| `editMaster:${string}`
 	/** `hideMaster:<page>:<frame>` hides a master item on one page; `showMaster:…` shows it again. */
-	| `${'hideMaster' | 'showMaster'}:${string}:${string}`;
+	| `${'hideMaster' | 'showMaster'}:${string}:${string}`
+	/** `copyMaster:<page>:<frame>` hides a master item on one page and leaves an editable copy there. */
+	| `copyMaster:${string}:${string}`;
 
 const Box = () => (
 	<svg
@@ -63,6 +66,16 @@ export function pageMenuItems(
 		{ type: 'action', id: 'addPicture', label: t('page.addPicture'), icon: <Box /> },
 		{ type: 'action', id: 'addNote', label: t('page.addNote'), icon: <Box /> },
 		...pages,
+		...(onMaster
+			? []
+			: [
+					{
+						type: 'action',
+						id: 'pageBackground',
+						label: t('page.background'),
+						icon: <BackgroundIcon />,
+					} as MenuItem,
+				]),
 		{ type: 'separator' },
 		{ type: 'checkbox', id: 'toggleMargins', label: t('page.showMargins'), checked: marks.margins },
 		{
@@ -86,6 +99,14 @@ export function pageMenuItems(
 			type: 'action',
 			id: `${item.hidden ? 'showMaster' : 'hideMaster'}:${item.page}:${item.frame}`,
 			label: t(item.hidden ? 'page.showMaster' : 'page.hideMaster', { name: item.label }),
+			icon: <Box />,
+		})),
+		// Only people who can edit masters can change a page's own copy. What the page hides already
+		// has one.
+		...(editMaster ? hide.filter((item) => !item.hidden) : []).map((item): MenuItem => ({
+			type: 'action',
+			id: `copyMaster:${item.page}:${item.frame}`,
+			label: t('page.copyMaster', { name: item.label }),
 			icon: <Box />,
 		})),
 	];

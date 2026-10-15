@@ -6,6 +6,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::background::Background;
 use crate::frame::Frame;
 use crate::ids::{FrameId, MasterId, PageId, SpreadId};
 use crate::units::Pt;
@@ -34,12 +35,18 @@ pub struct Spread {
     pub guides: Vec<Guide>,
     #[serde(default)]
     pub master_overrides: Vec<MasterOverride>,
+    /// A background across both pages, through the gutter. A page's own background wins over it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bg_span: Option<Background>,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Page {
     pub id: PageId,
     pub master: Option<MasterId>,
+    /// This page's own background, which wins over the spread's and the master's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bg: Option<Background>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]

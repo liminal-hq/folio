@@ -9,6 +9,7 @@ import type { FrameLayout } from '@liminal-hq/folio-protocol/generated/FrameLayo
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
 import { useRef, useState } from 'react';
+import { BackgroundLayer } from './BackgroundLayer';
 import { ShapeArt } from './ShapeArt';
 import styles from './SpreadCanvas.module.css';
 import './fonts.css';
@@ -333,6 +334,7 @@ export function SpreadCanvas({
 						);
 					}}
 				/>
+				<BackgroundLayer book={book} spread={spread} images={images} />
 				{/* The master pages' own text sits behind the page's frames. */}
 				{layout?.frames.map((laid) =>
 					laid.origin ? (
