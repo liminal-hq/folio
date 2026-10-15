@@ -54,11 +54,7 @@ fn ours(id: &MasterId) -> bool {
 }
 
 pub fn is_number(frame: &Frame) -> bool {
-    is_number_id(&frame.base().id.0)
-}
-
-pub fn is_number_id(id: &str) -> bool {
-    matches!(id, NUMBER_A | NUMBER_B)
+    matches!(frame.base().id.0.as_str(), NUMBER_A | NUMBER_B)
 }
 
 /// Puts the number frame `id` on `master` at the given box, or moves the one already there. Only its
@@ -82,21 +78,28 @@ fn place_number(master: &mut Master, id: &str, x: f64, y: f64, align: Align) {
 fn master_mut<'a>(book: &'a mut Book, id: &str, name: &str) -> &'a mut Master {
     let at = book.master_pages.iter().position(|m| m.id.0 == id);
     let at = at.unwrap_or_else(|| {
+        // The facing master starts with the same background, so the left pages are not left bare
+        // when the numbers move outside after "every page" was painted.
+        let bg = (id == VERSO)
+            .then(|| book.master_pages.iter().find(|m| m.id.0 == RECTO))
+            .flatten()
+            .and_then(|m| m.bg.clone());
         book.master_pages.push(Master {
             id: MasterId(id.into()),
             name: name.into(),
             frames: Vec::new(),
             guides: Vec::new(),
-            bg: None,
+            bg,
         });
         book.master_pages.len() - 1
     });
     &mut book.master_pages[at]
 }
 
-/// Whether a master holds anything but the number frames, so it is not ours to remove.
+/// Whether a master holds anything but the number frames, so it is not ours to remove: its own
+/// frames, its guides, or a background the person set for every page.
 fn holds_more(master: &Master) -> bool {
-    master.frames.iter().any(|f| !is_number(f)) || !master.guides.is_empty()
+    master.frames.iter().any(|f| !is_number(f)) || !master.guides.is_empty() || master.bg.is_some()
 }
 
 /// Makes master A, and master B when the numbers are outside, if they are missing, and gives every

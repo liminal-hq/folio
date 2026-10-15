@@ -16,7 +16,7 @@ Product and engineering decisions for Folio. D-01 to D-07 and D-12 are defined w
 | D-19 | The ribbon is its own package, depending one-way on the chrome                                                                                       | `docs/decisions.md`          |
 | D-21 | Ruler guides belong to a spread, are stored in points, and are named by their place in its list                                                      | `docs/decisions.md`          |
 | D-22 | Masters belong to the person, and frames and guides are addressed by a surface                                                                       | `docs/decisions.md`          |
-| D-23 | A page's background is a field on the page, its spread or its master, and the page that is closest wins                                              | `docs/decisions.md`          |
+| D-23 | A page's background is a field on the page, its spread or its master, and the nearest wins                                                           | `docs/decisions.md`          |
 
 ## D-08 · Shared chrome and unpublished plugins are copied; published ones are dependencies
 
