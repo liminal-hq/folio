@@ -532,7 +532,12 @@ function PictureSection({ frame, props }: { frame: Frame; props: InspectorProps 
 						/>
 					</div>
 				)}
-			<button type="button" className={styles.action} disabled={frame.locked} onClick={stretch}>
+			<button
+				type="button"
+				className={styles.action}
+				disabled={frame.locked || !!frame.rotation}
+				onClick={stretch}
+			>
 				{t('inspector.picture.stretch')}
 			</button>
 		</>

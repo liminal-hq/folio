@@ -133,14 +133,15 @@ export function editorState(input: EditorInput): EditorState {
 	if (only?.type === 'image') {
 		contextual.push('picture');
 		for (const id of ['replace', 'toBleed', 'fitFill']) available.add(id);
+		// Bleed is square to the page, so a turned picture cannot be stretched to it.
+		if (only.rotation) available.delete('toBleed');
 		active.fitFill = only.image.fit === 'fit';
 	}
-	if (only?.type === 'shape') {
-		contextual.push('shape');
-		if (!only.locked && !only.fromMaster) {
-			available.add('rotL');
-			available.add('rotR');
-		}
+	if (only?.type === 'shape') contextual.push('shape');
+	// Any one frame that is free to change can be turned.
+	if (only && !only.locked && !only.fromMaster) {
+		available.add('rotL');
+		available.add('rotR');
 	}
 	return { available, active, values, contextual };
 }
@@ -262,7 +263,7 @@ export function editorAction(
 		case 'rotL':
 		case 'rotR': {
 			const only = selected.length === 1 ? selected[0]! : null;
-			if (only?.type !== 'shape' || only.locked) return null;
+			if (!only || only.locked || only.fromMaster) return null;
 			const turn = id === 'rotR' ? 90 : -90;
 			return {
 				kind: 'intents',
@@ -275,6 +276,7 @@ export function editorAction(
 			const only = selected.length === 1 ? selected[0]! : null;
 			if (only?.type !== 'image' || only.locked) return null;
 			if (id === 'replace') return { kind: 'choosePicture', frame: only.id };
+			if (id === 'toBleed' && only.rotation) return null;
 			if (id === 'toBleed') return { kind: 'stretch', frame: only.id };
 			return { kind: 'fit', frame: only.id, fit: only.image.fit === 'fit' ? 'fill' : 'fit' };
 		}

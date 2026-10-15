@@ -850,3 +850,36 @@ fn the_page_number_and_title_are_filled_in_for_a_frame_the_person_made() {
         "{words}"
     );
 }
+
+#[test]
+fn a_turned_frame_is_checked_by_the_box_around_its_turned_corners() {
+    let (mut book, styles) = sample(BookKind::Novel);
+    let (w, h) = (book.trim.w.0, book.trim.h.0);
+    // Tall and narrow in the middle of the first page: well inside the margins upright, but on its
+    // side it runs out past both edges of the page.
+    let mut post = text_frame(
+        "post",
+        "body",
+        w / 2.0 - 5.0,
+        h * 0.15,
+        10.0,
+        h * 0.7,
+        "Tall",
+    );
+    book.spreads[1].frames.push(post.clone());
+    let fonts = FontBook::bundled();
+    let flagged = |book: &folio_model::Book| {
+        Layouter::new(book, &styles, &fonts)
+            .layout_spread(&book.spreads[1].id)
+            .unwrap()
+            .unwrap()
+            .preflight
+            .iter()
+            .any(|p| p.kind == PreflightKind::TextOutsideMargin && p.frame.0 == "post")
+    };
+    assert!(!flagged(&book), "upright, it is inside the margins");
+    book.spreads[1].frames.pop();
+    post.base_mut().rotation = 90.0;
+    book.spreads[1].frames.push(post);
+    assert!(flagged(&book), "turned, it is not");
+}

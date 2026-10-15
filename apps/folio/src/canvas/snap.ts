@@ -5,6 +5,7 @@
 
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { PlainRect, SpreadGeometry } from './geometry';
+import { turnedBounds } from './turned';
 
 /** How near, in screen pixels, an edge has to come to a target before it snaps. */
 export const SNAP_THRESHOLD_PX = 8;
@@ -49,7 +50,7 @@ export function snapTargets(
 	}
 	for (const frame of frames) {
 		if (moving.includes(frame.id)) continue;
-		const r = frame.box;
+		const r = turnedBounds(frame.box, frame.rotation);
 		x.push(r.x, r.x + r.w / 2, r.x + r.w);
 		y.push(r.y, r.y + r.h / 2, r.y + r.h);
 	}
@@ -65,10 +66,19 @@ export interface Snapped {
 
 const edgesOf = (a: number, size: number) => [a, a + size / 2, a + size];
 
-/** Moves `rect` so its edges or centre meet a target on either axis, when one is near enough. */
-export function snapMove(rect: PlainRect, targets: SnapTargets, threshold: number): Snapped {
-	const sx = snapAxis(edgesOf(rect.x, rect.w), targets.x, threshold);
-	const sy = snapAxis(edgesOf(rect.y, rect.h), targets.y, threshold);
+/**
+ * Moves `rect` so its edges or centre meet a target on either axis, when one is near enough. A frame
+ * turned by `rotation` degrees meets them with the box around its turned corners.
+ */
+export function snapMove(
+	rect: PlainRect,
+	targets: SnapTargets,
+	threshold: number,
+	rotation = 0,
+): Snapped {
+	const around = turnedBounds(rect, rotation);
+	const sx = snapAxis(edgesOf(around.x, around.w), targets.x, threshold);
+	const sy = snapAxis(edgesOf(around.y, around.h), targets.y, threshold);
 	const lines: Snapped['lines'] = [];
 	if (sx) lines.push({ axis: 'x', pos: sx.target });
 	if (sy) lines.push({ axis: 'y', pos: sy.target });
