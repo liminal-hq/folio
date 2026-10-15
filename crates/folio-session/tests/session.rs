@@ -1469,6 +1469,91 @@ fn guides_on_a_master_are_added_moved_locked_and_removed() {
 }
 
 #[test]
+fn deleting_a_master_frame_that_a_page_hid_forgets_the_hiding_and_undoes_with_it() {
+    let mut s = with_master_a();
+    s.apply(Intent::AddFrame {
+        on: on_master("mst_a"),
+        frame: user_frame(),
+    })
+    .unwrap();
+    let page = s.book().spreads[1].pages[0].id.clone();
+    s.apply(Intent::HideMasterItem {
+        spread: spread("sp_1"),
+        page,
+        frame: frame("fr_mine"),
+        hide: true,
+    })
+    .unwrap();
+    assert_eq!(s.book().spreads[1].master_overrides.len(), 1);
+    let patch = s
+        .apply(Intent::DeleteFrame {
+            on: on_master("mst_a"),
+            frame: frame("fr_mine"),
+        })
+        .unwrap();
+    assert!(s.book().spreads[1].master_overrides.is_empty());
+    assert!(
+        patch
+            .ops
+            .iter()
+            .any(|op| matches!(op, PatchOp::SetSpread { .. })),
+        "the spread that forgot it is patched"
+    );
+    s.undo().unwrap();
+    assert_eq!(s.book().spreads[1].master_overrides.len(), 1);
+    assert!(master(&s, "mst_a")
+        .unwrap()
+        .frames
+        .iter()
+        .any(|f| f.base().id.0 == "fr_mine"));
+}
+
+#[test]
+fn a_page_number_on_a_master_cannot_be_deleted_by_hand() {
+    let mut s = with_master_a();
+    assert!(matches!(
+        s.apply(Intent::DeleteFrame {
+            on: on_master("mst_a"),
+            frame: frame("fr_pn_a"),
+        }),
+        Err(SessionError::PageNumber(_))
+    ));
+}
+
+#[test]
+fn a_master_frame_is_duplicated_reordered_and_locked_on_its_master() {
+    let mut s = with_master_a();
+    s.apply(Intent::AddFrame {
+        on: on_master("mst_a"),
+        frame: user_frame(),
+    })
+    .unwrap();
+    s.apply(Intent::DuplicateFrame {
+        on: on_master("mst_a"),
+        frame: frame("fr_mine"),
+    })
+    .unwrap();
+    assert_eq!(master(&s, "mst_a").unwrap().frames.len(), 3);
+    s.apply(Intent::Reorder {
+        on: on_master("mst_a"),
+        frame: frame("fr_mine"),
+        to: folio_model::ReorderTo::Back,
+    })
+    .unwrap();
+    assert_eq!(
+        master(&s, "mst_a").unwrap().frames[0].base().id.0,
+        "fr_mine"
+    );
+    s.apply(Intent::LockFrame {
+        on: on_master("mst_a"),
+        frame: frame("fr_mine"),
+        locked: true,
+    })
+    .unwrap();
+    assert!(master(&s, "mst_a").unwrap().frames[0].base().locked);
+}
+
+#[test]
 fn a_copy_of_a_flowing_frame_is_not_another_slot_in_the_flow() {
     let mut s = session();
     s.apply(Intent::DuplicateFrame {

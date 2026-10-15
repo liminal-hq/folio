@@ -52,7 +52,7 @@ fn ours(id: &MasterId) -> bool {
     id.0 == RECTO || id.0 == VERSO
 }
 
-fn is_number(frame: &Frame) -> bool {
+pub fn is_number(frame: &Frame) -> bool {
     matches!(frame.base().id.0.as_str(), NUMBER_A | NUMBER_B)
 }
 
