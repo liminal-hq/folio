@@ -7,7 +7,7 @@ import type { ShapeFrame } from '@liminal-hq/folio-protocol/generated/ShapeFrame
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { ShapeArt } from './ShapeArt';
-import { SHAPE_PATHS, TEXT_INSET } from './shapePaths';
+import { SHAPE_PATHS } from './shapePaths';
 
 const shape = (over: Record<string, unknown>) =>
 	({

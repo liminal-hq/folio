@@ -2029,3 +2029,27 @@ fn a_shape_setting_is_refused_when_it_makes_no_sense_or_the_frame_is_not_free() 
         SessionError::Locked("fr_shape".into())
     );
 }
+
+#[test]
+fn changing_the_kind_or_clearing_a_colour_is_its_own_undo_step() {
+    let mut s = session_with_shape();
+    s.apply(shape_set(None, Some(1.0), None)).unwrap();
+    s.apply(shape_set(None, Some(2.0), None)).unwrap();
+    s.apply(shape_set(None, None, Some(folio_model::Shape::Ellipse)))
+        .unwrap();
+    s.apply(shape_set(Some(folio_model::Paint::None), None, None))
+        .unwrap();
+    s.undo().unwrap();
+    assert!(
+        shape_of(&s).fill.is_some(),
+        "clearing the fill is undone alone"
+    );
+    s.undo().unwrap();
+    assert_eq!(
+        shape_of(&s).shape,
+        folio_model::Shape::Rect,
+        "the kind alone"
+    );
+    s.undo().unwrap();
+    assert_eq!(shape_of(&s).stroke_width, None, "the two widths together");
+}

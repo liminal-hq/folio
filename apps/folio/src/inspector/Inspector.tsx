@@ -410,7 +410,8 @@ function ShapeSection({ frame, props }: { frame: ShapeFrame; props: InspectorPro
 						value={frame.fill ?? null}
 						swatches={swatches}
 						allowNone
-						onPick={(colour) => !frame.locked && set({ fill: paint(colour) })}
+						disabled={frame.locked}
+						onPick={(colour) => set({ fill: paint(colour) })}
 					/>
 				</div>
 			)}
@@ -421,42 +422,25 @@ function ShapeSection({ frame, props }: { frame: ShapeFrame; props: InspectorPro
 					value={frame.stroke ?? null}
 					swatches={swatches}
 					allowNone={!isLine}
-					onPick={(colour) => !frame.locked && set({ stroke: paint(colour) })}
+					disabled={frame.locked}
+					onPick={(colour) => set({ stroke: paint(colour) })}
 				/>
 			</div>
-			<label className={styles.field}>
-				<span>{t('inspector.shape.width')}</span>
-				<input
-					type="number"
-					className={styles.number}
-					min={0}
-					max={100}
-					step={0.5}
-					disabled={frame.locked}
-					value={frame.strokeWidth ?? (isLine ? 2 : 1)}
-					onChange={(event) => {
-						const width = Number(event.target.value);
-						if (Number.isFinite(width) && width >= 0 && width <= 100) set({ strokeWidth: width });
-					}}
-				/>
-			</label>
+			<LengthField
+				label={t('inspector.shape.width')}
+				points={frame.strokeWidth ?? (isLine ? 2 : 1)}
+				units={props.units}
+				disabled={frame.locked}
+				onCommit={(width) => width >= 0 && width <= 100 && set({ strokeWidth: width })}
+			/>
 			{frame.shape === 'round' && (
-				<label className={styles.field}>
-					<span>{t('inspector.shape.radius')}</span>
-					<input
-						type="number"
-						className={styles.number}
-						min={0}
-						max={1000}
-						step={1}
-						disabled={frame.locked}
-						value={frame.radius ?? Math.round(Math.min(frame.box.w, frame.box.h) * 0.12)}
-						onChange={(event) => {
-							const radius = Number(event.target.value);
-							if (Number.isFinite(radius) && radius >= 0 && radius <= 1000) set({ radius });
-						}}
-					/>
-				</label>
+				<LengthField
+					label={t('inspector.shape.radius')}
+					points={frame.radius ?? Math.min(frame.box.w, frame.box.h) * 0.12}
+					units={props.units}
+					disabled={frame.locked}
+					onCommit={(radius) => radius >= 0 && radius <= 1000 && set({ radius })}
+				/>
 			)}
 			{isLine && (
 				<label className={styles.check}>
