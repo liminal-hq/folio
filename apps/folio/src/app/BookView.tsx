@@ -5,6 +5,7 @@
 
 import type { RibbonCommand } from '@liminal-hq/folio-ribbon/types';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { usePaintPresets } from './usePaintPresets';
 import { shelfLabels } from '../books/shelfLabels';
 import type { OpenBookCopy } from '../books/booksStore';
 import { useBooks } from '../books/useBooks';
@@ -26,7 +27,6 @@ import { useAssetUrls } from '../canvas/useAssetUrls';
 import { useSpreadLayout } from '../canvas/useSpreadLayout';
 import type { CommandId } from '../commands/appMenuModel';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
-import type { PaintPresets } from '@liminal-hq/folio-protocol/generated/PaintPresets';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import { Inspector } from '../inspector/Inspector';
 import { t } from '../i18n/messages';
@@ -253,18 +253,7 @@ export function BookView({
 
 	// The page background dialog: which page it was asked about, and the palette it offers.
 	const [background, setBackground] = useState<{ page: number | null } | null>(null);
-	const [paints, setPaints] = useState<PaintPresets | null>(null);
-	useEffect(() => {
-		if (background === null || paints !== null) return;
-		let live = true;
-		client
-			.paintPresets()
-			.then((found) => live && setPaints(found))
-			.catch(() => undefined);
-		return () => {
-			live = false;
-		};
-	}, [background, paints, client]);
+	const paints = usePaintPresets(client, background !== null);
 
 	const perform = (action: EditorAction) => {
 		switch (action.kind) {

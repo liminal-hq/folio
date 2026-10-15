@@ -92,7 +92,7 @@ describe('PageBackgroundDialog', () => {
 	it('applies a gradient to the scope chosen, expanded to its stops', async () => {
 		const onApply = setup(pair);
 		await userEvent.click(screen.getByRole('radio', { name: 'Every page' }));
-		await userEvent.click(screen.getByRole('tab', { name: 'Gradient' }));
+		await userEvent.click(screen.getByRole('radio', { name: 'Gradient' }));
 		await userEvent.click(screen.getByRole('button', { name: 'Dawn' }));
 		expect(onApply).toHaveBeenCalledWith({
 			type: 'SetBackground',
@@ -101,9 +101,23 @@ describe('PageBackgroundDialog', () => {
 		});
 	});
 
-	it('applies a texture, keeps its tint when another is chosen, and tints it', async () => {
+	it('keeps the tint when another texture is chosen', async () => {
+		const tinted = {
+			...pair,
+			bgSpan: { type: 'texture', id: 'linen', tint: '#f6efdc' },
+		} as unknown as Spread;
+		const onApply = setup(tinted);
+		await userEvent.click(screen.getByRole('button', { name: 'Dot grid' }));
+		expect(onApply).toHaveBeenCalledWith({
+			type: 'SetBackground',
+			target: { type: 'span', spread: 's1' },
+			bg: { type: 'texture', id: 'dot-grid', tint: '#f6efdc' },
+		});
+	});
+
+	it('applies a texture with no tint to start', async () => {
 		const onApply = setup(pair);
-		await userEvent.click(screen.getByRole('tab', { name: 'Texture' }));
+		await userEvent.click(screen.getByRole('radio', { name: 'Texture' }));
 		await userEvent.click(screen.getByRole('button', { name: 'Dot grid' }));
 		expect(onApply).toHaveBeenCalledWith({
 			type: 'SetBackground',
@@ -112,9 +126,9 @@ describe('PageBackgroundDialog', () => {
 		});
 	});
 
-	it('applies a chosen picture, filling the page, and then lets it be fitted', async () => {
+	it('applies a chosen picture, filling the page', async () => {
 		const onApply = setup(pair, null, 'assets/images/a.jpg');
-		await userEvent.click(screen.getByRole('tab', { name: 'Picture' }));
+		await userEvent.click(screen.getByRole('radio', { name: 'Picture' }));
 		await userEvent.click(screen.getByRole('button', { name: 'Choose a picture…' }));
 		expect(onApply).toHaveBeenCalledWith({
 			type: 'SetBackground',
@@ -123,9 +137,23 @@ describe('PageBackgroundDialog', () => {
 		});
 	});
 
+	it('fits a picture inside the page instead of filling it', async () => {
+		const withPicture = {
+			...pair,
+			bgSpan: { type: 'picture', asset: 'assets/images/a.jpg', fit: 'fill', focus: [0.2, 0.8] },
+		} as unknown as Spread;
+		const onApply = setup(withPicture);
+		await userEvent.click(screen.getByRole('radio', { name: 'Fit inside the page' }));
+		expect(onApply).toHaveBeenCalledWith({
+			type: 'SetBackground',
+			target: { type: 'span', spread: 's1' },
+			bg: { type: 'picture', asset: 'assets/images/a.jpg', fit: 'fit', focus: [0.2, 0.8] },
+		});
+	});
+
 	it('does nothing when no picture is chosen', async () => {
 		const onApply = setup(pair, null, null);
-		await userEvent.click(screen.getByRole('tab', { name: 'Picture' }));
+		await userEvent.click(screen.getByRole('radio', { name: 'Picture' }));
 		await userEvent.click(screen.getByRole('button', { name: 'Choose a picture…' }));
 		expect(onApply).not.toHaveBeenCalled();
 	});
@@ -138,6 +166,23 @@ describe('PageBackgroundDialog', () => {
 			target: { type: 'page', spread: 's1', page: 'p2' },
 			bg: null,
 		});
+	});
+
+	it('offers the cover its own page only, since it has no master to paint', () => {
+		setup({ ...single, id: 'sc', kind: 'cover' } as Spread);
+		expect(screen.getByRole('radio', { name: 'This page' })).toBeInTheDocument();
+		expect(screen.queryByRole('radio', { name: 'Every page' })).toBeNull();
+	});
+
+	it('moves between the places with the arrow keys, like any radio group', async () => {
+		setup(pair);
+		const first = screen.getByRole('radio', { name: 'Both pages' });
+		first.focus();
+		await userEvent.keyboard('{ArrowRight}');
+		expect(screen.getByRole('radio', { name: 'Left page' })).toHaveAttribute(
+			'aria-checked',
+			'true',
+		);
 	});
 
 	it('has nothing to remove on a bare page', () => {

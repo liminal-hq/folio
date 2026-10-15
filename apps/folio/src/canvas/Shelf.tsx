@@ -62,7 +62,7 @@ function Thumb({
 				height={bounds.h}
 				fill="var(--folio-paper)"
 			/>
-			<BackgroundLayer book={book} spread={spread} images={images} />
+			<BackgroundLayer book={book} spread={spread} images={images} thumbnail />
 			{spread.frames.map((frame) =>
 				frame.type === 'text' ? (
 					<Ruled key={frame.id} frame={frame} />

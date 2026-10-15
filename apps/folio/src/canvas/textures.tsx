@@ -12,6 +12,8 @@ interface Drawing {
 	base: string;
 	/** The marks over the base. Drawn in black or white at low strength so a tint shows through. */
 	marks(id: string, size: number): ReactNode;
+	/** Whether the marks need a filter, which a small thumbnail does without. */
+	filtered?: boolean;
 }
 
 const stroke = (opacity: number, width = 0.5) => ({
@@ -45,12 +47,19 @@ const DRAWINGS: Record<string, Drawing> = {
 		),
 	},
 	kraft: {
+		filtered: true,
 		size: 120,
 		base: '#c8a27a',
 		marks: (id, s) => (
 			<>
 				<filter id={`${id}-noise`} x="0" y="0" width="100%" height="100%">
-					<feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3" />
+					<feTurbulence
+						type="fractalNoise"
+						baseFrequency="0.9"
+						numOctaves="2"
+						seed="3"
+						stitchTiles="stitch"
+					/>
 					<feColorMatrix type="saturate" values="0" />
 				</filter>
 				<rect width={s} height={s} filter={`url(#${id}-noise)`} opacity="0.4" />
@@ -58,6 +67,7 @@ const DRAWINGS: Record<string, Drawing> = {
 		),
 	},
 	watercolour: {
+		filtered: true,
 		// The blobs stay a few blurs in from the tile's edge, so the blur is not cut where tiles meet.
 		size: 200,
 		base: '#e3eef2',
@@ -114,10 +124,13 @@ export function TexturePattern({
 	id,
 	texture,
 	tint,
+	simple = false,
 }: {
 	id: string;
 	texture: string;
 	tint?: string | null;
+	/** Leave out marks that need a filter, for a thumbnail too small to show them. */
+	simple?: boolean;
 }) {
 	const drawing = DRAWINGS[texture];
 	if (!drawing) return null;
@@ -125,7 +138,7 @@ export function TexturePattern({
 	return (
 		<pattern id={id} width={drawing.size} height={drawing.size} patternUnits="userSpaceOnUse">
 			{base !== 'none' && <rect width={drawing.size} height={drawing.size} fill={base} />}
-			{drawing.marks(id, drawing.size)}
+			{!(simple && drawing.filtered) && drawing.marks(id, drawing.size)}
 		</pattern>
 	);
 }

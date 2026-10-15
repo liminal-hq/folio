@@ -16,12 +16,14 @@ function Fill({
 	rect,
 	id,
 	images,
+	thumbnail,
 	children,
 }: {
 	bg: Background;
 	rect: Rect;
 	id: string;
 	images: Record<string, string>;
+	thumbnail: boolean;
 	children(fill: string): React.ReactNode;
 }) {
 	if (bg.type === 'colour') return <>{children(bg.colour)}</>;
@@ -46,7 +48,7 @@ function Fill({
 		return (
 			<>
 				<defs>
-					<TexturePattern id={id} texture={bg.id} tint={bg.tint} />
+					<TexturePattern id={id} texture={bg.id} tint={bg.tint} simple={thumbnail} />
 				</defs>
 				{children(`url(#${id})`)}
 			</>
@@ -77,11 +79,14 @@ export function BackgroundLayer({
 	book,
 	spread,
 	images = {},
+	thumbnail = false,
 }: {
 	book: Book;
 	spread: Spread;
 	/** An address to draw for each picture's asset path, once it has been read. */
 	images?: Record<string, string>;
+	/** A small proof, as on the shelf, which leaves out what only a full page can show. */
+	thumbnail?: boolean;
 }) {
 	const key = useId().replace(/[^A-Za-z0-9_-]/g, '');
 	const resolved = resolveBackgrounds(book.masterPages ?? [], spread);
@@ -110,7 +115,13 @@ export function BackgroundLayer({
 								/>
 							</clipPath>
 						</defs>
-						<Fill bg={shown.bg} rect={rect} id={`${key}-bg-${index}`} images={images}>
+						<Fill
+							bg={shown.bg}
+							rect={rect}
+							id={`${key}-bg-${index}`}
+							images={images}
+							thumbnail={thumbnail}
+						>
 							{(fill) => <rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} fill={fill} />}
 						</Fill>
 					</g>

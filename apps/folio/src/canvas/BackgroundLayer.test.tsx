@@ -180,3 +180,29 @@ describe('BackgroundLayer', () => {
 		}
 	});
 });
+
+describe('a thumbnail', () => {
+	const kraft = (thumbnail: boolean) =>
+		render(
+			<svg>
+				<BackgroundLayer
+					book={book}
+					spread={spreadOf(1, {
+						pages: [{ id: 'p0', master: null, bg: { type: 'texture', id: 'kraft' } }],
+					} as unknown as Partial<Spread>)}
+					thumbnail={thumbnail}
+				/>
+			</svg>,
+		).container;
+
+	it('leaves out the filters of a texture, which a small proof cannot show, and keeps its colour', () => {
+		expect(kraft(false).querySelector('filter')).not.toBeNull();
+		const small = kraft(true);
+		expect(small.querySelector('filter')).toBeNull();
+		expect(small.querySelector('pattern rect')).not.toBeNull();
+	});
+
+	it('stitches the kraft noise so its tiles join', () => {
+		expect(kraft(false).querySelector('feTurbulence')?.getAttribute('stitchTiles')).toBe('stitch');
+	});
+});

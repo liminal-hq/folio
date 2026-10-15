@@ -1930,7 +1930,8 @@ fn copying_a_master_item_to_a_page_hides_it_there_and_leaves_one_the_person_owns
     let sp = &s.book().spreads[2];
     assert_eq!(sp.frames.len(), before + 1);
     assert_eq!(sp.master_overrides[0].hide, vec![frame("fr_mine")]);
-    let made = sp.frames.last().unwrap().base();
+    // It goes first, so it is drawn beneath the page's other frames as the master's item was.
+    let made = sp.frames.first().unwrap().base();
     assert_ne!(made.id.0, "fr_mine");
     assert!(made.from_master.is_none() && !made.locked);
     assert_eq!(
@@ -1950,7 +1951,7 @@ fn copying_a_master_item_to_a_page_hides_it_there_and_leaves_one_the_person_owns
 }
 
 #[test]
-fn a_page_number_cannot_be_copied_to_a_page_and_a_frame_off_the_master_is_refused() {
+fn a_master_item_is_copied_once_and_only_when_it_is_on_the_pages_master() {
     let mut s = with_frame_on(folio_model::PageNumbers::Centre, "mst_a");
     let page = s.book().spreads[1].pages[0].id.clone();
     let on = |f: &str| Intent::CopyMasterItem {
@@ -1959,13 +1960,16 @@ fn a_page_number_cannot_be_copied_to_a_page_and_a_frame_off_the_master_is_refuse
         frame: frame(f),
     };
     assert_eq!(
-        s.apply(on("fr_pn_a")).unwrap_err(),
-        SessionError::PageNumber("fr_pn_a".into())
-    );
-    assert_eq!(
         s.apply(on("fr_other")).unwrap_err(),
         SessionError::NoSuchFrame("fr_other".into())
     );
+    // The page number is copied like any other item, and keeps counting where it is.
+    s.apply(on("fr_pn_a")).unwrap();
+    assert_eq!(
+        s.apply(on("fr_pn_a")).unwrap_err(),
+        SessionError::AlreadyHidden("fr_pn_a".into(), page.0.clone())
+    );
+    assert_eq!(s.book().spreads[1].frames.len(), 4);
 }
 
 fn colour_bg(hex: &str) -> Option<folio_model::Background> {
@@ -2124,4 +2128,69 @@ fn trying_colours_on_one_page_is_one_undo_step() {
     s.apply(set_bg(target(), colour_bg("#333333"))).unwrap();
     s.undo().unwrap();
     assert!(s.book().spreads[2].pages[0].bg.is_none());
+}
+
+#[test]
+fn a_duplicated_spread_keeps_its_backgrounds() {
+    let mut s = session();
+    let page = s.book().spreads[2].pages[1].id.clone();
+    s.apply(set_bg(
+        folio_model::BackgroundTarget::Page {
+            spread: spread("sp_2"),
+            page,
+        },
+        colour_bg("#223344"),
+    ))
+    .unwrap();
+    s.apply(set_bg(
+        folio_model::BackgroundTarget::Span {
+            spread: spread("sp_2"),
+        },
+        colour_bg("#aabbcc"),
+    ))
+    .unwrap();
+    s.apply(Intent::AddSpread {
+        after: spread("sp_2"),
+        duplicate: true,
+    })
+    .unwrap();
+    let copy = &s.book().spreads[3];
+    assert_eq!(copy.pages[1].bg, colour_bg("#223344"));
+    assert!(copy.pages[0].bg.is_none());
+    assert_eq!(copy.bg_span, colour_bg("#aabbcc"));
+}
+
+#[test]
+fn an_every_page_background_survives_the_numbers_going_off_and_a_facing_master_is_made() {
+    use folio_model::{BackgroundTarget::EveryPage, PageNumbers};
+    let mut s = session();
+    s.apply(set_bg(EveryPage, colour_bg("#fdf6e3"))).unwrap();
+    // The numbers were never on, and turning them on and off must not take the masters away.
+    s.apply(Intent::SetPageNumbers {
+        position: PageNumbers::Centre,
+    })
+    .unwrap();
+    s.apply(Intent::SetPageNumbers {
+        position: PageNumbers::None,
+    })
+    .unwrap();
+    assert!(
+        s.book()
+            .master_pages
+            .iter()
+            .any(|m| m.bg == colour_bg("#fdf6e3")),
+        "the background keeps its master"
+    );
+    // With the numbers outside, master B is made and starts with the same background.
+    s.apply(Intent::SetPageNumbers {
+        position: PageNumbers::Outside,
+    })
+    .unwrap();
+    let b = s
+        .book()
+        .master_pages
+        .iter()
+        .find(|m| m.id.0 == "mst_b")
+        .expect("master B");
+    assert_eq!(b.bg, colour_bg("#fdf6e3"));
 }
