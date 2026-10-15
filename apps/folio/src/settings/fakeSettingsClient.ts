@@ -30,6 +30,7 @@ export const DEFAULT_SETTINGS: Settings = {
 		snap: true,
 	},
 	rulers: { on: false, units: 'inches' },
+	spelling: { enabled: true },
 	recentBooks: [],
 };
 

@@ -4284,6 +4284,7 @@ dependencies = [
  "folio-presets",
  "folio-protocol",
  "folio-session",
+ "folio-spell",
  "log",
  "serde",
  "serde_json",

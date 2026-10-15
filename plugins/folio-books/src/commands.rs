@@ -13,7 +13,7 @@ use tauri::{AppHandle, Manager, Runtime, State, WebviewWindow};
 
 use crate::error::Error;
 use crate::state::Books;
-use crate::wire::{BookSnapshot, BookSummary, SpreadLayoutResult};
+use crate::wire::{BookSnapshot, BookSummary, SpellCheck, SpreadLayoutResult};
 
 /// Reports that books work. They need nothing from the system, so this is always available.
 #[tauri::command]
@@ -199,4 +199,31 @@ pub async fn asset_data<R: Runtime>(
     .await
     .expect("the read task does not panic")?;
     Ok(tauri::ipc::Response::new(bytes))
+}
+
+/// The words of `text` that the book's dictionary does not know and its ignore list does not hold.
+#[tauri::command]
+pub async fn spell_check<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    text: String,
+) -> Result<SpellCheck, Error> {
+    // Loading the dictionary the first time is work for a blocking thread, not the async runtime.
+    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().spell_check(&id, &text))
+        .await
+        .expect("the spelling task does not panic")
+}
+
+/// Corrections for a word, best first.
+#[tauri::command]
+pub async fn spell_suggest<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    word: String,
+) -> Result<Vec<String>, Error> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().spell_suggest(&id, &word))
+        .await
+        .expect("the spelling task does not panic")
 }
