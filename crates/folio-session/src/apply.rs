@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    Book, Frame, FrameId, Guide, InlineContent, Intent, Master, MasterId, Page, Pt, ReorderTo, Run,
-    Spread, SpreadId, SpreadKind, Surface,
+    BackgroundTarget, Book, Frame, FrameId, Guide, InlineContent, Intent, Master, MasterId, Page,
+    Pt, ReorderTo, Run, Spread, SpreadId, SpreadKind, Surface,
 };
 
 /// How far, in points, a duplicated frame sits from the one it was copied from.
@@ -35,6 +35,13 @@ pub enum MergeKey {
     Moves(Vec<FrameId>),
     Text(FrameId),
     Style(FrameId),
+    Background(BackgroundTarget),
+}
+
+/// Whether `asset` is a path inside the book's own pictures.
+fn is_asset_path(asset: &str) -> bool {
+    asset.starts_with("assets/images/")
+        && !asset.split('/').any(|part| part == ".." || part.is_empty())
 }
 
 fn spread<'a>(book: &'a Book, id: &SpreadId) -> Result<&'a Spread, SessionError> {
@@ -344,9 +351,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             };
             ensure_free(found)?;
             if let Some(asset) = asset {
-                let inside = asset.starts_with("assets/images/")
-                    && !asset.split('/').any(|part| part == ".." || part.is_empty());
-                if !inside {
+                if !is_asset_path(asset) {
                     return Err(SessionError::BadAsset(asset.clone()));
                 }
             }
@@ -366,6 +371,37 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             new_spread: None,
             merge: None,
         }),
+        Intent::SetBackground { target, bg } => {
+            if let Some(bg) = bg {
+                bg.checked(is_asset_path)
+                    .map_err(SessionError::BadBackground)?;
+            }
+            // Trying colours on one page is one undo step; taking the background off is its own.
+            let merge = bg.is_some().then(|| MergeKey::Background(target.clone()));
+            match target {
+                BackgroundTarget::Page { spread: s, page } => {
+                    let found = spread(book, s)?;
+                    if !found.pages.iter().any(|p| &p.id == page) {
+                        return Err(SessionError::NotOnSpread(page.0.clone(), s.0.clone()));
+                    }
+                    Ok(one(s.clone(), merge))
+                }
+                BackgroundTarget::Span { spread: s } => {
+                    if spread(book, s)?.pages.len() < 2 {
+                        return Err(SessionError::BadBackground(
+                            "a background across both pages needs two pages".into(),
+                        ));
+                    }
+                    Ok(one(s.clone(), merge))
+                }
+                // The masters may be made and given to pages, so every spread is part of it.
+                BackgroundTarget::EveryPage => Ok(Plan {
+                    touched: book.spreads.iter().map(|s| s.id.clone()).collect(),
+                    new_spread: None,
+                    merge,
+                }),
+            }
+        }
         Intent::HideMasterItem {
             spread: s,
             page,
@@ -646,6 +682,45 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
         Intent::SetPageNumbers { position } => {
             book.page_numbers = position;
             apply_page_numbers(book);
+        }
+        Intent::SetBackground { target, bg } => {
+            // The plan checked it; store it the way it is kept.
+            let bg = bg.map(|b| b.checked(is_asset_path).unwrap_or(b));
+            match target {
+                BackgroundTarget::Page { spread: s, page } => {
+                    if let Some(p) = book
+                        .spreads
+                        .iter_mut()
+                        .find(|sp| sp.id == s)
+                        .and_then(|sp| sp.pages.iter_mut().find(|p| p.id == page))
+                    {
+                        p.bg = bg;
+                    }
+                }
+                BackgroundTarget::Span { spread: s } => {
+                    if let Some(sp) = book.spreads.iter_mut().find(|sp| sp.id == s) {
+                        sp.bg_span = bg;
+                    }
+                }
+                BackgroundTarget::EveryPage => {
+                    // Clearing needs no master that is not already there.
+                    if bg.is_some() {
+                        ensure_masters(book);
+                    }
+                    let used: Vec<_> = book
+                        .spreads
+                        .iter()
+                        .flat_map(|sp| sp.pages.iter().filter_map(|p| p.master.clone()))
+                        .collect();
+                    for m in book
+                        .master_pages
+                        .iter_mut()
+                        .filter(|m| used.contains(&m.id))
+                    {
+                        m.bg = bg.clone();
+                    }
+                }
+            }
         }
         Intent::HideMasterItem {
             spread: s,
