@@ -32,6 +32,8 @@ pub enum SessionError {
     BadAsset(String),
     #[error("the frame `{0}` belongs to a master page")]
     FromMaster(String),
+    #[error("the page number `{0}` comes from the page numbers choice: change that to remove it")]
+    PageNumber(String),
     #[error("the frame `{0}` is locked")]
     Locked(String),
     #[error("the frame `{0}` is not on spread `{1}`")]

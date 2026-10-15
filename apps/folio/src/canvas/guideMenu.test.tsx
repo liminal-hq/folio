@@ -26,6 +26,13 @@ describe('guideMenuItems', () => {
 		expect(ids(guideMenuItems(guide))).not.toContain('demote');
 	});
 
+	it('leaves the clearing commands to a spread, and not to a master', () => {
+		expect(ids(guideMenuItems(guide))).toContain('clearSpread');
+		expect(ids(guideMenuItems(guide, { canPromote: true }))).toContain('clearAll');
+		expect(ids(guideMenuItems(guide, { canDemote: true }))).not.toContain('clearSpread');
+		expect(ids(guideMenuItems(guide, { canDemote: true }))).not.toContain('clearAll');
+	});
+
 	it('knows the two new commands', () => {
 		expect(isGuideCommand('promote')).toBe(true);
 		expect(isGuideCommand('demote')).toBe(true);

@@ -276,10 +276,14 @@ export function Stage({
 			{guideMenu && spread.guides[guideMenu.index] && (
 				<ContextMenu
 					items={guideMenuItems(spread.guides[guideMenu.index]!, {
-						canPromote: isMasterSpread(spread)
-							? undefined
-							: canPromote(book, spread, spread.guides[guideMenu.index]!),
-						canDemote: isMasterSpread(spread) ? demoteTo != null : undefined,
+						// Every-page guides are made and unmade in Expert, where masters can be edited.
+						canPromote:
+							isMasterSpread(spread) || !editableMasters
+								? undefined
+								: canPromote(book, spread, spread.guides[guideMenu.index]!),
+						canDemote: isMasterSpread(spread)
+							? demoteTo != null && !spread.guides[guideMenu.index]!.locked
+							: undefined,
 					})}
 					position={guideMenu.at}
 					ariaLabel={t('guide.menu')}
@@ -324,6 +328,7 @@ export function Stage({
 						marks ?? DEFAULT_MARKS,
 						spread.kind !== 'cover',
 						masterItemsAt(book, spread, pageMenu.point),
+						isMasterSpread(spread),
 						editableMasters && !isMasterSpread(spread)
 							? masterAt(book, spread, pageMenu.point)
 							: null,

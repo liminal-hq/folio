@@ -132,6 +132,11 @@ export function BookView({
 		return () => window.removeEventListener('keydown', onKey);
 	}, [rulers.on, update]);
 
+	// A master that is gone (undone, or removed with the page numbers) ends the editing of it.
+	useEffect(() => {
+		if (editing !== null && masterSpread(book, editing) === null) setEditing(null);
+	}, [book, editing]);
+
 	// Escape leaves the master page, unless it is ending the editing of some words.
 	useEffect(() => {
 		if (editing === null) return;
@@ -226,7 +231,8 @@ export function BookView({
 		const named = index === -1 ? null : masterOfPage(spread, index);
 		if (named === null) {
 			await store.apply({ type: 'EnsureMasters' });
-			setEditing('mst_a');
+			// The store keeps a refusal for the page to say, and there is no master to edit then.
+			if (store.state.getState().error === null) setEditing('mst_a');
 		} else setEditing(named);
 	};
 
@@ -362,7 +368,11 @@ export function BookView({
 							if (kind) addFrame(kind, point);
 							else if (command.startsWith('editMaster:'))
 								setEditing(command.slice('editMaster:'.length));
-							else if (master) return;
+							else if (command === 'toggleMargins') setMarks({ margins: !marks.margins });
+							else if (command === 'toggleGrid') {
+								const on = !(marks.columns || marks.baseline);
+								setMarks({ columns: on, baseline: on });
+							} else if (master) return;
 							else if (command === 'addPages') {
 								apply({ type: 'AddSpread', after: spread.id, duplicate: false });
 								setSpreadIndex(shown + 1);
@@ -376,10 +386,6 @@ export function BookView({
 									frame,
 									hide: which === 'hideMaster',
 								});
-							} else if (command === 'toggleMargins') setMarks({ margins: !marks.margins });
-							else if (command === 'toggleGrid') {
-								const on = !(marks.columns || marks.baseline);
-								setMarks({ columns: on, baseline: on });
 							}
 						}}
 						onCommand={(command, ids) => {
@@ -414,10 +420,14 @@ export function BookView({
 					setEditing(null);
 					setSpreadIndex(index);
 				}}
-				onAdd={() => pageOp('add')}
+				onAdd={() => {
+					setEditing(null);
+					pageOp('add');
+				}}
 				onCommand={(command, index) => {
 					const intent = shelfIntent(command, book, index);
 					if (!intent) return;
+					setEditing(null);
 					apply(intent);
 					if (command === 'duplicate' || command === 'moveRight') setSpreadIndex(index + 1);
 					else if (command === 'moveLeft') setSpreadIndex(index - 1);
@@ -426,6 +436,7 @@ export function BookView({
 				onMove={(from, to) => {
 					const moved = book.spreads[from];
 					if (!moved) return;
+					setEditing(null);
 					apply({ type: 'MoveSpread', spread: moved.id, to });
 					// Nothing goes in front of a cover, and the selection follows the spread.
 					setSpreadIndex(Math.max(book.spreads[0]?.kind === 'cover' ? 1 : 0, to));
