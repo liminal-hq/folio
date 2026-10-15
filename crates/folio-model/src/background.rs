@@ -6,7 +6,9 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::book::Master;
 use crate::colour::{Colour, GradientStop};
+use crate::spread::Spread;
 
 /// How a picture fills the page: covering it (and cropped at the edges) or whole inside it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -49,6 +51,55 @@ pub enum Background {
 
 fn centre() -> (f64, f64) {
     (0.5, 0.5)
+}
+
+/// Where a page's background came from, nearest first.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(rename_all = "lowercase")]
+pub enum BgSource {
+    Page,
+    Span,
+    Master,
+}
+
+/// The background a page shows, and which of the three it is. A `Span` one is drawn once across
+/// both pages and cut at each page's edge, so the page needs to know it is part of it.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ResolvedBackground {
+    pub source: BgSource,
+    pub bg: Background,
+}
+
+/// The background each page of `spread` shows: its own, else the one across the spread, else its
+/// master's, else none (the paper). The TypeScript `resolveBackgrounds` is its twin, and both are
+/// tested against `backgroundCases.json`.
+pub fn resolve(masters: &[Master], spread: &Spread) -> Vec<Option<ResolvedBackground>> {
+    spread
+        .pages
+        .iter()
+        .map(|page| {
+            let from = |source, bg: &Option<Background>| {
+                bg.clone().map(|bg| ResolvedBackground { source, bg })
+            };
+            from(BgSource::Page, &page.bg)
+                // A span needs two pages: a hand-edited book may carry one on a single page.
+                .or_else(|| {
+                    if spread.pages.len() > 1 {
+                        from(BgSource::Span, &spread.bg_span)
+                    } else {
+                        None
+                    }
+                })
+                .or_else(|| {
+                    let master = masters
+                        .iter()
+                        .find(|m| Some(&m.id) == page.master.as_ref())?;
+                    from(BgSource::Master, &master.bg)
+                })
+        })
+        .collect()
 }
 
 impl Background {
@@ -213,5 +264,27 @@ mod tests {
                 focus: (0.5, 0.5)
             }
         );
+    }
+}
+
+#[cfg(test)]
+mod resolve_tests {
+    use super::*;
+
+    /// Where the cases are kept: next to the TypeScript twin that is tested against them.
+    fn cases() -> serde_json::Value {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../apps/folio/src/canvas/fixtures/backgroundCases.json");
+        serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn every_shared_case_resolves_as_the_fixture_says() {
+        for case in cases().as_array().unwrap() {
+            let masters: Vec<Master> = serde_json::from_value(case["masters"].clone()).unwrap();
+            let spread: Spread = serde_json::from_value(case["spread"].clone()).unwrap();
+            let got = serde_json::to_value(resolve(&masters, &spread)).unwrap();
+            assert_eq!(got, case["expected"], "{}", case["name"]);
+        }
     }
 }
