@@ -616,6 +616,12 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
         .unwrap()
     });
     record("undo the page numbers", &mut s, &|s| s.undo().unwrap());
+    record("ignore a word", &mut s, &|s| {
+        s.apply(Intent::IgnoreWord {
+            word: "Zorblat".into(),
+        })
+        .unwrap()
+    });
 
     let text = serde_json::to_string_pretty(&cases).unwrap() + "\n";
     let path = fixture_path();
@@ -2798,4 +2804,45 @@ fn a_duplicated_spread_does_not_start_another_section() {
         .filter(|sp| sp.section.is_some())
         .count();
     assert_eq!(with, 1);
+}
+
+#[test]
+fn a_word_is_ignored_in_the_book_sorted_once_and_undone_with_it() {
+    let mut s = session();
+    let ignore = |s: &mut Session, w: &str| s.apply(Intent::IgnoreWord { word: w.into() });
+    let patch = ignore(&mut s, " Zorblat ").unwrap();
+    ignore(&mut s, "Aardvark").unwrap();
+    assert_eq!(s.book().proofing.ignore, ["Aardvark", "Zorblat"]);
+    assert!(
+        patch
+            .ops
+            .iter()
+            .any(|op| matches!(op, folio_session::PatchOp::SetProofing { .. })),
+        "{patch:?}"
+    );
+    s.undo().unwrap();
+    assert_eq!(s.book().proofing.ignore, ["Zorblat"]);
+    assert!(matches!(
+        ignore(&mut s, "Zorblat"),
+        Err(SessionError::BadWord(_))
+    ));
+    for bad in ["", "two words", &"x".repeat(65)] {
+        assert!(
+            matches!(ignore(&mut s, bad), Err(SessionError::BadWord(_))),
+            "{bad:?}"
+        );
+    }
+    s.apply(Intent::UnignoreWord {
+        word: "Zorblat".into(),
+    })
+    .unwrap();
+    assert!(s.book().proofing.ignore.is_empty());
+    assert!(matches!(
+        s.apply(Intent::UnignoreWord {
+            word: "Zorblat".into()
+        }),
+        Err(SessionError::BadWord(_))
+    ));
+    s.undo().unwrap();
+    assert_eq!(s.book().proofing.ignore, ["Zorblat"]);
 }

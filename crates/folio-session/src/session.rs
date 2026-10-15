@@ -195,6 +195,11 @@ fn ops_between(before: &Delta, after: &Delta) -> Vec<PatchOp> {
     if before.masters != after.masters {
         ops.push(after.masters.op());
     }
+    if before.proofing != after.proofing {
+        ops.push(PatchOp::SetProofing {
+            proofing: after.proofing.clone(),
+        });
+    }
     if before.geometry != after.geometry {
         ops.push(PatchOp::SetGeometry {
             trim: after.geometry.trim,

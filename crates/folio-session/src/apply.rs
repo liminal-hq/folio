@@ -5,8 +5,8 @@
 
 use folio_model::{
     BackgroundTarget, Book, Colour, Frame, FrameId, Guide, InlineContent, Intent, Master, MasterId,
-    Page, Paint, Pt, ReorderTo, Run, Spread, SpreadId, SpreadKind, Surface, TableCell, TableEdit,
-    TableFrame,
+    Page, Paint, Proofing, Pt, ReorderTo, Run, Spread, SpreadId, SpreadKind, Surface, TableCell,
+    TableEdit, TableFrame, MAX_IGNORED_WORDS,
 };
 
 /// The widest an outline can be, and the roundest a corner, in points.
@@ -385,6 +385,32 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             new_spread: None,
             merge: None,
         }),
+        Intent::IgnoreWord { word } => {
+            let word = Proofing::clean(word).map_err(SessionError::BadWord)?;
+            if book.proofing.ignore.contains(&word) {
+                return Err(SessionError::BadWord(format!(
+                    "`{word}` is already ignored"
+                )));
+            }
+            if book.proofing.ignore.len() >= MAX_IGNORED_WORDS {
+                return Err(SessionError::BadWord("the ignore list is full".into()));
+            }
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                merge: None,
+            })
+        }
+        Intent::UnignoreWord { word } => {
+            if !book.proofing.ignore.iter().any(|w| w == word.trim()) {
+                return Err(SessionError::BadWord(format!("`{word}` is not ignored")));
+            }
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                merge: None,
+            })
+        }
         Intent::SetSection {
             spread: id,
             section,
@@ -864,6 +890,18 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             }
         }
         Intent::EnsureMasters => ensure_masters(book),
+        Intent::IgnoreWord { word } => {
+            if let Ok(word) = Proofing::clean(&word) {
+                if !book.proofing.ignore.contains(&word) {
+                    book.proofing.ignore.push(word);
+                    book.proofing.ignore.sort();
+                }
+            }
+        }
+        Intent::UnignoreWord { word } => {
+            let word = word.trim();
+            book.proofing.ignore.retain(|w| w != word);
+        }
         Intent::SetSection {
             spread: id,
             section,

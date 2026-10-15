@@ -10,6 +10,7 @@ import type { Margins } from "./Margins";
 import type { Master } from "./Master";
 import type { MasterId } from "./MasterId";
 import type { PageNumbers } from "./PageNumbers";
+import type { Proofing } from "./Proofing";
 import type { Pt } from "./Pt";
 import type { Size } from "./Size";
 import type { Spread } from "./Spread";
@@ -22,4 +23,8 @@ masterPages?: Array<Master>,
 /**
  * Where the page numbers go, kept so the masters can be made again when pages come and go.
  */
-pageNumbers?: PageNumbers, metadata: BookMetadata, };
+pageNumbers?: PageNumbers, 
+/**
+ * What the person has told the proofing tools to leave alone, kept with the book.
+ */
+proofing?: Proofing, metadata: BookMetadata, };

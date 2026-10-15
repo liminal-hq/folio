@@ -70,12 +70,48 @@ pub struct Book {
     /// Where the page numbers go, kept so the masters can be made again when pages come and go.
     #[serde(default, skip_serializing_if = "PageNumbers::is_none")]
     pub page_numbers: PageNumbers,
+    /// What the person has told the proofing tools to leave alone, kept with the book.
+    #[serde(default, skip_serializing_if = "Proofing::is_empty")]
+    pub proofing: Proofing,
     pub metadata: BookMetadata,
     /// Keys at the top of `book.json` that this version does not know, from imports or a newer
     /// version of Folio, kept as they were so a save does not lose them. The UI never sees them.
     #[serde(flatten, default, skip_serializing_if = "BTreeMap::is_empty")]
     #[ts(skip)]
     pub extensions: BTreeMap<String, serde_json::Value>,
+}
+
+/// The longest a word on the ignore list can be, in characters, and the most words the list holds.
+pub const MAX_IGNORED_WORD: usize = 64;
+pub const MAX_IGNORED_WORDS: usize = 5000;
+
+/// The words spelling leaves alone in this book: names, made-up words, terms of the trade. It
+/// travels with the file and is undone with it (D-25).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct Proofing {
+    #[serde(default)]
+    pub ignore: Vec<String>,
+}
+
+impl Proofing {
+    pub fn is_empty(&self) -> bool {
+        self.ignore.is_empty()
+    }
+
+    /// `word` as it would be kept: trimmed, one word with no spaces, not empty and not too long.
+    pub fn clean(word: &str) -> Result<String, String> {
+        let word = word.trim();
+        if word.is_empty() || word.chars().any(char::is_whitespace) {
+            return Err("an ignored word is a single word".into());
+        }
+        if word.chars().count() > MAX_IGNORED_WORD {
+            return Err(format!(
+                "an ignored word is at most {MAX_IGNORED_WORD} characters"
+            ));
+        }
+        Ok(word.to_owned())
+    }
 }
 
 /// A master page: frames drawn on every page that uses it, in the page's own coordinates (the

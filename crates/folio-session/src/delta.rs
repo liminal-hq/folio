@@ -3,7 +3,9 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use folio_model::{Book, Grid, Margins, Master, MasterId, PageNumbers, Pt, Size, Spread, SpreadId};
+use folio_model::{
+    Book, Grid, Margins, Master, MasterId, PageNumbers, Proofing, Pt, Size, Spread, SpreadId,
+};
 
 use crate::patch::PatchOp;
 
@@ -82,6 +84,7 @@ pub struct Delta {
     pub order: Vec<SpreadId>,
     pub geometry: Geometry,
     pub masters: Masters,
+    pub proofing: Proofing,
     pub spreads: Vec<(SpreadId, Option<Spread>)>,
 }
 
@@ -92,6 +95,7 @@ impl Delta {
             order: book.spreads.iter().map(|s| s.id.clone()).collect(),
             geometry: Geometry::of(book),
             masters: Masters::of(book),
+            proofing: book.proofing.clone(),
             spreads: touched
                 .iter()
                 .map(|id| {
@@ -110,6 +114,7 @@ impl Delta {
         let was_order: Vec<SpreadId> = book.spreads.iter().map(|s| s.id.clone()).collect();
         let was_geometry = Geometry::of(book);
         let was_masters = Masters::of(book);
+        let was_proofing = book.proofing.clone();
 
         for (id, spread) in &self.spreads {
             match spread {
@@ -148,6 +153,12 @@ impl Delta {
         if was_masters != self.masters {
             self.masters.apply(book);
             ops.push(self.masters.op());
+        }
+        if was_proofing != self.proofing {
+            book.proofing = self.proofing.clone();
+            ops.push(PatchOp::SetProofing {
+                proofing: self.proofing.clone(),
+            });
         }
         ops
     }
