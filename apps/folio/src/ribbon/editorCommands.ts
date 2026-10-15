@@ -40,7 +40,7 @@ export interface EditorState {
 /** What a control asks the book view to do. */
 export type EditorAction =
 	| { kind: 'intents'; intents: Intent[] }
-	| { kind: 'add'; shape: NewFrameKind | 'rect' | 'round' | 'ellipse' }
+	| { kind: 'add'; shape: NewFrameKind }
 	| { kind: 'marks'; marks: Partial<Marks> }
 	| { kind: 'snap' }
 	| { kind: 'rulers' }
@@ -68,9 +68,14 @@ export function editorState(input: EditorInput): EditorState {
 	const available = new Set<string>([
 		'text',
 		'image',
+		'bubble',
 		'rect',
 		'round',
 		'ellipse',
+		'line',
+		'speech',
+		'thought',
+		'shout',
 		'addPage',
 		'margins',
 		'grid',
@@ -130,7 +135,13 @@ export function editorState(input: EditorInput): EditorState {
 		for (const id of ['replace', 'toBleed', 'fitFill']) available.add(id);
 		active.fitFill = only.image.fit === 'fit';
 	}
-	if (only?.type === 'shape') contextual.push('shape');
+	if (only?.type === 'shape') {
+		contextual.push('shape');
+		if (!only.locked && !only.fromMaster) {
+			available.add('rotL');
+			available.add('rotR');
+		}
+	}
 	return { available, active, values, contextual };
 }
 
@@ -150,7 +161,13 @@ export function editorAction(
 		case 'rect':
 		case 'round':
 		case 'ellipse':
+		case 'line':
+		case 'speech':
+		case 'thought':
+		case 'shout':
 			return { kind: 'add', shape: id };
+		case 'bubble':
+			return { kind: 'add', shape: 'speech' };
 		case 'addPage':
 			return { kind: 'page', op: 'add' };
 		case 'dupPage':
@@ -240,6 +257,16 @@ export function editorAction(
 					frame: f.id,
 					overrides: withOverrides(f, { size: Math.min(200, Math.max(4, size)) }),
 				})),
+			};
+		}
+		case 'rotL':
+		case 'rotR': {
+			const only = selected.length === 1 ? selected[0]! : null;
+			if (only?.type !== 'shape' || only.locked) return null;
+			const turn = id === 'rotR' ? 90 : -90;
+			return {
+				kind: 'intents',
+				intents: [{ type: 'RotateFrame', ...on, frame: only.id, degrees: only.rotation + turn }],
 			};
 		}
 		case 'replace':

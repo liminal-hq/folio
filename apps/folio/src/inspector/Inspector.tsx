@@ -6,6 +6,10 @@
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
+import type { PaintPresets } from '@liminal-hq/folio-protocol/generated/PaintPresets';
+import type { Paint } from '@liminal-hq/folio-protocol/generated/Paint';
+import type { Shape } from '@liminal-hq/folio-protocol/generated/Shape';
+import type { ShapeFrame } from '@liminal-hq/folio-protocol/generated/ShapeFrame';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
 import type { TextFrame } from '@liminal-hq/folio-protocol/generated/TextFrame';
@@ -18,6 +22,7 @@ import type { Marks } from '../canvas/marksModel';
 import { surfaceOf } from '../canvas/masterView';
 import { t } from '../i18n/messages';
 import styles from './Inspector.module.css';
+import { ColourPicker } from './ColourPicker';
 import { LengthField } from './LengthField';
 import { unitLabel } from './units';
 import { styleChoices } from './styleChoices';
@@ -36,6 +41,8 @@ export interface InspectorProps {
 	marks: Marks;
 	onMarks(next: Marks): void;
 	apply(intent: Intent): void;
+	/** The colours the pickers offer, once the plugin has listed them. */
+	paints?: PaintPresets | null;
 	/** Asks for a picture file and puts it in the frame. */
 	choosePicture?(frame: string): void;
 }
@@ -366,6 +373,90 @@ function TextSection({ frame, props }: { frame: TextFrame; props: InspectorProps
 	);
 }
 
+const SHAPE_KINDS = ['rect', 'round', 'ellipse', 'line', 'speech', 'thought', 'shout'] as const;
+
+/** The look of a shape: its kind, fill and outline, and what only some kinds have. */
+function ShapeSection({ frame, props }: { frame: ShapeFrame; props: InspectorProps }) {
+	const { apply, paints } = props;
+	const set = (change: Partial<Extract<Intent, { type: 'SetShape' }>>) =>
+		apply({ type: 'SetShape', frame: frame.id, ...change });
+	const paint = (colour: string | null): Paint =>
+		colour === null ? { type: 'none' } : { type: 'colour', colour };
+	const swatches = paints?.swatches ?? [];
+	const isLine = frame.shape === 'line';
+	return (
+		<>
+			<Header title={t('inspector.title.shape')} badges={[t(`shape.${frame.shape}`)]} />
+			<label className={styles.field}>
+				<span>{t('inspector.shape.kind')}</span>
+				<select
+					className={styles.select}
+					value={frame.shape}
+					disabled={frame.locked}
+					onChange={(event) => set({ kind: event.target.value as Shape })}
+				>
+					{SHAPE_KINDS.map((kind) => (
+						<option key={kind} value={kind}>
+							{t(`shape.${kind}`)}
+						</option>
+					))}
+				</select>
+			</label>
+			{!isLine && (
+				<div className={styles.field}>
+					<span>{t('inspector.shape.fill')}</span>
+					<ColourPicker
+						label={t('inspector.shape.fill')}
+						value={frame.fill ?? null}
+						swatches={swatches}
+						allowNone
+						disabled={frame.locked}
+						onPick={(colour) => set({ fill: paint(colour) })}
+					/>
+				</div>
+			)}
+			<div className={styles.field}>
+				<span>{t('inspector.shape.outline')}</span>
+				<ColourPicker
+					label={t('inspector.shape.outline')}
+					value={frame.stroke ?? null}
+					swatches={swatches}
+					allowNone={!isLine}
+					disabled={frame.locked}
+					onPick={(colour) => set({ stroke: paint(colour) })}
+				/>
+			</div>
+			<LengthField
+				label={t('inspector.shape.width')}
+				points={frame.strokeWidth ?? (isLine ? 2 : 1)}
+				units={props.units}
+				disabled={frame.locked}
+				onCommit={(width) => width >= 0 && width <= 100 && set({ strokeWidth: width })}
+			/>
+			{frame.shape === 'round' && (
+				<LengthField
+					label={t('inspector.shape.radius')}
+					points={frame.radius ?? Math.min(frame.box.w, frame.box.h) * 0.12}
+					units={props.units}
+					disabled={frame.locked}
+					onCommit={(radius) => radius >= 0 && radius <= 1000 && set({ radius })}
+				/>
+			)}
+			{isLine && (
+				<label className={styles.check}>
+					<input
+						type="checkbox"
+						checked={frame.flip === true}
+						disabled={frame.locked}
+						onChange={(event) => set({ flip: event.target.checked })}
+					/>
+					{t('inspector.shape.flip')}
+				</label>
+			)}
+		</>
+	);
+}
+
 function PictureSection({ frame, props }: { frame: Frame; props: InspectorProps }) {
 	const { book, spread, apply } = props;
 	const hasPicture = frame.type === 'image' && !!frame.image.asset;
@@ -452,12 +543,8 @@ export function Inspector(props: InspectorProps) {
 			<>
 				{frame.type === 'text' && <TextSection frame={frame} props={props} />}
 				{frame.type === 'image' && <PictureSection frame={frame} props={props} />}
-				{(frame.type === 'shape' || frame.type === 'group') && (
-					<Header
-						title={t(frame.type === 'shape' ? 'inspector.title.shape' : 'inspector.title.group')}
-						badges={[]}
-					/>
-				)}
+				{frame.type === 'shape' && <ShapeSection frame={frame} props={props} />}
+				{frame.type === 'group' && <Header title={t('inspector.title.group')} badges={[]} />}
 				{props.mode === 'expert' && (
 					<PositionSection
 						frame={frame}

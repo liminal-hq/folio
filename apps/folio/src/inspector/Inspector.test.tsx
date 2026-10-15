@@ -323,3 +323,77 @@ describe('the words box', () => {
 		expect(apply).toHaveBeenCalledTimes(1);
 	});
 });
+
+describe('with a shape selected', () => {
+	const shape = (extra: object = {}) =>
+		({
+			type: 'shape',
+			id: 's1',
+			box: { x: 0, y: 0, w: 100, h: 50 },
+			locked: false,
+			shape: 'round',
+			fill: '#ffffff',
+			style: null,
+			...extra,
+		}) as unknown as Frame;
+	const paints = {
+		swatches: [
+			{ name: 'Cream', colour: '#f6efdc' },
+			{ name: 'Slate', colour: '#1f3a5f' },
+		],
+		gradients: [],
+		textures: [],
+	};
+
+	it('changes the fill with a swatch, and clears it', async () => {
+		const { apply } = setup([shape()], { paints });
+		const fill = within(screen.getByRole('group', { name: 'Fill' }));
+		await userEvent.click(fill.getByRole('button', { name: 'Slate' }));
+		expect(apply).toHaveBeenLastCalledWith({
+			type: 'SetShape',
+			frame: 's1',
+			fill: { type: 'colour', colour: '#1f3a5f' },
+		});
+		await userEvent.click(fill.getByRole('button', { name: 'None' }));
+		expect(apply).toHaveBeenLastCalledWith({
+			type: 'SetShape',
+			frame: 's1',
+			fill: { type: 'none' },
+		});
+	});
+
+	it('changes the kind, the outline width and the corner radius of a rounded shape', async () => {
+		const { apply } = setup([shape()], { paints });
+		await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Shape' }), 'speech');
+		expect(apply).toHaveBeenLastCalledWith({ type: 'SetShape', frame: 's1', kind: 'speech' });
+		// The boxes read and write in the book's units; the book keeps points.
+		const width = screen.getByRole('textbox', { name: 'Outline width (in)' });
+		await userEvent.clear(width);
+		await userEvent.type(width, '0.05{Enter}');
+		expect(apply).toHaveBeenLastCalledWith({ type: 'SetShape', frame: 's1', strokeWidth: 3.6 });
+		const radius = screen.getByRole('textbox', { name: 'Corner roundness (in)' });
+		await userEvent.clear(radius);
+		await userEvent.type(radius, '0.25{Enter}');
+		expect(apply).toHaveBeenLastCalledWith({ type: 'SetShape', frame: 's1', radius: 18 });
+	});
+
+	it('offers a line no fill, no way to clear its outline and a way to flip it', async () => {
+		const { apply } = setup([shape({ shape: 'line', fill: null, stroke: '#14110f' })], { paints });
+		expect(screen.queryByRole('group', { name: 'Fill' })).toBeNull();
+		const outline = within(screen.getByRole('group', { name: 'Outline' }));
+		expect(outline.queryByRole('button', { name: 'None' })).toBeNull();
+		expect(screen.queryByRole('textbox', { name: 'Corner roundness (in)' })).toBeNull();
+		await userEvent.click(screen.getByRole('checkbox', { name: 'Run the other way' }));
+		expect(apply).toHaveBeenLastCalledWith({ type: 'SetShape', frame: 's1', flip: true });
+	});
+
+	it('leaves a locked shape as it is', async () => {
+		const { apply } = setup([shape({ locked: true })], { paints });
+		expect(screen.getByRole('combobox', { name: 'Shape' })).toBeDisabled();
+		const fill = within(screen.getByRole('group', { name: 'Fill' }));
+		expect(fill.getByRole('button', { name: 'Slate' })).toBeDisabled();
+		expect(fill.getByRole('textbox')).toBeDisabled();
+		expect(screen.getByRole('textbox', { name: 'Outline width (in)' })).toBeDisabled();
+		expect(apply).not.toHaveBeenCalled();
+	});
+});

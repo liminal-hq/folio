@@ -12,6 +12,8 @@ import { t } from '../i18n/messages';
 import { shelfMenuItems, type ShelfCommand } from './shelfMenu';
 import { spreadGeometry } from './geometry';
 import { BackgroundLayer } from './BackgroundLayer';
+import { turned } from './turned';
+import { ShapeArt } from './ShapeArt';
 import styles from './Shelf.module.css';
 
 const THUMB_HEIGHT = 44;
@@ -66,7 +68,11 @@ function Thumb({
 			{spread.frames.map((frame) =>
 				frame.type === 'text' ? (
 					<Ruled key={frame.id} frame={frame} />
-				) : frame.type === 'group' ? null : (
+				) : frame.type === 'group' ? null : frame.type === 'shape' ? (
+					<g key={frame.id} transform={turned(frame)}>
+						<ShapeArt frame={frame} />
+					</g>
+				) : (
 					<rect
 						key={frame.id}
 						x={frame.box.x}

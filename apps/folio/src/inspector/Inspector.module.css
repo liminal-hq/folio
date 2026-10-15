@@ -201,3 +201,20 @@
 .length input:disabled {
 	opacity: 0.5;
 }
+
+.select,
+.number {
+	box-sizing: border-box;
+	min-block-size: 28px;
+	padding: 0 8px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 8px;
+	background: var(--folio-bg-window);
+	color: var(--folio-text-primary);
+	font: inherit;
+	font-size: 13px;
+}
+
+.number {
+	inline-size: 96px;
+}

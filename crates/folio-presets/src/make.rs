@@ -329,6 +329,12 @@ impl Builder<'_> {
             shape: Shape::Rect,
             fill: Some(cover_colour.clone()),
             style: None,
+            stroke: None,
+            stroke_width: None,
+            radius: None,
+            flip: false,
+            content: None,
+            overrides: None,
         })];
         let data = self.data;
         if spec.words == Words::Samples && is_sample_cover(&data.spreads) {

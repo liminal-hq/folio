@@ -592,6 +592,225 @@ fn the_cover_and_pages_without_a_master_have_no_master_frames() {
     assert!(cover.frames.iter().all(|f| f.origin.is_none()));
 }
 
+fn shape_frame(id: &str, shape: folio_model::Shape, w: f64, h: f64, text: Option<&str>) -> Frame {
+    Frame::Shape(folio_model::ShapeFrame {
+        base: FrameBase {
+            id: FrameId(id.into()),
+            rect: Rect {
+                x: Pt(100.0),
+                y: Pt(50.0),
+                w: Pt(w),
+                h: Pt(h),
+            },
+            rotation: 0.0,
+            locked: false,
+            from_master: None,
+            description: None,
+        },
+        shape,
+        fill: None,
+        style: None,
+        stroke: None,
+        stroke_width: None,
+        radius: None,
+        flip: false,
+        content: text.map(|t| InlineContent {
+            inline: vec![Run {
+                text: t.into(),
+                style: None,
+                bold: false,
+                italic: false,
+            }],
+        }),
+        overrides: None,
+    })
+}
+
+/// The first picture-book spread after the cover, with `frame` added.
+fn laid_with(frame: Frame) -> (Book, SpreadLayout) {
+    let (mut book, styles) = sample(BookKind::Picture);
+    book.spreads[1].frames.push(frame);
+    let id = book.spreads[1].id.clone();
+    let fonts = FontBook::bundled();
+    let layout = Layouter::new(&book, &styles, &fonts)
+        .layout_spread(&id)
+        .unwrap()
+        .unwrap();
+    (book, layout)
+}
+
+#[test]
+fn words_in_a_bubble_sit_in_its_body_and_are_centred_in_it() {
+    let (_, layout) = laid_with(shape_frame(
+        "fr_bubble",
+        folio_model::Shape::Speech,
+        200.0,
+        100.0,
+        Some("Hello there"),
+    ));
+    let laid = layout
+        .frames
+        .iter()
+        .find(|f| f.frame.0 == "fr_bubble")
+        .expect("a bubble with words has a layout");
+    let body = laid.text_box.expect("and says where its words go");
+    // The speech bubble keeps 8% on each side and 38% at the bottom for its tail.
+    for (got, want) in [
+        (body.x, 16.0),
+        (body.y, 8.0),
+        (body.w, 168.0),
+        (body.h, 54.0),
+    ] {
+        assert!((got - want).abs() < 1e-6, "{got} is not {want}");
+    }
+    assert!(!laid.lines.is_empty() && !laid.overset);
+    for line in &laid.lines {
+        assert!(line.x >= body.x - 1e-6 && line.x + line.width <= body.x + body.w + 1e-6);
+        assert!(line.top >= body.y - 1e-6 && line.top + line.height <= body.y + body.h + 1e-6);
+    }
+    let top = laid.lines.first().unwrap().top - body.y;
+    let last = laid.lines.last().unwrap();
+    let bottom = body.y + body.h - (last.top + last.height);
+    assert!((top - bottom).abs() < 1e-6, "centred top to bottom");
+}
+
+#[test]
+fn a_shape_with_no_words_still_says_where_they_would_go_and_a_line_has_no_room() {
+    let (_, layout) = laid_with(shape_frame(
+        "fr_empty",
+        folio_model::Shape::Ellipse,
+        100.0,
+        100.0,
+        None,
+    ));
+    let laid = layout
+        .frames
+        .iter()
+        .find(|f| f.frame.0 == "fr_empty")
+        .unwrap();
+    assert!(laid.lines.is_empty());
+    assert!((laid.text_box.unwrap().x - 15.0).abs() < 1e-6);
+
+    let (_, layout) = laid_with(shape_frame(
+        "fr_line",
+        folio_model::Shape::Line,
+        100.0,
+        0.0,
+        Some("never shown"),
+    ));
+    assert!(layout.frames.iter().all(|f| f.frame.0 != "fr_line"));
+}
+
+#[test]
+fn too_many_words_for_a_shape_are_flagged_overset() {
+    let long = "Words that go on and on and on, well past what a small shape holds. ".repeat(6);
+    let (_, layout) = laid_with(shape_frame(
+        "fr_small",
+        folio_model::Shape::Shout,
+        80.0,
+        50.0,
+        Some(&long),
+    ));
+    assert!(layout
+        .frames
+        .iter()
+        .any(|f| f.frame.0 == "fr_small" && f.overset));
+    assert!(layout
+        .preflight
+        .iter()
+        .any(|p| p.kind == PreflightKind::OversetText && p.frame.0 == "fr_small"));
+}
+
+fn laid_with_fallback(frame: Frame) -> SpreadLayout {
+    let (mut book, styles) = sample(BookKind::Picture);
+    book.spreads[1].frames.push(frame);
+    let id = book.spreads[1].id.clone();
+    let styles = styles.with_fallback(&StyleSheet::from_value(&folio_presets::preset_styles()));
+    let fonts = FontBook::bundled();
+    Layouter::new(&book, &styles, &fonts)
+        .layout_spread(&id)
+        .unwrap()
+        .unwrap()
+}
+
+#[test]
+fn a_book_without_the_bubble_style_gets_folios_and_a_book_that_has_its_own_keeps_it() {
+    use folio_model::Align;
+    // The picture book's styles have no `bubble`: without the fallback its words are set as the
+    // default, left aligned.
+    let (_, plain) = laid_with(shape_frame(
+        "fr_b",
+        folio_model::Shape::Speech,
+        200.0,
+        100.0,
+        Some("Hello"),
+    ));
+    let plain = plain.frames.iter().find(|f| f.frame.0 == "fr_b").unwrap();
+    assert_eq!(plain.text_align, Some(Align::Left));
+    // With Folio's styles behind the book's, the bubble speaks in its own centred style.
+    let with = laid_with_fallback(shape_frame(
+        "fr_b",
+        folio_model::Shape::Speech,
+        200.0,
+        100.0,
+        Some("Hello"),
+    ));
+    let with = with.frames.iter().find(|f| f.frame.0 == "fr_b").unwrap();
+    assert_eq!(with.text_align, Some(Align::Center));
+    // A book that defines a style of that name keeps its own.
+    let own = StyleSheet::from_value(&serde_json::json!({
+        "styles": { "bubble": { "sizePt": 20, "align": "right" } }
+    }))
+    .with_fallback(&StyleSheet::from_value(&folio_presets::preset_styles()));
+    let resolved = own.resolve(&StyleId("bubble".into()), None);
+    assert_eq!(resolved.text.size_pt, 20.0);
+}
+
+#[test]
+fn words_in_a_master_shape_are_laid_out_on_the_page_and_in_the_master_view() {
+    let (mut book, styles) = sample(BookKind::Picture);
+    book.master_pages.push(folio_model::Master {
+        id: folio_model::MasterId("mst_s".into()),
+        name: "S".into(),
+        frames: vec![shape_frame(
+            "fr_m",
+            folio_model::Shape::Ellipse,
+            120.0,
+            80.0,
+            Some("Page {page}"),
+        )],
+        guides: Vec::new(),
+        bg: None,
+    });
+    for page in &mut book.spreads[1].pages {
+        page.master = Some(folio_model::MasterId("mst_s".into()));
+    }
+    let fonts = FontBook::bundled();
+    let layouter = Layouter::new(&book, &styles, &fonts);
+    let spread = layouter
+        .layout_spread(&book.spreads[1].id)
+        .unwrap()
+        .unwrap();
+    let on_page = spread
+        .frames
+        .iter()
+        .find(|f| f.frame.0.starts_with("fr_m@"))
+        .expect("the master shape's words are laid out on the page");
+    assert!(on_page.origin.is_some() && on_page.text_box.is_some());
+    let words: String = on_page
+        .lines
+        .iter()
+        .flat_map(|l| l.runs.iter().map(|r| r.text.as_str()))
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(!words.contains('{'), "{words}");
+    let in_view = layouter
+        .layout_master(&folio_model::MasterId("mst_s".into()))
+        .unwrap()
+        .unwrap();
+    assert!(in_view.frames.iter().any(|f| f.frame.0 == "fr_m"));
+}
+
 #[test]
 fn the_page_number_and_title_are_filled_in_for_a_frame_the_person_made() {
     let (book, styles) = sample(BookKind::Picture);

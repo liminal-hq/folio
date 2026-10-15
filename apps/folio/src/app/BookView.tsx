@@ -259,8 +259,14 @@ export function BookView({
 	);
 	// The sidebar's open group. Selecting something on the page brings the Properties forward.
 	const [group, setGroup] = useState<SidebarGroup>('properties');
-	const wantsPalette = background !== null || group === 'properties';
-	const paints = usePaintPresets(client, wantsPalette);
+	useEffect(() => {
+		if (selection.length > 0) setGroup('properties');
+	}, [selection]);
+	// The colours the pickers offer, read the first time the dialog opens or a shape is selected.
+	const paints = usePaintPresets(
+		client,
+		background !== null || (group === 'properties' && selected.some((f) => f.type === 'shape')),
+	);
 
 	const perform = (action: EditorAction) => {
 		switch (action.kind) {
@@ -448,6 +454,7 @@ export function BookView({
 								marks={marks}
 								onMarks={(next) => setMarks(next)}
 								apply={apply}
+								paints={paints}
 								choosePicture={(frame) => void choosePicture(frame)}
 							/>
 						),

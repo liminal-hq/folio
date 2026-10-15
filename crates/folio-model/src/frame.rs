@@ -154,18 +154,91 @@ pub enum Fit {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(rename_all = "camelCase")]
 pub struct ShapeFrame {
     #[serde(flatten)]
     pub base: FrameBase,
     pub shape: Shape,
     pub fill: Option<Colour>,
     pub style: Option<StyleId>,
+    /// The outline colour. `None` draws no outline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke: Option<Colour>,
+    /// The outline's width in points; `None` is the default hairline. The drawn width does not scale
+    /// with the frame.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_width: Option<Pt>,
+    /// How round the corners of a `Round` shape are, in points; `None` is the default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub radius: Option<Pt>,
+    /// A line runs from the top-left of its box to the bottom-right, or from the bottom-left to the
+    /// top-right when this is set.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub flip: bool,
+    /// The words in the shape, if it has any. They are laid out inside the shape's body (see
+    /// [`Shape::text_inset`]) in `style`, or the kind's own style when there is none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<InlineContent>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub overrides: Option<StyleOverrides>,
 }
+/// How far in from each side of a shape's box its words start, as a share of the box (D-24).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TextInset {
+    pub left: f64,
+    pub top: f64,
+    pub right: f64,
+    pub bottom: f64,
+}
+
+impl Shape {
+    /// Whether words can go in the shape: a line has no inside.
+    pub fn holds_text(self) -> bool {
+        self != Shape::Line
+    }
+
+    /// Where words sit inside the kind, so a bubble's text stays in its body and out of its tail.
+    pub fn text_inset(self) -> TextInset {
+        let (left, top, right, bottom) = match self {
+            Shape::Rect | Shape::Line => (0.0, 0.0, 0.0, 0.0),
+            Shape::Round => (0.04, 0.04, 0.04, 0.04),
+            Shape::Ellipse => (0.15, 0.15, 0.15, 0.15),
+            Shape::Speech => (0.08, 0.08, 0.08, 0.38),
+            Shape::Thought => (0.18, 0.14, 0.18, 0.4),
+            Shape::Shout => (0.2, 0.2, 0.2, 0.2),
+        };
+        TextInset {
+            left,
+            top,
+            right,
+            bottom,
+        }
+    }
+
+    /// The style words in the kind use when the shape names none: bubbles speak in `bubble`, and
+    /// every other shape (the note box) in `callout`.
+    pub fn default_style(self) -> &'static str {
+        match self {
+            Shape::Speech | Shape::Thought | Shape::Shout => "bubble",
+            _ => "callout",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
 pub enum Shape {
     Rect,
-    Rounded,
+    /// A rectangle with rounded corners.
+    Round,
     Ellipse,
+    /// A straight line across the box's diagonal. Its box may have no height or no width.
+    Line,
+    /// A speech bubble with a tail at the bottom left.
+    Speech,
+    /// A thought bubble: a cloud with two small circles trailing off it.
+    Thought,
+    /// A jagged shout bubble.
+    Shout,
 }

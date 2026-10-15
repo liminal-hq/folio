@@ -98,6 +98,11 @@ pub(crate) fn kind_data(kind: BookKind) -> &'static KindData {
     kinds().get(key(kind)).expect("every kind has data")
 }
 
+/// Every style Folio ships, as `{ "styles": { id: {...} } }`, to fall back on when a book lacks one.
+pub fn preset_styles() -> Value {
+    serde_json::json!({ "styles": style_table() })
+}
+
 pub(crate) fn style_table() -> &'static BTreeMap<String, Value> {
     static STYLES: OnceLock<BTreeMap<String, Value>> = OnceLock::new();
     STYLES.get_or_init(|| serde_json::from_str(STYLES_JSON).expect("data/styles.json is valid"))

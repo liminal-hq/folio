@@ -4,9 +4,13 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    BackgroundTarget, Book, Frame, FrameId, Guide, InlineContent, Intent, Master, MasterId, Page,
-    Pt, ReorderTo, Run, Spread, SpreadId, SpreadKind, Surface,
+    BackgroundTarget, Book, Colour, Frame, FrameId, Guide, InlineContent, Intent, Master, MasterId,
+    Page, Paint, Pt, ReorderTo, Run, Spread, SpreadId, SpreadKind, Surface,
 };
+
+/// The widest an outline can be, and the roundest a corner, in points.
+const MAX_STROKE: f64 = 100.0;
+const MAX_RADIUS: f64 = 1000.0;
 
 /// How far, in points, a duplicated frame sits from the one it was copied from.
 const DUPLICATE_OFFSET: f64 = 12.0;
@@ -35,6 +39,7 @@ pub enum MergeKey {
     Moves(Vec<FrameId>),
     Text(FrameId),
     Style(FrameId),
+    Shape(FrameId),
     Background(BackgroundTarget),
 }
 
@@ -438,6 +443,62 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             }
             Ok(one(s.clone(), None))
         }
+        Intent::SetShape {
+            frame,
+            kind,
+            fill,
+            stroke,
+            stroke_width,
+            radius,
+            flip,
+        } => {
+            let found =
+                locate(book, frame).ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
+            let Frame::Shape(_) = found else {
+                return Err(SessionError::NotShape(frame.0.clone()));
+            };
+            ensure_free(found)?;
+            for paint in [fill, stroke].into_iter().flatten() {
+                if let Paint::Colour { colour } = paint {
+                    Colour::parse(&colour.0).map_err(|e| SessionError::BadShape(e.to_string()))?;
+                }
+            }
+            for (name, length, most) in [
+                ("outline width", stroke_width, MAX_STROKE),
+                ("corner radius", radius, MAX_RADIUS),
+            ] {
+                if let Some(Pt(v)) = length {
+                    if !v.is_finite() || *v < 0.0 || *v > most {
+                        return Err(SessionError::BadShape(format!(
+                            "the {name} is between 0 and {most} points"
+                        )));
+                    }
+                }
+            }
+            // Trying colours, widths and radii on one shape is one undo step. Changing the kind or the
+            // way a line runs, or taking a colour away, is a step of its own.
+            let trying = kind.is_none()
+                && flip.is_none()
+                && !matches!(fill, Some(Paint::None))
+                && !matches!(stroke, Some(Paint::None));
+            Ok(Plan {
+                touched: touched_by(book, frame)?,
+                new_spread: None,
+                merge: trying.then(|| MergeKey::Shape(frame.clone())),
+            })
+        }
+        Intent::RotateFrame { on, frame, degrees } => {
+            let target = find(frames_on(book, on)?, frame)
+                .ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
+            if !matches!(target, Frame::Shape(_)) {
+                return Err(SessionError::NotShape(frame.0.clone()));
+            }
+            ensure_free(target)?;
+            if !degrees.is_finite() {
+                return Err(SessionError::BadShape("an angle is a number".into()));
+            }
+            Ok(by(on, None))
+        }
         Intent::AddGuide { on, pos, .. } => {
             guides_on(book, on)?;
             check_guide_position(*pos)?;
@@ -678,6 +739,50 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 }
             }
         }
+        Intent::SetShape {
+            frame,
+            kind,
+            fill,
+            stroke,
+            stroke_width,
+            radius,
+            flip,
+        } => {
+            if let Some(Frame::Shape(shape)) = locate_mut(book, &frame) {
+                let colour = |paint: Paint| match paint {
+                    Paint::None => None,
+                    Paint::Colour { colour } => Some(Colour::parse(&colour.0).unwrap_or(colour)),
+                };
+                if let Some(kind) = kind {
+                    shape.shape = kind;
+                    // A line has no inside, so words it was holding would be hidden and unreachable.
+                    if !kind.holds_text() {
+                        shape.content = None;
+                        shape.overrides = None;
+                    }
+                }
+                if let Some(fill) = fill {
+                    shape.fill = colour(fill);
+                }
+                if let Some(stroke) = stroke {
+                    shape.stroke = colour(stroke);
+                }
+                if stroke_width.is_some() {
+                    shape.stroke_width = stroke_width;
+                }
+                if radius.is_some() {
+                    shape.radius = radius;
+                }
+                if let Some(flip) = flip {
+                    shape.flip = flip;
+                }
+            }
+        }
+        Intent::RotateFrame { on, frame, degrees } => {
+            if let Some(f) = frames_on_mut(book, &on).and_then(|frames| find_mut(frames, &frame)) {
+                f.base_mut().rotation = degrees.rem_euclid(360.0);
+            }
+        }
         Intent::EnsureMasters => ensure_masters(book),
         Intent::SetPageNumbers { position } => {
             book.page_numbers = position;
@@ -841,15 +946,22 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             }
         }
         Intent::SetText { frame, text } => {
-            if let Some(Frame::Text(t)) = locate_mut(book, &frame) {
-                t.content = Some(InlineContent {
-                    inline: vec![Run {
-                        text,
-                        style: None,
-                        bold: false,
-                        italic: false,
-                    }],
-                });
+            let content = InlineContent {
+                inline: vec![Run {
+                    text,
+                    style: None,
+                    bold: false,
+                    italic: false,
+                }],
+            };
+            match locate_mut(book, &frame) {
+                Some(Frame::Text(t)) => t.content = Some(content),
+                // Emptied words are no words, so a bubble with none draws and lays out as bare.
+                Some(Frame::Shape(s)) => {
+                    s.content =
+                        Some(content).filter(|c| c.inline.iter().any(|r| !r.text.is_empty()));
+                }
+                _ => {}
             }
         }
         Intent::SetStyle { frame, style } => {
@@ -861,11 +973,11 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 }
             }
         }
-        Intent::OverrideStyle { frame, overrides } => {
-            if let Some(Frame::Text(t)) = locate_mut(book, &frame) {
-                t.overrides = Some(overrides);
-            }
-        }
+        Intent::OverrideStyle { frame, overrides } => match locate_mut(book, &frame) {
+            Some(Frame::Text(t)) => t.overrides = Some(overrides),
+            Some(Frame::Shape(s)) => s.overrides = Some(overrides),
+            _ => {}
+        },
         Intent::AddFrame { on, frame } => {
             if let Some(frames) = frames_on_mut(book, &on) {
                 frames.push(frame);
@@ -1028,6 +1140,7 @@ pub fn check_text(book: &Book, frame: &FrameId) -> Result<(), SessionError> {
     match found {
         Frame::Text(t) if t.flow.is_some() => Err(SessionError::FlowText(frame.0.clone())),
         Frame::Text(_) => ensure_free(found),
+        Frame::Shape(s) if s.shape.holds_text() => ensure_free(found),
         _ => Err(SessionError::NotText(frame.0.clone())),
     }
 }

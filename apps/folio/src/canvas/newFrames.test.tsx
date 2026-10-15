@@ -41,7 +41,7 @@ describe('newFrame', () => {
 			type: 'image',
 			image: { asset: null },
 		});
-		expect(newFrame('note', page, 'body')).toMatchObject({ type: 'shape', shape: 'rect' });
+		expect(newFrame('note', page, 'body')).toMatchObject({ type: 'shape', shape: 'round' });
 	});
 	it('gives every frame its own id', () => {
 		const ids = new Set(Array.from({ length: 50 }, newFrameId));
@@ -117,4 +117,33 @@ describe('the bare page', () => {
 		expect(point.x).toBeCloseTo(-10 + 20);
 		expect(point.y).toBeCloseTo(-10);
 	});
+});
+
+describe('line and bubble frames', () => {
+	const page = { x: 0, y: 0, w: 300, h: 300 };
+
+	it('starts a line flat, in its outline colour and without a fill', () => {
+		const box = boxAt('line', { x: 150, y: 150 }, page);
+		expect(box).toMatchObject({ w: 144, h: 0 });
+		expect(newFrame('line', box, 'body')).toMatchObject({
+			type: 'shape',
+			shape: 'line',
+			fill: null,
+			stroke: '#14110f',
+			strokeWidth: 2,
+		});
+	});
+
+	it.each(['speech', 'thought', 'shout'] as const)(
+		'starts a %s bubble white with an outline',
+		(kind) => {
+			const frame = newFrame(kind, boxAt(kind, { x: 150, y: 150 }, page), 'body');
+			expect(frame).toMatchObject({
+				type: 'shape',
+				shape: kind,
+				fill: '#ffffff',
+				stroke: '#14110f',
+			});
+		},
+	);
 });
