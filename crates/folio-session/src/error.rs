@@ -36,6 +36,8 @@ pub enum SessionError {
     BadBackground(String),
     #[error("`{0}` is not a picture in this book's assets")]
     BadAsset(String),
+    #[error("the picture's focus point must be a pair of numbers")]
+    BadFocus,
     #[error("the frame `{0}` belongs to a master page")]
     FromMaster(String),
     #[error("the master item `{0}` is already hidden on page `{1}`")]

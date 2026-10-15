@@ -83,13 +83,16 @@ pub enum Intent {
         locked: bool,
     },
     /// Puts a picture in a picture frame (an asset path from the package) and says how it sits in
-    /// the frame. Either part left out stays as it was.
+    /// the frame, including which point of it stays in view when it is cropped (as 0–1 across and
+    /// down). A part left out stays as it was, and a drag of the focus point is one undo step.
     SetImage {
         frame: FrameId,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         asset: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         fit: Option<Fit>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        focus: Option<(f64, f64)>,
     },
     /// Changes how a shape looks: its kind, its fill and outline, how round its corners are and which
     /// way a line runs. A part left out stays as it was, and a trying-out of colours or widths on one

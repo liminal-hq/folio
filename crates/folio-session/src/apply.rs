@@ -40,6 +40,7 @@ pub enum MergeKey {
     Text(FrameId),
     Style(FrameId),
     Shape(FrameId),
+    Focus(FrameId),
     Background(BackgroundTarget),
 }
 
@@ -348,13 +349,23 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             ids_moved.sort_by(|a, b| a.0.cmp(&b.0));
             Ok(by(on, Some(MergeKey::Moves(ids_moved))))
         }
-        Intent::SetImage { frame, asset, .. } => {
+        Intent::SetImage {
+            frame,
+            asset,
+            focus,
+            ..
+        } => {
             let found =
                 locate(book, frame).ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
             let Frame::Image(_) = found else {
                 return Err(SessionError::NotImage(frame.0.clone()));
             };
             ensure_free(found)?;
+            if let Some((x, y)) = focus {
+                if !x.is_finite() || !y.is_finite() {
+                    return Err(SessionError::BadFocus);
+                }
+            }
             if let Some(asset) = asset {
                 if !is_asset_path(asset) {
                     return Err(SessionError::BadAsset(asset.clone()));
@@ -363,7 +374,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched: touched_by(book, frame)?,
                 new_spread: None,
-                merge: None,
+                merge: focus.is_some().then(|| MergeKey::Focus(frame.clone())),
             })
         }
         Intent::EnsureMasters => Ok(Plan {
@@ -729,13 +740,21 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 f.base_mut().rect = rect;
             }
         }
-        Intent::SetImage { frame, asset, fit } => {
+        Intent::SetImage {
+            frame,
+            asset,
+            fit,
+            focus,
+        } => {
             if let Some(Frame::Image(img)) = locate_mut(book, &frame) {
                 if let Some(asset) = asset {
                     img.image.asset = Some(asset);
                 }
                 if let Some(fit) = fit {
                     img.image.fit = fit;
+                }
+                if let Some((x, y)) = focus {
+                    img.image.focus = (x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
                 }
             }
         }

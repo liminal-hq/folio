@@ -29,6 +29,7 @@ const setup = (
 	page: number | null = null,
 	picked: string | null = null,
 	scope: string | null = null,
+	images: Record<string, string> = {},
 ) => {
 	const onApply = vi.fn();
 	const onPick = vi.fn(async () => picked);
@@ -41,6 +42,7 @@ const setup = (
 			page={page}
 			scope={scope}
 			presets={FAKE_PAINTS}
+			images={images}
 			onPickPicture={onPick}
 			onApply={onApply}
 		/>,
@@ -155,6 +157,35 @@ describe('PageBackgroundDialog', () => {
 			target: { type: 'span', spread: 's1' },
 			bg: { type: 'picture', asset: 'assets/images/a.jpg', fit: 'fit', focus: [0.2, 0.8] },
 		});
+	});
+
+	it('moves the part of the picture that stays in view with the arrow keys', async () => {
+		const withPicture = {
+			...pair,
+			bgSpan: { type: 'picture', asset: 'assets/images/a.jpg', fit: 'fill', focus: [0.2, 0.8] },
+		} as unknown as Spread;
+		const onApply = setup(withPicture, null, null, null, { 'assets/images/a.jpg': 'blob:a' });
+		screen.getByRole('slider', { name: 'Part of the picture to keep in view' }).focus();
+		await userEvent.keyboard('{ArrowRight}');
+		expect(onApply).toHaveBeenCalledWith({
+			type: 'SetBackground',
+			target: { type: 'span', spread: 's1' },
+			bg: {
+				type: 'picture',
+				asset: 'assets/images/a.jpg',
+				fit: 'fill',
+				focus: [expect.closeTo(0.25), 0.8],
+			},
+		});
+	});
+
+	it('has no focus to set when the picture is fitted whole', () => {
+		const fitted = {
+			...pair,
+			bgSpan: { type: 'picture', asset: 'assets/images/a.jpg', fit: 'fit', focus: [0.5, 0.5] },
+		} as unknown as Spread;
+		setup(fitted, null, null, null, { 'assets/images/a.jpg': 'blob:a' });
+		expect(screen.queryByRole('slider')).toBeNull();
 	});
 
 	it('does nothing when no picture is chosen', async () => {

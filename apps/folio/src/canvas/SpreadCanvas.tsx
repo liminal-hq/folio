@@ -9,6 +9,7 @@ import type { FrameLayout } from '@liminal-hq/folio-protocol/generated/FrameLayo
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
 import { useRef, useState } from 'react';
+import { FocusedImage } from './FocusedImage';
 import { BackgroundLayer } from './BackgroundLayer';
 import { turned } from './turned';
 import { ShapeArt } from './ShapeArt';
@@ -119,28 +120,18 @@ function Furniture({ frame, images }: { frame: Frame; images: Record<string, str
 		const url = frame.image.asset ? images[frame.image.asset] : undefined;
 		if (url) {
 			const clip = `folio-clip-${frame.id}`;
-			// Fill covers the frame and crops the rest, Fit shows the whole picture inside it, and
-			// Stretch pulls it to the frame's shape.
+			// Fill covers the frame and crops the rest around the focus point, Fit shows the whole
+			// picture inside it, and Stretch pulls it to the frame's shape.
 			const fit =
-				frame.image.fit === 'fit'
-					? 'xMidYMid meet'
-					: frame.image.fit === 'stretch'
-						? 'none'
-						: 'xMidYMid slice';
+				frame.image.fit === 'fit' ? 'fit' : frame.image.fit === 'stretch' ? 'stretch' : 'fill';
 			return (
 				<g role="img" aria-label={frame.description ?? frame.placeholderLabel ?? undefined}>
 					<clipPath id={clip}>
 						<rect x={x} y={y} width={w} height={h} />
 					</clipPath>
-					<image
-						href={url}
-						x={x}
-						y={y}
-						width={w}
-						height={h}
-						preserveAspectRatio={fit}
-						clipPath={`url(#${clip})`}
-					/>
+					<g clipPath={`url(#${clip})`}>
+						<FocusedImage href={url} box={{ x, y, w, h }} fit={fit} focus={frame.image.focus} />
+					</g>
 				</g>
 			);
 		}

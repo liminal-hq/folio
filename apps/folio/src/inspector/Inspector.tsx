@@ -20,6 +20,7 @@ import { plainTextOf } from '../canvas/TextEditor';
 import { spreadGeometry } from '../canvas/geometry';
 import type { Marks } from '../canvas/marksModel';
 import { surfaceOf } from '../canvas/masterView';
+import { FocusPicker } from '../canvas/FocusPicker';
 import { t } from '../i18n/messages';
 import styles from './Inspector.module.css';
 import { ColourPicker } from './ColourPicker';
@@ -45,6 +46,8 @@ export interface InspectorProps {
 	paints?: PaintPresets | null;
 	/** Asks for a picture file and puts it in the frame. */
 	choosePicture?(frame: string): void;
+	/** An address to draw for each picture's asset path, once it has been read. */
+	images?: Record<string, string>;
 }
 
 const MARK_ROWS: { key: keyof Marks; label: string }[] = [
@@ -513,6 +516,22 @@ function PictureSection({ frame, props }: { frame: Frame; props: InspectorProps 
 					/>
 				</div>
 			)}
+			{frame.type === 'image' &&
+				frame.image.asset &&
+				frame.image.fit === 'fill' &&
+				props.images?.[frame.image.asset] && (
+					<div className={styles.field}>
+						<span>{t('focus.hint')}</span>
+						<FocusPicker
+							href={props.images[frame.image.asset]!}
+							focus={frame.image.focus}
+							disabled={frame.locked}
+							onChange={(focus) =>
+								apply({ type: 'SetImage', frame: frame.id, asset: null, fit: null, focus })
+							}
+						/>
+					</div>
+				)}
 			<button type="button" className={styles.action} disabled={frame.locked} onClick={stretch}>
 				{t('inspector.picture.stretch')}
 			</button>

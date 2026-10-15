@@ -455,6 +455,7 @@ export function BookView({
 								onMarks={(next) => setMarks(next)}
 								apply={apply}
 								paints={paints}
+								images={images}
 								choosePicture={(frame) => void choosePicture(frame)}
 							/>
 						),
@@ -514,6 +515,7 @@ export function BookView({
 				page={background?.page ?? null}
 				scope={background?.scope ?? null}
 				presets={paints}
+				images={images}
 				onPickPicture={pickBackgroundPicture}
 				onApply={apply}
 			/>
