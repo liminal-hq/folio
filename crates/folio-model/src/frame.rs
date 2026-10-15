@@ -154,18 +154,43 @@ pub enum Fit {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(rename_all = "camelCase")]
 pub struct ShapeFrame {
     #[serde(flatten)]
     pub base: FrameBase,
     pub shape: Shape,
     pub fill: Option<Colour>,
     pub style: Option<StyleId>,
+    /// The outline colour. `None` draws no outline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke: Option<Colour>,
+    /// The outline's width in points; `None` is the default hairline. The drawn width does not scale
+    /// with the frame.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_width: Option<Pt>,
+    /// How round the corners of a `Round` shape are, in points; `None` is the default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub radius: Option<Pt>,
+    /// A line runs from the top-left of its box to the bottom-right, or from the bottom-left to the
+    /// top-right when this is set.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub flip: bool,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
 pub enum Shape {
     Rect,
-    Rounded,
+    /// A rectangle with rounded corners (stored as `rounded` before D-24).
+    #[serde(alias = "rounded")]
+    Round,
     Ellipse,
+    /// A straight line across the box's diagonal. Its box may have no height or no width.
+    Line,
+    /// A speech bubble with a tail at the bottom left.
+    Speech,
+    /// A thought bubble: a cloud with two small circles trailing off it.
+    Thought,
+    /// A jagged shout bubble.
+    Shout,
 }

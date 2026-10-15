@@ -2,11 +2,30 @@
 import type { Colour } from "./Colour";
 import type { FrameId } from "./FrameId";
 import type { MasterId } from "./MasterId";
+import type { Pt } from "./Pt";
 import type { Rect } from "./Rect";
 import type { Shape } from "./Shape";
 import type { StyleId } from "./StyleId";
 
-export type ShapeFrame = { shape: Shape, fill: Colour | null, style: StyleId | null, id: FrameId, box: Rect, rotation: number, locked: boolean, fromMaster?: MasterId | null, 
+export type ShapeFrame = { shape: Shape, fill: Colour | null, style: StyleId | null, 
+/**
+ * The outline colour. `None` draws no outline.
+ */
+stroke?: Colour | null, 
+/**
+ * The outline's width in points; `None` is the default hairline. The drawn width does not scale
+ * with the frame.
+ */
+strokeWidth?: Pt | null, 
+/**
+ * How round the corners of a `Round` shape are, in points; `None` is the default.
+ */
+radius?: Pt | null, 
+/**
+ * A line runs from the top-left of its box to the bottom-right, or from the bottom-left to the
+ * top-right when this is set.
+ */
+flip?: boolean, id: FrameId, box: Rect, rotation: number, locked: boolean, fromMaster?: MasterId | null, 
 /**
  * Alt text for pictures; accessible name for others.
  */

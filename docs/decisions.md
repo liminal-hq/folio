@@ -15,6 +15,7 @@ Product and engineering decisions for Folio. D-01 to D-07 and D-12 are defined w
 | D-20 | Layout is Rust-owned and drawn by the UI from lines Rust positions                                                                                   | `docs/decisions.md`          |
 | D-19 | The ribbon is its own package, depending one-way on the chrome                                                                                       | `docs/decisions.md`          |
 | D-21 | Ruler guides belong to a spread, are stored in points, and are named by their place in its list                                                      | `docs/decisions.md`          |
+| D-24 | Shapes are frames with their own look, and the schema stays additive until the first release                                                         | `docs/decisions.md`          |
 
 ## D-08 · Shared chrome and unpublished plugins are copied; published ones are dependencies
 
@@ -71,3 +72,9 @@ A guide is `{ axis, pos, locked }` on its spread, with `pos` in points like ever
 ## D-22 · Masters belong to the person, and frames and guides are addressed by a surface
 
 Page numbers used to be the only thing on a master, so the session rebuilt masters A and B whenever pages came, went or moved. A master is now the person's: the page-numbers setting manages only its own two frames (`fr_pn_a`, `fr_pn_b`), by box and alignment, and never deletes a master that holds anything else. A master is made when something first needs one (editing it, putting a guide on every page), and not before, so a book that never uses masters is unchanged. Editing is a separate master view on the stage (Expert), not editing in place, so a click on a page never means "change every page". Intents that name a frame or a guide take a `Surface`, either a spread or a master, instead of a bare spread, and a master edit is undone and patched through the masters the session already captures. Every-page guides are `Master.guides`, in the page's own points, named by their place in the list as D-21 says; "Put on every page" moves a spread guide onto the masters its pages use, converting x to the page's own coordinates and mirroring it for the facing master, and "Only on this spread" moves it back.
+
+## D-24 · Shapes are frames with their own look, and the schema stays additive until the first release
+
+A shape is one frame, not a path: a `Shape` kind (`rect`, `round`, `ellipse`, `line`, `speech`, `thought`, `shout`) with a box, a `fill`, an optional `stroke` and `strokeWidth`, a `radius` for `round` and a `flip` for a line. There is no polygon or path model, so a shape cannot be edited point by point; each kind has a unit path the app scales to the box and draws with a non-scaling stroke, so an outline keeps its width as the frame is resized. A line is a box that may have no height or width. The note box is a `round` shape with a yellow fill; `rounded` is read as `round`. Text inside a shape, rotation and the shape's own style are added to these fields in their own steps, each optional so an older book opens unchanged.
+
+Until the first public release (the version is 0.0.0 and nothing is tagged), the schema stays at 1 and changes are additive: a new optional field or a new frame or shape kind is added without a migration. After it, a new kind of frame or shape bumps the schema with a migration (D-05), since a build that does not know the kind cannot open the book.
