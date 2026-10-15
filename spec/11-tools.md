@@ -17,7 +17,7 @@ Bundled textures (Linen, Laid paper, Kraft, Watercolour wash, Dot grid) ship as 
 
 ## Shapes and bubbles (Insert → Shapes / Bubbles)
 
-A shape is `{ shape: 'rect' | 'round' | 'ellipse' | 'line' | 'speech' | 'thought' | 'shout', fill?, stroke?, strokeWidth?, radius?, flip? }` on a frame. `fill` and `stroke` are `#rrggbb`, or none. `radius` rounds a `round` shape's corners and `flip` turns a line to run from the bottom-left to the top-right. A shape stored as `rounded` before D-24 reads as `round`.
+A shape is `{ shape: 'rect' | 'round' | 'ellipse' | 'line' | 'speech' | 'thought' | 'shout', fill?, stroke?, strokeWidth?, radius?, flip? }` on a frame. `fill` and `stroke` are `#rrggbb`, or none. `radius` rounds a `round` shape's corners and `flip` turns a line to run from the bottom-left to the top-right.
 
 - Paths come from `shapePath(kind, w, h)` and stretch with the frame. The stroke is non-scaling.
 - Bubbles are shapes with text (`bubble` style, centred) and padding tuned per kind so the words sit in the body, not the tail.
