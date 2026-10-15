@@ -1,0 +1,314 @@
+[
+	{
+		"name": "a page with nothing shows the paper",
+		"masters": [],
+		"spread": {
+			"id": "sp_1",
+			"kind": "spread",
+			"pages": [
+				{
+					"id": "pg_1",
+					"master": null
+				},
+				{
+					"id": "pg_2",
+					"master": null
+				}
+			],
+			"frames": []
+		},
+		"expected": [null, null]
+	},
+	{
+		"name": "a master's background shows on its pages",
+		"masters": [
+			{
+				"id": "mst_a",
+				"name": "mst_a",
+				"frames": [],
+				"bg": {
+					"type": "colour",
+					"colour": "#aaaaaa"
+				}
+			}
+		],
+		"spread": {
+			"id": "sp_1",
+			"kind": "spread",
+			"pages": [
+				{
+					"id": "pg_1",
+					"master": "mst_a"
+				},
+				{
+					"id": "pg_2",
+					"master": "mst_a"
+				}
+			],
+			"frames": []
+		},
+		"expected": [
+			{
+				"source": "master",
+				"bg": {
+					"type": "colour",
+					"colour": "#aaaaaa"
+				}
+			},
+			{
+				"source": "master",
+				"bg": {
+					"type": "colour",
+					"colour": "#aaaaaa"
+				}
+			}
+		]
+	},
+	{
+		"name": "a page's own background wins over the master's",
+		"masters": [
+			{
+				"id": "mst_a",
+				"name": "mst_a",
+				"frames": [],
+				"bg": {
+					"type": "colour",
+					"colour": "#aaaaaa"
+				}
+			}
+		],
+		"spread": {
+			"id": "sp_1",
+			"kind": "spread",
+			"pages": [
+				{
+					"id": "pg_1",
+					"master": "mst_a",
+					"bg": {
+						"type": "colour",
+						"colour": "#111111"
+					}
+				},
+				{
+					"id": "pg_2",
+					"master": "mst_a"
+				}
+			],
+			"frames": []
+		},
+		"expected": [
+			{
+				"source": "page",
+				"bg": {
+					"type": "colour",
+					"colour": "#111111"
+				}
+			},
+			{
+				"source": "master",
+				"bg": {
+					"type": "colour",
+					"colour": "#aaaaaa"
+				}
+			}
+		]
+	},
+	{
+		"name": "a span wins over the master and is shared by both pages",
+		"masters": [
+			{
+				"id": "mst_a",
+				"name": "mst_a",
+				"frames": [],
+				"bg": {
+					"type": "colour",
+					"colour": "#aaaaaa"
+				}
+			}
+		],
+		"spread": {
+			"id": "sp_1",
+			"kind": "spread",
+			"pages": [
+				{
+					"id": "pg_1",
+					"master": "mst_a"
+				},
+				{
+					"id": "pg_2",
+					"master": "mst_a"
+				}
+			],
+			"frames": [],
+			"bgSpan": {
+				"type": "colour",
+				"colour": "#222222"
+			}
+		},
+		"expected": [
+			{
+				"source": "span",
+				"bg": {
+					"type": "colour",
+					"colour": "#222222"
+				}
+			},
+			{
+				"source": "span",
+				"bg": {
+					"type": "colour",
+					"colour": "#222222"
+				}
+			}
+		]
+	},
+	{
+		"name": "a page's own background wins over the span, which stays on the other page",
+		"masters": [],
+		"spread": {
+			"id": "sp_1",
+			"kind": "spread",
+			"pages": [
+				{
+					"id": "pg_1",
+					"master": null,
+					"bg": {
+						"type": "colour",
+						"colour": "#111111"
+					}
+				},
+				{
+					"id": "pg_2",
+					"master": null
+				}
+			],
+			"frames": [],
+			"bgSpan": {
+				"type": "colour",
+				"colour": "#222222"
+			}
+		},
+		"expected": [
+			{
+				"source": "page",
+				"bg": {
+					"type": "colour",
+					"colour": "#111111"
+				}
+			},
+			{
+				"source": "span",
+				"bg": {
+					"type": "colour",
+					"colour": "#222222"
+				}
+			}
+		]
+	},
+	{
+		"name": "a span on a single page is ignored",
+		"masters": [
+			{
+				"id": "mst_a",
+				"name": "mst_a",
+				"frames": [],
+				"bg": {
+					"type": "colour",
+					"colour": "#aaaaaa"
+				}
+			}
+		],
+		"spread": {
+			"id": "sp_1",
+			"kind": "opener",
+			"pages": [
+				{
+					"id": "pg_1",
+					"master": "mst_a"
+				}
+			],
+			"frames": [],
+			"bgSpan": {
+				"type": "colour",
+				"colour": "#222222"
+			}
+		},
+		"expected": [
+			{
+				"source": "master",
+				"bg": {
+					"type": "colour",
+					"colour": "#aaaaaa"
+				}
+			}
+		]
+	},
+	{
+		"name": "a master the page names but the book lacks gives the paper",
+		"masters": [],
+		"spread": {
+			"id": "sp_1",
+			"kind": "opener",
+			"pages": [
+				{
+					"id": "pg_1",
+					"master": "mst_x"
+				}
+			],
+			"frames": []
+		},
+		"expected": [null]
+	},
+	{
+		"name": "a gradient and a picture are carried as they are",
+		"masters": [
+			{
+				"id": "mst_a",
+				"name": "mst_a",
+				"frames": [],
+				"bg": {
+					"type": "gradient",
+					"angle": 90.0,
+					"stops": [
+						{
+							"at": 0.0,
+							"colour": "#000000"
+						},
+						{
+							"at": 1.0,
+							"colour": "#ffffff"
+						}
+					]
+				}
+			}
+		],
+		"spread": {
+			"id": "sp_1",
+			"kind": "opener",
+			"pages": [
+				{
+					"id": "pg_1",
+					"master": "mst_a",
+					"bg": {
+						"type": "picture",
+						"asset": "assets/images/a.jpg",
+						"fit": "fill",
+						"focus": [0.5, 0.5]
+					}
+				}
+			],
+			"frames": []
+		},
+		"expected": [
+			{
+				"source": "page",
+				"bg": {
+					"type": "picture",
+					"asset": "assets/images/a.jpg",
+					"fit": "fill",
+					"focus": [0.5, 0.5]
+				}
+			}
+		]
+	}
+]
