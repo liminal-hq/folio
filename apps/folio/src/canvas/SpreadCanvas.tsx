@@ -335,7 +335,7 @@ export function SpreadCanvas({
 						);
 					}}
 				/>
-				<BackgroundLayer book={book} spread={spread} />
+				<BackgroundLayer book={book} spread={spread} images={images} />
 				{/* The master pages' own text sits behind the page's frames. */}
 				{layout?.frames.map((laid) =>
 					laid.origin ? (

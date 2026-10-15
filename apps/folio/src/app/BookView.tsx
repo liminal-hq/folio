@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { shelfLabels } from '../books/shelfLabels';
 import type { OpenBookCopy } from '../books/booksStore';
 import { useBooks } from '../books/useBooks';
+import { backgroundAssets } from '../canvas/backgrounds';
 import { frameIntents } from '../canvas/frameMenu';
 import { boxAt, newFrame, type NewFrameKind } from '../canvas/newFrames';
 import { spreadGeometry } from '../canvas/geometry';
@@ -91,13 +92,13 @@ export function BookView({
 		spread?.id ?? null,
 		spread?.frames.map((f) => f.id) ?? [],
 	);
-	const images = useAssetUrls(
-		client,
-		id,
-		[...(spread?.frames ?? []), ...(spread ? masterFurniture(book, spread) : [])].flatMap((f) =>
+	const images = useAssetUrls(client, id, [
+		...[...(spread?.frames ?? []), ...(spread ? masterFurniture(book, spread) : [])].flatMap((f) =>
 			f.type === 'image' && f.image.asset ? [f.image.asset] : [],
 		),
-	);
+		// The shelf draws every spread's background, so every picture one uses is read.
+		...backgroundAssets(book),
+	]);
 	const choices = useMemo(() => styleChoices(copy.styles), [copy.styles]);
 	const selected = useMemo(
 		() => spread?.frames.filter((f) => selection.includes(f.id)) ?? [],
@@ -204,6 +205,18 @@ export function BookView({
 			await store.apply({ type: 'SetImage', frame, asset, fit: null });
 		} catch {
 			// The store keeps the refusal for the page to say.
+		}
+	};
+
+	/** Asks for a picture and brings it into the book; its path, or `null` if none was chosen. */
+	const pickBackgroundPicture = async (): Promise<string | null> => {
+		const picked = await dialogs.pickImage();
+		if (picked === null) return null;
+		try {
+			const asset = await client.importImage(id, picked);
+			return store.state.getState().activeId === id ? asset : null;
+		} catch {
+			return null;
 		}
 	};
 
@@ -439,6 +452,7 @@ export function BookView({
 			</main>
 			<Shelf
 				book={book}
+				images={images}
 				labels={labels}
 				selected={shown}
 				onSelect={(index) => {
@@ -474,6 +488,7 @@ export function BookView({
 				spread={spread}
 				page={background?.page ?? null}
 				presets={paints}
+				onPickPicture={pickBackgroundPicture}
 				onApply={apply}
 			/>
 		</>

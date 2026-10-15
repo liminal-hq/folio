@@ -15,11 +15,13 @@ function Fill({
 	bg,
 	rect,
 	id,
+	images,
 	children,
 }: {
 	bg: Background;
 	rect: Rect;
 	id: string;
+	images: Record<string, string>;
 	children(fill: string): React.ReactNode;
 }) {
 	if (bg.type === 'colour') return <>{children(bg.colour)}</>;
@@ -50,8 +52,20 @@ function Fill({
 			</>
 		);
 	}
-	// Pictures are drawn once they can be fetched; until then the paper shows.
-	return null;
+	// A picture is drawn once it has been read from the book; until then the paper shows. It fills
+	// the rectangle (cropped at the edges) or sits whole inside it, centred.
+	const href = images[bg.asset];
+	if (!href) return null;
+	return (
+		<image
+			href={href}
+			x={rect.x}
+			y={rect.y}
+			width={rect.w}
+			height={rect.h}
+			preserveAspectRatio={bg.fit === 'fill' ? 'xMidYMid slice' : 'xMidYMid meet'}
+		/>
+	);
 }
 
 /**
@@ -59,7 +73,16 @@ function Fill({
  * is drawn once over the spread and cut at each page that takes it, so a gradient runs through the
  * gutter. It never takes a click, so the paper under it still does.
  */
-export function BackgroundLayer({ book, spread }: { book: Book; spread: Spread }) {
+export function BackgroundLayer({
+	book,
+	spread,
+	images = {},
+}: {
+	book: Book;
+	spread: Spread;
+	/** An address to draw for each picture's asset path, once it has been read. */
+	images?: Record<string, string>;
+}) {
 	const key = useId().replace(/[^A-Za-z0-9_-]/g, '');
 	const resolved = resolveBackgrounds(book.masterPages ?? [], spread);
 	const rects = paintRects(book, spread);
@@ -87,7 +110,7 @@ export function BackgroundLayer({ book, spread }: { book: Book; spread: Spread }
 								/>
 							</clipPath>
 						</defs>
-						<Fill bg={shown.bg} rect={rect} id={`${key}-bg-${index}`}>
+						<Fill bg={shown.bg} rect={rect} id={`${key}-bg-${index}`} images={images}>
 							{(fill) => <rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} fill={fill} />}
 						</Fill>
 					</g>

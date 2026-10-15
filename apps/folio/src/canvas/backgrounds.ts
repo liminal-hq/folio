@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import type { Background } from '@liminal-hq/folio-protocol/generated/Background';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Master } from '@liminal-hq/folio-protocol/generated/Master';
 import type { ResolvedBackground } from '@liminal-hq/folio-protocol/generated/ResolvedBackground';
@@ -63,4 +64,18 @@ export function gradientLine(
 	const cx = rect.x + rect.w / 2;
 	const cy = rect.y + rect.h / 2;
 	return { x1: cx - dx * half, y1: cy - dy * half, x2: cx + dx * half, y2: cy + dy * half };
+}
+
+/** The pictures the book's backgrounds use, each once: on pages, across spreads and on masters. */
+export function backgroundAssets(book: Book): string[] {
+	const found = new Set<string>();
+	const note = (bg: Background | null | undefined) => {
+		if (bg?.type === 'picture') found.add(bg.asset);
+	};
+	for (const spread of book.spreads) {
+		note(spread.bgSpan);
+		spread.pages.forEach((page) => note(page.bg));
+	}
+	(book.masterPages ?? []).forEach((master) => note(master.bg));
+	return [...found];
 }
