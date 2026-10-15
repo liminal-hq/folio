@@ -124,9 +124,17 @@ export function layoutMaster(id: string, master: string): Promise<SpreadLayoutRe
 	return cmd<SpreadLayoutResult>('layout_master', { id, master });
 }
 
-/** Lays out one spread of an open book: where every line of text goes, and the preflight checks on it. */
-export function layoutSpread(id: string, spread: string): Promise<SpreadLayoutResult> {
-	return cmd<SpreadLayoutResult>('layout_spread', { id, spread });
+/**
+ * Lays out one spread of an open book: where every line of text goes, and the preflight checks on
+ * it. Given `spelling` (the words added to the dictionary for every book), misspelt words are marked
+ * in the lines; without it nothing is checked.
+ */
+export function layoutSpread(
+	id: string,
+	spread: string,
+	spelling?: string[],
+): Promise<SpreadLayoutResult> {
+	return cmd<SpreadLayoutResult>('layout_spread', { id, spread, spelling });
 }
 
 /** Hears every change to every open book. Read `snapshot` first and apply patches with a higher revision. */

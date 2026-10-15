@@ -1251,3 +1251,94 @@ fn page_and_section_tokens_follow_the_sections_of_the_book() {
         "{later} (wanted {want})"
     );
 }
+
+/// Marks every occurrence of the given words, as a speller would.
+fn flag<'a>(wrong: &'a [&'a str]) -> impl Fn(&str) -> Vec<std::ops::Range<usize>> + 'a {
+    move |text: &str| {
+        let mut found = Vec::new();
+        let mut at = 0;
+        for word in text.split(' ') {
+            if wrong.contains(&word) {
+                found.push(at..at + word.len());
+            }
+            at += word.len() + 1;
+        }
+        found
+    }
+}
+
+fn marked_runs(layout: &SpreadLayout, frame: &str) -> Vec<(String, Vec<(u32, u32)>)> {
+    layout
+        .frames
+        .iter()
+        .find(|f| f.frame.0 == frame)
+        .unwrap()
+        .lines
+        .iter()
+        .flat_map(|l| l.runs.iter())
+        .filter(|r| !r.miss.is_empty())
+        .map(|r| (r.text.clone(), r.miss.clone()))
+        .collect()
+}
+
+#[test]
+fn misspelt_words_are_marked_on_the_runs_that_show_them_wherever_the_lines_break() {
+    let (mut book, styles) = sample(BookKind::Novel);
+    let text =
+        "A small ottr sat by the zorb and watched another ottr swim past the old stone bridge \
+                until the light was gone and every last zorb had gone home to sleep";
+    book.spreads[1]
+        .frames
+        .push(text_frame("tx", "body", 20.0, 20.0, 120.0, 200.0, text));
+    let fonts = FontBook::bundled();
+    let wrong = ["ottr", "zorb"];
+    let finder = flag(&wrong);
+    let layout = Layouter::new(&book, &styles, &fonts)
+        .with_proofing(&finder)
+        .layout_spread(&book.spreads[1].id)
+        .unwrap()
+        .unwrap();
+    let marked = marked_runs(&layout, "tx");
+    // Two of each, each marked across the whole of its run; none on a word that is right.
+    assert_eq!(marked.len(), 4, "{marked:?}");
+    for (run, miss) in &marked {
+        assert!(run == "ottr" || run == "zorb", "{run}");
+        assert_eq!(miss, &[(0, 4)]);
+    }
+    // Without a speller nothing is marked.
+    let plain = Layouter::new(&book, &styles, &fonts)
+        .layout_spread(&book.spreads[1].id)
+        .unwrap()
+        .unwrap();
+    assert!(marked_runs(&plain, "tx").is_empty());
+}
+
+#[test]
+fn the_words_in_shapes_and_table_cells_are_marked_too() {
+    let (mut book, styles) = sample(BookKind::Picture);
+    book.spreads[1].frames.push(shape_frame(
+        "sh",
+        folio_model::Shape::Speech,
+        300.0,
+        200.0,
+        Some("what a zorb this is"),
+    ));
+    book.spreads[1].frames.push(table_frame(
+        "tb",
+        400.0,
+        90.0,
+        &[&["fine", "a zorb"], &["", "ottr"]],
+    ));
+    let fonts = FontBook::bundled();
+    let wrong = ["zorb", "ottr"];
+    let finder = flag(&wrong);
+    let layout = Layouter::new(&book, &styles, &fonts)
+        .with_proofing(&finder)
+        .layout_spread(&book.spreads[1].id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(marked_runs(&layout, "sh").len(), 1);
+    assert_eq!(marked_runs(&layout, "tb#0.1").len(), 1);
+    assert_eq!(marked_runs(&layout, "tb#1.1").len(), 1);
+    assert!(marked_runs(&layout, "tb#0.0").is_empty());
+}

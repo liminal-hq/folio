@@ -76,6 +76,19 @@ export interface SpreadCanvasProps {
 
 const INK = '#1c1b20';
 
+/** A wavy line from `x1` to `x2` at height `y`, with waves of `wave` points up and down. */
+export function squiggle(x1: number, x2: number, y: number, wave: number): string {
+	const step = wave * 2;
+	let d = `M${x1} ${y}`;
+	let up = true;
+	for (let x = x1; x < x2; x += step) {
+		const next = Math.min(x + step, x2);
+		d += `L${next} ${up ? y - wave : y + wave}`;
+		up = !up;
+	}
+	return d;
+}
+
 function Lines({
 	id,
 	at,
@@ -105,6 +118,22 @@ function Lines({
 							>
 								{run.text}
 							</text>
+							{run.miss?.map(([from, to]) => {
+								// The marked part of a word, along the word as it is drawn.
+								const x1 = run.x + (run.width * from) / (run.text.length || 1);
+								const x2 = run.x + (run.width * to) / (run.text.length || 1);
+								return (
+									<path
+										key={`${from}-${to}`}
+										data-miss-mark=""
+										d={squiggle(x1, x2, run.size * 0.16, run.size * 0.05)}
+										fill="none"
+										stroke="#d64545"
+										strokeWidth={Math.max(0.4, run.size * 0.045)}
+										strokeLinejoin="round"
+									/>
+								);
+							})}
 							{run.hyphen && (
 								<text
 									x={run.x + run.width}

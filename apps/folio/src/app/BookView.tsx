@@ -92,6 +92,7 @@ export function BookView({
 		master ? editing : (spread?.id ?? null),
 		copy.revision,
 		master !== null,
+		settings.spelling.enabled ? settings.spelling.personal : null,
 	);
 	const [selection, select] = useSelection(
 		spread?.id ?? null,

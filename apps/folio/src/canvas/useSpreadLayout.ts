@@ -19,13 +19,20 @@ export function useSpreadLayout(
 	revision: number,
 	/** Whether `spread` is a master page's id, laid out with its tokens as written. */
 	master = false,
+	/** The words added to the dictionary for every book, when misspelt words are to be marked; `null` for none marked. */
+	spelling: readonly string[] | null = null,
 ): SpreadLayout | null {
+	// Marking is asked for again when it is switched or the words added for every book change.
+	const spellingKey = spelling === null ? null : spelling.join('\u0000');
 	const [held, setHeld] = useState<{ key: string; layout: SpreadLayout } | null>(null);
 
 	useEffect(() => {
 		if (spread === null) return;
 		let current = true;
-		(master ? client.layoutMaster(bookId, spread) : client.layoutSpread(bookId, spread))
+		(master
+			? client.layoutMaster(bookId, spread)
+			: client.layoutSpread(bookId, spread, spelling ? [...spelling] : undefined)
+		)
 			.then((result) => {
 				if (current) setHeld({ key: `${bookId}/${spread}`, layout: result.layout });
 			})
@@ -36,7 +43,7 @@ export function useSpreadLayout(
 		return () => {
 			current = false;
 		};
-	}, [client, bookId, spread, revision, master]);
+	}, [client, bookId, spread, revision, master, spellingKey]);
 
 	return held !== null && held.key === `${bookId}/${spread}` ? held.layout : null;
 }

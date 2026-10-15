@@ -15,9 +15,7 @@ const frame = (text: string): EditedWords => ({
 });
 
 /** A speller that flags the words it is told are wrong, wherever they are. */
-function speller(
-	wrong: string[],
-): Speller & {
+function speller(wrong: string[]): Speller & {
 	ignore: Mock<(word: string) => void>;
 	addToDictionary: Mock<(word: string) => void>;
 } {

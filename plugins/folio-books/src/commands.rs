@@ -148,9 +148,11 @@ pub async fn layout_spread<R: Runtime>(
     _window: WebviewWindow<R>,
     id: String,
     spread: String,
+    spelling: Option<Vec<String>>,
 ) -> Result<SpreadLayoutResult, Error> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<Books<R>>().layout_spread(&id, &spread)
+        app.state::<Books<R>>()
+            .layout_spread(&id, &spread, spelling.as_deref())
     })
     .await
     .expect("the layout task does not panic")

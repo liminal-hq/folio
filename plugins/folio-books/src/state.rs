@@ -318,7 +318,14 @@ impl<R: Runtime> Books<R> {
     /// Lays out one spread of a book at the revision it is at now. The book is copied under the lock
     /// and laid out after it is let go, so the answer and its revision agree and a long layout never
     /// holds up another command.
-    pub fn layout_spread(&self, id: &str, spread: &str) -> Result<SpreadLayoutResult, Error> {
+    ///
+    /// With `spelling` (the words added for every book), misspelt words are marked in the lines.
+    pub fn layout_spread(
+        &self,
+        id: &str,
+        spread: &str,
+        spelling: Option<&[String]>,
+    ) -> Result<SpreadLayoutResult, Error> {
         let (book, styles, revision, facts) = {
             let mut inner = locked(&self.inner);
             let open = inner
@@ -336,7 +343,28 @@ impl<R: Runtime> Books<R> {
             )
         };
         let fonts = self.fonts.get_or_init(FontBook::with_system_fonts);
-        let layouter = Layouter::new(&book, &styles, fonts).with_assets(&facts);
+        // Words are checked as the book's dictionary says, leaving alone those the book ignores and
+        // those added for every book.
+        let mut ignore = book.proofing.ignore.clone();
+        ignore.extend(spelling.unwrap_or_default().iter().cloned());
+        let speller = spelling
+            .and_then(|_| self.spelling.for_language(&book.language))
+            .map(|(_, checker)| checker);
+        let find = |text: &str| -> Vec<std::ops::Range<usize>> {
+            speller
+                .as_deref()
+                .map(|checker| {
+                    find_misspellings(checker, text, &ignore)
+                        .into_iter()
+                        .map(|m| m.bytes)
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        let mut layouter = Layouter::new(&book, &styles, fonts).with_assets(&facts);
+        if speller.is_some() {
+            layouter = layouter.with_proofing(&find);
+        }
         let layout = layouter
             .layout_spread(&SpreadId(spread.to_string()))?
             .ok_or_else(|| Error::NoSuchSpread(spread.to_string()))?;

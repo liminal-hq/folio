@@ -70,9 +70,13 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function layoutMaster(id, master) {
         return cmd('layout_master', { id, master });
     }
-    /** Lays out one spread of an open book: where every line of text goes, and the preflight checks on it. */
-    function layoutSpread(id, spread) {
-        return cmd('layout_spread', { id, spread });
+    /**
+     * Lays out one spread of an open book: where every line of text goes, and the preflight checks on
+     * it. Given `spelling` (the words added to the dictionary for every book), misspelt words are marked
+     * in the lines; without it nothing is checked.
+     */
+    function layoutSpread(id, spread, spelling) {
+        return cmd('layout_spread', { id, spread, spelling });
     }
     /** Hears every change to every open book. Read `snapshot` first and apply patches with a higher revision. */
     function onPatch(listener) {
