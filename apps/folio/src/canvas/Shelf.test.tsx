@@ -104,3 +104,64 @@ describe('the shelf menu', () => {
 		expect(shelfIntent('remove', book, 0)).toBeNull();
 	});
 });
+
+describe('shapes in a thumbnail', () => {
+	it('are drawn with their own fill and outline, not as grey boxes', () => {
+		const withShape = {
+			...book,
+			spreads: [
+				{
+					...spread('a', 'opener'),
+					frames: [
+						{
+							type: 'shape',
+							id: 's',
+							box: { x: 0, y: 0, w: 50, h: 20 },
+							rotation: 0,
+							locked: false,
+							shape: 'ellipse',
+							fill: '#112233',
+							stroke: '#445566',
+							style: null,
+						},
+					],
+				},
+			],
+		} as unknown as Book;
+		const { container } = render(
+			<Shelf book={withShape} labels={['Page 1']} selected={0} onSelect={() => undefined} />,
+		);
+		const ellipse = container.querySelector('svg ellipse');
+		expect(ellipse?.getAttribute('fill')).toBe('#112233');
+		expect(ellipse?.getAttribute('stroke')).toBe('#445566');
+	});
+});
+
+describe('a turned shape in a thumbnail', () => {
+	it('is turned about its middle', () => {
+		const turnedBook = {
+			...book,
+			spreads: [
+				{
+					...spread('a', 'opener'),
+					frames: [
+						{
+							type: 'shape',
+							id: 's',
+							box: { x: 0, y: 0, w: 50, h: 20 },
+							rotation: 45,
+							locked: false,
+							shape: 'rect',
+							fill: '#112233',
+							style: null,
+						},
+					],
+				},
+			],
+		} as unknown as Book;
+		const { container } = render(
+			<Shelf book={turnedBook} labels={['Page 1']} selected={0} onSelect={() => undefined} />,
+		);
+		expect(container.querySelector('svg g[transform="rotate(45 25 10)"] rect')).not.toBeNull();
+	});
+});

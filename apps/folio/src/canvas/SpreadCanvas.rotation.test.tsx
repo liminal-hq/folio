@@ -75,3 +75,24 @@ describe('a turned shape', () => {
 		expect(document.querySelector('[data-hit="a"]')!.getAttribute('transform')).toBeNull();
 	});
 });
+
+describe('a turned master shape', () => {
+	it('is drawn turned on the page it shows on', () => {
+		const masterBook = {
+			...book,
+			masterPages: [{ id: 'm', name: 'A', guides: [], frames: [{ ...shape(90), id: 'ms' }] }],
+		} as unknown as Book;
+		const spread = {
+			id: 's',
+			kind: 'single',
+			pages: [{ id: 'p', master: 'm' }],
+			frames: [],
+			guides: [],
+			masterOverrides: [],
+		} as unknown as Spread;
+		render(<SpreadCanvas book={masterBook} spread={spread} layout={null} zoom={1} label="Page" />);
+		expect(document.querySelector('[data-master-item="ms@p"]')!.getAttribute('transform')).toBe(
+			'rotate(90 150 125)',
+		);
+	});
+});

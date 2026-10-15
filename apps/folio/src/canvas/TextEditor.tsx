@@ -52,7 +52,9 @@ export function TextEditor({ frame, layout, scale, rotation = 0, at, onCommit }:
 	const initial = plainTextOf(frame) ?? '';
 	// A shape's words have a room of their own inside it, and the lines are already placed in it.
 	const room = frame.type === 'shape' ? layout?.textBox : undefined;
-	const centred = frame.type === 'shape' && frame.shape !== 'rect' && frame.shape !== 'round';
+	// The words are set as the layout's style sets them, whatever the shape.
+	const align = frame.type === 'shape' ? layout?.textAlign : undefined;
+	const centred = align === 'center';
 	const done = useRef(false);
 	/** What is in the box now, kept as it is typed because the box is gone by the time an unmount cleans up. */
 	const typed = useRef(initial);
@@ -100,7 +102,7 @@ export function TextEditor({ frame, layout, scale, rotation = 0, at, onCommit }:
 				height: (room?.h ?? frame.box.h) * scale,
 				paddingLeft: centred ? 0 : ((first?.x ?? 0) - (room?.x ?? 0)) * scale,
 				paddingTop: Math.max(0, ((first?.top ?? 0) - (room?.y ?? 0)) * scale),
-				textAlign: centred ? 'center' : undefined,
+				textAlign: align ?? undefined,
 				// Turned with the frame, about the frame's middle.
 				transform: rotation ? `rotate(${rotation}deg)` : undefined,
 				transformOrigin: rotation

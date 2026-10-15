@@ -102,7 +102,7 @@ fn a_group_nests_frames() {
         "type": "group", "id": "g1", "box": { "x": 0, "y": 0, "w": 10, "h": 10 },
         "children": [{
             "type": "shape", "id": "s1", "box": { "x": 1, "y": 1, "w": 2, "h": 2 },
-            "shape": "rounded", "fill": "#fff", "style": null
+            "shape": "round", "fill": "#fff", "style": null
         }]
     });
     let frame: Frame = serde_json::from_value(group).unwrap();
@@ -114,10 +114,10 @@ fn a_group_nests_frames() {
 }
 
 #[test]
-fn a_shape_stored_as_rounded_reads_as_round_and_is_written_as_round() {
+fn a_shape_is_written_with_only_the_fields_it_has() {
     let shape = json!({
         "type": "shape", "id": "s1", "box": { "x": 1, "y": 1, "w": 2, "h": 2 },
-        "shape": "rounded", "fill": "#ffffff", "style": null
+        "shape": "round", "fill": "#ffffff", "style": null
     });
     let frame: Frame = serde_json::from_value(shape).unwrap();
     let Frame::Shape(found) = &frame else {
@@ -130,6 +130,12 @@ fn a_shape_stored_as_rounded_reads_as_round_and_is_written_as_round() {
     for key in ["stroke", "strokeWidth", "radius", "flip"] {
         assert!(written.get(key).is_none(), "{key}");
     }
+    // The old name is not read: no book was ever made with it.
+    let old = json!({
+        "type": "shape", "id": "s2", "box": { "x": 1, "y": 1, "w": 2, "h": 2 },
+        "shape": "rounded", "fill": null, "style": null
+    });
+    assert!(serde_json::from_value::<Frame>(old).is_err());
 }
 
 #[test]

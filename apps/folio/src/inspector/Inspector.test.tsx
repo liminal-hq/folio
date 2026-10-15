@@ -366,14 +366,15 @@ describe('with a shape selected', () => {
 		const { apply } = setup([shape()], { paints });
 		await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Shape' }), 'speech');
 		expect(apply).toHaveBeenLastCalledWith({ type: 'SetShape', frame: 's1', kind: 'speech' });
-		fireEvent.change(screen.getByRole('spinbutton', { name: 'Outline width (pt)' }), {
-			target: { value: '3' },
-		});
-		expect(apply).toHaveBeenLastCalledWith({ type: 'SetShape', frame: 's1', strokeWidth: 3 });
-		fireEvent.change(screen.getByRole('spinbutton', { name: 'Corner roundness (pt)' }), {
-			target: { value: '12' },
-		});
-		expect(apply).toHaveBeenLastCalledWith({ type: 'SetShape', frame: 's1', radius: 12 });
+		// The boxes read and write in the book's units; the book keeps points.
+		const width = screen.getByRole('textbox', { name: 'Outline width (in)' });
+		await userEvent.clear(width);
+		await userEvent.type(width, '0.05{Enter}');
+		expect(apply).toHaveBeenLastCalledWith({ type: 'SetShape', frame: 's1', strokeWidth: 3.6 });
+		const radius = screen.getByRole('textbox', { name: 'Corner roundness (in)' });
+		await userEvent.clear(radius);
+		await userEvent.type(radius, '0.25{Enter}');
+		expect(apply).toHaveBeenLastCalledWith({ type: 'SetShape', frame: 's1', radius: 18 });
 	});
 
 	it('offers a line no fill, no way to clear its outline and a way to flip it', async () => {
@@ -381,7 +382,7 @@ describe('with a shape selected', () => {
 		expect(screen.queryByRole('group', { name: 'Fill' })).toBeNull();
 		const outline = within(screen.getByRole('group', { name: 'Outline' }));
 		expect(outline.queryByRole('button', { name: 'None' })).toBeNull();
-		expect(screen.queryByRole('spinbutton', { name: 'Corner roundness (pt)' })).toBeNull();
+		expect(screen.queryByRole('textbox', { name: 'Corner roundness (in)' })).toBeNull();
 		await userEvent.click(screen.getByRole('checkbox', { name: 'Run the other way' }));
 		expect(apply).toHaveBeenLastCalledWith({ type: 'SetShape', frame: 's1', flip: true });
 	});
@@ -389,9 +390,10 @@ describe('with a shape selected', () => {
 	it('leaves a locked shape as it is', async () => {
 		const { apply } = setup([shape({ locked: true })], { paints });
 		expect(screen.getByRole('combobox', { name: 'Shape' })).toBeDisabled();
-		await userEvent.click(
-			within(screen.getByRole('group', { name: 'Fill' })).getByRole('button', { name: 'Slate' }),
-		);
+		const fill = within(screen.getByRole('group', { name: 'Fill' }));
+		expect(fill.getByRole('button', { name: 'Slate' })).toBeDisabled();
+		expect(fill.getByRole('textbox')).toBeDisabled();
+		expect(screen.getByRole('textbox', { name: 'Outline width (in)' })).toBeDisabled();
 		expect(apply).not.toHaveBeenCalled();
 	});
 });

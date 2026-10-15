@@ -9,6 +9,7 @@ import type { FrameLayout } from '@liminal-hq/folio-protocol/generated/FrameLayo
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
 import { useRef, useState } from 'react';
+import { turned } from './turned';
 import { ShapeArt } from './ShapeArt';
 import styles from './SpreadCanvas.module.css';
 import './fonts.css';
@@ -166,13 +167,6 @@ function Furniture({ frame, images }: { frame: Frame; images: Record<string, str
 }
 
 const HANDLE_PX = 8;
-
-/** The turn of a frame about the middle of its box, as an SVG transform; nothing when it is upright. */
-function turned(frame: Frame): string | undefined {
-	if (!frame.rotation) return undefined;
-	const { x, y, w, h } = frame.box;
-	return `rotate(${frame.rotation} ${x + w / 2} ${y + h / 2})`;
-}
 /** The least a frame's click area is across, in points, so a line with no height can still be picked. */
 const MIN_HIT = 10;
 
@@ -270,6 +264,7 @@ export function SpreadCanvas({
 			setEditing(frame.id);
 	};
 	const byFrame = new Map(layout?.frames.map((f) => [f.frame, f]));
+	const furniture = masterFurniture(book, spread);
 	const grid = book.grid;
 
 	return (
@@ -343,15 +338,25 @@ export function SpreadCanvas({
 				/>
 				{/* The master pages' own text sits behind the page's frames. */}
 				{layout?.frames.map((laid) =>
-					laid.origin ? (
+					// A master shape's words are drawn over the shape, below.
+					laid.origin && !furniture.some((f) => f.id === laid.frame) ? (
 						<Lines key={laid.frame} id={laid.frame} at={laid.origin} layout={laid} />
 					) : null,
 				)}
-				{masterFurniture(book, spread).map((frame) => (
-					<g key={frame.id} data-master-item={frame.id} pointerEvents="none">
-						<Furniture frame={frame} images={images} />
-					</g>
-				))}
+				{furniture.map((frame) => {
+					const words = layout?.frames.find((l) => l.frame === frame.id && l.origin);
+					return (
+						<g
+							key={frame.id}
+							data-master-item={frame.id}
+							pointerEvents="none"
+							transform={turned(frame)}
+						>
+							<Furniture frame={frame} images={images} />
+							{words?.origin && <Lines id={words.frame} at={words.origin} layout={words} />}
+						</g>
+					);
+				})}
 				{frames.map((frame) => (
 					<g key={frame.id} transform={turned(frame)}>
 						<Furniture frame={frame} images={images} />

@@ -2110,3 +2110,42 @@ fn a_shape_turns_to_an_angle_kept_in_a_full_turn_and_other_frames_do_not_turn() 
         SessionError::NotShape("fr_text".into())
     );
 }
+
+#[test]
+fn changing_the_kind_or_clearing_a_colour_is_its_own_undo_step() {
+    let mut s = session_with_shape();
+    s.apply(shape_set(None, Some(1.0), None)).unwrap();
+    s.apply(shape_set(None, Some(2.0), None)).unwrap();
+    s.apply(shape_set(None, None, Some(folio_model::Shape::Ellipse)))
+        .unwrap();
+    s.apply(shape_set(Some(folio_model::Paint::None), None, None))
+        .unwrap();
+    s.undo().unwrap();
+    assert!(
+        shape_of(&s).fill.is_some(),
+        "clearing the fill is undone alone"
+    );
+    s.undo().unwrap();
+    assert_eq!(
+        shape_of(&s).shape,
+        folio_model::Shape::Rect,
+        "the kind alone"
+    );
+    s.undo().unwrap();
+    assert_eq!(shape_of(&s).stroke_width, None, "the two widths together");
+}
+
+#[test]
+fn turning_a_shape_into_a_line_takes_its_words_with_it_and_undo_brings_them_back() {
+    let mut s = session_with_shape();
+    s.apply(Intent::SetText {
+        frame: frame("fr_shape"),
+        text: "Hello".into(),
+    })
+    .unwrap();
+    s.apply(shape_set(None, None, Some(folio_model::Shape::Line)))
+        .unwrap();
+    assert!(shape_of(&s).content.is_none());
+    s.undo().unwrap();
+    assert!(shape_of(&s).content.is_some());
+}
