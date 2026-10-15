@@ -11,7 +11,7 @@ use ts_rs::TS;
 use crate::flow::Flow;
 use crate::frame::Frame;
 use crate::ids::{BookId, MasterId};
-use crate::spread::Spread;
+use crate::spread::{Guide, Spread};
 use crate::units::{Margins, Pt, Size};
 
 /// The `book.json` schema version this build writes (and the newest it reads).
@@ -85,6 +85,10 @@ pub struct Master {
     pub id: MasterId,
     pub name: String,
     pub frames: Vec<Frame>,
+    /// Ruler guides that show on every page using this master, in the page's own points (the
+    /// origin is the top-left of its trim). Named by their place in the list, as on a spread.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub guides: Vec<Guide>,
 }
 
 /// Where the page numbers go.

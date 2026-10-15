@@ -37,6 +37,40 @@ export function pageAt(book: Book, spread: Spread, point: { x: number }): number
 	return point.x < 0 ? 0 : pages.length - 1;
 }
 
+/**
+ * The pictures and shapes of the masters a spread's pages use, moved to where they sit on the
+ * spread and not hidden on their page. Their words are laid out by Rust, so text is left out. Each
+ * id is the master frame's and the page's, joined by `@`, as for laid-out master text.
+ */
+export function masterFurniture(book: Book, spread: Spread): Frame[] {
+	const out: Frame[] = [];
+	spread.pages.forEach((page, index) => {
+		const master = page.master ? book.masterPages?.find((m) => m.id === page.master) : undefined;
+		if (!master) return;
+		const hidden = new Set(spread.masterOverrides.find((o) => o.pageId === page.id)?.hide ?? []);
+		for (const frame of master.frames) {
+			if (frame.type === 'text' || frame.type === 'group' || hidden.has(frame.id)) continue;
+			out.push({
+				...frame,
+				id: `${frame.id}@${page.id}`,
+				box: { ...frame.box, x: frame.box.x + book.trim.w * index },
+			});
+		}
+	});
+	return out;
+}
+
+/** The master the page under `point` uses, or `null` when it has none. */
+export function masterAt(
+	book: Book,
+	spread: Spread,
+	point: { x: number },
+): { id: string; name: string } | null {
+	const page = spread.pages[pageAt(book, spread, point)];
+	const master = page?.master ? book.masterPages?.find((m) => m.id === page.master) : undefined;
+	return master ? { id: master.id, name: master.name } : null;
+}
+
 /** The master items of the page under `point`, each with whether this page hides it. */
 export function masterItemsAt(book: Book, spread: Spread, point: { x: number }): MasterItem[] {
 	const page = spread.pages[pageAt(book, spread, point)];

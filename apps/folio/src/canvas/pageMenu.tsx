@@ -17,6 +17,8 @@ export type PageCommand =
 	| 'duplicateSpread'
 	| 'toggleMargins'
 	| 'toggleGrid'
+	/** `editMaster:<master>` opens that master page to edit. */
+	| `editMaster:${string}`
 	/** `hideMaster:<page>:<frame>` hides a master item on one page; `showMaster:…` shows it again. */
 	| `${'hideMaster' | 'showMaster'}:${string}:${string}`;
 
@@ -38,20 +40,29 @@ export function pageMenuItems(
 	marks: Marks,
 	canDuplicate: boolean,
 	masterItems: MasterItem[] = [],
+	/** On a master page there are no more pages to add, and no master items to hide. */
+	onMaster = false,
+	editMaster: { id: string; name: string } | null = null,
 ): MenuItem[] {
+	const pages: MenuItem[] = onMaster
+		? []
+		: [
+				{ type: 'separator' },
+				{ type: 'action', id: 'addPages', label: t('page.addPages'), icon: <AddPagesIcon /> },
+				{
+					type: 'action',
+					id: 'duplicateSpread',
+					label: t('page.duplicateSpread'),
+					icon: <DuplicateIcon />,
+					disabled: !canDuplicate,
+				},
+			];
+	const hide = onMaster ? [] : masterItems;
 	return [
 		{ type: 'action', id: 'addText', label: t('page.addText'), icon: <Box /> },
 		{ type: 'action', id: 'addPicture', label: t('page.addPicture'), icon: <Box /> },
 		{ type: 'action', id: 'addNote', label: t('page.addNote'), icon: <Box /> },
-		{ type: 'separator' },
-		{ type: 'action', id: 'addPages', label: t('page.addPages'), icon: <AddPagesIcon /> },
-		{
-			type: 'action',
-			id: 'duplicateSpread',
-			label: t('page.duplicateSpread'),
-			icon: <DuplicateIcon />,
-			disabled: !canDuplicate,
-		},
+		...pages,
 		{ type: 'separator' },
 		{ type: 'checkbox', id: 'toggleMargins', label: t('page.showMargins'), checked: marks.margins },
 		{
@@ -60,8 +71,18 @@ export function pageMenuItems(
 			label: t('page.showGrid'),
 			checked: marks.columns || marks.baseline,
 		},
-		...(masterItems.length > 0 ? [{ type: 'separator' } as const] : []),
-		...masterItems.map((item): MenuItem => ({
+		...(hide.length > 0 || editMaster ? [{ type: 'separator' } as const] : []),
+		...(editMaster
+			? [
+					{
+						type: 'action',
+						id: `editMaster:${editMaster.id}`,
+						label: t('page.editMaster', { name: editMaster.name }),
+						icon: <Box />,
+					} as MenuItem,
+				]
+			: []),
+		...hide.map((item): MenuItem => ({
 			type: 'action',
 			id: `${item.hidden ? 'showMaster' : 'hideMaster'}:${item.page}:${item.frame}`,
 			label: t(item.hidden ? 'page.showMaster' : 'page.hideMaster', { name: item.label }),

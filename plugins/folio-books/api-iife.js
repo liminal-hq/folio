@@ -62,6 +62,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function redo(id) {
         return cmd('redo', { id });
     }
+    /** A master page's text laid out on a page of its own, with `{page}` and other tokens as written. */
+    function layoutMaster(id, master) {
+        return cmd('layout_master', { id, master });
+    }
     /** Lays out one spread of an open book: where every line of text goes, and the preflight checks on it. */
     function layoutSpread(id, spread) {
         return cmd('layout_spread', { id, spread });
@@ -91,6 +95,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.defaultSavePath = defaultSavePath;
     exports.getStatus = getStatus;
     exports.importImage = importImage;
+    exports.layoutMaster = layoutMaster;
     exports.layoutSpread = layoutSpread;
     exports.listBooks = listBooks;
     exports.newBook = newBook;

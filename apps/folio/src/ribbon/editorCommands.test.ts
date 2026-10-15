@@ -55,6 +55,21 @@ describe('editorState', () => {
 		expect(editorState(input([], { spreadCount: 1 })).available.has('delPage')).toBe(false);
 	});
 
+	it('offers the master pages on any spread, and asks to edit them with the master button', () => {
+		const plain = input();
+		expect(editorState(plain).available.has('master')).toBe(true);
+		expect(editorAction('master', undefined, plain)).toEqual({ kind: 'editMaster' });
+	});
+
+	it('keeps page operations and guide clearing for the spreads, and not for a master page', () => {
+		const onMaster = editorState(input([], { master: true }));
+		expect(onMaster.active.master).toBe(true);
+		expect(onMaster.available.has('master')).toBe(true);
+		for (const id of ['addPage', 'dupPage', 'delPage', 'rgClear']) {
+			expect(onMaster.available.has(id)).toBe(false);
+		}
+	});
+
 	it('turns on the text controls for a text frame and shows how it is set', () => {
 		const s = editorState(
 			input([text({ overrides: { size: 18, align: 'center', bold: true, italic: null } })]),

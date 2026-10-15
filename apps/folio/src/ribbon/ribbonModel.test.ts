@@ -60,6 +60,8 @@ describe('the ribbon layout', () => {
 		const pages = model.tabs.find((tab) => tab.id === 'pages');
 		expect(pages?.groups.find((g) => g.id === 'pages.masters')?.expert).toBe(true);
 		expect(allItems(model).find((item) => item.id === 'justify')?.expert).toBe(true);
+		// It shows pressed while a master is open, which only a toggle can.
+		expect(allItems(model).find((item) => item.id === 'master')?.kind).toBe('toggle');
 	});
 });
 

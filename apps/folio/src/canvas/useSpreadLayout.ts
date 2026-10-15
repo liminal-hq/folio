@@ -17,14 +17,15 @@ export function useSpreadLayout(
 	bookId: string,
 	spread: string | null,
 	revision: number,
+	/** Whether `spread` is a master page's id, laid out with its tokens as written. */
+	master = false,
 ): SpreadLayout | null {
 	const [held, setHeld] = useState<{ key: string; layout: SpreadLayout } | null>(null);
 
 	useEffect(() => {
 		if (spread === null) return;
 		let current = true;
-		client
-			.layoutSpread(bookId, spread)
+		(master ? client.layoutMaster(bookId, spread) : client.layoutSpread(bookId, spread))
 			.then((result) => {
 				if (current) setHeld({ key: `${bookId}/${spread}`, layout: result.layout });
 			})
@@ -35,7 +36,7 @@ export function useSpreadLayout(
 		return () => {
 			current = false;
 		};
-	}, [client, bookId, spread, revision]);
+	}, [client, bookId, spread, revision, master]);
 
 	return held !== null && held.key === `${bookId}/${spread}` ? held.layout : null;
 }

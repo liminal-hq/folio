@@ -17,7 +17,9 @@ import { fitZoom, PX_PER_POINT, spreadGeometry } from './geometry';
 import { guideMenuItems, isGuideCommand } from './guideMenu';
 import type { GuideAxis, GuideCommand } from './guides';
 import { MarksMenu } from './MarksMenu';
-import { masterItemsAt } from './masterItems';
+import { masterAt, masterItemsAt } from './masterItems';
+import { canPromote, masterGuidesOn } from './masterGuides';
+import { isMasterSpread } from './masterView';
 import {
 	DEFAULT_MARK_COLOURS,
 	DEFAULT_MARKS,
@@ -44,6 +46,8 @@ export interface StageProps {
 	spread: Spread;
 	/** What the shelf calls this spread: "Cover", "Pages 2–3". */
 	label: string;
+	/** Replaces the "Spread …" title, for a page that is not one of the book's spreads. */
+	heading?: string;
 	layout: SpreadLayout | null;
 	marks?: Marks;
 	colours?: MarkColours;
@@ -69,12 +73,17 @@ export interface StageProps {
 	onEditText?(id: string, text: string): void;
 	/** A choice from the page menu; `point` is where it was asked for, in points on the spread. */
 	onPageCommand?(command: PageCommand, point: { x: number; y: number }): void;
+	/** The spread a master's guide goes back onto from its menu, while a master is edited. */
+	demoteTo?: string | null;
+	/** Whether the page menu offers to edit the master page under the pointer (Expert). */
+	editableMasters?: boolean;
 }
 
 export function Stage({
 	book,
 	spread,
 	label,
+	heading,
 	layout,
 	marks,
 	colours,
@@ -95,6 +104,8 @@ export function Stage({
 	onCommand,
 	onEditText,
 	onPageCommand,
+	editableMasters = false,
+	demoteTo = null,
 }: StageProps) {
 	const [ref, size] = useElementSize<HTMLDivElement>();
 	const geometry = spreadGeometry(book, spread);
@@ -137,7 +148,10 @@ export function Stage({
 				geometry,
 				spread.frames,
 				[],
-				spread.guides.flatMap((g, i) => (i === moving ? [] : [{ axis: g.axis, pos: g.pos }])),
+				[
+					...spread.guides.flatMap((g, i) => (i === moving ? [] : [{ axis: g.axis, pos: g.pos }])),
+					...masterGuidesOn(book, spread).map((g) => ({ axis: g.axis, pos: g.pos })),
+				],
 			),
 		fineStep: RULER_UNITS[rulerUnit].fineStep,
 		snap: snap ?? true,
@@ -153,7 +167,7 @@ export function Stage({
 	return (
 		<>
 			<div className={styles.header}>
-				<h1 className={styles.title}>{t('stage.spread', { label })}</h1>
+				<h1 className={styles.title}>{heading ?? t('stage.spread', { label })}</h1>
 				<div className={styles.tools}>
 					{onMarks && onMarkColour && (
 						<MarksMenu
@@ -261,7 +275,16 @@ export function Stage({
 			)}
 			{guideMenu && spread.guides[guideMenu.index] && (
 				<ContextMenu
-					items={guideMenuItems(spread.guides[guideMenu.index]!)}
+					items={guideMenuItems(spread.guides[guideMenu.index]!, {
+						// Every-page guides are made and unmade in Expert, where masters can be edited.
+						canPromote:
+							isMasterSpread(spread) || !editableMasters
+								? undefined
+								: canPromote(book, spread, spread.guides[guideMenu.index]!),
+						canDemote: isMasterSpread(spread)
+							? demoteTo != null && !spread.guides[guideMenu.index]!.locked
+							: undefined,
+					})}
 					position={guideMenu.at}
 					ariaLabel={t('guide.menu')}
 					onSelect={(item) => {
@@ -305,6 +328,10 @@ export function Stage({
 						marks ?? DEFAULT_MARKS,
 						spread.kind !== 'cover',
 						masterItemsAt(book, spread, pageMenu.point),
+						isMasterSpread(spread),
+						editableMasters && !isMasterSpread(spread)
+							? masterAt(book, spread, pageMenu.point)
+							: null,
 					)}
 					position={pageMenu.at}
 					ariaLabel={t('page.menu')}

@@ -10,6 +10,8 @@ use thiserror::Error;
 pub enum SessionError {
     #[error("there is no spread `{0}`")]
     NoSuchSpread(String),
+    #[error("there is no master page `{0}`")]
+    NoSuchMaster(String),
     #[error("there is no frame `{0}`")]
     NoSuchFrame(String),
     #[error("a frame `{0}` is already in the book")]
@@ -30,14 +32,20 @@ pub enum SessionError {
     BadAsset(String),
     #[error("the frame `{0}` belongs to a master page")]
     FromMaster(String),
+    #[error("the page number `{0}` comes from the page numbers choice: change that to remove it")]
+    PageNumber(String),
     #[error("the frame `{0}` is locked")]
     Locked(String),
     #[error("the frame `{0}` is not on spread `{1}`")]
     NotOnSpread(String, String),
-    #[error("there is no guide {0} on spread `{1}`")]
+    #[error("there is no guide {0} on `{1}`")]
     NoSuchGuide(usize, String),
     #[error("guide {0} is locked")]
     GuideLocked(usize),
+    #[error("a guide in the gutter, off the pages or on the cover cannot go on every page")]
+    CannotPromote,
+    #[error("the master page `{0}` is not used on spread `{1}`")]
+    MasterNotOnSpread(String, String),
     #[error("a guide needs a position on the page")]
     BadGuide,
 }

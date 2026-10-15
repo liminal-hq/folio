@@ -10,6 +10,7 @@ import {
 	closeBook,
 	defaultSavePath,
 	importImage,
+	layoutMaster,
 	layoutSpread,
 	listBooks,
 	newBook,
@@ -52,6 +53,8 @@ export interface BooksClient {
 	redo(id: string): Promise<Patch | null>;
 	/** The spread's text shaped and broken into lines, from the book at the revision it carries. */
 	layoutSpread(id: string, spread: string): Promise<SpreadLayoutResult>;
+	/** A master page's text laid out on a page of its own, with `{page}` and other tokens as written. */
+	layoutMaster(id: string, master: string): Promise<SpreadLayoutResult>;
 	/** Reads a picture file into the book; resolves to its path inside the book. */
 	importImage(id: string, path: string): Promise<string>;
 	/** One of the book's pictures as raw bytes. */
@@ -73,6 +76,7 @@ export const tauriBooksClient: BooksClient = {
 	undo,
 	redo,
 	layoutSpread,
+	layoutMaster,
 	importImage,
 	assetData,
 	async subscribe(listener) {

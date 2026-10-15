@@ -4,7 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    Book, Flow, Frame, FrameId, InlineContent, Pt, Spread, SpreadId, SpreadKind, StyleId, TextFrame,
+    Book, Flow, Frame, FrameId, InlineContent, MasterId, Pt, Spread, SpreadId, SpreadKind, StyleId,
+    TextFrame,
 };
 
 use crate::error::LayoutError;
@@ -54,6 +55,25 @@ impl<'a> Layouter<'a> {
             return Ok(None);
         };
         self.spread(spread).map(Some)
+    }
+
+    /// The text of the master `id` on a page of its own, with `{page}` and the other tokens as they
+    /// are written, so the master can be edited. `spread` in the answer is the master's id.
+    pub fn layout_master(&self, id: &MasterId) -> Result<Option<SpreadLayout>, LayoutError> {
+        let Some(master) = self.book.master_pages.iter().find(|m| &m.id == id) else {
+            return Ok(None);
+        };
+        let mut frames = Vec::new();
+        for frame in &master.frames {
+            if let Frame::Text(text) = frame {
+                frames.push(self.own_text(text)?.0);
+            }
+        }
+        Ok(Some(SpreadLayout {
+            spread: SpreadId(id.0.clone()),
+            frames,
+            preflight: Vec::new(),
+        }))
     }
 
     fn spread(&self, spread: &Spread) -> Result<SpreadLayout, LayoutError> {

@@ -8,6 +8,7 @@ import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
 import type { Marks } from '../canvas/marksModel';
+import { surfaceOf } from '../canvas/masterView';
 import type { NewFrameKind } from '../canvas/newFrames';
 import type { StyleChoice } from '../inspector/styleChoices';
 import { effectiveSize, withOverrides } from '../inspector/textFacts';
@@ -24,6 +25,8 @@ export interface EditorInput {
 	snap: boolean;
 	/** Whether the rulers show. */
 	rulers: boolean;
+	/** Whether `spread` is a master page being edited, not one of the book's spreads. */
+	master?: boolean;
 }
 
 /** What the controls show: which can be used now, which are pressed, the numbers, the extra tabs. */
@@ -45,7 +48,8 @@ export type EditorAction =
 	| { kind: 'page'; op: 'add' | 'duplicate' | 'remove' }
 	| { kind: 'choosePicture'; frame: string }
 	| { kind: 'stretch'; frame: string }
-	| { kind: 'fit'; frame: string; fit: 'fill' | 'fit' };
+	| { kind: 'fit'; frame: string; fit: 'fill' | 'fit' }
+	| { kind: 'editMaster' };
 
 const ALIGNS: Record<string, 'left' | 'center' | 'right' | 'justify'> = {
 	alignL: 'left',
@@ -90,11 +94,17 @@ export function editorState(input: EditorInput): EditorState {
 	const values: Record<string, number> = {};
 	const contextual: string[] = [];
 
-	if (spread.kind !== 'cover') {
-		available.add('dupPage');
-		if (input.spreadCount > 1) available.add('delPage');
+	if (input.master) {
+		available.delete('addPage');
+	} else {
+		if (spread.kind !== 'cover') {
+			available.add('dupPage');
+			if (input.spreadCount > 1) available.add('delPage');
+		}
+		if (spread.guides.some((g) => !g.locked)) available.add('rgClear');
 	}
-	if (spread.guides.some((g) => !g.locked)) available.add('rgClear');
+	if (input.master) active.master = true;
+	available.add('master');
 	if (selected.length > 0) available.add('lock');
 	if (selected.length > 0 && selected.every((f) => f.locked)) active.lock = true;
 	if (free(selected).length > 0) {
@@ -128,7 +138,7 @@ export function editorAction(
 	input: EditorInput,
 ): EditorAction | null {
 	const { spread, selected } = input;
-	const on = { spread: spread.id };
+	const on = { on: surfaceOf(spread) };
 	switch (id) {
 		case 'text':
 			return { kind: 'add', shape: 'text' };
@@ -160,6 +170,8 @@ export function editorAction(
 			return { kind: 'rulers' };
 		case 'rguides':
 			return { kind: 'marks', marks: { guides: !input.marks.guides } };
+		case 'master':
+			return { kind: 'editMaster' };
 		case 'rgClear':
 			return { kind: 'intents', intents: [{ type: 'ClearGuides', spread: spread.id }] };
 		case 'zoomIn':

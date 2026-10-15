@@ -36,6 +36,17 @@ describe('the Marks menu', () => {
 		expect(screen.queryByRole('dialog')).toBeNull();
 	});
 
+	it('keeps its Escape to itself, so the page behind it does not hear it', async () => {
+		setup();
+		await userEvent.click(screen.getByRole('button', { name: 'Marks' }));
+		const heard: boolean[] = [];
+		const later = (event: KeyboardEvent) => heard.push(event.defaultPrevented);
+		window.addEventListener('keydown', later);
+		await userEvent.keyboard('{Escape}');
+		window.removeEventListener('keydown', later);
+		expect(heard).toEqual([true]);
+	});
+
 	it('switches a mark on and off', async () => {
 		const { onMarks } = setup();
 		await userEvent.click(screen.getByRole('button', { name: 'Marks' }));

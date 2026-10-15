@@ -42,14 +42,25 @@ describe('guideIntents', () => {
 	const spread = { id: 'sp' } as unknown as Spread;
 	it('locks, unlocks and deletes the guide named', () => {
 		expect(guideIntents('lock', spread, 2)).toEqual([
-			{ type: 'LockGuide', spread: 'sp', index: 2, locked: true },
+			{ type: 'LockGuide', on: { spread: 'sp' }, index: 2, locked: true },
 		]);
 		expect(guideIntents('unlock', spread, 2)).toEqual([
-			{ type: 'LockGuide', spread: 'sp', index: 2, locked: false },
+			{ type: 'LockGuide', on: { spread: 'sp' }, index: 2, locked: false },
 		]);
 		expect(guideIntents('delete', spread, 2)).toEqual([
-			{ type: 'RemoveGuide', spread: 'sp', index: 2 },
+			{ type: 'RemoveGuide', on: { spread: 'sp' }, index: 2 },
 		]);
+	});
+	it('puts a guide on every page, and a master guide back on the spread it was on', () => {
+		expect(guideIntents('promote', spread, 1)).toEqual([
+			{ type: 'PromoteGuide', spread: 'sp', index: 1 },
+		]);
+		const master = { id: 'master:mst_a' } as unknown as Spread;
+		expect(guideIntents('demote', master, 0, 'sp_1')).toEqual([
+			{ type: 'DemoteGuide', master: 'mst_a', index: 0, spread: 'sp_1' },
+		]);
+		expect(guideIntents('demote', master, 0, null)).toEqual([]);
+		expect(guideIntents('promote', master, 0)).toEqual([]);
 	});
 	it("clears the spread's guides, or every spread's", () => {
 		expect(guideIntents('clearSpread', spread, 0)).toEqual([{ type: 'ClearGuides', spread: 'sp' }]);

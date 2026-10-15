@@ -107,6 +107,15 @@ describe('selecting', () => {
 		expect(hit('b')).toHaveAttribute('aria-selected', 'false');
 	});
 
+	it('leaves Escape for others when there is nothing to let go of', () => {
+		render(<Harness />);
+		const svg = screen.getByRole('group', { name: 'Page' });
+		expect(fireEvent.keyDown(svg, { key: 'Escape' })).toBe(true);
+		fireEvent.pointerDown(hit('a'), { button: 0 });
+		fireEvent.pointerUp(svg);
+		expect(fireEvent.keyDown(svg, { key: 'Escape' })).toBe(false);
+	});
+
 	it('shows resize handles for one unlocked frame only', () => {
 		render(<Harness />);
 		fireEvent.pointerDown(hit('a'), { button: 0 });
