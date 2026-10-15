@@ -10,10 +10,11 @@ import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { PaintPresets } from '@liminal-hq/folio-protocol/generated/PaintPresets';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Segmented } from '../app/Segmented';
 import { t } from '../i18n/messages';
 import { ColourPicker } from '../inspector/ColourPicker';
+import { TexturePattern } from './textures';
 import { backgroundTargets, currentBackground, type BackgroundScope } from './backgroundScopes';
 import styles from './PageBackgroundDialog.module.css';
 
@@ -28,9 +29,23 @@ export interface PageBackgroundDialogProps {
 	onApply(intent: Intent): void;
 }
 
-type Kind = 'colour' | 'gradient';
+type Kind = 'colour' | 'gradient' | 'texture';
 
-const kindOf = (bg: Background | null): Kind => (bg?.type === 'gradient' ? 'gradient' : 'colour');
+const kindOf = (bg: Background | null): Kind =>
+	bg?.type === 'gradient' ? 'gradient' : bg?.type === 'texture' ? 'texture' : 'colour';
+
+/** A small sample of a texture, to choose it by. */
+function TextureSample({ texture, tint }: { texture: string; tint?: string | null }) {
+	const id = `sample-${useId().replace(/[^A-Za-z0-9_-]/g, '')}`;
+	return (
+		<svg width="64" height="40" aria-hidden="true">
+			<defs>
+				<TexturePattern id={id} texture={texture} tint={tint} />
+			</defs>
+			<rect width="64" height="40" fill={`url(#${id})`} />
+		</svg>
+	);
+}
 
 const css = (bg: Extract<Background, { type: 'gradient' }>) =>
 	`linear-gradient(${bg.angle}deg, ${bg.stops.map((s) => `${s.colour} ${s.at * 100}%`).join(', ')})`;
@@ -98,7 +113,7 @@ export function PageBackgroundDialog({
 				<Segmented
 					label={t('background.kind')}
 					value={kind}
-					options={(['colour', 'gradient'] as const).map((k) => ({
+					options={(['colour', 'gradient', 'texture'] as const).map((k) => ({
 						value: k,
 						label: t(`background.kind.${k}`),
 					}))}
@@ -112,6 +127,39 @@ export function PageBackgroundDialog({
 						allowNone
 						onPick={(colour) => set(colour === null ? null : { type: 'colour', colour })}
 					/>
+				) : kind === 'texture' ? (
+					<>
+						<div className={styles.gradients} role="group" aria-label={t('background.texture')}>
+							{(presets?.textures ?? []).map((tx) => (
+								<button
+									key={tx.id}
+									type="button"
+									className={styles.gradient}
+									aria-label={tx.name}
+									aria-pressed={now?.type === 'texture' && now.id === tx.id}
+									title={tx.name}
+									onClick={() =>
+										set({
+											type: 'texture',
+											id: tx.id,
+											tint: now?.type === 'texture' ? now.tint : null,
+										})
+									}
+								>
+									<TextureSample texture={tx.id} tint={now?.type === 'texture' ? now.tint : null} />
+								</button>
+							))}
+						</div>
+						{now?.type === 'texture' && (
+							<ColourPicker
+								label={t('background.tint')}
+								value={now.tint ?? null}
+								swatches={presets?.swatches ?? []}
+								allowNone
+								onPick={(tint) => set({ type: 'texture', id: now.id, tint })}
+							/>
+						)}
+					</>
 				) : (
 					<div className={styles.gradients} role="group" aria-label={t('background.gradient')}>
 						{(presets?.gradients ?? []).map((g) => {

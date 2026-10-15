@@ -20,9 +20,9 @@ A background is one of four kinds, stored as `{ "type": …, … }`:
 
 A page shows its own background, else the one across its spread, else its master's, else the paper. See D-23.
 
-**Setting one:** the ribbon's Pages → Page background button, or "Page background…" on the page's context menu, opens a dialog. It asks where the background goes (both pages, the left or right page, or every page; a single page offers this page and every page), then what it is (Colour with the swatches and a hex box, or a Gradient from the presets). A choice applies at once, so the page behind shows it, and the tries on one page are one undo step. "Remove background" clears the chosen place. Textures and pictures join the dialog as they are drawn.
+**Setting one:** the ribbon's Pages → Page background button, or "Page background…" on the page's context menu, opens a dialog. It asks where the background goes (both pages, the left or right page, or every page; a single page offers this page and every page), then what it is (Colour with the swatches and a hex box, a Gradient from the presets, or a Texture with an optional tint). A choice applies at once, so the page behind shows it, and the tries on one page are one undo step. "Remove background" clears the chosen place. Pictures join the dialog next.
 
-Bundled textures (Linen, Laid paper, Kraft, Watercolour wash, Dot grid) ship as small tileable PNGs in the app. The prototype draws them with CSS gradients. Gradients: Dusk, Meadow, Sea, Peach, Night. A picture background is an image asset with Fill / Fit, preflighted for resolution like any picture.
+Bundled textures are Folio's own, drawn by the app as tiles of a fixed size in points so they look the same on every book and run on through the gutter: Linen (`linen`), Laid paper (`laid-paper`), Kraft (`kraft`), Watercolour wash (`watercolour`) and Dot grid (`dot-grid`). A texture may be tinted, which replaces its base colour. A book that names a texture an older build cannot draw shows the paper, and an intent naming an unknown id is refused. Gradients: Dawn, Meadow, Dusk, Lagoon, Paper fade. A picture background is an image asset with Fill / Fit, preflighted for resolution like any picture.
 
 ## Shapes and bubbles (Insert → Shapes / Bubbles)
 

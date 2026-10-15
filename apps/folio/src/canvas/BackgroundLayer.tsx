@@ -8,17 +8,20 @@ import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import { useId } from 'react';
 import { gradientLine, paintRects, resolveBackgrounds, type Rect } from './backgrounds';
+import { hasTexture, TexturePattern } from './textures';
 
 /** What a background paints with, and the `<defs>` it needs: a colour, or a gradient by id. */
 function Fill({
 	bg,
 	rect,
 	id,
+	thumbnail,
 	children,
 }: {
 	bg: Background;
 	rect: Rect;
 	id: string;
+	thumbnail: boolean;
 	children(fill: string): React.ReactNode;
 }) {
 	if (bg.type === 'colour') return <>{children(bg.colour)}</>;
@@ -37,7 +40,19 @@ function Fill({
 			</>
 		);
 	}
-	// Textures and pictures are drawn once they can be fetched; until then the paper shows.
+	if (bg.type === 'texture') {
+		// A texture this build cannot draw leaves the paper showing.
+		if (!hasTexture(bg.id)) return null;
+		return (
+			<>
+				<defs>
+					<TexturePattern id={id} texture={bg.id} tint={bg.tint} simple={thumbnail} />
+				</defs>
+				{children(`url(#${id})`)}
+			</>
+		);
+	}
+	// Pictures are drawn once they can be fetched; until then the paper shows.
 	return null;
 }
 
@@ -46,7 +61,16 @@ function Fill({
  * is drawn once over the spread and cut at each page that takes it, so a gradient runs through the
  * gutter. It never takes a click, so the paper under it still does.
  */
-export function BackgroundLayer({ book, spread }: { book: Book; spread: Spread }) {
+export function BackgroundLayer({
+	book,
+	spread,
+	thumbnail = false,
+}: {
+	book: Book;
+	spread: Spread;
+	/** A small proof, as on the shelf, which leaves out what only a full page can show. */
+	thumbnail?: boolean;
+}) {
 	const key = useId().replace(/[^A-Za-z0-9_-]/g, '');
 	const resolved = resolveBackgrounds(book.masterPages ?? [], spread);
 	const rects = paintRects(book, spread);
@@ -74,7 +98,7 @@ export function BackgroundLayer({ book, spread }: { book: Book; spread: Spread }
 								/>
 							</clipPath>
 						</defs>
-						<Fill bg={shown.bg} rect={rect} id={`${key}-bg-${index}`}>
+						<Fill bg={shown.bg} rect={rect} id={`${key}-bg-${index}`} thumbnail={thumbnail}>
 							{(fill) => <rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} fill={fill} />}
 						</Fill>
 					</g>

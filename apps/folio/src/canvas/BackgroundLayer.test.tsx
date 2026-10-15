@@ -126,12 +126,55 @@ describe('BackgroundLayer', () => {
 		expect(gradient!.id).not.toMatch(/[:\s]/);
 	});
 
-	it('leaves a texture or picture out until it can be drawn', () => {
+	it('paints a texture as a pattern tile, tinted when asked', () => {
 		const layer = drawn(
 			spreadOf(1, {
-				pages: [{ id: 'p0', master: null, bg: { type: 'texture', id: 'linen' } }],
+				pages: [{ id: 'p0', master: null, bg: { type: 'texture', id: 'linen', tint: '#aabbcc' } }],
 			} as Partial<Spread>),
 		);
-		expect(layer.querySelectorAll('rect[fill]')).toHaveLength(0);
+		const pattern = layer.querySelector('pattern');
+		expect(pattern).not.toBeNull();
+		expect(pattern!.querySelector('rect')?.getAttribute('fill')).toBe('#aabbcc');
+		expect(layer.querySelector('[data-background] > rect')?.getAttribute('fill')).toBe(
+			`url(#${pattern!.id})`,
+		);
+	});
+
+	it('leaves the paper showing for a texture this build cannot draw, and for a picture not yet drawn', () => {
+		for (const bg of [
+			{ type: 'texture', id: 'from-the-future' },
+			{ type: 'picture', asset: 'assets/images/a.jpg', fit: 'fill', focus: [0.5, 0.5] },
+		]) {
+			const layer = drawn(
+				spreadOf(1, { pages: [{ id: 'p0', master: null, bg }] } as unknown as Partial<Spread>),
+			);
+			expect(layer.querySelectorAll('rect[fill]')).toHaveLength(0);
+		}
+	});
+});
+
+describe('a thumbnail', () => {
+	const kraft = (thumbnail: boolean) =>
+		render(
+			<svg>
+				<BackgroundLayer
+					book={book}
+					spread={spreadOf(1, {
+						pages: [{ id: 'p0', master: null, bg: { type: 'texture', id: 'kraft' } }],
+					} as unknown as Partial<Spread>)}
+					thumbnail={thumbnail}
+				/>
+			</svg>,
+		).container;
+
+	it('leaves out the filters of a texture, which a small proof cannot show, and keeps its colour', () => {
+		expect(kraft(false).querySelector('filter')).not.toBeNull();
+		const small = kraft(true);
+		expect(small.querySelector('filter')).toBeNull();
+		expect(small.querySelector('pattern rect')).not.toBeNull();
+	});
+
+	it('stitches the kraft noise so its tiles join', () => {
+		expect(kraft(false).querySelector('feTurbulence')?.getAttribute('stitchTiles')).toBe('stitch');
 	});
 });

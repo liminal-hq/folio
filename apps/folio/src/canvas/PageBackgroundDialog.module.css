@@ -40,6 +40,8 @@
 	border: 1px solid var(--folio-border-subtle);
 	border-radius: 6px;
 	cursor: pointer;
+	overflow: hidden;
+	line-height: 0;
 }
 
 .gradient[aria-pressed='true'] {
