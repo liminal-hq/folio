@@ -6,6 +6,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::background::Background;
 use crate::book::{Grid, PageNumbers};
 use crate::frame::{Fit, Frame, StyleOverrides};
 use crate::ids::{FrameId, MasterId, PageId, SpreadId, StyleId};
@@ -28,6 +29,19 @@ pub struct FrameMove {
 pub enum Surface {
     Spread(SpreadId),
     Master(MasterId),
+}
+
+/// What a background is set on.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum BackgroundTarget {
+    /// One page of a spread.
+    Page { spread: SpreadId, page: PageId },
+    /// Both pages of a spread, through the gutter. A single page has no such thing.
+    Span { spread: SpreadId },
+    /// Every page after the cover that has none of its own, by way of the masters they use.
+    EveryPage,
 }
 
 // ── Intents (UI → core) ──
@@ -87,6 +101,12 @@ pub enum Intent {
         spread: SpreadId,
         page: PageId,
         frame: FrameId,
+    },
+    /// Sets, or with `None` clears, a background (D-23). "Every page" makes the masters if the book
+    /// has none, and a page's own background still wins over its master's.
+    SetBackground {
+        target: BackgroundTarget,
+        bg: Option<Background>,
     },
     /// Puts a ruler guide on a spread, or on a master page so it shows on every page using it.
     AddGuide {

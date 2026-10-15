@@ -1967,3 +1967,161 @@ fn a_page_number_cannot_be_copied_to_a_page_and_a_frame_off_the_master_is_refuse
         SessionError::NoSuchFrame("fr_other".into())
     );
 }
+
+fn colour_bg(hex: &str) -> Option<folio_model::Background> {
+    Some(folio_model::Background::Colour {
+        colour: folio_model::Colour(hex.into()),
+    })
+}
+
+fn set_bg(target: folio_model::BackgroundTarget, bg: Option<folio_model::Background>) -> Intent {
+    Intent::SetBackground { target, bg }
+}
+
+#[test]
+fn a_page_and_a_spread_take_a_background_that_is_stored_tidy_and_undone() {
+    use folio_model::BackgroundTarget::{Page, Span};
+    let mut s = session();
+    let page = s.book().spreads[2].pages[1].id.clone();
+    s.apply(set_bg(
+        Page {
+            spread: spread("sp_2"),
+            page: page.clone(),
+        },
+        colour_bg("#FDF6E3"),
+    ))
+    .unwrap();
+    assert_eq!(s.book().spreads[2].pages[1].bg, colour_bg("#fdf6e3"));
+    assert!(s.book().spreads[2].pages[0].bg.is_none());
+    s.apply(set_bg(
+        Span {
+            spread: spread("sp_2"),
+        },
+        colour_bg("#000"),
+    ))
+    .unwrap();
+    assert_eq!(s.book().spreads[2].bg_span, colour_bg("#000000"));
+    s.apply(set_bg(
+        Span {
+            spread: spread("sp_2"),
+        },
+        None,
+    ))
+    .unwrap();
+    assert!(s.book().spreads[2].bg_span.is_none());
+    s.undo().unwrap();
+    assert_eq!(s.book().spreads[2].bg_span, colour_bg("#000000"));
+}
+
+#[test]
+fn a_background_is_refused_when_it_cannot_be_drawn_or_has_nowhere_to_go() {
+    use folio_model::BackgroundTarget::{Page, Span};
+    let mut s = session();
+    let bad = |s: &mut Session, i| s.apply(i).unwrap_err();
+    assert!(matches!(
+        bad(
+            &mut s,
+            set_bg(
+                Span {
+                    spread: spread("sp_2")
+                },
+                colour_bg("red")
+            )
+        ),
+        SessionError::BadBackground(_)
+    ));
+    // A single page has no "across both pages".
+    assert!(matches!(
+        bad(
+            &mut s,
+            set_bg(
+                Span {
+                    spread: spread("sp_1")
+                },
+                colour_bg("#fff")
+            )
+        ),
+        SessionError::BadBackground(_)
+    ));
+    assert_eq!(
+        bad(
+            &mut s,
+            set_bg(
+                Page {
+                    spread: spread("sp_2"),
+                    page: folio_model::PageId("pg_1".into()),
+                },
+                colour_bg("#fff")
+            )
+        ),
+        SessionError::NotOnSpread("pg_1".into(), "sp_2".into())
+    );
+    assert!(matches!(
+        bad(
+            &mut s,
+            set_bg(
+                Page {
+                    spread: spread("sp_2"),
+                    page: folio_model::PageId("pg_2".into()),
+                },
+                Some(folio_model::Background::Picture {
+                    asset: "../secret.png".into(),
+                    fit: folio_model::BgFit::Fill,
+                    focus: (0.5, 0.5),
+                })
+            )
+        ),
+        SessionError::BadBackground(_)
+    ));
+}
+
+#[test]
+fn every_page_makes_the_masters_and_leaves_a_page_with_its_own_background_alone() {
+    use folio_model::BackgroundTarget::{EveryPage, Page};
+    let mut s = session();
+    assert!(s.book().master_pages.is_empty());
+    s.apply(set_bg(
+        Page {
+            spread: spread("sp_2"),
+            page: folio_model::PageId("pg_2".into()),
+        },
+        colour_bg("#112233"),
+    ))
+    .unwrap();
+    s.apply(set_bg(EveryPage, colour_bg("#fdf6e3"))).unwrap();
+    let book = s.book();
+    assert!(!book.master_pages.is_empty());
+    assert!(book
+        .master_pages
+        .iter()
+        .all(|m| m.bg == colour_bg("#fdf6e3")));
+    // The cover has no master, and the page that chose its own colour keeps it.
+    assert!(book.spreads[0].pages[0].master.is_none());
+    assert_eq!(book.spreads[2].pages[0].bg, colour_bg("#112233"));
+    // One undo step puts back the masters as well.
+    s.undo().unwrap();
+    assert!(s.book().master_pages.is_empty());
+    assert!(s.book().spreads[1].pages[0].master.is_none());
+}
+
+#[test]
+fn clearing_every_page_makes_no_masters() {
+    let mut s = session();
+    s.apply(set_bg(folio_model::BackgroundTarget::EveryPage, None))
+        .unwrap();
+    assert!(s.book().master_pages.is_empty());
+}
+
+#[test]
+fn trying_colours_on_one_page_is_one_undo_step() {
+    let target = || folio_model::BackgroundTarget::Page {
+        spread: spread("sp_2"),
+        page: folio_model::PageId("pg_2".into()),
+    };
+    let mut s = session();
+    s.apply(set_bg(target(), colour_bg("#111111"))).unwrap();
+    s.apply(set_bg(target(), colour_bg("#222222"))).unwrap();
+    s.apply(set_bg(target(), colour_bg("#333333"))).unwrap();
+    s.undo().unwrap();
+    assert!(s.book().spreads[2].pages[0].bg.is_none());
+}
