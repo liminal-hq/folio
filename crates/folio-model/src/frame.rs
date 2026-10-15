@@ -17,6 +17,7 @@ pub enum Frame {
     Text(TextFrame),
     Image(ImageFrame),
     Shape(ShapeFrame),
+    Table(TableFrame),
     Group {
         #[serde(flatten)]
         base: FrameBase,
@@ -29,6 +30,7 @@ impl Frame {
             Frame::Text(f) => &mut f.base,
             Frame::Image(f) => &mut f.base,
             Frame::Shape(f) => &mut f.base,
+            Frame::Table(f) => &mut f.base,
             Frame::Group { base, .. } => base,
         }
     }
@@ -38,6 +40,7 @@ impl Frame {
             Frame::Text(f) => &f.base,
             Frame::Image(f) => &f.base,
             Frame::Shape(f) => &f.base,
+            Frame::Table(f) => &f.base,
             Frame::Group { base, .. } => base,
         }
     }
@@ -182,6 +185,94 @@ pub struct ShapeFrame {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overrides: Option<StyleOverrides>,
 }
+/// The most rows or columns a table can have.
+pub const TABLE_MAX_SIDE: usize = 50;
+
+/// How a table's rules are drawn.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(rename_all = "lowercase")]
+pub enum TableLook {
+    /// A rule under every row.
+    #[default]
+    Lined,
+    /// A rule around every cell.
+    Grid,
+    /// A rule under the header and a tint on every other row.
+    Recipe,
+}
+
+/// One cell of a table: its words, if it has any.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct TableCell {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<InlineContent>,
+}
+
+/// A table is one frame: a grid of cells whose words are laid out by `folio-layout` in the `cell`
+/// style (D-24). Rows are equally tall; columns take `cols` shares of the width.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(rename_all = "camelCase")]
+pub struct TableFrame {
+    #[serde(flatten)]
+    pub base: FrameBase,
+    /// The width of each column as a share of the table's width; they add up to 1.
+    pub cols: Vec<f64>,
+    /// The rows, each with one cell per column.
+    pub rows: Vec<Vec<TableCell>>,
+    /// How many rows from the top are headers, set bold.
+    #[serde(default)]
+    pub head: u8,
+    #[serde(default)]
+    pub look: TableLook,
+    /// The style the cells are set in; `None` is the kind's `cell`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<StyleId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub overrides: Option<StyleOverrides>,
+}
+
+impl TableFrame {
+    /// Whether the table is one a book can hold: between one and `TABLE_MAX_SIDE` rows and columns,
+    /// every row as long as there are columns, column shares that are positive and add up to 1, and
+    /// no more header rows than rows.
+    pub fn check(&self) -> Result<(), String> {
+        let (r, c) = (self.rows.len(), self.cols.len());
+        if r == 0 || c == 0 || r > TABLE_MAX_SIDE || c > TABLE_MAX_SIDE {
+            return Err(format!(
+                "a table has 1 to {TABLE_MAX_SIDE} rows and columns"
+            ));
+        }
+        if self.rows.iter().any(|row| row.len() != c) {
+            return Err("every row of a table has one cell for each column".into());
+        }
+        if self.cols.iter().any(|w| !w.is_finite() || *w <= 0.0)
+            || (self.cols.iter().sum::<f64>() - 1.0).abs() > 1e-6
+        {
+            return Err("column widths are positive and add up to 1".into());
+        }
+        if usize::from(self.head) > r {
+            return Err("a table cannot have more header rows than rows".into());
+        }
+        Ok(())
+    }
+
+    /// A table of `rows` by `columns` empty cells in equal columns.
+    pub fn blank(base: FrameBase, rows: usize, columns: usize) -> TableFrame {
+        TableFrame {
+            base,
+            cols: vec![1.0 / columns as f64; columns],
+            rows: vec![vec![TableCell::default(); columns]; rows],
+            head: 0,
+            look: TableLook::Lined,
+            style: None,
+            overrides: None,
+        }
+    }
+}
+
 /// How far in from each side of a shape's box its words start, as a share of the box (D-24).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TextInset {

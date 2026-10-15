@@ -68,6 +68,7 @@ export function editorState(input: EditorInput): EditorState {
 	const available = new Set<string>([
 		'text',
 		'image',
+		'table',
 		'bubble',
 		'rect',
 		'round',
@@ -159,6 +160,8 @@ export function editorAction(
 			return { kind: 'add', shape: 'text' };
 		case 'image':
 			return { kind: 'add', shape: 'picture' };
+		case 'table':
+			return { kind: 'add', shape: 'table' };
 		case 'rect':
 		case 'round':
 		case 'ellipse':

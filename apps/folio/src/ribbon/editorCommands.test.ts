@@ -47,6 +47,13 @@ const shape = (extra = {}) =>
 		...extra,
 	}) as unknown as Frame;
 
+describe('adding a table', () => {
+	it('is always available and asks for a table to be added', () => {
+		expect(editorState(input()).available.has('table')).toBe(true);
+		expect(editorAction('table', undefined, input())).toEqual({ kind: 'add', shape: 'table' });
+	});
+});
+
 describe('turning a frame', () => {
 	it('offers the turn buttons for one free frame only', () => {
 		expect(editorState(input([shape()])).available.has('rotL')).toBe(true);

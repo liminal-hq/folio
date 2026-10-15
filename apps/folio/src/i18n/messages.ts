@@ -124,6 +124,7 @@ export const messages = {
 	'stage.edit.text': 'Edit the words',
 	'frame.new.text': 'Type your words here',
 	'frame.new.picture': 'Picture',
+	'frame.new.table': 'Table',
 	'frame.new.note': 'Note',
 	'page.menu': 'Page',
 	'page.addText': 'Add text box here',

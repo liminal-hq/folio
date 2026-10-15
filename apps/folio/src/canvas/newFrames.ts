@@ -9,6 +9,7 @@ import type { PlainRect } from './geometry';
 
 export type NewFrameKind =
 	| 'text'
+	| 'table'
 	| 'picture'
 	| 'note'
 	| 'rect'
@@ -28,6 +29,7 @@ export function newFrameId(): string {
 /** How big each new frame starts, in points. */
 const SIZES: Record<NewFrameKind, { w: number; h: number }> = {
 	text: { w: 200, h: 80 },
+	table: { w: 300, h: 90 },
 	picture: { w: 240, h: 180 },
 	note: { w: 160, h: 100 },
 	rect: { w: 140, h: 100 },
@@ -64,6 +66,17 @@ export function newFrame(kind: NewFrameKind, box: PlainRect, style: string): Fra
 			content: { inline: [{ text: t('frame.new.text') }] },
 			columns: 1,
 			baselineLock: false,
+		} as unknown as Frame;
+	}
+	if (kind === 'table') {
+		return {
+			...base,
+			type: 'table',
+			cols: [1 / 3, 1 / 3, 1 / 3],
+			rows: Array.from({ length: 3 }, () => Array.from({ length: 3 }, () => ({}))),
+			head: 1,
+			look: 'lined',
+			description: t('frame.new.table'),
 		} as unknown as Frame;
 	}
 	if (kind === 'picture') {
