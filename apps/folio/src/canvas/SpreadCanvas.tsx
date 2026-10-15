@@ -166,6 +166,13 @@ function Furniture({ frame, images }: { frame: Frame; images: Record<string, str
 }
 
 const HANDLE_PX = 8;
+
+/** The turn of a frame about the middle of its box, as an SVG transform; nothing when it is upright. */
+function turned(frame: Frame): string | undefined {
+	if (!frame.rotation) return undefined;
+	const { x, y, w, h } = frame.box;
+	return `rotate(${frame.rotation} ${x + w / 2} ${y + h / 2})`;
+}
 /** The least a frame's click area is across, in points, so a line with no height can still be picked. */
 const MIN_HIT = 10;
 
@@ -346,7 +353,7 @@ export function SpreadCanvas({
 					</g>
 				))}
 				{frames.map((frame) => (
-					<g key={frame.id}>
+					<g key={frame.id} transform={turned(frame)}>
 						<Furniture frame={frame} images={images} />
 						{marks.frameEdges && (
 							<rect
@@ -459,6 +466,7 @@ export function SpreadCanvas({
 								aria-label={frameLabel(frame)}
 								data-hit={frame.id}
 								{...hitBox(frame.box)}
+								transform={turned(frame)}
 								fill="transparent"
 								style={{ cursor: movable(frame) ? 'move' : 'default' }}
 								onPointerDown={(event) => drag.onFramePointerDown(event, frame)}
@@ -547,7 +555,12 @@ export function SpreadCanvas({
 				{frames
 					.filter((f) => selection.includes(f.id))
 					.map((frame) => (
-						<g key={frame.id} data-selected={frame.id} pointerEvents="none">
+						<g
+							key={frame.id}
+							data-selected={frame.id}
+							pointerEvents="none"
+							transform={turned(frame)}
+						>
 							<rect
 								x={frame.box.x}
 								y={frame.box.y}
@@ -562,7 +575,7 @@ export function SpreadCanvas({
 					))}
 				{selection.length === 1 &&
 					frames
-						.filter((f) => f.id === selection[0] && movable(f))
+						.filter((f) => f.id === selection[0] && movable(f) && !f.rotation)
 						.map((frame) =>
 							HANDLES.map((handle) => {
 								const at = handlePosition(frame.box, handle);
@@ -603,6 +616,7 @@ export function SpreadCanvas({
 					frame={editedFrame}
 					layout={byFrame.get(editedFrame.id)}
 					scale={scale}
+					rotation={editedFrame.rotation}
 					at={{
 						x: (editedFrame.box.x - bounds.x) * scale,
 						y: (editedFrame.box.y - bounds.y) * scale,

@@ -33,6 +33,8 @@ export interface TextEditorProps {
 	layout: FrameLayout | undefined;
 	/** Screen pixels per point. */
 	scale: number;
+	/** How far the frame is turned, in degrees clockwise. */
+	rotation?: number;
 	/** Where the frame sits in the page's own pixels. */
 	at: { x: number; y: number };
 	/** The new words, or `null` when nothing changed. */
@@ -43,7 +45,7 @@ export interface TextEditorProps {
  * A text area set in the frame's own font over the frame. Escape or leaving it keeps what was typed
  * as one change, so one undo takes it all back.
  */
-export function TextEditor({ frame, layout, scale, at, onCommit }: TextEditorProps) {
+export function TextEditor({ frame, layout, scale, rotation = 0, at, onCommit }: TextEditorProps) {
 	const area = useRef<HTMLTextAreaElement | null>(null);
 	const first = layout?.lines[0];
 	const run = first?.runs[0];
@@ -99,6 +101,11 @@ export function TextEditor({ frame, layout, scale, at, onCommit }: TextEditorPro
 				paddingLeft: centred ? 0 : ((first?.x ?? 0) - (room?.x ?? 0)) * scale,
 				paddingTop: Math.max(0, ((first?.top ?? 0) - (room?.y ?? 0)) * scale),
 				textAlign: centred ? 'center' : undefined,
+				// Turned with the frame, about the frame's middle.
+				transform: rotation ? `rotate(${rotation}deg)` : undefined,
+				transformOrigin: rotation
+					? `${(frame.box.w / 2 - (room?.x ?? 0)) * scale}px ${(frame.box.h / 2 - (room?.y ?? 0)) * scale}px`
+					: undefined,
 				fontFamily: run ? `'${run.family}', serif` : undefined,
 				fontSize: (run?.size ?? 12) * scale,
 				fontWeight: run?.weight ?? 400,
