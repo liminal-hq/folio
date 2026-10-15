@@ -27,7 +27,8 @@ pub enum BgFit {
 pub enum Background {
     /// One flat colour.
     Colour { colour: Colour },
-    /// A blend along a line at `angle` degrees (0 runs left to right, 90 top to bottom). A preset
+    /// A blend along a line at `angle` degrees clockwise from up, as in CSS (0 runs bottom to top, 90
+    /// left to right, 180 top to bottom). A preset
     /// is stored as the stops it expands to, so a book never depends on the palette it was made with.
     Gradient {
         angle: f64,
