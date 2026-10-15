@@ -21,7 +21,7 @@ import styles from './SpreadCanvas.module.css';
 import './fonts.css';
 import { PX_PER_POINT, spreadGeometry, type PlainRect } from './geometry';
 import type { FrameCommand } from './frameMenu';
-import { canEditText, TextEditor } from './TextEditor';
+import { canEditText, TextEditor, type Speller } from './TextEditor';
 import { DEFAULT_MARK_COLOURS, DEFAULT_MARKS, type MarkColours, type Marks } from './marksModel';
 import { masterGuidesOn } from './masterGuides';
 import { masterFurniture } from './masterItems';
@@ -66,6 +66,8 @@ export interface SpreadCanvasProps {
 	onEditText?(id: string, text: string): void;
 	/** A change to a table, from editing one of its cells. */
 	onEditTable?(id: string, edit: TableEdit): void;
+	/** Underlines misspelt words in the editor, when spelling is on. */
+	speller?: Speller;
 	/** The cell being edited has changed: its row and column, or `null` when none is. */
 	onEditingCell?(cell: { row: number; col: number } | null): void;
 	/** The accessible name of the page area. */
@@ -219,6 +221,7 @@ export function SpreadCanvas({
 	onEditText,
 	onEditTable,
 	onEditingCell,
+	speller,
 	onPageMenu,
 	images = {},
 }: SpreadCanvasProps) {
@@ -679,6 +682,7 @@ export function SpreadCanvas({
 			{(editedFrame?.type === 'text' || editedFrame?.type === 'shape') && (
 				<TextEditor
 					key={editing}
+					speller={speller}
 					frame={editedFrame}
 					layout={byFrame.get(editedFrame.id)}
 					scale={scale}
@@ -700,6 +704,7 @@ export function SpreadCanvas({
 				editingCell.col < editedFrame.cols.length && (
 					<TextEditor
 						key={editing}
+						speller={speller}
 						frame={{
 							type: 'cell',
 							box: editedFrame.box,
