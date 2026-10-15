@@ -48,3 +48,10 @@
 	outline: 2px solid var(--folio-accent);
 	outline-offset: 2px;
 }
+
+.picture {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 10px;
+}

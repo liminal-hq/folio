@@ -26,13 +26,21 @@ export interface PageBackgroundDialogProps {
 	/** The page the person asked about, so its scope is the one chosen first; `null` for the whole spread. */
 	page: number | null;
 	presets: PaintPresets | null;
+	/** Asks for a picture and brings it into the book; its path, or `null` if none was chosen. */
+	onPickPicture(): Promise<string | null>;
 	onApply(intent: Intent): void;
 }
 
-type Kind = 'colour' | 'gradient' | 'texture';
+type Kind = 'colour' | 'gradient' | 'texture' | 'picture';
 
 const kindOf = (bg: Background | null): Kind =>
-	bg?.type === 'gradient' ? 'gradient' : bg?.type === 'texture' ? 'texture' : 'colour';
+	bg?.type === 'gradient'
+		? 'gradient'
+		: bg?.type === 'texture'
+			? 'texture'
+			: bg?.type === 'picture'
+				? 'picture'
+				: 'colour';
 
 /** A small sample of a texture, to choose it by. */
 function TextureSample({ texture, tint }: { texture: string; tint?: string | null }) {
@@ -61,6 +69,7 @@ export function PageBackgroundDialog({
 	spread,
 	page,
 	presets,
+	onPickPicture,
 	onApply,
 }: PageBackgroundDialogProps) {
 	const scopes = backgroundTargets(spread);
@@ -113,7 +122,7 @@ export function PageBackgroundDialog({
 				<Segmented
 					label={t('background.kind')}
 					value={kind}
-					options={(['colour', 'gradient', 'texture'] as const).map((k) => ({
+					options={(['colour', 'gradient', 'texture', 'picture'] as const).map((k) => ({
 						value: k,
 						label: t(`background.kind.${k}`),
 					}))}
@@ -127,6 +136,37 @@ export function PageBackgroundDialog({
 						allowNone
 						onPick={(colour) => set(colour === null ? null : { type: 'colour', colour })}
 					/>
+				) : kind === 'picture' ? (
+					<div className={styles.picture}>
+						<DialogButton
+							onClick={() =>
+								void onPickPicture().then((asset) => {
+									if (asset === null) return;
+									set({
+										type: 'picture',
+										asset,
+										fit: now?.type === 'picture' ? now.fit : 'fill',
+										focus: now?.type === 'picture' ? now.focus : [0.5, 0.5],
+									});
+								})
+							}
+						>
+							{now?.type === 'picture'
+								? t('background.picture.change')
+								: t('background.picture.choose')}
+						</DialogButton>
+						{now?.type === 'picture' && (
+							<Segmented
+								label={t('background.picture.how')}
+								value={now.fit}
+								options={(['fill', 'fit'] as const).map((fit) => ({
+									value: fit,
+									label: t(`background.picture.${fit}`),
+								}))}
+								onChange={(fit) => set({ ...now, fit })}
+							/>
+						)}
+					</div>
 				) : kind === 'texture' ? (
 					<>
 						<div className={styles.gradients} role="group" aria-label={t('background.texture')}>

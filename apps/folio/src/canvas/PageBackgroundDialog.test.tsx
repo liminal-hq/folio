@@ -24,8 +24,9 @@ const pair = {
 } as unknown as Spread;
 const single = { ...pair, id: 's0', kind: 'opener', pages: [pair.pages[0]!] } as Spread;
 
-const setup = (spread: Spread, page: number | null = null) => {
+const setup = (spread: Spread, page: number | null = null, picked: string | null = null) => {
 	const onApply = vi.fn();
+	const onPick = vi.fn(async () => picked);
 	render(
 		<PageBackgroundDialog
 			open
@@ -34,6 +35,7 @@ const setup = (spread: Spread, page: number | null = null) => {
 			spread={spread}
 			page={page}
 			presets={FAKE_PAINTS}
+			onPickPicture={onPick}
 			onApply={onApply}
 		/>,
 	);
@@ -122,6 +124,38 @@ describe('PageBackgroundDialog', () => {
 			target: { type: 'span', spread: 's1' },
 			bg: { type: 'texture', id: 'dot-grid', tint: null },
 		});
+	});
+
+	it('applies a chosen picture, filling the page', async () => {
+		const onApply = setup(pair, null, 'assets/images/a.jpg');
+		await userEvent.click(screen.getByRole('radio', { name: 'Picture' }));
+		await userEvent.click(screen.getByRole('button', { name: 'Choose a picture…' }));
+		expect(onApply).toHaveBeenCalledWith({
+			type: 'SetBackground',
+			target: { type: 'span', spread: 's1' },
+			bg: { type: 'picture', asset: 'assets/images/a.jpg', fit: 'fill', focus: [0.5, 0.5] },
+		});
+	});
+
+	it('fits a picture inside the page instead of filling it', async () => {
+		const withPicture = {
+			...pair,
+			bgSpan: { type: 'picture', asset: 'assets/images/a.jpg', fit: 'fill', focus: [0.2, 0.8] },
+		} as unknown as Spread;
+		const onApply = setup(withPicture);
+		await userEvent.click(screen.getByRole('radio', { name: 'Fit inside the page' }));
+		expect(onApply).toHaveBeenCalledWith({
+			type: 'SetBackground',
+			target: { type: 'span', spread: 's1' },
+			bg: { type: 'picture', asset: 'assets/images/a.jpg', fit: 'fit', focus: [0.2, 0.8] },
+		});
+	});
+
+	it('does nothing when no picture is chosen', async () => {
+		const onApply = setup(pair, null, null);
+		await userEvent.click(screen.getByRole('radio', { name: 'Picture' }));
+		await userEvent.click(screen.getByRole('button', { name: 'Choose a picture…' }));
+		expect(onApply).not.toHaveBeenCalled();
 	});
 
 	it('removes the background only when there is one to remove', async () => {

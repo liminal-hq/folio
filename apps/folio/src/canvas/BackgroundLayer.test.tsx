@@ -140,7 +140,35 @@ describe('BackgroundLayer', () => {
 		);
 	});
 
-	it('leaves the paper showing for a texture this build cannot draw, and for a picture not yet drawn', () => {
+	it('draws a picture once its address is known, cropped or whole as asked', () => {
+		const bg = (fit: string) => ({
+			type: 'picture',
+			asset: 'assets/images/a.jpg',
+			fit,
+			focus: [0.5, 0.5],
+		});
+		for (const [fit, expected] of [
+			['fill', 'xMidYMid slice'],
+			['fit', 'xMidYMid meet'],
+		] as const) {
+			const { container } = render(
+				<svg>
+					<BackgroundLayer
+						book={book}
+						spread={spreadOf(1, {
+							pages: [{ id: 'p0', master: null, bg: bg(fit) }],
+						} as unknown as Partial<Spread>)}
+						images={{ 'assets/images/a.jpg': 'blob:a' }}
+					/>
+				</svg>,
+			);
+			const image = container.querySelector('image');
+			expect(image?.getAttribute('href')).toBe('blob:a');
+			expect(image?.getAttribute('preserveAspectRatio')).toBe(expected);
+		}
+	});
+
+	it('leaves the paper showing for a picture not yet read, and for a texture this build cannot draw', () => {
 		for (const bg of [
 			{ type: 'texture', id: 'from-the-future' },
 			{ type: 'picture', asset: 'assets/images/a.jpg', fit: 'fill', focus: [0.5, 0.5] },
@@ -148,7 +176,7 @@ describe('BackgroundLayer', () => {
 			const layer = drawn(
 				spreadOf(1, { pages: [{ id: 'p0', master: null, bg }] } as unknown as Partial<Spread>),
 			);
-			expect(layer.querySelectorAll('rect[fill]')).toHaveLength(0);
+			expect(layer.querySelectorAll('rect[fill], image')).toHaveLength(0);
 		}
 	});
 });
