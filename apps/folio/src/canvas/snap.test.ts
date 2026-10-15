@@ -51,3 +51,12 @@ describe('resizeRect', () => {
 		expect(nw.y + nw.h).toBe(60);
 	});
 });
+
+describe('resizeRect on a flat line', () => {
+	it('keeps a finite size when the proportion is locked, since a line has no proportion', () => {
+		const flat = { x: 10, y: 10, w: 100, h: 0 };
+		const next = resizeRect(flat, 'se', 20, 10, true);
+		for (const value of Object.values(next)) expect(Number.isFinite(value)).toBe(true);
+		expect(next.w).toBe(120);
+	});
+});

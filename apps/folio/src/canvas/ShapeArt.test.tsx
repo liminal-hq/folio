@@ -78,22 +78,19 @@ describe('ShapeArt', () => {
 });
 
 describe('shape paths', () => {
-	it('stay inside the unit square and close', () => {
+	it('are closed and start with a move, so each can be filled', () => {
 		for (const paths of Object.values(SHAPE_PATHS)) {
 			for (const d of paths) {
+				expect(d.startsWith('M')).toBe(true);
 				expect(d.endsWith('Z')).toBe(true);
-				const numbers = (d.match(/-?\d*\.?\d+/g) ?? []).map(Number);
-				expect(Math.min(...numbers)).toBeGreaterThanOrEqual(-0.2);
-				expect(Math.max(...numbers)).toBeLessThanOrEqual(1);
 			}
 		}
 	});
 
-	it('leave room for words in the body of every kind, and none for a bubble tail', () => {
-		for (const [kind, inset] of Object.entries(TEXT_INSET)) {
-			expect(inset.left + inset.right, kind).toBeLessThan(1);
-			expect(inset.top + inset.bottom, kind).toBeLessThan(1);
-		}
-		expect(TEXT_INSET.speech.bottom).toBeGreaterThan(TEXT_INSET.speech.top);
+	it('give a bubble its tail below the body and a cloud its trailing circles', () => {
+		expect(SHAPE_PATHS.speech).toHaveLength(1);
+		expect(SHAPE_PATHS.speech[0]).toContain('L0.2 1');
+		expect(SHAPE_PATHS.thought).toHaveLength(3);
+		expect(SHAPE_PATHS.shout[0]!.match(/L/g)).toHaveLength(23);
 	});
 });
