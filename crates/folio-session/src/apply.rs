@@ -4,9 +4,13 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    Book, Frame, FrameId, Guide, InlineContent, Intent, Master, MasterId, Page, Pt, ReorderTo, Run,
-    Spread, SpreadId, SpreadKind, Surface,
+    Book, Colour, Frame, FrameId, Guide, InlineContent, Intent, Master, MasterId, Page, Paint, Pt,
+    ReorderTo, Run, Spread, SpreadId, SpreadKind, Surface,
 };
+
+/// The widest an outline can be, and the roundest a corner, in points.
+const MAX_STROKE: f64 = 100.0;
+const MAX_RADIUS: f64 = 1000.0;
 
 /// How far, in points, a duplicated frame sits from the one it was copied from.
 const DUPLICATE_OFFSET: f64 = 12.0;
@@ -35,6 +39,7 @@ pub enum MergeKey {
     Moves(Vec<FrameId>),
     Text(FrameId),
     Style(FrameId),
+    Shape(FrameId),
 }
 
 fn spread<'a>(book: &'a Book, id: &SpreadId) -> Result<&'a Spread, SessionError> {
@@ -388,6 +393,43 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             }
             Ok(one(s.clone(), None))
         }
+        Intent::SetShape {
+            frame,
+            fill,
+            stroke,
+            stroke_width,
+            radius,
+            ..
+        } => {
+            let found =
+                locate(book, frame).ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
+            let Frame::Shape(_) = found else {
+                return Err(SessionError::NotShape(frame.0.clone()));
+            };
+            ensure_free(found)?;
+            for paint in [fill, stroke].into_iter().flatten() {
+                if let Paint::Colour { colour } = paint {
+                    Colour::parse(&colour.0).map_err(|e| SessionError::BadShape(e.to_string()))?;
+                }
+            }
+            for (name, length, most) in [
+                ("outline width", stroke_width, MAX_STROKE),
+                ("corner radius", radius, MAX_RADIUS),
+            ] {
+                if let Some(Pt(v)) = length {
+                    if !v.is_finite() || *v < 0.0 || *v > most {
+                        return Err(SessionError::BadShape(format!(
+                            "the {name} is between 0 and {most} points"
+                        )));
+                    }
+                }
+            }
+            Ok(Plan {
+                touched: touched_by(book, frame)?,
+                new_spread: None,
+                merge: Some(MergeKey::Shape(frame.clone())),
+            })
+        }
         Intent::AddGuide { on, pos, .. } => {
             guides_on(book, on)?;
             check_guide_position(*pos)?;
@@ -625,6 +667,40 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 }
                 if let Some(fit) = fit {
                     img.image.fit = fit;
+                }
+            }
+        }
+        Intent::SetShape {
+            frame,
+            kind,
+            fill,
+            stroke,
+            stroke_width,
+            radius,
+            flip,
+        } => {
+            if let Some(Frame::Shape(shape)) = locate_mut(book, &frame) {
+                let colour = |paint: Paint| match paint {
+                    Paint::None => None,
+                    Paint::Colour { colour } => Some(Colour::parse(&colour.0).unwrap_or(colour)),
+                };
+                if let Some(kind) = kind {
+                    shape.shape = kind;
+                }
+                if let Some(fill) = fill {
+                    shape.fill = colour(fill);
+                }
+                if let Some(stroke) = stroke {
+                    shape.stroke = colour(stroke);
+                }
+                if stroke_width.is_some() {
+                    shape.stroke_width = stroke_width;
+                }
+                if radius.is_some() {
+                    shape.radius = radius;
+                }
+                if let Some(flip) = flip {
+                    shape.flip = flip;
                 }
             }
         }

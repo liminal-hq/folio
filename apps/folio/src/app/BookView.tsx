@@ -24,6 +24,7 @@ import { useAssetUrls } from '../canvas/useAssetUrls';
 import { useSpreadLayout } from '../canvas/useSpreadLayout';
 import type { CommandId } from '../commands/appMenuModel';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
+import type { PaintPresets } from '@liminal-hq/folio-protocol/generated/PaintPresets';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import { Inspector } from '../inspector/Inspector';
 import { t } from '../i18n/messages';
@@ -236,6 +237,21 @@ export function BookView({
 		} else setEditing(named);
 	};
 
+	// The colours the shape pickers offer, read from the plugin the first time a shape is selected.
+	const [paints, setPaints] = useState<PaintPresets | null>(null);
+	const wantsPaints = selected.some((f) => f.type === 'shape');
+	useEffect(() => {
+		if (!wantsPaints || paints !== null) return;
+		let live = true;
+		client
+			.paintPresets()
+			.then((found) => live && setPaints(found))
+			.catch(() => undefined);
+		return () => {
+			live = false;
+		};
+	}, [wantsPaints, paints, client]);
+
 	const perform = (action: EditorAction) => {
 		switch (action.kind) {
 			case 'intents':
@@ -409,6 +425,7 @@ export function BookView({
 					marks={marks}
 					onMarks={(next) => setMarks(next)}
 					apply={apply}
+					paints={paints}
 					choosePicture={(frame) => void choosePicture(frame)}
 				/>
 			</main>

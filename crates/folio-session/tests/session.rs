@@ -1914,3 +1914,118 @@ fn a_master_frame_is_duplicated_reordered_and_locked_on_its_master() {
     .unwrap();
     assert!(master(&s, "mst_a").unwrap().frames[0].base().locked);
 }
+
+fn session_with_shape() -> Session {
+    let mut s = session();
+    s.apply(Intent::AddFrame {
+        on: folio_model::Surface::Spread(spread("sp_2")),
+        frame: serde_json::from_value(json!({
+            "type": "shape", "id": "fr_shape", "box": { "x": 10, "y": 10, "w": 100, "h": 60 },
+            "shape": "rect", "fill": "#c9c4b8", "style": null
+        }))
+        .unwrap(),
+    })
+    .unwrap();
+    s
+}
+
+fn shape_of(s: &Session) -> folio_model::ShapeFrame {
+    match &s.book().spreads[2].frames[0] {
+        Frame::Shape(shape) => shape.clone(),
+        _ => unreachable!(),
+    }
+}
+
+/// A `SetShape` for the shape on `sp_2`, changing only what is `Some`.
+fn shape_set(
+    fill: Option<folio_model::Paint>,
+    stroke_width: Option<f64>,
+    kind: Option<folio_model::Shape>,
+) -> Intent {
+    Intent::SetShape {
+        frame: frame("fr_shape"),
+        kind,
+        fill,
+        stroke: None,
+        stroke_width: stroke_width.map(folio_model::Pt),
+        radius: None,
+        flip: None,
+    }
+}
+
+#[test]
+fn a_shape_changes_its_kind_fill_and_outline_and_leaves_the_rest_alone() {
+    let mut s = session_with_shape();
+    let colour = |c: &str| folio_model::Paint::Colour {
+        colour: folio_model::Colour(c.into()),
+    };
+    s.apply(Intent::SetShape {
+        frame: frame("fr_shape"),
+        kind: Some(folio_model::Shape::Round),
+        fill: Some(colour("#FFF")),
+        stroke: Some(colour("#14110f")),
+        stroke_width: Some(folio_model::Pt(2.5)),
+        radius: Some(folio_model::Pt(9.0)),
+        flip: None,
+    })
+    .unwrap();
+    let shape = shape_of(&s);
+    assert_eq!(shape.shape, folio_model::Shape::Round);
+    assert_eq!(shape.fill.as_ref().unwrap().0, "#ffffff");
+    assert_eq!(shape.stroke.as_ref().unwrap().0, "#14110f");
+    assert_eq!(shape.stroke_width, Some(folio_model::Pt(2.5)));
+    assert_eq!(shape.radius, Some(folio_model::Pt(9.0)));
+    assert!(!shape.flip);
+    // Only the fill is cleared; the outline stays.
+    s.apply(shape_set(Some(folio_model::Paint::None), None, None))
+        .unwrap();
+    let shape = shape_of(&s);
+    assert!(shape.fill.is_none() && shape.stroke.is_some());
+    assert_eq!(shape.shape, folio_model::Shape::Round);
+}
+
+#[test]
+fn trying_a_shape_out_is_one_undo_step() {
+    let mut s = session_with_shape();
+    for width in [1.0, 2.0, 3.0] {
+        s.apply(shape_set(None, Some(width), None)).unwrap();
+    }
+    s.undo().unwrap();
+    assert_eq!(shape_of(&s).stroke_width, None);
+}
+
+#[test]
+fn a_shape_setting_is_refused_when_it_makes_no_sense_or_the_frame_is_not_free() {
+    let mut s = session_with_shape();
+    let red = folio_model::Paint::Colour {
+        colour: folio_model::Colour("red".into()),
+    };
+    assert!(matches!(
+        s.apply(shape_set(Some(red), None, None)).unwrap_err(),
+        SessionError::BadShape(_)
+    ));
+    for width in [-1.0, f64::NAN, 500.0] {
+        assert!(matches!(
+            s.apply(shape_set(None, Some(width), None)).unwrap_err(),
+            SessionError::BadShape(_)
+        ));
+    }
+    let mut on_text = shape_set(None, None, None);
+    if let Intent::SetShape { frame: f, .. } = &mut on_text {
+        *f = frame("fr_text");
+    }
+    assert_eq!(
+        s.apply(on_text).unwrap_err(),
+        SessionError::NotShape("fr_text".into())
+    );
+    s.apply(Intent::LockFrame {
+        on: folio_model::Surface::Spread(spread("sp_2")),
+        frame: frame("fr_shape"),
+        locked: true,
+    })
+    .unwrap();
+    assert_eq!(
+        s.apply(shape_set(None, None, None)).unwrap_err(),
+        SessionError::Locked("fr_shape".into())
+    );
+}

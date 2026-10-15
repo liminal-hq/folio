@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::book::{Grid, PageNumbers};
-use crate::frame::{Fit, Frame, StyleOverrides};
+use crate::colour::Colour;
+use crate::frame::{Fit, Frame, Shape, StyleOverrides};
 use crate::ids::{FrameId, MasterId, PageId, SpreadId, StyleId};
 use crate::spread::Axis;
 use crate::units::{Margins, Pt, Rect, Size};
@@ -28,6 +29,15 @@ pub struct FrameMove {
 pub enum Surface {
     Spread(SpreadId),
     Master(MasterId),
+}
+
+/// A fill or an outline colour to set: a colour, or none at all.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum Paint {
+    None,
+    Colour { colour: Colour },
 }
 
 // ── Intents (UI → core) ──
@@ -66,6 +76,28 @@ pub enum Intent {
         asset: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         fit: Option<Fit>,
+    },
+    /// Changes how a shape looks: its kind, its fill and outline, how round its corners are and which
+    /// way a line runs. A part left out stays as it was, and a trying-out of colours or widths on one
+    /// shape is one undo step.
+    SetShape {
+        frame: FrameId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        kind: Option<Shape>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        fill: Option<Paint>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        stroke: Option<Paint>,
+        #[serde(
+            default,
+            rename = "strokeWidth",
+            skip_serializing_if = "Option::is_none"
+        )]
+        stroke_width: Option<Pt>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        radius: Option<Pt>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        flip: Option<bool>,
     },
     /// Puts page numbers on every page after the cover, or takes them off.
     SetPageNumbers {

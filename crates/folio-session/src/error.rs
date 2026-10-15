@@ -26,6 +26,10 @@ pub enum SessionError {
     CoverFixed,
     #[error("frame `{0}` is not a picture frame")]
     NotImage(String),
+    #[error("frame `{0}` is not a shape")]
+    NotShape(String),
+    #[error("that shape setting cannot be used: {0}")]
+    BadShape(String),
     #[error("{0}")]
     BadGeometry(String),
     #[error("`{0}` is not a picture in this book's assets")]
