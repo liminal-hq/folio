@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::background::Background;
 use crate::flow::Flow;
 use crate::frame::Frame;
 use crate::ids::{BookId, MasterId};
@@ -89,6 +90,9 @@ pub struct Master {
     /// origin is the top-left of its trim). Named by their place in the list, as on a spread.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub guides: Vec<Guide>,
+    /// The background of every page using this master that has none of its own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bg: Option<Background>,
 }
 
 /// Where the page numbers go.

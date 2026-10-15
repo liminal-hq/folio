@@ -9,16 +9,18 @@ import { usePaintPresets } from './usePaintPresets';
 import { shelfLabels } from '../books/shelfLabels';
 import type { OpenBookCopy } from '../books/booksStore';
 import { useBooks } from '../books/useBooks';
+import { backgroundAssets } from '../canvas/backgrounds';
 import { frameIntents } from '../canvas/frameMenu';
 import { boxAt, newFrame, type NewFrameKind } from '../canvas/newFrames';
 import { spreadGeometry } from '../canvas/geometry';
-import { masterFurniture } from '../canvas/masterItems';
+import { masterFurniture, pageAt } from '../canvas/masterItems';
 import { masterOfPage, masterSpread, surfaceOf } from '../canvas/masterView';
 import { defaultTextStyle, styleChoices } from '../inspector/styleChoices';
 import { Shelf } from '../canvas/Shelf';
 import { shelfIntent } from '../canvas/shelfMenu';
 import { guideIntents } from '../canvas/guides';
 import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../canvas/marksModel';
+import { PageBackgroundDialog } from '../canvas/PageBackgroundDialog';
 import { Stage, type ZoomApi } from '../canvas/Stage';
 import { useSelection } from '../canvas/useSelection';
 import { useAssetUrls } from '../canvas/useAssetUrls';
@@ -90,13 +92,13 @@ export function BookView({
 		spread?.id ?? null,
 		spread?.frames.map((f) => f.id) ?? [],
 	);
-	const images = useAssetUrls(
-		client,
-		id,
-		[...(spread?.frames ?? []), ...(spread ? masterFurniture(book, spread) : [])].flatMap((f) =>
+	const images = useAssetUrls(client, id, [
+		...[...(spread?.frames ?? []), ...(spread ? masterFurniture(book, spread) : [])].flatMap((f) =>
 			f.type === 'image' && f.image.asset ? [f.image.asset] : [],
 		),
-	);
+		// The shelf draws every spread's background, so every picture one uses is read.
+		...backgroundAssets(book),
+	]);
 	const choices = useMemo(() => styleChoices(copy.styles), [copy.styles]);
 	const selected = useMemo(
 		() => spread?.frames.filter((f) => selection.includes(f.id)) ?? [],
@@ -206,6 +208,18 @@ export function BookView({
 		}
 	};
 
+	/** Asks for a picture and brings it into the book; its path, or `null` if none was chosen. */
+	const pickBackgroundPicture = async (): Promise<string | null> => {
+		const picked = await dialogs.pickImage();
+		if (picked === null) return null;
+		try {
+			const asset = await client.importImage(id, picked);
+			return store.state.getState().activeId === id ? asset : null;
+		} catch {
+			return null;
+		}
+	};
+
 	const stretchToBleed = (frame: Frame) => {
 		const geometry = spreadGeometry(book, spread);
 		const centre = frame.box.x + frame.box.w / 2;
@@ -237,10 +251,12 @@ export function BookView({
 		} else setEditing(named);
 	};
 
-	// The colours the shape pickers offer, read the first time a shape is selected.
+	// The page background dialog: which page it was asked about, and the palette it offers.
+	const [background, setBackground] = useState<{ page: number | null } | null>(null);
+	// The colours the pickers offer, read the first time the dialog opens or a shape is selected.
 	const paints = usePaintPresets(
 		client,
-		selected.some((f) => f.type === 'shape'),
+		background !== null || selected.some((f) => f.type === 'shape'),
 	);
 
 	const perform = (action: EditorAction) => {
@@ -278,6 +294,9 @@ export function BookView({
 			}
 			case 'fit':
 				apply({ type: 'SetImage', frame: action.frame, asset: null, fit: action.fit });
+				break;
+			case 'pageBackground':
+				setBackground({ page: null });
 				break;
 			case 'editMaster': {
 				if (editing !== null) setEditing(null);
@@ -373,6 +392,8 @@ export function BookView({
 							};
 							const kind = kinds[command];
 							if (kind) addFrame(kind, point);
+							else if (command === 'pageBackground')
+								setBackground({ page: pageAt(book, spread, point) });
 							else if (command.startsWith('editMaster:'))
 								setEditing(command.slice('editMaster:'.length));
 							else if (command === 'toggleMargins') setMarks({ margins: !marks.margins });
@@ -384,7 +405,10 @@ export function BookView({
 								apply({ type: 'AddSpread', after: spread.id, duplicate: false });
 								setSpreadIndex(shown + 1);
 							} else if (command === 'duplicateSpread') pageOp('duplicate');
-							else if (command.startsWith('hideMaster:') || command.startsWith('showMaster:')) {
+							else if (command.startsWith('copyMaster:')) {
+								const [, page, frame] = command.split(':') as [string, string, string];
+								apply({ type: 'CopyMasterItem', spread: spread.id, page, frame });
+							} else if (command.startsWith('hideMaster:') || command.startsWith('showMaster:')) {
 								const [which, page, frame] = command.split(':') as [string, string, string];
 								apply({
 									type: 'HideMasterItem',
@@ -422,6 +446,7 @@ export function BookView({
 			</main>
 			<Shelf
 				book={book}
+				images={images}
 				labels={labels}
 				selected={shown}
 				onSelect={(index) => {
@@ -449,6 +474,16 @@ export function BookView({
 					// Nothing goes in front of a cover, and the selection follows the spread.
 					setSpreadIndex(Math.max(book.spreads[0]?.kind === 'cover' ? 1 : 0, to));
 				}}
+			/>
+			<PageBackgroundDialog
+				open={background !== null}
+				onClose={() => setBackground(null)}
+				book={book}
+				spread={spread}
+				page={background?.page ?? null}
+				presets={paints}
+				onPickPicture={pickBackgroundPicture}
+				onApply={apply}
 			/>
 		</>
 	);

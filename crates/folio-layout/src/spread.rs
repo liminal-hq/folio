@@ -102,7 +102,7 @@ impl<'a> Layouter<'a> {
             };
             let layout = match &text.flow {
                 None => {
-                    let (laid, overlong) = self.own_text(text)?;
+                    let (laid, overlong) = self.own_text(&self.with_tokens(spread, text))?;
                     if overlong {
                         preflight.push(self.poem_item(spread, text));
                     }
@@ -216,14 +216,7 @@ impl<'a> Layouter<'a> {
                 let mut copy = text.clone();
                 copy.base.rect.x = Pt(copy.base.rect.x.0 + left);
                 copy.base.id = FrameId(format!("{}@{}", text.base.id.0, page.id.0));
-                if let Some(content) = &mut copy.content {
-                    for run in &mut content.inline {
-                        run.text = run
-                            .text
-                            .replace("{page}", &number.to_string())
-                            .replace("{book.title}", &self.book.title);
-                    }
-                }
+                self.fill_tokens(&mut copy, number);
                 let (mut laid, _) = self.own_text(&copy)?;
                 laid.origin = Some(Origin {
                     x: copy.base.rect.x.0,
@@ -233,6 +226,29 @@ impl<'a> Layouter<'a> {
             }
         }
         Ok(out)
+    }
+
+    /// `{page}` and `{book.title}` in a frame's words, filled in for the page `number`.
+    fn fill_tokens(&self, text: &mut TextFrame, number: usize) {
+        if let Some(content) = &mut text.content {
+            for run in &mut content.inline {
+                run.text = run
+                    .text
+                    .replace("{page}", &number.to_string())
+                    .replace("{book.title}", &self.book.title);
+            }
+        }
+    }
+
+    /// A text frame of the spread with its tokens filled in, for the page its middle is over. A
+    /// frame the person made, or copied from a master, can carry them as well as a master's own.
+    fn with_tokens(&self, spread: &Spread, text: &TextFrame) -> TextFrame {
+        let mut copy = text.clone();
+        let middle = text.base.rect.x.0 + text.base.rect.w.0 / 2.0;
+        let page = (middle / self.book.trim.w.0).floor().max(0.0) as usize;
+        let page = page.min(spread.pages.len().saturating_sub(1));
+        self.fill_tokens(&mut copy, self.first_page_number(spread) + page);
+        copy
     }
 
     /// The number of the first page of `spread`: pages count from the first after the cover.
