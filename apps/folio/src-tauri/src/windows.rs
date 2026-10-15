@@ -111,8 +111,12 @@ pub fn open_or_focus<R: Runtime>(
 }
 
 /// Opens a window of `kind`, or focuses it when it is already open. Reopening never makes a second.
+///
+/// The command is `async` on purpose: a synchronous command runs on the main thread, and on Windows
+/// building a webview from there waits on that same thread, so the new window never leaves
+/// `about:blank`.
 #[tauri::command]
-pub fn open_window<R: Runtime>(app: AppHandle<R>, kind: WindowKind) -> Result<(), String> {
+pub async fn open_window<R: Runtime>(app: AppHandle<R>, kind: WindowKind) -> Result<(), String> {
     open_or_focus(&app, kind)
         .map(drop)
         .map_err(|e| e.to_string())
@@ -157,8 +161,9 @@ mod tests {
             WindowKind::Preferences,
             WindowKind::Main,
         ] {
-            open_window(app.handle().clone(), kind).expect("opens");
-            open_window(app.handle().clone(), kind).expect("focuses");
+            tauri::async_runtime::block_on(open_window(app.handle().clone(), kind)).expect("opens");
+            tauri::async_runtime::block_on(open_window(app.handle().clone(), kind))
+                .expect("focuses");
             assert!(app.get_webview_window(kind.label()).is_some());
         }
         assert_eq!(app.webview_windows().len(), 4);
