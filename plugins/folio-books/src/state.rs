@@ -20,8 +20,8 @@ use tauri::{AppHandle, Emitter, Manager, Runtime};
 use crate::error::Error;
 use crate::spelling::Spelling;
 use crate::wire::{
-    BookSnapshot, BookSummary, BooksChanged, Misspelling, PatchEvent, SpellCheck,
-    SpreadLayoutResult,
+    BookSnapshot, BookSpelling, BookSummary, BooksChanged, Misspelling, MisspeltWord, PatchEvent,
+    SpellCheck, SpreadLayoutResult,
 };
 use crate::{CHANGED_EVENT, PATCH_EVENT};
 
@@ -55,6 +55,9 @@ fn looks_like(extension: &str, bytes: &[u8]) -> bool {
         _ => false,
     }
 }
+
+/// The most misspelt words the proofing list holds.
+const MAX_LISTED_WORDS: usize = 500;
 
 /// The largest picture file taken in whole.
 const MAX_IMAGE_BYTES: u64 = 100 * 1024 * 1024;
@@ -434,6 +437,138 @@ impl<R: Runtime> Books<R> {
                     word: m.word,
                 })
                 .collect(),
+        })
+    }
+
+    /// Every misspelt word in the book's own text frames, shapes, tables and flowing text, in the
+    /// order of its spreads.
+    pub fn spell_check_book(&self, id: &str, personal: &[String]) -> Result<BookSpelling, Error> {
+        use folio_model::{Frame, InlineContent};
+        let book = {
+            let inner = locked(&self.inner);
+            inner
+                .books
+                .iter()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?
+                .session
+                .book()
+                .clone()
+        };
+        let Some((dictionary, speller)) = self.spelling.for_language(&book.language) else {
+            return Ok(BookSpelling {
+                supported: false,
+                dictionary: None,
+                offer: self.spelling.offer(&book.language),
+                words: Vec::new(),
+                truncated: false,
+            });
+        };
+        let mut ignore = book.proofing.ignore.clone();
+        ignore.extend_from_slice(personal);
+        let mut words = Vec::new();
+        let mut truncated = false;
+        let mut look =
+            |spread: &str, frame: &str, cell: Option<(u32, u32)>, text: &str, replaceable: bool| {
+                for m in find_misspellings(&*speller, text, &ignore) {
+                    if words.len() >= MAX_LISTED_WORDS {
+                        truncated = true;
+                        return;
+                    }
+                    let before: String = text[..m.bytes.start]
+                        .chars()
+                        .rev()
+                        .take(24)
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                        .rev()
+                        .collect();
+                    let after: String = text[m.bytes.end..].chars().take(24).collect();
+                    words.push(MisspeltWord {
+                        spread: spread.to_owned(),
+                        frame: frame.to_owned(),
+                        row: cell.map(|c| c.0),
+                        col: cell.map(|c| c.1),
+                        word: m.word,
+                        start: m.start as u32,
+                        end: m.end as u32,
+                        context: format!(
+                            "{}{}{}",
+                            before.replace('\n', " "),
+                            &text[m.bytes.clone()],
+                            after.replace('\n', " ")
+                        )
+                        .trim()
+                        .to_owned(),
+                        replaceable,
+                    });
+                }
+            };
+        let plain = |content: &Option<InlineContent>| -> (String, bool) {
+            let runs = content
+                .as_ref()
+                .map(|c| c.inline.as_slice())
+                .unwrap_or_default();
+            (
+                runs.iter().map(|r| r.text.as_str()).collect(),
+                runs.iter()
+                    .all(|r| !r.bold && !r.italic && r.style.is_none()),
+            )
+        };
+        let mut flowed = std::collections::HashSet::new();
+        for spread in &book.spreads {
+            for frame in &spread.frames {
+                match frame {
+                    Frame::Text(t) if t.flow.is_none() => {
+                        let (text, ok) = plain(&t.content);
+                        look(&spread.id.0, &t.base.id.0, None, &text, ok);
+                    }
+                    Frame::Text(t) => {
+                        // Flowing text is one story across its frames: look at it once, at its first frame.
+                        if let Some(flow) = t
+                            .flow
+                            .as_ref()
+                            .and_then(|s| book.flows.iter().find(|f| f.id == s.id))
+                        {
+                            if flowed.insert(flow.id.0.clone()) {
+                                look(&spread.id.0, &t.base.id.0, None, &flow.source, false);
+                            }
+                        }
+                    }
+                    Frame::Shape(sh) => {
+                        let (text, ok) = plain(&sh.content);
+                        look(
+                            &spread.id.0,
+                            &sh.base.id.0,
+                            None,
+                            &text,
+                            ok && sh.shape.holds_text(),
+                        );
+                    }
+                    Frame::Table(tb) => {
+                        for (r, row) in tb.rows.iter().enumerate() {
+                            for (c, cell) in row.iter().enumerate() {
+                                let (text, ok) = plain(&cell.content);
+                                look(
+                                    &spread.id.0,
+                                    &tb.base.id.0,
+                                    Some((r as u32, c as u32)),
+                                    &text,
+                                    ok,
+                                );
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Ok(BookSpelling {
+            supported: true,
+            dictionary: Some(dictionary),
+            offer: self.spelling.offer(&book.language),
+            words,
+            truncated,
         })
     }
 

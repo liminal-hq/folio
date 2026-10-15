@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck';
 import type { SpreadLayoutResult } from '@liminal-hq/folio-protocol/generated/SpreadLayoutResult';
@@ -27,6 +28,7 @@ import {
 	redo,
 	saveBook,
 	spellCheck,
+	spellCheckBook,
 	spellSuggest,
 	snapshot,
 	undo,
@@ -72,6 +74,8 @@ export interface BooksClient {
 	assetData(id: string, asset: string): Promise<ArrayBuffer>;
 	/** The words of `text` the book's dictionary does not know, by UTF-16 range, and whether it has a dictionary. */
 	spellCheck(id: string, text: string, personal?: string[]): Promise<SpellCheck>;
+	/** Every misspelt word in the book, and where it is. */
+	spellCheckBook(id: string, personal?: string[]): Promise<BookSpelling>;
 	/** Corrections for a word, best first. */
 	spellSuggest(id: string, word: string): Promise<string[]>;
 	/** Every dictionary there is, and whether it is in place. */
@@ -102,6 +106,7 @@ export const tauriBooksClient: BooksClient = {
 	importImage,
 	assetData,
 	spellCheck,
+	spellCheckBook,
 	spellSuggest,
 	dictionaries,
 	downloadDictionary,

@@ -123,3 +123,33 @@
 	gap: 8px;
 	font-size: 13px;
 }
+
+.misspelt {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px;
+	padding-block-end: 4px;
+	border-block-end: 1px solid var(--folio-border-subtle);
+}
+
+.misspelt .row {
+	flex: 1 1 100%;
+}
+
+.actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	padding-inline-start: 6px;
+}
+
+.suggestions {
+	display: flex;
+	flex-wrap: wrap;
+	flex-basis: 100%;
+	gap: 4px;
+	margin: 0;
+	padding: 0 6px;
+	list-style: none;
+}

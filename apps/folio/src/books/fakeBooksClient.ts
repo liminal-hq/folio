@@ -14,6 +14,7 @@ import type {
 	PatchEvent,
 } from '@liminal-hq/folio-plugin-books';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
+import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import { applyPatch } from './applyPatch';
 import type { BooksClient, BooksListener } from './booksClient';
@@ -348,6 +349,48 @@ export function createFakeBooksClient(): FakeBooks {
 				.filter((m) => flagged.has(m[0].toLowerCase()) && !ignored.has(m[0]))
 				.map((m) => ({ start: m.index!, end: m.index! + m[0].length, word: m[0] }));
 			return { supported: true, dictionary: 'en-CA', offer: null, misspellings: found };
+		},
+		async spellCheckBook(id, personal = []) {
+			await call('spellCheckBook', [id, personal]);
+			const book = find(id).snapshot.book;
+			const ignored = new Set([...(book.proofing?.ignore ?? []), ...personal]);
+			const flagged = new Set(misspelt.map((w) => w.toLowerCase()));
+			const words: BookSpelling['words'] = [];
+			const look = (
+				spread: string,
+				frame: string,
+				text: string,
+				cell?: [number, number],
+				replaceable = true,
+			) => {
+				for (const m of text.matchAll(/[\p{L}'’]+/gu)) {
+					if (!flagged.has(m[0].toLowerCase()) || ignored.has(m[0])) continue;
+					words.push({
+						spread,
+						frame,
+						row: cell?.[0] ?? null,
+						col: cell?.[1] ?? null,
+						word: m[0],
+						start: m.index!,
+						end: m.index! + m[0].length,
+						context: text.slice(Math.max(0, m.index! - 24), m.index! + m[0].length + 24).trim(),
+						replaceable,
+					});
+				}
+			};
+			const plain = (c?: { inline: { text: string }[] } | null) =>
+				c?.inline.map((r) => r.text).join('') ?? '';
+			for (const spread of book.spreads) {
+				for (const f of spread.frames) {
+					if (f.type === 'text' || f.type === 'shape') look(spread.id, f.id, plain(f.content));
+					if (f.type === 'table') {
+						f.rows.forEach((row, r) =>
+							row.forEach((cell, c) => look(spread.id, f.id, plain(cell.content), [r, c])),
+						);
+					}
+				}
+			}
+			return { supported: true, dictionary: 'en-CA', offer: null, words, truncated: false };
 		},
 		async spellSuggest(id, word) {
 			await call('spellSuggest', [id, word]);

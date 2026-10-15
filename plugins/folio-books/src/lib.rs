@@ -50,6 +50,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::asset_data,
             commands::spell_check,
             commands::spell_suggest,
+            commands::spell_check_book,
             commands::dictionaries,
             commands::download_dictionary,
             commands::remove_dictionary,

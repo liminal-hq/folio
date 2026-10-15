@@ -23,6 +23,7 @@ const COMMANDS: &[&str] = &[
     "asset_data",
     "spell_check",
     "spell_suggest",
+    "spell_check_book",
     "dictionaries",
     "download_dictionary",
     "remove_dictionary",

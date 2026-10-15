@@ -711,3 +711,96 @@ fn layout_marks_misspelt_words_only_when_asked_and_leaves_ignored_ones_alone() {
         .unwrap();
     assert!(words(&laid(Some(&[]))).is_empty());
 }
+
+#[test]
+fn the_proofing_list_finds_misspelt_words_in_frames_cells_and_flowing_text_with_where_they_are() {
+    let app = app();
+    let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();
+    let id = snapshot.summary.id.clone();
+    let spread = snapshot.book.spreads[1].clone();
+    let on = folio_model::Surface::Spread(spread.id.clone());
+    let text_frame = spread
+        .frames
+        .iter()
+        .find(|f| matches!(f, folio_model::Frame::Text(_)))
+        .unwrap()
+        .base()
+        .id
+        .clone();
+    books(&app)
+        .apply(
+            &id,
+            Intent::SetText {
+                frame: text_frame.clone(),
+                text: "A small ottr named Pip met a zorb.".into(),
+            },
+        )
+        .unwrap();
+    let table: folio_model::Frame = serde_json::from_value(serde_json::json!({
+        "type": "table", "id": "fr_table", "box": { "x": 10, "y": 10, "w": 200, "h": 60 },
+        "cols": [0.5, 0.5],
+        "rows": [
+            [{ "content": { "inline": [{ "text": "fine" }] } }, { "content": { "inline": [{ "text": "blorp" }] } }],
+            [{ "content": { "inline": [{ "text": "bold", "bold": true }, { "text": " wrng" }] } }, {}]
+        ]
+    }))
+    .unwrap();
+    books(&app)
+        .apply(&id, Intent::AddFrame { on, frame: table })
+        .unwrap();
+    let found = books(&app).spell_check_book(&id, &[]).unwrap();
+    assert!(found.supported && !found.truncated);
+    let words: Vec<_> = found
+        .words
+        .iter()
+        .map(|w| {
+            (
+                w.word.as_str(),
+                w.frame.as_str(),
+                w.row,
+                w.col,
+                w.replaceable,
+            )
+        })
+        .collect();
+    let first = text_frame.0.as_str();
+    assert!(
+        words.contains(&("ottr", first, None, None, true)),
+        "{words:?}"
+    );
+    assert!(
+        words.contains(&("zorb", first, None, None, true)),
+        "{words:?}"
+    );
+    assert!(
+        words.contains(&("blorp", "fr_table", Some(0), Some(1), true)),
+        "{words:?}"
+    );
+    // Words with emphasis are found, and are changed on the page.
+    assert!(
+        words.contains(&("wrng", "fr_table", Some(1), Some(0), false)),
+        "{words:?}"
+    );
+    let ottr = found.words.iter().find(|w| w.word == "ottr").unwrap();
+    assert_eq!((ottr.start, ottr.end), (8, 12));
+    assert!(
+        ottr.context.contains("small ottr named"),
+        "{}",
+        ottr.context
+    );
+    assert_eq!(ottr.spread, spread.id.0);
+    // What the book ignores, or the person adds for every book, is not listed.
+    books(&app)
+        .apply(
+            &id,
+            Intent::IgnoreWord {
+                word: "zorb".into(),
+            },
+        )
+        .unwrap();
+    let after = books(&app)
+        .spell_check_book(&id, &["blorp".to_owned()])
+        .unwrap();
+    let left: Vec<_> = after.words.iter().map(|w| w.word.as_str()).collect();
+    assert!(!left.contains(&"zorb") && !left.contains(&"blorp") && left.contains(&"ottr"));
+}

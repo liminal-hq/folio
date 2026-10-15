@@ -15,7 +15,11 @@ function Harness({ start = 'properties' as SidebarGroup }) {
 		<Sidebar
 			group={group}
 			onGroup={setGroup}
-			panels={{ properties: <p>The properties</p>, pages: <p>The pages</p> }}
+			panels={{
+				properties: <p>The properties</p>,
+				pages: <p>The pages</p>,
+				proofing: <p>The proofing</p>,
+			}}
 		/>
 	);
 }
@@ -47,13 +51,16 @@ describe('Sidebar', () => {
 		expect(properties).toHaveAttribute('tabindex', '0');
 		expect(pages).toHaveAttribute('tabindex', '-1');
 		properties.focus();
+		const proofing = screen.getByRole('tab', { name: 'Proofing' });
 		await userEvent.keyboard('{ArrowRight}');
 		expect(pages).toHaveFocus();
 		expect(pages).toHaveAttribute('aria-selected', 'true');
 		await userEvent.keyboard('{ArrowRight}');
+		expect(proofing).toHaveFocus();
+		await userEvent.keyboard('{ArrowRight}');
 		expect(properties).toHaveFocus();
 		await userEvent.keyboard('{End}');
-		expect(pages).toHaveFocus();
+		expect(proofing).toHaveFocus();
 		await userEvent.keyboard('{Home}');
 		expect(properties).toHaveFocus();
 	});
