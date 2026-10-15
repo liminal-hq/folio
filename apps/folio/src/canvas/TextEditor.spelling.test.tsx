@@ -15,7 +15,12 @@ const frame = (text: string): EditedWords => ({
 });
 
 /** A speller that flags the words it is told are wrong, wherever they are. */
-function speller(wrong: string[]): Speller & { ignore: Mock<(word: string) => void> } {
+function speller(
+	wrong: string[],
+): Speller & {
+	ignore: Mock<(word: string) => void>;
+	addToDictionary: Mock<(word: string) => void>;
+} {
 	return {
 		check: async (text) =>
 			[...text.matchAll(/\p{L}+/gu)]
@@ -23,6 +28,7 @@ function speller(wrong: string[]): Speller & { ignore: Mock<(word: string) => vo
 				.map((m) => ({ start: m.index!, end: m.index! + m[0].length, word: m[0] })),
 		suggest: async (word) => (word === 'ottr' ? ['otter', 'utter'] : []),
 		ignore: vi.fn<(word: string) => void>(),
+		addToDictionary: vi.fn<(word: string) => void>(),
 	};
 }
 
@@ -91,6 +97,19 @@ describe('spelling in the editor', () => {
 		);
 		await userEvent.click(screen.getByRole('menuitem', { name: 'Ignore in this book' }));
 		expect(s.ignore).toHaveBeenCalledWith('zorb');
+		await waitFor(() => expect(document.querySelector('[data-miss]')).toBeNull());
+	});
+
+	it('adds a word to the dictionary for every book', async () => {
+		const s = speller(['zorb']);
+		setup('A zorb here', s);
+		await waitFor(() => expect(marked()).toEqual(['zorb']));
+		const box = screen.getByRole('textbox') as HTMLTextAreaElement;
+		box.setSelectionRange(3, 3);
+		fireEvent.keyDown(box, { key: 'ContextMenu' });
+		await userEvent.click(await screen.findByRole('menuitem', { name: 'Add to dictionary' }));
+		expect(s.addToDictionary).toHaveBeenCalledWith('zorb');
+		expect(s.ignore).not.toHaveBeenCalled();
 		await waitFor(() => expect(document.querySelector('[data-miss]')).toBeNull());
 	});
 

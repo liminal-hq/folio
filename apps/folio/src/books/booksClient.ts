@@ -67,7 +67,7 @@ export interface BooksClient {
 	/** One of the book's pictures as raw bytes. */
 	assetData(id: string, asset: string): Promise<ArrayBuffer>;
 	/** The words of `text` the book's dictionary does not know, by UTF-16 range, and whether it has a dictionary. */
-	spellCheck(id: string, text: string): Promise<SpellCheck>;
+	spellCheck(id: string, text: string, personal?: string[]): Promise<SpellCheck>;
 	/** Corrections for a word, best first. */
 	spellSuggest(id: string, word: string): Promise<string[]>;
 	/** Resolves to the function that stops listening. */

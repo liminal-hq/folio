@@ -208,11 +208,15 @@ pub async fn spell_check<R: Runtime>(
     _window: WebviewWindow<R>,
     id: String,
     text: String,
+    personal: Option<Vec<String>>,
 ) -> Result<SpellCheck, Error> {
     // Loading the dictionary the first time is work for a blocking thread, not the async runtime.
-    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().spell_check(&id, &text))
-        .await
-        .expect("the spelling task does not panic")
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Books<R>>()
+            .spell_check(&id, &text, &personal.unwrap_or_default())
+    })
+    .await
+    .expect("the spelling task does not panic")
 }
 
 /// Corrections for a word, best first.

@@ -7,6 +7,7 @@ import type { RibbonItem } from '@liminal-hq/folio-ribbon/types';
 import { describe, expect, it } from 'vitest';
 import type { CommandId } from '../commands/appMenuModel';
 import { messages } from '../i18n/messages';
+import type { Settings } from '@liminal-hq/folio-protocol/generated/Settings';
 import { DEFAULT_SETTINGS } from '../settings/fakeSettingsClient';
 import { RIBBON_ICONS } from './ribbonIcons';
 import { RIBBON_LAYOUT } from './ribbonLayout';
@@ -90,8 +91,8 @@ describe('buildRibbonModel', () => {
 	});
 
 	it('reflects the spelling setting on its toggle', () => {
-		const off = { ...DEFAULT_SETTINGS, spelling: { enabled: false } };
-		const find = (settings: typeof off) =>
+		const off = { ...DEFAULT_SETTINGS, spelling: { enabled: false, personal: [] } };
+		const find = (settings: Settings) =>
 			allItems(buildRibbonModel({ settings, available: some })).find((i) => i.id === 'spell');
 		expect(find(DEFAULT_SETTINGS)?.kind).toBe('toggle');
 		expect(find(DEFAULT_SETTINGS)?.active).toBe(true);

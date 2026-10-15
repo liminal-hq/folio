@@ -4,4 +4,8 @@
  * Whether the editor underlines misspelt words (D-25). It is on, since a misspelling in a printed
  * book is permanent.
  */
-export type SpellingSettings = { enabled: boolean, };
+export type SpellingSettings = { enabled: boolean, 
+/**
+ * Words added to the dictionary for every book, on this computer.
+ */
+personal: Array<string>, };

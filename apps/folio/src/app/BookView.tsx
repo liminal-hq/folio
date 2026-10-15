@@ -113,17 +113,23 @@ export function BookView({
 	useEffect(() => setEditingCell(null), [selection.join('|')]);
 	// Spelling is checked in Rust, in the book's own language and against its ignore list.
 	const spelling = settings.spelling.enabled;
+	const personal = settings.spelling.personal;
 	const speller = useMemo<Speller | undefined>(
 		() =>
 			spelling
 				? {
-						check: (text) => client.spellCheck(id, text).then((found) => found.misspellings),
+						check: (text) =>
+							client.spellCheck(id, text, personal).then((found) => found.misspellings),
 						suggest: (word) => client.spellSuggest(id, word),
 						ignore: (word) => void store.apply({ type: 'IgnoreWord', word }),
+						addToDictionary: (word) =>
+							void update({
+								spelling: { personal: [...new Set([...personal, word])].sort() },
+							} as SettingsPatch),
 					}
 				: undefined,
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[spelling, client, id],
+		[spelling, client, id, personal],
 	);
 	const input: EditorInput | null = spread
 		? {
