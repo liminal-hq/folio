@@ -18,7 +18,8 @@ export interface BackgroundScope {
 /**
  * The places a background can go on `spread`: each page (the left and right of a pair, or the one
  * page), both pages through the gutter when there are two, and every page of the book. The pages
- * come first, in order, so the one at index `i` is at `i` for a pair.
+ * come first, in order, so the one at index `i` is at `i` for a pair. The cover offers its own page
+ * only.
  */
 export function backgroundTargets(spread: Spread): BackgroundScope[] {
 	const pair = spread.pages.length > 1;
@@ -39,8 +40,10 @@ export function backgroundTargets(spread: Spread): BackgroundScope[] {
 		label: 'background.scope.every',
 		target: { type: 'everyPage' },
 	};
+	// The cover has no master, so "every page" would leave out the one page in view.
+	const everywhere = spread.kind === 'cover' ? [] : [every];
 	// The span is offered first on a pair, since a picture book usually paints the spread.
-	return [...span, ...pages, every];
+	return [...span, ...pages, ...everywhere];
 }
 
 /** What is set on `scope` now, or `null`. "Every page" shows the first master's background. */
