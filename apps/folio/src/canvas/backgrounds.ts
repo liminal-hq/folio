@@ -48,8 +48,8 @@ export function paintRects(book: Book, spread: Spread): Rect[] {
 }
 
 /**
- * The line a gradient runs along inside `rect`, as the ends of it. At 0° it runs left to right and
- * at 90° top to bottom, and it is as long as it takes for the corners to take the first and last
+ * The line a gradient runs along inside `rect`, as the ends of it. The angle is clockwise from up,
+ * as in CSS: 0° runs from the bottom to the top, 90° left to right and 180° top to bottom. It is as long as it takes for the corners to take the first and last
  * colour, so the angle looks the same on a wide spread as on a single page.
  */
 export function gradientLine(
@@ -57,8 +57,8 @@ export function gradientLine(
 	angle: number,
 ): { x1: number; y1: number; x2: number; y2: number } {
 	const radians = (angle * Math.PI) / 180;
-	const dx = Math.cos(radians);
-	const dy = Math.sin(radians);
+	const dx = Math.sin(radians);
+	const dy = -Math.cos(radians);
 	const half = (Math.abs(rect.w * dx) + Math.abs(rect.h * dy)) / 2;
 	const cx = rect.x + rect.w / 2;
 	const cy = rect.y + rect.h / 2;

@@ -99,6 +99,17 @@ describe('PageBackgroundDialog', () => {
 		});
 	});
 
+	it('applies a texture, keeps its tint when another is chosen, and tints it', async () => {
+		const onApply = setup(pair);
+		await userEvent.click(screen.getByRole('tab', { name: 'Texture' }));
+		await userEvent.click(screen.getByRole('button', { name: 'Dot grid' }));
+		expect(onApply).toHaveBeenCalledWith({
+			type: 'SetBackground',
+			target: { type: 'span', spread: 's1' },
+			bg: { type: 'texture', id: 'dot-grid', tint: null },
+		});
+	});
+
 	it('removes the background only when there is one to remove', async () => {
 		const onApply = setup(pair, 1);
 		await userEvent.click(screen.getByRole('button', { name: 'Remove background' }));

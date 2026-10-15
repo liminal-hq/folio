@@ -10,6 +10,10 @@ use crate::book::Master;
 use crate::colour::{Colour, GradientStop};
 use crate::spread::Spread;
 
+/// The textures Folio draws, by id. Their look is drawn by the app (D-23); the ids are fixed so a
+/// book names one and an older or newer build still knows what is meant, or says it does not.
+pub const TEXTURE_IDS: [&str; 5] = ["linen", "laid-paper", "kraft", "watercolour", "dot-grid"];
+
 /// How a picture fills the page: covering it (and cropped at the edges) or whole inside it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
@@ -27,7 +31,8 @@ pub enum BgFit {
 pub enum Background {
     /// One flat colour.
     Colour { colour: Colour },
-    /// A blend along a line at `angle` degrees (0 runs left to right, 90 top to bottom). A preset
+    /// A blend along a line at `angle` degrees clockwise from up, as in CSS (0 runs bottom to top, 90
+    /// left to right, 180 top to bottom). A preset
     /// is stored as the stops it expands to, so a book never depends on the palette it was made with.
     Gradient {
         angle: f64,
@@ -134,12 +139,7 @@ impl Background {
                 }
             }
             Background::Texture { id, tint } => {
-                let named = !id.is_empty()
-                    && id.len() <= 32
-                    && id
-                        .chars()
-                        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
-                if !named {
+                if !TEXTURE_IDS.contains(&id.as_str()) {
                     return Err(format!("`{id}` is not a texture"));
                 }
                 Background::Texture {
@@ -209,7 +209,7 @@ mod tests {
                 stops: vec![stop(0.0, "#000"), stop(1.5, "#fff")],
             },
             Background::Texture {
-                id: "Linen!".into(),
+                id: "plaid".into(),
                 tint: None,
             },
             Background::Picture {

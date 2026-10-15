@@ -8,6 +8,7 @@ import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import { useId } from 'react';
 import { gradientLine, paintRects, resolveBackgrounds, type Rect } from './backgrounds';
+import { hasTexture, TexturePattern } from './textures';
 
 /** What a background paints with, and the `<defs>` it needs: a colour, or a gradient by id. */
 function Fill({
@@ -37,7 +38,19 @@ function Fill({
 			</>
 		);
 	}
-	// Textures and pictures are drawn once they can be fetched; until then the paper shows.
+	if (bg.type === 'texture') {
+		// A texture this build cannot draw leaves the paper showing.
+		if (!hasTexture(bg.id)) return null;
+		return (
+			<>
+				<defs>
+					<TexturePattern id={id} texture={bg.id} tint={bg.tint} />
+				</defs>
+				{children(`url(#${id})`)}
+			</>
+		);
+	}
+	// Pictures are drawn once they can be fetched; until then the paper shows.
 	return null;
 }
 

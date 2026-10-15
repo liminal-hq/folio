@@ -52,10 +52,12 @@ describe('paintRects', () => {
 });
 
 describe('gradientLine', () => {
-	it('runs left to right at 0 degrees and top to bottom at 90', () => {
+	it('runs left to right at 90 degrees and top to bottom at 180, clockwise from up like CSS', () => {
 		const rect = { x: 0, y: 0, w: 200, h: 100 };
-		expect(gradientLine(rect, 0)).toMatchObject({ x1: 0, y1: 50, x2: 200, y2: 50 });
-		const down = gradientLine(rect, 90);
+		const across = gradientLine(rect, 90);
+		expect([across.x1, across.x2]).toEqual([0, 200]);
+		expect(across.y1).toBeCloseTo(50);
+		const down = gradientLine(rect, 180);
 		expect(down.x1).toBeCloseTo(100);
 		expect(down.y1).toBeCloseTo(0);
 		expect(down.y2).toBeCloseTo(100);
@@ -124,12 +126,29 @@ describe('BackgroundLayer', () => {
 		expect(gradient!.id).not.toMatch(/[:\s]/);
 	});
 
-	it('leaves a texture or picture out until it can be drawn', () => {
+	it('paints a texture as a pattern tile, tinted when asked', () => {
 		const layer = drawn(
 			spreadOf(1, {
-				pages: [{ id: 'p0', master: null, bg: { type: 'texture', id: 'linen' } }],
+				pages: [{ id: 'p0', master: null, bg: { type: 'texture', id: 'linen', tint: '#aabbcc' } }],
 			} as Partial<Spread>),
 		);
-		expect(layer.querySelectorAll('rect[fill]')).toHaveLength(0);
+		const pattern = layer.querySelector('pattern');
+		expect(pattern).not.toBeNull();
+		expect(pattern!.querySelector('rect')?.getAttribute('fill')).toBe('#aabbcc');
+		expect(layer.querySelector('[data-background] > rect')?.getAttribute('fill')).toBe(
+			`url(#${pattern!.id})`,
+		);
+	});
+
+	it('leaves the paper showing for a texture this build cannot draw, and for a picture not yet drawn', () => {
+		for (const bg of [
+			{ type: 'texture', id: 'from-the-future' },
+			{ type: 'picture', asset: 'assets/images/a.jpg', fit: 'fill', focus: [0.5, 0.5] },
+		]) {
+			const layer = drawn(
+				spreadOf(1, { pages: [{ id: 'p0', master: null, bg }] } as unknown as Partial<Spread>),
+			);
+			expect(layer.querySelectorAll('rect[fill]')).toHaveLength(0);
+		}
 	});
 });
