@@ -310,6 +310,7 @@ impl Builder<'_> {
             guides: Vec::new(),
             master_overrides: Vec::new(),
             bg_span: None,
+            section: None,
         }
     }
 

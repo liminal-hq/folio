@@ -10,6 +10,8 @@ import { t } from '../i18n/messages';
 import { BackgroundSwatch } from '../canvas/BackgroundSwatch';
 import { resolveBackgrounds } from '../canvas/backgrounds';
 import { backgroundTargets, currentBackground } from '../canvas/backgroundScopes';
+import { pageLabels } from '../books/pageLabels';
+import { SectionPanel } from './SectionPanel';
 import styles from './PagesPanel.module.css';
 
 export interface PagesPanelProps {
@@ -73,6 +75,13 @@ export function PagesPanel({
 					))}
 				</ul>
 			</section>
+			{spread && (
+				<SectionPanel
+					spread={spread}
+					inside={pageLabels(book.spreads)[shown]?.[0]?.section ?? ''}
+					onApply={onApply}
+				/>
+			)}
 			{spread && (
 				<section className={styles.section} aria-labelledby="pages-background">
 					<h2 id="pages-background" className={styles.heading}>

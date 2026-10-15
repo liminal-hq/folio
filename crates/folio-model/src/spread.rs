@@ -9,6 +9,7 @@ use ts_rs::TS;
 use crate::background::Background;
 use crate::frame::Frame;
 use crate::ids::{FrameId, MasterId, PageId, SpreadId};
+use crate::sections::Section;
 use crate::units::Pt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -38,6 +39,10 @@ pub struct Spread {
     /// A background across both pages, through the gutter. A page's own background wins over it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bg_span: Option<Background>,
+    /// A section starts at this spread (D-26): its numbering style and where counting starts. It
+    /// runs to the next spread that starts one. The cover cannot start one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub section: Option<Section>,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]

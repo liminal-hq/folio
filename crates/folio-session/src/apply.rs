@@ -42,6 +42,7 @@ pub enum MergeKey {
     Style(FrameId),
     Shape(FrameId),
     Focus(FrameId),
+    Section(SpreadId),
     Cell(FrameId, usize, usize),
     Background(BackgroundTarget),
 }
@@ -384,6 +385,27 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             new_spread: None,
             merge: None,
         }),
+        Intent::SetSection {
+            spread: id,
+            section,
+        } => {
+            let found = spread(book, id)?;
+            if found.kind == SpreadKind::Cover {
+                return Err(SessionError::BadSection(
+                    "the cover cannot start a section".into(),
+                ));
+            }
+            if let Some(section) = section {
+                section.checked().map_err(SessionError::BadSection)?;
+            }
+            // Later pages are numbered from this one, so their words change with it, but their
+            // spreads do not: only this one is touched.
+            // Trying a name or a number is one step; taking the section away is its own.
+            Ok(one(
+                id.clone(),
+                section.is_some().then(|| MergeKey::Section(id.clone())),
+            ))
+        }
         Intent::SetPageNumbers { .. } => Ok(Plan {
             touched: book.spreads.iter().map(|s| s.id.clone()).collect(),
             new_spread: None,
@@ -842,6 +864,15 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             }
         }
         Intent::EnsureMasters => ensure_masters(book),
+        Intent::SetSection {
+            spread: id,
+            section,
+        } => {
+            let section = section.map(|s| s.checked().unwrap_or(s));
+            if let Some(sp) = book.spreads.iter_mut().find(|sp| sp.id == id) {
+                sp.section = section;
+            }
+        }
         Intent::SetPageNumbers { position } => {
             book.page_numbers = position;
             apply_page_numbers(book);
@@ -1131,6 +1162,7 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                     guides: source.guides.clone(),
                     master_overrides: Vec::new(),
                     bg_span: source.bg_span.clone(),
+                    section: None,
                 }
             } else {
                 // The page after the cover opens on the right; every other new spread is a pair.
@@ -1153,6 +1185,7 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                     guides: Vec::new(),
                     master_overrides: Vec::new(),
                     bg_span: None,
+                    section: None,
                 }
             };
             book.spreads.insert(at + 1, made);

@@ -1191,3 +1191,63 @@ fn pictures_are_not_checked_without_facts_about_them() {
         .iter()
         .all(|p| p.kind != PreflightKind::PictureMissing));
 }
+
+#[test]
+fn page_and_section_tokens_follow_the_sections_of_the_book() {
+    let (mut book, styles) = sample(BookKind::Novel);
+    book.spreads[1].section = Some(folio_model::Section {
+        name: "Front matter".into(),
+        numbering: folio_model::Numbering::Roman,
+        start: Some(3),
+    });
+    book.spreads[1].frames.push(text_frame(
+        "tok",
+        "body",
+        20.0,
+        20.0,
+        200.0,
+        30.0,
+        "{page} in {section}",
+    ));
+    book.spreads[2].frames.push(text_frame(
+        "later",
+        "body",
+        20.0,
+        20.0,
+        200.0,
+        30.0,
+        "{page} in [{section}]",
+    ));
+    let said = |spread: usize, frame: &str| -> String {
+        let fonts = FontBook::bundled();
+        let layout = Layouter::new(&book, &styles, &fonts)
+            .layout_spread(&book.spreads[spread].id)
+            .unwrap()
+            .unwrap();
+        layout
+            .frames
+            .iter()
+            .find(|f| f.frame.0 == frame)
+            .unwrap()
+            .lines
+            .iter()
+            .flat_map(|l| l.runs.iter().map(|r| r.text.clone()))
+            .collect::<Vec<_>>()
+            .join("")
+            .replace(' ', "")
+    };
+    // The first page after the cover is page 3 of the front matter, in Roman.
+    assert!(
+        said(1, "tok").contains("iiiinFrontmatter"),
+        "{}",
+        said(1, "tok")
+    );
+    // The next spread carries the section on; its page follows the count.
+    let pages_before: usize = book.spreads[1].pages.len();
+    let want = folio_model::roman(3 + pages_before as u32);
+    let later = said(2, "later");
+    assert!(
+        later.contains(&format!("{want}in[Frontmatter]")),
+        "{later} (wanted {want})"
+    );
+}

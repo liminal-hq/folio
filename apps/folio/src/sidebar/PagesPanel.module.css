@@ -91,3 +91,35 @@
 	opacity: 0.4;
 	cursor: default;
 }
+
+.note {
+	margin: 0;
+	color: var(--folio-text-secondary);
+	font-size: 12px;
+}
+
+.field {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	font-size: 13px;
+}
+
+.field input {
+	inline-size: 9em;
+	min-block-size: var(--folio-hit-target);
+	padding: 2px 8px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-control-bg);
+	color: inherit;
+	font: inherit;
+}
+
+.check {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 13px;
+}

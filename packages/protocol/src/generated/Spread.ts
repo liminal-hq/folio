@@ -4,6 +4,7 @@ import type { Frame } from "./Frame";
 import type { Guide } from "./Guide";
 import type { MasterOverride } from "./MasterOverride";
 import type { Page } from "./Page";
+import type { Section } from "./Section";
 import type { SpreadId } from "./SpreadId";
 import type { SpreadKind } from "./SpreadKind";
 
@@ -15,4 +16,9 @@ frames: Array<Frame>, guides: Array<Guide>, masterOverrides: Array<MasterOverrid
 /**
  * A background across both pages, through the gutter. A page's own background wins over it.
  */
-bgSpan?: Background | null, };
+bgSpan?: Background | null, 
+/**
+ * A section starts at this spread (D-26): its numbering style and where counting starts. It
+ * runs to the next spread that starts one. The cover cannot start one.
+ */
+section?: Section | null, };

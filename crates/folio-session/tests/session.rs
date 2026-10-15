@@ -2720,3 +2720,82 @@ fn a_table_look_and_header_rows_change_and_only_a_table_is_edited() {
         Err(SessionError::Locked(_))
     ));
 }
+
+#[test]
+fn a_section_starts_at_a_spread_and_undoes_and_the_cover_cannot_start_one() {
+    let mut s = session();
+    let set = |s: &mut Session, spread_id: &str, section: Option<folio_model::Section>| {
+        s.apply(Intent::SetSection {
+            spread: spread(spread_id),
+            section,
+        })
+    };
+    let section = |name: &str| {
+        Some(folio_model::Section {
+            name: name.into(),
+            numbering: folio_model::Numbering::Roman,
+            start: Some(1),
+        })
+    };
+    set(&mut s, "sp_1", section("  Contents ")).unwrap();
+    let kept = s.book().spreads[1].section.clone().unwrap();
+    assert_eq!(kept.name, "Contents", "kept trimmed");
+    set(&mut s, "sp_1", None).unwrap();
+    assert!(s.book().spreads[1].section.is_none());
+    s.undo().unwrap();
+    assert!(s.book().spreads[1].section.is_some());
+    // Trying a name letter by letter is one step.
+    for name in ["C", "Co", "Con"] {
+        set(&mut s, "sp_1", section(name)).unwrap();
+    }
+    s.undo().unwrap();
+    assert_eq!(
+        s.book().spreads[1].section.as_ref().unwrap().name,
+        "Contents"
+    );
+    // The cover cannot, a spread that is not there cannot, and a section out of range cannot.
+    let cover = s.book().spreads[0].id.0.clone();
+    assert!(matches!(
+        set(&mut s, &cover, section("x")),
+        Err(SessionError::BadSection(_))
+    ));
+    assert!(matches!(
+        set(&mut s, "sp_nope", section("x")),
+        Err(SessionError::NoSuchSpread(_))
+    ));
+    let zero = Some(folio_model::Section {
+        name: "x".into(),
+        numbering: folio_model::Numbering::Arabic,
+        start: Some(0),
+    });
+    assert!(matches!(
+        set(&mut s, "sp_1", zero),
+        Err(SessionError::BadSection(_))
+    ));
+}
+
+#[test]
+fn a_duplicated_spread_does_not_start_another_section() {
+    let mut s = session();
+    s.apply(Intent::SetSection {
+        spread: spread("sp_1"),
+        section: Some(folio_model::Section {
+            name: "Story".into(),
+            numbering: folio_model::Numbering::Arabic,
+            start: Some(1),
+        }),
+    })
+    .unwrap();
+    s.apply(Intent::AddSpread {
+        after: spread("sp_1"),
+        duplicate: true,
+    })
+    .unwrap();
+    let with: usize = s
+        .book()
+        .spreads
+        .iter()
+        .filter(|sp| sp.section.is_some())
+        .count();
+    assert_eq!(with, 1);
+}
