@@ -336,6 +336,52 @@ describe('the part of a picture to keep in view', () => {
 	});
 });
 
+describe('with a table selected', () => {
+	const table = (extra = {}) =>
+		({
+			type: 'table',
+			id: 'tb',
+			box: { x: 0, y: 0, w: 100, h: 50 },
+			locked: false,
+			rotation: 0,
+			cols: [0.5, 0.5],
+			rows: [
+				[{}, {}],
+				[{}, {}],
+				[{}, {}],
+			],
+			head: 1,
+			look: 'lined',
+			...extra,
+		}) as unknown as Frame;
+
+	it('names it and its size, and changes the look and the header row', async () => {
+		const { apply } = setup([table()]);
+		expect(screen.getByRole('heading', { name: 'Table' })).toBeInTheDocument();
+		expect(screen.getByText('3 × 2')).toBeInTheDocument();
+		expect(screen.getByRole('radio', { name: 'Lined' })).toBeChecked();
+		await userEvent.click(screen.getByRole('radio', { name: 'Grid' }));
+		expect(apply).toHaveBeenLastCalledWith({
+			type: 'EditTable',
+			frame: 'tb',
+			edit: { type: 'setLook', look: 'grid' },
+		});
+		await userEvent.click(screen.getByRole('checkbox', { name: 'Header row' }));
+		expect(apply).toHaveBeenLastCalledWith({
+			type: 'EditTable',
+			frame: 'tb',
+			edit: { type: 'setHead', head: 0 },
+		});
+	});
+
+	it('leaves a locked table alone', async () => {
+		const { apply } = setup([table({ locked: true })]);
+		expect(screen.getByRole('checkbox', { name: 'Header row' })).toBeDisabled();
+		await userEvent.click(screen.getByRole('radio', { name: 'Grid' }));
+		expect(apply).not.toHaveBeenCalled();
+	});
+});
+
 describe('the words box', () => {
 	it('keeps what was typed when another frame is chosen before it loses focus', () => {
 		const apply = vi.fn();

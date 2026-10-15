@@ -94,7 +94,15 @@ export function TextEditor({
 	// Showing another spread or losing the frame closes the editor without a blur: keep the words.
 	const latest = useRef(finish);
 	latest.current = finish;
-	useEffect(() => () => latest.current(), []);
+	// Only words that changed need keeping then: with none, there is nothing to send, and React's
+	// development double run of effects must not close an editor that has only just opened.
+	useEffect(
+		() => () => {
+			if (typed.current !== initial) latest.current();
+		},
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[],
+	);
 
 	return (
 		<textarea

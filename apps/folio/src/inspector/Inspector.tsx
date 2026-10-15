@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
+import type { TableEdit } from '@liminal-hq/folio-protocol/generated/TableEdit';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { PaintPresets } from '@liminal-hq/folio-protocol/generated/PaintPresets';
@@ -514,6 +515,54 @@ function ShapeSection({ frame, props }: { frame: ShapeFrame; props: InspectorPro
 	);
 }
 
+function TableSection({
+	frame,
+	props,
+}: {
+	frame: Extract<Frame, { type: 'table' }>;
+	props: InspectorProps;
+}) {
+	const free = !frame.locked && !frame.fromMaster;
+	const edit = (change: TableEdit): Intent => ({
+		type: 'EditTable',
+		frame: frame.id,
+		edit: change,
+	});
+	return (
+		<>
+			<Header
+				title={t('inspector.title.table')}
+				badges={[t('inspector.table.size', { rows: frame.rows.length, cols: frame.cols.length })]}
+			/>
+			<div className={styles.field}>
+				<span>{t('inspector.table.look')}</span>
+				<Segmented
+					label={t('inspector.table.look')}
+					value={frame.look}
+					options={[
+						{ value: 'lined', label: t('ribbon.item.tableLined') },
+						{ value: 'grid', label: t('ribbon.item.tableGrid') },
+						{ value: 'recipe', label: t('ribbon.item.tableRecipe') },
+					]}
+					onChange={(look) => free && props.apply(edit({ type: 'setLook', look }))}
+				/>
+			</div>
+			<label className={styles.check}>
+				<input
+					type="checkbox"
+					checked={frame.head > 0}
+					disabled={!free}
+					onChange={(event) =>
+						props.apply(edit({ type: 'setHead', head: event.target.checked ? 1 : 0 }))
+					}
+				/>
+				{t('inspector.table.head')}
+			</label>
+			<p className={styles.note}>{t('inspector.table.hint')}</p>
+		</>
+	);
+}
+
 function PictureSection({ frame, props }: { frame: Frame; props: InspectorProps }) {
 	const { book, spread, apply } = props;
 	const hasPicture = frame.type === 'image' && !!frame.image.asset;
@@ -622,6 +671,7 @@ export function Inspector(props: InspectorProps) {
 				{frame.type === 'text' && <TextSection frame={frame} props={props} />}
 				{frame.type === 'image' && <PictureSection frame={frame} props={props} />}
 				{frame.type === 'shape' && <ShapeSection frame={frame} props={props} />}
+				{frame.type === 'table' && <TableSection frame={frame} props={props} />}
 				{frame.type === 'group' && <Header title={t('inspector.title.group')} badges={[]} />}
 				{props.mode === 'expert' && (
 					<PositionSection
