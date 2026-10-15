@@ -312,6 +312,7 @@ export function Stage({
 						marks ?? DEFAULT_MARKS,
 						spread.kind !== 'cover',
 						masterItemsAt(book, spread, pageMenu.point),
+						isMasterSpread(spread),
 						editableMasters && !isMasterSpread(spread)
 							? masterAt(book, spread, pageMenu.point)
 							: null,

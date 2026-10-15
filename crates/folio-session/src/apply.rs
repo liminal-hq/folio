@@ -292,7 +292,7 @@ pub fn plan(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         intent,
         Intent::AddSpread { .. } | Intent::DeleteSpread { .. } | Intent::MoveSpread { .. }
     );
-    if restructures && !book.page_numbers.is_none() {
+    if restructures && (!book.page_numbers.is_none() || !book.master_pages.is_empty()) {
         for spread in &book.spreads {
             if !made.touched.contains(&spread.id) {
                 made.touched.push(spread.id.clone());
@@ -414,6 +414,20 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             if !can_promote(book, spread(book, s)?, &guide) {
                 return Err(SessionError::CannotPromote);
             }
+            // Making the masters gives pages on other spreads theirs, so they are part of the change.
+            let unassigned = book.master_pages.is_empty()
+                || book
+                    .spreads
+                    .iter()
+                    .filter(|sp| sp.kind != SpreadKind::Cover)
+                    .any(|sp| sp.pages.iter().any(|p| p.master.is_none()));
+            if unassigned {
+                return Ok(Plan {
+                    touched: book.spreads.iter().map(|sp| sp.id.clone()).collect(),
+                    new_spread: None,
+                    merge: None,
+                });
+            }
             Ok(one(s.clone(), None))
         }
         Intent::DemoteGuide {
@@ -495,6 +509,20 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             let target = find(frames_on(book, on)?, frame)
                 .ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
             ensure_free(target)?;
+            if matches!(on, Surface::Master(_)) {
+                if crate::masters::is_number(target) {
+                    return Err(SessionError::PageNumber(frame.0.clone()));
+                }
+                // Pages that hid the frame forget it, so they are part of the change.
+                let mut plan = by(on, None);
+                plan.touched = book
+                    .spreads
+                    .iter()
+                    .filter(|s| s.master_overrides.iter().any(|o| o.hide.contains(frame)))
+                    .map(|s| s.id.clone())
+                    .collect();
+                return Ok(plan);
+            }
             Ok(by(on, None))
         }
         Intent::DuplicateFrame { on, frame } | Intent::LockFrame { on, frame, .. } => {
@@ -578,7 +606,7 @@ pub fn run(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
         Intent::AddSpread { .. } | Intent::DeleteSpread { .. } | Intent::MoveSpread { .. }
     );
     run_one(book, intent, plan, ids);
-    if restructures && !book.page_numbers.is_none() {
+    if restructures {
         apply_page_numbers(book);
     }
 }
@@ -713,6 +741,14 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
         Intent::DeleteFrame { on, frame } => {
             if let Some(frames) = frames_on_mut(book, &on) {
                 remove(frames, &frame);
+            }
+            if matches!(on, Surface::Master(_)) {
+                for spread in &mut book.spreads {
+                    for o in &mut spread.master_overrides {
+                        o.hide.retain(|f| f != &frame);
+                    }
+                    spread.master_overrides.retain(|o| !o.hide.is_empty());
+                }
             }
         }
         Intent::MoveFrames { on, moves } => {

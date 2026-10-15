@@ -264,6 +264,8 @@ export function useFrameDrag(options: FrameDragOptions) {
 
 	const onKeyDown = (event: KeyboardEvent) => {
 		if (event.key === 'Escape') {
+			// With nothing to cancel or deselect, Escape is left for whoever else wants it.
+			if (!drag.current && selection.length === 0) return;
 			if (drag.current) void finish(false);
 			else onSelect?.([]);
 			event.preventDefault();
