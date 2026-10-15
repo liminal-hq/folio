@@ -2129,3 +2129,68 @@ fn trying_colours_on_one_page_is_one_undo_step() {
     s.undo().unwrap();
     assert!(s.book().spreads[2].pages[0].bg.is_none());
 }
+
+#[test]
+fn a_duplicated_spread_keeps_its_backgrounds() {
+    let mut s = session();
+    let page = s.book().spreads[2].pages[1].id.clone();
+    s.apply(set_bg(
+        folio_model::BackgroundTarget::Page {
+            spread: spread("sp_2"),
+            page,
+        },
+        colour_bg("#223344"),
+    ))
+    .unwrap();
+    s.apply(set_bg(
+        folio_model::BackgroundTarget::Span {
+            spread: spread("sp_2"),
+        },
+        colour_bg("#aabbcc"),
+    ))
+    .unwrap();
+    s.apply(Intent::AddSpread {
+        after: spread("sp_2"),
+        duplicate: true,
+    })
+    .unwrap();
+    let copy = &s.book().spreads[3];
+    assert_eq!(copy.pages[1].bg, colour_bg("#223344"));
+    assert!(copy.pages[0].bg.is_none());
+    assert_eq!(copy.bg_span, colour_bg("#aabbcc"));
+}
+
+#[test]
+fn an_every_page_background_survives_the_numbers_going_off_and_a_facing_master_is_made() {
+    use folio_model::{BackgroundTarget::EveryPage, PageNumbers};
+    let mut s = session();
+    s.apply(set_bg(EveryPage, colour_bg("#fdf6e3"))).unwrap();
+    // The numbers were never on, and turning them on and off must not take the masters away.
+    s.apply(Intent::SetPageNumbers {
+        position: PageNumbers::Centre,
+    })
+    .unwrap();
+    s.apply(Intent::SetPageNumbers {
+        position: PageNumbers::None,
+    })
+    .unwrap();
+    assert!(
+        s.book()
+            .master_pages
+            .iter()
+            .any(|m| m.bg == colour_bg("#fdf6e3")),
+        "the background keeps its master"
+    );
+    // With the numbers outside, master B is made and starts with the same background.
+    s.apply(Intent::SetPageNumbers {
+        position: PageNumbers::Outside,
+    })
+    .unwrap();
+    let b = s
+        .book()
+        .master_pages
+        .iter()
+        .find(|m| m.id.0 == "mst_b")
+        .expect("master B");
+    assert_eq!(b.bg, colour_bg("#fdf6e3"));
+}
