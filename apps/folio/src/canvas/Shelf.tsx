@@ -11,6 +11,7 @@ import { AddPagesIcon } from '../icons/AppIcons';
 import { t } from '../i18n/messages';
 import { shelfMenuItems, type ShelfCommand } from './shelfMenu';
 import { spreadGeometry } from './geometry';
+import { ShapeArt } from './ShapeArt';
 import styles from './Shelf.module.css';
 
 const THUMB_HEIGHT = 44;
@@ -56,7 +57,9 @@ function Thumb({ book, index }: { book: Book; index: number }) {
 			{spread.frames.map((frame) =>
 				frame.type === 'text' ? (
 					<Ruled key={frame.id} frame={frame} />
-				) : frame.type === 'group' ? null : (
+				) : frame.type === 'group' ? null : frame.type === 'shape' ? (
+					<ShapeArt key={frame.id} frame={frame} />
+				) : (
 					<rect
 						key={frame.id}
 						x={frame.box.x}
