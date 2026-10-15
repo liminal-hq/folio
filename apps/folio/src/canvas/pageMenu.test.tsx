@@ -40,6 +40,24 @@ describe('pageMenuItems', () => {
 		expect(without.some((r) => String(r.id).startsWith('editMaster'))).toBe(false);
 	});
 
+	it('offers a copy of a visible master item to those who can edit masters, but not of the page number', () => {
+		const some = [
+			{ page: 'p1', frame: 'fr_pn_a', label: 'the page number', hidden: false },
+			{ page: 'p1', frame: 'n1', label: 'Footer', hidden: false },
+			{ page: 'p1', frame: 'n2', label: 'Hidden', hidden: true },
+		];
+		const rows = pageMenuItems(DEFAULT_MARKS, true, some, false, { id: 'mst_a', name: 'A' });
+		expect(rows.filter((r) => String(r.id).startsWith('copyMaster:')).map((r) => r.id)).toEqual([
+			'copyMaster:p1:n1',
+		]);
+		expect(rows.find((r) => r.id === 'copyMaster:p1:n1')).toMatchObject({
+			label: 'Copy Footer to this page',
+		});
+		expectEveryItemHasIcon(rows.filter((r) => String(r.id).startsWith('copyMaster:')));
+		const plain = pageMenuItems(DEFAULT_MARKS, true, some);
+		expect(plain.some((r) => String(r.id).startsWith('copyMaster:'))).toBe(false);
+	});
+
 	it('adds nothing for a page with no master items', () => {
 		const rows = pageMenuItems(DEFAULT_MARKS, true);
 		expect(rows.some((r) => String(r.id).includes('Master'))).toBe(false);

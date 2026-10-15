@@ -20,7 +20,12 @@ export type PageCommand =
 	/** `editMaster:<master>` opens that master page to edit. */
 	| `editMaster:${string}`
 	/** `hideMaster:<page>:<frame>` hides a master item on one page; `showMaster:…` shows it again. */
-	| `${'hideMaster' | 'showMaster'}:${string}:${string}`;
+	| `${'hideMaster' | 'showMaster'}:${string}:${string}`
+	/** `copyMaster:<page>:<frame>` hides a master item on one page and leaves an editable copy there. */
+	| `copyMaster:${string}:${string}`;
+
+/** The managed page number frames on the masters. */
+const isNumber = (frame: string) => frame === 'fr_pn_a' || frame === 'fr_pn_b';
 
 const Box = () => (
 	<svg
@@ -88,5 +93,15 @@ export function pageMenuItems(
 			label: t(item.hidden ? 'page.showMaster' : 'page.hideMaster', { name: item.label }),
 			icon: <Box />,
 		})),
+		// Only the people who can edit masters can change a page's own copy, and a page number is a
+		// token only a master can fill in.
+		...(editMaster ? hide.filter((item) => !item.hidden && !isNumber(item.frame)) : []).map(
+			(item): MenuItem => ({
+				type: 'action',
+				id: `copyMaster:${item.page}:${item.frame}`,
+				label: t('page.copyMaster', { name: item.label }),
+				icon: <Box />,
+			}),
+		),
 	];
 }

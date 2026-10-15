@@ -136,6 +136,7 @@ export const messages = {
 	'page.editMaster': 'Edit master page {name}',
 	'page.hideMaster': 'Hide {name} on this page',
 	'page.showMaster': 'Show {name} on this page',
+	'page.copyMaster': 'Copy {name} to this page',
 	'master.item.pageNumber': 'the page number',
 	'master.editing': 'Editing master page {name}',
 	'master.page': 'Master page {name}',

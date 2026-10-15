@@ -371,6 +371,11 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             page,
             frame,
             ..
+        }
+        | Intent::CopyMasterItem {
+            spread: s,
+            page,
+            frame,
         } => {
             let found = spread(book, s)?;
             let on = found
@@ -385,6 +390,12 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             });
             if !owns {
                 return Err(SessionError::NoSuchFrame(frame.0.clone()));
+            }
+            // A page number is a token that only a master can fill in, so a copy would show it as typed.
+            if matches!(intent, Intent::CopyMasterItem { .. })
+                && (crate::masters::is_number_id(&frame.0))
+            {
+                return Err(SessionError::PageNumber(frame.0.clone()));
             }
             Ok(one(s.clone(), None))
         }
@@ -660,6 +671,49 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                     }
                     (None, false) => {}
                 }
+            }
+        }
+        Intent::CopyMasterItem {
+            spread: s,
+            page,
+            frame,
+        } => {
+            let Some(at) = book.spreads.iter().position(|sp| sp.id == s) else {
+                return;
+            };
+            let Some(index) = book.spreads[at].pages.iter().position(|p| p.id == page) else {
+                return;
+            };
+            let source = book.spreads[at].pages[index]
+                .master
+                .as_ref()
+                .and_then(|m| book.master_pages.iter().find(|mp| &mp.id == m))
+                .and_then(|mp| mp.frames.iter().find(|f| f.base().id == frame))
+                .cloned();
+            let Some(source) = source else {
+                return;
+            };
+            let mut copy = renewed(&source, ids);
+            let base = copy.base_mut();
+            // A master frame sits at a point on its page; the copy sits at the same point on the spread.
+            base.rect.x = Pt(base.rect.x.0 + book.trim.w.0 * index as f64);
+            base.locked = false;
+            base.from_master = None;
+            if let Frame::Text(t) = &mut copy {
+                t.flow = None;
+            }
+            let sp = &mut book.spreads[at];
+            sp.frames.push(copy);
+            match sp.master_overrides.iter_mut().find(|o| o.page_id == page) {
+                Some(o) => {
+                    if !o.hide.contains(&frame) {
+                        o.hide.push(frame);
+                    }
+                }
+                None => sp.master_overrides.push(folio_model::MasterOverride {
+                    page_id: page,
+                    hide: vec![frame],
+                }),
             }
         }
         Intent::AddGuide { on, axis, pos } => {

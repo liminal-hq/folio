@@ -12,7 +12,7 @@
 - **Frame** types: `text`, `image`, `shape` (rect/ellipse/rounded "note box"), `group`. Common fields: `box`, `rotation`, `locked`, `z` (array order), `fromMaster`.
 - **Text frame**: `style`, `content` (inline runs) or `flow` membership + `flowIndex`, `columns`, `inset`, `verticalAlign`, `baselineLock`.
 - **Image frame**: `asset`, `fit` (`fill` | `fit` | `stretch` | `manual`), `focus` point, `crop`, `effectivePpi` (computed).
-- **Master page**: frames with `token` text (`{page}`, `{book.title}`, `{chapter.title}`, `{section}`) and ruler guides, applied per page. A master belongs to the book, not to Easy or Expert: page numbers are two managed frames on masters A and B, and any other frame or guide on a master is the person's own and is never rebuilt. Spreads may hide master items per page (`masterOverrides`). See D-22.
+- **Master page**: frames with `token` text (`{page}`, `{book.title}`, `{chapter.title}`, `{section}`) and ruler guides, applied per page. A master belongs to the book, not to Easy or Expert: page numbers are two managed frames on masters A and B, and any other frame or guide on a master is the person's own and is never rebuilt. Spreads may hide master items per page (`masterOverrides`), and in Expert a page can take its own editable copy of a master item (page menu, "Copy … to this page"): the item is hidden on that page and a frame the person owns sits where it was. Page numbers cannot be copied. See D-22.
 
 ## Text
 

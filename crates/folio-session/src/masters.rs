@@ -54,7 +54,11 @@ fn ours(id: &MasterId) -> bool {
 }
 
 pub fn is_number(frame: &Frame) -> bool {
-    matches!(frame.base().id.0.as_str(), NUMBER_A | NUMBER_B)
+    is_number_id(&frame.base().id.0)
+}
+
+pub fn is_number_id(id: &str) -> bool {
+    matches!(id, NUMBER_A | NUMBER_B)
 }
 
 /// Puts the number frame `id` on `master` at the given box, or moves the one already there. Only its

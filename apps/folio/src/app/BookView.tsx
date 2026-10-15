@@ -377,7 +377,10 @@ export function BookView({
 								apply({ type: 'AddSpread', after: spread.id, duplicate: false });
 								setSpreadIndex(shown + 1);
 							} else if (command === 'duplicateSpread') pageOp('duplicate');
-							else if (command.startsWith('hideMaster:') || command.startsWith('showMaster:')) {
+							else if (command.startsWith('copyMaster:')) {
+								const [, page, frame] = command.split(':') as [string, string, string];
+								apply({ type: 'CopyMasterItem', spread: spread.id, page, frame });
+							} else if (command.startsWith('hideMaster:') || command.startsWith('showMaster:')) {
 								const [which, page, frame] = command.split(':') as [string, string, string];
 								apply({
 									type: 'HideMasterItem',

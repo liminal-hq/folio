@@ -1914,3 +1914,56 @@ fn a_master_frame_is_duplicated_reordered_and_locked_on_its_master() {
     .unwrap();
     assert!(master(&s, "mst_a").unwrap().frames[0].base().locked);
 }
+
+#[test]
+fn copying_a_master_item_to_a_page_hides_it_there_and_leaves_one_the_person_owns() {
+    let mut s = with_frame_on(folio_model::PageNumbers::Centre, "mst_a");
+    let page = s.book().spreads[2].pages[1].id.clone();
+    let trim_w = s.book().trim.w.0;
+    let copy = Intent::CopyMasterItem {
+        spread: spread("sp_2"),
+        page: page.clone(),
+        frame: frame("fr_mine"),
+    };
+    let before = s.book().spreads[2].frames.len();
+    s.apply(copy).unwrap();
+    let sp = &s.book().spreads[2];
+    assert_eq!(sp.frames.len(), before + 1);
+    assert_eq!(sp.master_overrides[0].hide, vec![frame("fr_mine")]);
+    let made = sp.frames.last().unwrap().base();
+    assert_ne!(made.id.0, "fr_mine");
+    assert!(made.from_master.is_none() && !made.locked);
+    assert_eq!(
+        made.rect.x.0,
+        10.0 + trim_w,
+        "it sits where the master item showed, on the right page"
+    );
+    // The master keeps its item, and it is one undo step.
+    assert!(master(&s, "mst_a")
+        .unwrap()
+        .frames
+        .iter()
+        .any(|f| f.base().id.0 == "fr_mine"));
+    s.undo().unwrap();
+    assert_eq!(s.book().spreads[2].frames.len(), before);
+    assert!(s.book().spreads[2].master_overrides.is_empty());
+}
+
+#[test]
+fn a_page_number_cannot_be_copied_to_a_page_and_a_frame_off_the_master_is_refused() {
+    let mut s = with_frame_on(folio_model::PageNumbers::Centre, "mst_a");
+    let page = s.book().spreads[1].pages[0].id.clone();
+    let on = |f: &str| Intent::CopyMasterItem {
+        spread: spread("sp_1"),
+        page: page.clone(),
+        frame: frame(f),
+    };
+    assert_eq!(
+        s.apply(on("fr_pn_a")).unwrap_err(),
+        SessionError::PageNumber("fr_pn_a".into())
+    );
+    assert_eq!(
+        s.apply(on("fr_other")).unwrap_err(),
+        SessionError::NoSuchFrame("fr_other".into())
+    );
+}
