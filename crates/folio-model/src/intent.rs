@@ -9,7 +9,7 @@ use ts_rs::TS;
 use crate::background::Background;
 use crate::book::{Grid, PageNumbers};
 use crate::colour::Colour;
-use crate::frame::{Fit, Frame, Shape, StyleOverrides};
+use crate::frame::{Fit, Frame, Shape, StyleOverrides, TableLook};
 use crate::ids::{FrameId, MasterId, PageId, SpreadId, StyleId};
 use crate::spread::Axis;
 use crate::units::{Margins, Pt, Rect, Size};
@@ -52,6 +52,44 @@ pub enum BackgroundTarget {
     Span { spread: SpreadId },
     /// Every page after the cover that has none of its own, by way of the masters they use.
     EveryPage,
+}
+
+/// A change to a table's cells, rows, columns or look.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum TableEdit {
+    /// Puts the words of one cell; empty words empty the cell.
+    SetCell {
+        row: usize,
+        col: usize,
+        text: String,
+    },
+    /// Adds an empty row so it is row `at` (the end is one past the last). The table grows by a row's
+    /// height, so the other rows keep theirs.
+    AddRow {
+        at: usize,
+    },
+    /// Takes row `at` out and the table shrinks by its height. A table keeps at least one row.
+    RemoveRow {
+        at: usize,
+    },
+    /// Adds an empty column so it is column `at`, taking an equal share and leaving the others
+    /// proportionally narrower.
+    AddColumn {
+        at: usize,
+    },
+    /// Takes column `at` out, the others widening to fill. A table keeps at least one column.
+    RemoveColumn {
+        at: usize,
+    },
+    /// How many rows from the top are headers.
+    SetHead {
+        head: u8,
+    },
+    SetLook {
+        look: TableLook,
+    },
 }
 
 // ── Intents (UI → core) ──
@@ -194,6 +232,12 @@ pub enum Intent {
     SetText {
         frame: FrameId,
         text: String,
+    },
+    /// Changes a table: a cell's words, its rows and columns, header rows or look. Typing in one
+    /// cell is one undo step.
+    EditTable {
+        frame: FrameId,
+        edit: TableEdit,
     },
     SetStyle {
         frame: FrameId,

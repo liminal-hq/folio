@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import type { TableEdit } from '@liminal-hq/folio-protocol/generated/TableEdit';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
@@ -25,6 +26,8 @@ export interface EditorInput {
 	snap: boolean;
 	/** Whether the rulers show. */
 	rulers: boolean;
+	/** The cell being edited in the selected table, which says where a row or column goes. */
+	cell?: { row: number; col: number } | null;
 	/** Whether `spread` is a master page being edited, not one of the book's spreads. */
 	master?: boolean;
 }
@@ -139,6 +142,19 @@ export function editorState(input: EditorInput): EditorState {
 		active.fitFill = only.image.fit === 'fit';
 	}
 	if (only?.type === 'shape') contextual.push('shape');
+	if (only?.type === 'table') {
+		contextual.push('table');
+		if (!only.locked && !only.fromMaster) {
+			for (const id of ['rowAdd', 'colAdd', 'headToggle', 'tableLined', 'tableGrid', 'tableRecipe'])
+				available.add(id);
+			if (only.rows.length > 1) available.add('rowDel');
+			if (only.cols.length > 1) available.add('colDel');
+		}
+		active.headToggle = only.head > 0;
+		active.tableLined = only.look === 'lined';
+		active.tableGrid = only.look === 'grid';
+		active.tableRecipe = only.look === 'recipe';
+	}
 	// Any one frame that is free to change can be turned.
 	if (only && !only.locked && !only.fromMaster) {
 		available.add('rotL');
@@ -261,6 +277,37 @@ export function editorAction(
 					frame: f.id,
 					overrides: withOverrides(f, { size: Math.min(200, Math.max(4, size)) }),
 				})),
+			};
+		}
+		case 'rowAdd':
+		case 'rowDel':
+		case 'colAdd':
+		case 'colDel':
+		case 'headToggle':
+		case 'tableLined':
+		case 'tableGrid':
+		case 'tableRecipe': {
+			const only = selected.length === 1 ? selected[0]! : null;
+			if (only?.type !== 'table' || only.locked || only.fromMaster) return null;
+			// Rows and columns go on and come off the end until a cell is chosen to say where.
+			const edit: TableEdit | null =
+				id === 'rowAdd'
+					? { type: 'addRow', at: input.cell?.row ?? only.rows.length }
+					: id === 'rowDel'
+						? { type: 'removeRow', at: input.cell?.row ?? only.rows.length - 1 }
+						: id === 'colAdd'
+							? { type: 'addColumn', at: input.cell?.col ?? only.cols.length }
+							: id === 'colDel'
+								? { type: 'removeColumn', at: input.cell?.col ?? only.cols.length - 1 }
+								: id === 'headToggle'
+									? { type: 'setHead', head: only.head > 0 ? 0 : 1 }
+									: {
+											type: 'setLook',
+											look: id === 'tableGrid' ? 'grid' : id === 'tableRecipe' ? 'recipe' : 'lined',
+										};
+			return {
+				kind: 'intents',
+				intents: [{ type: 'EditTable', frame: only.id, edit }],
 			};
 		}
 		case 'rotL':
