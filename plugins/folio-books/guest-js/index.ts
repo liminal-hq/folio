@@ -9,6 +9,7 @@ import type { BookSnapshot } from '@liminal-hq/folio-protocol/generated/BookSnap
 import type { BookSummary } from '@liminal-hq/folio-protocol/generated/BookSummary';
 import type { BooksChanged } from '@liminal-hq/folio-protocol/generated/BooksChanged';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
+import type { PaintPresets } from '@liminal-hq/folio-protocol/generated/PaintPresets';
 import type { KindInfo } from '@liminal-hq/folio-protocol/generated/KindInfo';
 import type { NewBookSpec } from '@liminal-hq/folio-protocol/generated/NewBookSpec';
 import type { Patch } from '@liminal-hq/folio-protocol/generated/Patch';
@@ -57,6 +58,11 @@ export function getStatus(): Promise<PluginStatus> {
 /** The six kinds of book and the sizes each comes in. */
 export function presets(): Promise<KindInfo[]> {
 	return cmd<KindInfo[]>('presets');
+}
+
+/** The colours and gradients the pickers offer. */
+export function paintPresets(): Promise<PaintPresets> {
+	return cmd<PaintPresets>('paint_presets');
 }
 
 /** Where Save as… should start for a book with this title. */
@@ -135,6 +141,7 @@ export type {
 	BooksChanged,
 	Intent,
 	KindInfo,
+	PaintPresets,
 	NewBookSpec,
 	Patch,
 	PatchEvent,

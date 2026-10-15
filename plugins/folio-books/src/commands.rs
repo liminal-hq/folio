@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 
 use folio_model::Intent;
-use folio_presets::{KindInfo, NewBookSpec};
+use folio_presets::{KindInfo, NewBookSpec, PaintPresets};
 use folio_protocol::PluginStatus;
 use folio_session::Patch;
 use tauri::{AppHandle, Manager, Runtime, State, WebviewWindow};
@@ -28,6 +28,12 @@ pub async fn presets<R: Runtime>(
     books: State<'_, Books<R>>,
 ) -> Result<Vec<KindInfo>, Error> {
     Ok(books.presets())
+}
+
+/// The colours and gradients the pickers offer.
+#[tauri::command]
+pub async fn paint_presets<R: Runtime>(_window: WebviewWindow<R>) -> Result<PaintPresets, Error> {
+    Ok(folio_presets::paint_presets())
 }
 
 /// Where Save as… should start for a book with this title.

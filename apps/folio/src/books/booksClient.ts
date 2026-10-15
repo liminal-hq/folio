@@ -17,6 +17,7 @@ import {
 	onBooksChanged,
 	onPatch,
 	openBook,
+	paintPresets,
 	presets,
 	redo,
 	saveBook,
@@ -28,6 +29,7 @@ import {
 	type Intent,
 	type KindInfo,
 	type NewBookSpec,
+	type PaintPresets,
 	type Patch,
 	type PatchEvent,
 } from '@liminal-hq/folio-plugin-books';
@@ -41,6 +43,8 @@ export interface BooksListener {
 /** What the page needs from the books: Rust owns them, so every call goes through it. */
 export interface BooksClient {
 	presets(): Promise<KindInfo[]>;
+	/** The colours and gradients the pickers offer. */
+	paintPresets(): Promise<PaintPresets>;
 	defaultSavePath(title: string): Promise<string>;
 	newBook(spec: Partial<NewBookSpec>): Promise<BookSnapshot>;
 	openBook(path: string): Promise<BookSnapshot>;
@@ -65,6 +69,7 @@ export interface BooksClient {
 
 export const tauriBooksClient: BooksClient = {
 	presets,
+	paintPresets,
 	defaultSavePath,
 	newBook,
 	openBook,

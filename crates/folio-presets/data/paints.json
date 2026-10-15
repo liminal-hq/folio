@@ -1,0 +1,54 @@
+{
+	"swatches": [
+		{ "name": "Paper white", "colour": "#ffffff" },
+		{ "name": "Cream", "colour": "#f6efdc" },
+		{ "name": "Blush", "colour": "#f4d9d0" },
+		{ "name": "Sky", "colour": "#cfe3f1" },
+		{ "name": "Sage", "colour": "#d4e0c8" },
+		{ "name": "Butter", "colour": "#f7e7a1" },
+		{ "name": "Slate", "colour": "#1f3a5f" },
+		{ "name": "Ink black", "colour": "#14110f" }
+	],
+	"gradients": [
+		{
+			"name": "Dawn",
+			"angle": 180,
+			"stops": [
+				{ "at": 0, "colour": "#f7d9b5" },
+				{ "at": 1, "colour": "#f2b8c6" }
+			]
+		},
+		{
+			"name": "Meadow",
+			"angle": 180,
+			"stops": [
+				{ "at": 0, "colour": "#e8f1c9" },
+				{ "at": 1, "colour": "#a9d3a0" }
+			]
+		},
+		{
+			"name": "Dusk",
+			"angle": 180,
+			"stops": [
+				{ "at": 0, "colour": "#3b3b7a" },
+				{ "at": 1, "colour": "#c9729a" }
+			]
+		},
+		{
+			"name": "Lagoon",
+			"angle": 90,
+			"stops": [
+				{ "at": 0, "colour": "#bfe6ee" },
+				{ "at": 1, "colour": "#5fa8c4" }
+			]
+		},
+		{
+			"name": "Paper fade",
+			"angle": 180,
+			"stops": [
+				{ "at": 0, "colour": "#ffffff" },
+				{ "at": 1, "colour": "#e9e2d0" }
+			]
+		}
+	]
+}

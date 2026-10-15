@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use folio_model::{BookKind, Frame, LayoutMode, Pt, SpreadKind};
+use folio_model::{BookKind, Colour, Frame, LayoutMode, Pt, SpreadKind};
 use folio_package::{Package, SaveOptions};
 use folio_presets::{
     kind_infos, new_book, new_book_with_ids, Look, NewBookSpec, Paper, PresetError, Words,
@@ -166,7 +166,7 @@ fn the_title_author_and_cover_colour_go_where_they_belong() {
     let Frame::Shape(cover) = &book.spreads[0].frames[0] else {
         panic!("the cover colour comes first");
     };
-    assert_eq!(cover.fill.as_deref(), Some("#1f3a5f"));
+    assert_eq!(cover.fill, Some(Colour("#1f3a5f".into())));
     assert_eq!(made.settings["coverColour"], "#1f3a5f");
 }
 

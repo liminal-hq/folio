@@ -6,6 +6,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::colour::Colour;
 use crate::ids::{FlowId, FrameId, MasterId, StyleId};
 use crate::units::{Pt, Rect};
 
@@ -157,7 +158,7 @@ pub struct ShapeFrame {
     #[serde(flatten)]
     pub base: FrameBase,
     pub shape: Shape,
-    pub fill: Option<String>,
+    pub fill: Option<Colour>,
     pub style: Option<StyleId>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]

@@ -73,6 +73,14 @@ fn the_six_kinds_are_offered() {
 }
 
 #[test]
+fn the_palette_is_offered() {
+    let app = app();
+    let window = app.get_webview_window("main").expect("the main window");
+    let paints = tauri::async_runtime::block_on(commands::paint_presets(window)).unwrap();
+    assert!(!paints.swatches.is_empty() && !paints.gradients.is_empty());
+}
+
+#[test]
 fn a_new_book_is_open_but_unsaved_and_nothing_is_written() {
     let app = app();
     let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();

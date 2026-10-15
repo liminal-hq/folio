@@ -22,6 +22,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function presets() {
         return cmd('presets');
     }
+    /** The colours and gradients the pickers offer. */
+    function paintPresets() {
+        return cmd('paint_presets');
+    }
     /** Where Save as… should start for a book with this title. */
     function defaultSavePath(title) {
         return cmd('default_save_path', { title });
@@ -102,6 +106,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.onBooksChanged = onBooksChanged;
     exports.onPatch = onPatch;
     exports.openBook = openBook;
+    exports.paintPresets = paintPresets;
     exports.presets = presets;
     exports.redo = redo;
     exports.saveBook = saveBook;
