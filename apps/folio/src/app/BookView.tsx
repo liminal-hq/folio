@@ -403,10 +403,14 @@ export function BookView({
 					setEditing(null);
 					setSpreadIndex(index);
 				}}
-				onAdd={() => pageOp('add')}
+				onAdd={() => {
+					setEditing(null);
+					pageOp('add');
+				}}
 				onCommand={(command, index) => {
 					const intent = shelfIntent(command, book, index);
 					if (!intent) return;
+					setEditing(null);
 					apply(intent);
 					if (command === 'duplicate' || command === 'moveRight') setSpreadIndex(index + 1);
 					else if (command === 'moveLeft') setSpreadIndex(index - 1);
@@ -415,6 +419,7 @@ export function BookView({
 				onMove={(from, to) => {
 					const moved = book.spreads[from];
 					if (!moved) return;
+					setEditing(null);
 					apply({ type: 'MoveSpread', spread: moved.id, to });
 					// Nothing goes in front of a cover, and the selection follows the spread.
 					setSpreadIndex(Math.max(book.spreads[0]?.kind === 'cover' ? 1 : 0, to));
