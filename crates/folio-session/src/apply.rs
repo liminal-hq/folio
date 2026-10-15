@@ -427,11 +427,14 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             if !owns {
                 return Err(SessionError::NoSuchFrame(frame.0.clone()));
             }
-            // A page number is a token that only a master can fill in, so a copy would show it as typed.
+            // Copying what the page already hides would leave a second copy on top of the first.
             if matches!(intent, Intent::CopyMasterItem { .. })
-                && (crate::masters::is_number_id(&frame.0))
+                && found
+                    .master_overrides
+                    .iter()
+                    .any(|o| &o.page_id == page && o.hide.contains(frame))
             {
-                return Err(SessionError::PageNumber(frame.0.clone()));
+                return Err(SessionError::AlreadyHidden(frame.0.clone(), page.0.clone()));
             }
             Ok(one(s.clone(), None))
         }
@@ -778,7 +781,8 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 t.flow = None;
             }
             let sp = &mut book.spreads[at];
-            sp.frames.push(copy);
+            // The page's own copy goes where the master's item was drawn, beneath the page's frames.
+            sp.frames.insert(0, copy);
             match sp.master_overrides.iter_mut().find(|o| o.page_id == page) {
                 Some(o) => {
                     if !o.hide.contains(&frame) {
