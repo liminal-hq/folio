@@ -230,8 +230,7 @@ impl Shape {
 #[serde(rename_all = "lowercase")]
 pub enum Shape {
     Rect,
-    /// A rectangle with rounded corners (stored as `rounded` before D-24).
-    #[serde(alias = "rounded")]
+    /// A rectangle with rounded corners.
     Round,
     Ellipse,
     /// A straight line across the box's diagonal. Its box may have no height or no width.

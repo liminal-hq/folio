@@ -16,6 +16,7 @@ mod paints;
 mod paths;
 mod spec;
 
+pub use data::preset_styles;
 pub use data::{kind_infos, KindInfo, TrimChoice};
 pub use isbn::is_valid_isbn13;
 pub use make::{new_book, new_book_with_ids, NewBook};

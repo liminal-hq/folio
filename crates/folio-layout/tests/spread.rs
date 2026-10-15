@@ -719,3 +719,92 @@ fn too_many_words_for_a_shape_are_flagged_overset() {
         .iter()
         .any(|p| p.kind == PreflightKind::OversetText && p.frame.0 == "fr_small"));
 }
+
+fn laid_with_fallback(frame: Frame) -> SpreadLayout {
+    let (mut book, styles) = sample(BookKind::Picture);
+    book.spreads[1].frames.push(frame);
+    let id = book.spreads[1].id.clone();
+    let styles = styles.with_fallback(&StyleSheet::from_value(&folio_presets::preset_styles()));
+    let fonts = FontBook::bundled();
+    Layouter::new(&book, &styles, &fonts)
+        .layout_spread(&id)
+        .unwrap()
+        .unwrap()
+}
+
+#[test]
+fn a_book_without_the_bubble_style_gets_folios_and_a_book_that_has_its_own_keeps_it() {
+    use folio_model::Align;
+    // The picture book's styles have no `bubble`: without the fallback its words are set as the
+    // default, left aligned.
+    let (_, plain) = laid_with(shape_frame(
+        "fr_b",
+        folio_model::Shape::Speech,
+        200.0,
+        100.0,
+        Some("Hello"),
+    ));
+    let plain = plain.frames.iter().find(|f| f.frame.0 == "fr_b").unwrap();
+    assert_eq!(plain.text_align, Some(Align::Left));
+    // With Folio's styles behind the book's, the bubble speaks in its own centred style.
+    let with = laid_with_fallback(shape_frame(
+        "fr_b",
+        folio_model::Shape::Speech,
+        200.0,
+        100.0,
+        Some("Hello"),
+    ));
+    let with = with.frames.iter().find(|f| f.frame.0 == "fr_b").unwrap();
+    assert_eq!(with.text_align, Some(Align::Center));
+    // A book that defines a style of that name keeps its own.
+    let own = StyleSheet::from_value(&serde_json::json!({
+        "styles": { "bubble": { "sizePt": 20, "align": "right" } }
+    }))
+    .with_fallback(&StyleSheet::from_value(&folio_presets::preset_styles()));
+    let resolved = own.resolve(&StyleId("bubble".into()), None);
+    assert_eq!(resolved.text.size_pt, 20.0);
+}
+
+#[test]
+fn words_in_a_master_shape_are_laid_out_on_the_page_and_in_the_master_view() {
+    let (mut book, styles) = sample(BookKind::Picture);
+    book.master_pages.push(folio_model::Master {
+        id: folio_model::MasterId("mst_s".into()),
+        name: "S".into(),
+        frames: vec![shape_frame(
+            "fr_m",
+            folio_model::Shape::Ellipse,
+            120.0,
+            80.0,
+            Some("Page {page}"),
+        )],
+        guides: Vec::new(),
+    });
+    for page in &mut book.spreads[1].pages {
+        page.master = Some(folio_model::MasterId("mst_s".into()));
+    }
+    let fonts = FontBook::bundled();
+    let layouter = Layouter::new(&book, &styles, &fonts);
+    let spread = layouter
+        .layout_spread(&book.spreads[1].id)
+        .unwrap()
+        .unwrap();
+    let on_page = spread
+        .frames
+        .iter()
+        .find(|f| f.frame.0.starts_with("fr_m@"))
+        .expect("the master shape's words are laid out on the page");
+    assert!(on_page.origin.is_some() && on_page.text_box.is_some());
+    let words: String = on_page
+        .lines
+        .iter()
+        .flat_map(|l| l.runs.iter().map(|r| r.text.as_str()))
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(!words.contains('{'), "{words}");
+    let in_view = layouter
+        .layout_master(&folio_model::MasterId("mst_s".into()))
+        .unwrap()
+        .unwrap();
+    assert!(in_view.frames.iter().any(|f| f.frame.0 == "fr_m"));
+}

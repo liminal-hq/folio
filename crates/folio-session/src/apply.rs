@@ -395,11 +395,12 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         }
         Intent::SetShape {
             frame,
+            kind,
             fill,
             stroke,
             stroke_width,
             radius,
-            ..
+            flip,
         } => {
             let found =
                 locate(book, frame).ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
@@ -424,10 +425,16 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                     }
                 }
             }
+            // Trying colours, widths and radii on one shape is one undo step. Changing the kind or the
+            // way a line runs, or taking a colour away, is a step of its own.
+            let trying = kind.is_none()
+                && flip.is_none()
+                && !matches!(fill, Some(Paint::None))
+                && !matches!(stroke, Some(Paint::None));
             Ok(Plan {
                 touched: touched_by(book, frame)?,
                 new_spread: None,
-                merge: Some(MergeKey::Shape(frame.clone())),
+                merge: trying.then(|| MergeKey::Shape(frame.clone())),
             })
         }
         Intent::AddGuide { on, pos, .. } => {
@@ -686,6 +693,11 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 };
                 if let Some(kind) = kind {
                     shape.shape = kind;
+                    // A line has no inside, so words it was holding would be hidden and unreachable.
+                    if !kind.holds_text() {
+                        shape.content = None;
+                        shape.overrides = None;
+                    }
                 }
                 if let Some(fill) = fill {
                     shape.fill = colour(fill);

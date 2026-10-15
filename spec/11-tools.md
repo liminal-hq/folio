@@ -17,7 +17,7 @@ Bundled textures (Linen, Laid paper, Kraft, Watercolour wash, Dot grid) ship as 
 
 ## Shapes and bubbles (Insert → Shapes / Bubbles)
 
-A shape is `{ shape: 'rect' | 'round' | 'ellipse' | 'line' | 'speech' | 'thought' | 'shout', fill?, stroke?, strokeWidth?, radius?, flip? }` on a frame. `fill` and `stroke` are `#rrggbb`, or none. `radius` rounds a `round` shape's corners and `flip` turns a line to run from the bottom-left to the top-right. A shape stored as `rounded` before D-24 reads as `round`.
+A shape is `{ shape: 'rect' | 'round' | 'ellipse' | 'line' | 'speech' | 'thought' | 'shout', fill?, stroke?, strokeWidth?, radius?, flip? }` on a frame. `fill` and `stroke` are `#rrggbb`, or none. `radius` rounds a `round` shape's corners and `flip` turns a line to run from the bottom-left to the top-right.
 
 - Paths come from `shapePath(kind, w, h)` and stretch with the frame. The stroke is non-scaling.
 - Any shape but a line can hold words (`content`, with `style` and `overrides` like a text frame). Rust lays them out inside the shape's body: the kind has an inset (a bubble keeps its bottom 38% for the tail), the lines are centred top to bottom in it, and the layout names the room (`textBox`) so the editor goes there. Bubbles speak in the `bubble` style (centred) and every other shape in `callout`, unless it names a style. Words that do not fit are overset and flagged by preflight. Double-click a shape, or select it and press Enter, to type in it.

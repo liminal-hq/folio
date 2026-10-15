@@ -66,8 +66,10 @@ impl<'a> Layouter<'a> {
         };
         let mut frames = Vec::new();
         for frame in &master.frames {
-            if let Frame::Text(text) = frame {
-                frames.push(self.own_text(text)?.0);
+            match frame {
+                Frame::Text(text) => frames.push(self.own_text(text)?.0),
+                Frame::Shape(shape) => frames.extend(self.shape_text(shape)?),
+                _ => {}
             }
         }
         Ok(Some(SpreadLayout {
@@ -181,6 +183,30 @@ impl<'a> Layouter<'a> {
             let number = first + index;
             let left = self.book.trim.w.0 * index as f64;
             for frame in &master.frames {
+                if let Frame::Shape(shape) = frame {
+                    if hidden.contains(&shape.base.id) {
+                        continue;
+                    }
+                    let mut copy = shape.clone();
+                    copy.base.rect.x = Pt(copy.base.rect.x.0 + left);
+                    copy.base.id = FrameId(format!("{}@{}", shape.base.id.0, page.id.0));
+                    if let Some(content) = &mut copy.content {
+                        for run in &mut content.inline {
+                            run.text = run
+                                .text
+                                .replace("{page}", &number.to_string())
+                                .replace("{book.title}", &self.book.title);
+                        }
+                    }
+                    if let Some(mut laid) = self.shape_text(&copy)? {
+                        laid.origin = Some(Origin {
+                            x: copy.base.rect.x.0,
+                            y: copy.base.rect.y.0,
+                        });
+                        out.push(laid);
+                    }
+                    continue;
+                }
                 let Frame::Text(text) = frame else {
                     continue;
                 };
@@ -253,7 +279,14 @@ impl<'a> Layouter<'a> {
             baseline_lock: false,
             overrides: shape.overrides.clone(),
         };
+        let resolved = self.styles.resolve(&words.style, words.overrides.as_ref());
         let (mut laid, _) = self.own_text(&words)?;
+        laid.text_align = Some(match resolved.align {
+            crate::paragraph::Align::Left => folio_model::Align::Left,
+            crate::paragraph::Align::Center => folio_model::Align::Center,
+            crate::paragraph::Align::Right => folio_model::Align::Right,
+            crate::paragraph::Align::Justify => folio_model::Align::Justify,
+        });
         let used = laid
             .lines
             .iter()
@@ -544,6 +577,7 @@ fn frame_layout(
         overset: flowed.overset && frame + 1 == flowed.used_height.len().max(1),
         origin: None,
         text_box: None,
+        text_align: None,
     }
 }
 
@@ -561,6 +595,7 @@ fn flow_frame(
             overset: false,
             origin: None,
             text_box: None,
+            text_align: None,
         };
     };
     FrameLayout {
@@ -574,5 +609,6 @@ fn flow_frame(
         overset: laid.overset && index + 1 == laid.used_height.len(),
         origin: None,
         text_box: None,
+        text_align: None,
     }
 }

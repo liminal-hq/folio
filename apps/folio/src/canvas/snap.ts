@@ -105,7 +105,8 @@ export function resizeRect(
 		h = bottom - y;
 	}
 	if (handle.includes('s')) h = Math.max(MIN_SIZE, h + dy);
-	if (keepAspect && handle.length === 2) {
+	// A flat line has no proportion to keep: dividing by its height would send the size to NaN.
+	if (keepAspect && handle.length === 2 && rect.w > 0 && rect.h > 0) {
 		const ratio = rect.w / rect.h;
 		// Follow whichever axis moved further, in proportion to the frame.
 		if (Math.abs(w - rect.w) / rect.w >= Math.abs(h - rect.h) / rect.h) h = w / ratio;
