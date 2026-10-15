@@ -10,6 +10,7 @@ import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
 import { useRef, useState } from 'react';
 import { BackgroundLayer } from './BackgroundLayer';
+import { turned } from './turned';
 import { ShapeArt } from './ShapeArt';
 import styles from './SpreadCanvas.module.css';
 import './fonts.css';
@@ -347,14 +348,19 @@ export function SpreadCanvas({
 				{furniture.map((frame) => {
 					const words = layout?.frames.find((l) => l.frame === frame.id && l.origin);
 					return (
-						<g key={frame.id} data-master-item={frame.id} pointerEvents="none">
+						<g
+							key={frame.id}
+							data-master-item={frame.id}
+							pointerEvents="none"
+							transform={turned(frame)}
+						>
 							<Furniture frame={frame} images={images} />
 							{words?.origin && <Lines id={words.frame} at={words.origin} layout={words} />}
 						</g>
 					);
 				})}
 				{frames.map((frame) => (
-					<g key={frame.id}>
+					<g key={frame.id} transform={turned(frame)}>
 						<Furniture frame={frame} images={images} />
 						{marks.frameEdges && (
 							<rect
@@ -467,6 +473,7 @@ export function SpreadCanvas({
 								aria-label={frameLabel(frame)}
 								data-hit={frame.id}
 								{...hitBox(frame.box)}
+								transform={turned(frame)}
 								fill="transparent"
 								style={{ cursor: movable(frame) ? 'move' : 'default' }}
 								onPointerDown={(event) => drag.onFramePointerDown(event, frame)}
@@ -555,7 +562,12 @@ export function SpreadCanvas({
 				{frames
 					.filter((f) => selection.includes(f.id))
 					.map((frame) => (
-						<g key={frame.id} data-selected={frame.id} pointerEvents="none">
+						<g
+							key={frame.id}
+							data-selected={frame.id}
+							pointerEvents="none"
+							transform={turned(frame)}
+						>
 							<rect
 								x={frame.box.x}
 								y={frame.box.y}
@@ -570,7 +582,7 @@ export function SpreadCanvas({
 					))}
 				{selection.length === 1 &&
 					frames
-						.filter((f) => f.id === selection[0] && movable(f))
+						.filter((f) => f.id === selection[0] && movable(f) && !f.rotation)
 						.map((frame) =>
 							HANDLES.map((handle) => {
 								const at = handlePosition(frame.box, handle);
@@ -611,6 +623,7 @@ export function SpreadCanvas({
 					frame={editedFrame}
 					layout={byFrame.get(editedFrame.id)}
 					scale={scale}
+					rotation={editedFrame.rotation}
 					at={{
 						x: (editedFrame.box.x - bounds.x) * scale,
 						y: (editedFrame.box.y - bounds.y) * scale,

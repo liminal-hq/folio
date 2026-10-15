@@ -487,6 +487,18 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 merge: trying.then(|| MergeKey::Shape(frame.clone())),
             })
         }
+        Intent::RotateFrame { on, frame, degrees } => {
+            let target = find(frames_on(book, on)?, frame)
+                .ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
+            if !matches!(target, Frame::Shape(_)) {
+                return Err(SessionError::NotShape(frame.0.clone()));
+            }
+            ensure_free(target)?;
+            if !degrees.is_finite() {
+                return Err(SessionError::BadShape("an angle is a number".into()));
+            }
+            Ok(by(on, None))
+        }
         Intent::AddGuide { on, pos, .. } => {
             guides_on(book, on)?;
             check_guide_position(*pos)?;
@@ -764,6 +776,11 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 if let Some(flip) = flip {
                     shape.flip = flip;
                 }
+            }
+        }
+        Intent::RotateFrame { on, frame, degrees } => {
+            if let Some(f) = frames_on_mut(book, &on).and_then(|frames| find_mut(frames, &frame)) {
+                f.base_mut().rotation = degrees.rem_euclid(360.0);
             }
         }
         Intent::EnsureMasters => ensure_masters(book),

@@ -2362,6 +2362,36 @@ fn words_go_into_a_shape_and_emptying_them_takes_them_out_but_a_line_has_no_insi
 }
 
 #[test]
+fn a_shape_turns_to_an_angle_kept_in_a_full_turn_and_other_frames_do_not_turn() {
+    let mut s = session_with_shape();
+    let on = folio_model::Surface::Spread(spread("sp_2"));
+    let turn = |degrees: f64| Intent::RotateFrame {
+        on: on.clone(),
+        frame: frame("fr_shape"),
+        degrees,
+    };
+    s.apply(turn(-90.0)).unwrap();
+    assert_eq!(shape_of(&s).base.rotation, 270.0);
+    s.apply(turn(450.0)).unwrap();
+    assert_eq!(shape_of(&s).base.rotation, 90.0);
+    s.undo().unwrap();
+    assert_eq!(shape_of(&s).base.rotation, 270.0);
+    assert!(matches!(
+        s.apply(turn(f64::NAN)).unwrap_err(),
+        SessionError::BadShape(_)
+    ));
+    assert_eq!(
+        s.apply(Intent::RotateFrame {
+            on: folio_model::Surface::Spread(spread("sp_1")),
+            frame: frame("fr_text"),
+            degrees: 90.0
+        })
+        .unwrap_err(),
+        SessionError::NotShape("fr_text".into())
+    );
+}
+
+#[test]
 fn changing_the_kind_or_clearing_a_colour_is_its_own_undo_step() {
     let mut s = session_with_shape();
     s.apply(shape_set(None, Some(1.0), None)).unwrap();

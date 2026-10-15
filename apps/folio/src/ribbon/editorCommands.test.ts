@@ -36,6 +36,36 @@ const input = (selected: Frame[] = [], extra: Partial<EditorInput> = {}): Editor
 	...extra,
 });
 
+const shape = (extra = {}) =>
+	({
+		type: 'shape',
+		id: 's',
+		box: {},
+		locked: false,
+		rotation: 0,
+		shape: 'rect',
+		...extra,
+	}) as unknown as Frame;
+
+describe('turning a shape', () => {
+	it('offers the turn buttons for one free shape only', () => {
+		expect(editorState(input([shape()])).available.has('rotL')).toBe(true);
+		expect(editorState(input([shape({ locked: true })])).available.has('rotR')).toBe(false);
+		expect(editorState(input([text()])).available.has('rotL')).toBe(false);
+	});
+
+	it('turns a quarter either way from where the shape is now', () => {
+		const left = editorAction('rotL', undefined, input([shape({ rotation: 30 })]));
+		expect(left).toEqual({
+			kind: 'intents',
+			intents: [{ type: 'RotateFrame', on: { spread: 'sp' }, frame: 's', degrees: -60 }],
+		});
+		const right = editorAction('rotR', undefined, input([shape({ rotation: 30 })]));
+		expect(right).toMatchObject({ intents: [{ degrees: 120 }] });
+		expect(editorAction('rotR', undefined, input([image()]))).toBeNull();
+	});
+});
+
 describe('editorState', () => {
 	it('lets the page controls work with nothing selected, and not the text ones', () => {
 		const s = editorState(input());
