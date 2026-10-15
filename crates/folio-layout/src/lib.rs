@@ -7,6 +7,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+pub mod assets;
 pub mod breaker;
 pub mod error;
 pub mod flow;
@@ -19,6 +20,7 @@ pub mod spread;
 pub mod styles;
 pub mod wire;
 
+pub use assets::{AssetFact, AssetFacts};
 pub use error::LayoutError;
 pub use fonts::{Font, FontBook, FontRequest, Metrics, Resolved};
 pub use shape::{feature, shape, Glyph, Run, Shaped};

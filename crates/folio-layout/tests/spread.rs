@@ -163,7 +163,8 @@ fn text_too_long_for_its_frame_is_overset_and_flagged_by_preflight() {
     assert!(layout
         .preflight
         .iter()
-        .any(|p| p.kind == PreflightKind::OversetText && p.frame.0 == "long"));
+        .any(|p| p.kind == PreflightKind::OversetText
+            && p.frame.as_ref().is_some_and(|f| f.0 == "long")));
 }
 
 #[test]
@@ -187,7 +188,8 @@ fn text_outside_the_safe_margin_is_flagged() {
     assert!(layout
         .preflight
         .iter()
-        .any(|p| p.kind == PreflightKind::TextOutsideMargin && p.frame.0 == "edge"));
+        .any(|p| p.kind == PreflightKind::TextOutsideMargin
+            && p.frame.as_ref().is_some_and(|f| f.0 == "edge")));
 }
 
 #[test]
@@ -402,7 +404,8 @@ fn a_poem_line_wider_than_its_frame_is_flagged() {
     assert!(layout
         .preflight
         .iter()
-        .any(|p| p.kind == PreflightKind::PoemLineTooLong && p.frame.0 == "poem"));
+        .any(|p| p.kind == PreflightKind::PoemLineTooLong
+            && p.frame.as_ref().is_some_and(|f| f.0 == "poem")));
 }
 
 #[test]
@@ -718,7 +721,8 @@ fn too_many_words_for_a_shape_are_flagged_overset() {
     assert!(layout
         .preflight
         .iter()
-        .any(|p| p.kind == PreflightKind::OversetText && p.frame.0 == "fr_small"));
+        .any(|p| p.kind == PreflightKind::OversetText
+            && p.frame.as_ref().is_some_and(|f| f.0 == "fr_small")));
 }
 
 fn laid_with_fallback(frame: Frame) -> SpreadLayout {
@@ -875,7 +879,10 @@ fn a_turned_frame_is_checked_by_the_box_around_its_turned_corners() {
             .unwrap()
             .preflight
             .iter()
-            .any(|p| p.kind == PreflightKind::TextOutsideMargin && p.frame.0 == "post")
+            .any(|p| {
+                p.kind == PreflightKind::TextOutsideMargin
+                    && p.frame.as_ref().is_some_and(|f| f.0 == "post")
+            })
     };
     assert!(!flagged(&book), "upright, it is inside the margins");
     book.spreads[1].frames.pop();
@@ -983,7 +990,10 @@ fn a_table_with_too_much_in_a_cell_is_flagged_overset_once() {
     let flagged = layout
         .preflight
         .iter()
-        .filter(|p| p.kind == PreflightKind::OversetText && p.frame.0 == "fr_table")
+        .filter(|p| {
+            p.kind == PreflightKind::OversetText
+                && p.frame.as_ref().is_some_and(|f| f.0 == "fr_table")
+        })
         .count();
     assert_eq!(flagged, 1);
 }
@@ -1008,4 +1018,176 @@ fn header_rows_are_set_bold() {
         f.lines[0].runs[0].weight
     };
     assert!(weight("fr_table#0.0") > weight("fr_table#1.0"));
+}
+
+fn picture_frame(id: &str, asset: &str, w: f64, h: f64, fit: Fit) -> Frame {
+    Frame::Image(ImageFrame {
+        base: FrameBase {
+            id: FrameId(id.into()),
+            rect: Rect {
+                x: Pt(50.0),
+                y: Pt(50.0),
+                w: Pt(w),
+                h: Pt(h),
+            },
+            rotation: 0.0,
+            locked: false,
+            from_master: None,
+            description: None,
+        },
+        image: ImageRef {
+            asset: Some(asset.into()),
+            fit,
+            focus: (0.5, 0.5),
+            crop: None,
+        },
+        placeholder_label: None,
+    })
+}
+
+fn kinds_for(
+    book: &Book,
+    styles: &StyleSheet,
+    facts: &folio_layout::AssetFacts,
+    spread: usize,
+) -> Vec<(PreflightKind, Option<String>, Option<String>)> {
+    let fonts = FontBook::bundled();
+    Layouter::new(book, styles, &fonts)
+        .with_assets(facts)
+        .layout_spread(&book.spreads[spread].id)
+        .unwrap()
+        .unwrap()
+        .preflight
+        .into_iter()
+        .filter(|p| {
+            matches!(
+                p.kind,
+                PreflightKind::PictureMissing
+                    | PreflightKind::LowResolution
+                    | PreflightKind::VeryLowResolution
+                    | PreflightKind::BleedNeeded
+            )
+        })
+        .map(|p| (p.kind, p.frame.map(|f| f.0), p.page.map(|f| f.0)))
+        .collect()
+}
+
+fn facts(entries: &[(&str, folio_layout::AssetFact)]) -> folio_layout::AssetFacts {
+    folio_layout::AssetFacts(entries.iter().map(|(k, v)| ((*k).to_owned(), *v)).collect())
+}
+
+#[test]
+fn a_picture_frame_is_flagged_when_missing_or_too_coarse_for_print() {
+    use folio_layout::AssetFact::{Raster, Vector};
+    let (mut book, styles) = sample(BookKind::Novel);
+    // Each box is 288 × 288 pt (4 in): 1200 px is 300 ppi, 900 is 225, 500 is 125.
+    for (id, asset) in [
+        ("sharp", "assets/images/a.png"),
+        ("soft", "assets/images/b.png"),
+        ("blurry", "assets/images/c.png"),
+        ("gone", "assets/images/d.png"),
+        ("drawn", "assets/images/e.svg"),
+    ] {
+        book.spreads[1]
+            .frames
+            .push(picture_frame(id, asset, 288.0, 288.0, Fit::Fill));
+    }
+    let facts = facts(&[
+        ("assets/images/a.png", Raster { w: 1200, h: 1200 }),
+        ("assets/images/b.png", Raster { w: 900, h: 900 }),
+        ("assets/images/c.png", Raster { w: 500, h: 500 }),
+        ("assets/images/e.svg", Vector),
+    ]);
+    let found = kinds_for(&book, &styles, &facts, 1);
+    let of = |kind| {
+        found
+            .iter()
+            .filter(|f| f.0 == kind)
+            .filter_map(|f| f.1.clone())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(of(PreflightKind::LowResolution), ["soft"]);
+    assert_eq!(of(PreflightKind::VeryLowResolution), ["blurry"]);
+    assert_eq!(of(PreflightKind::PictureMissing), ["gone"]);
+}
+
+#[test]
+fn how_a_picture_sits_changes_how_sharp_it_is() {
+    use folio_layout::AssetFact::Raster;
+    let (mut book, styles) = sample(BookKind::Novel);
+    // 1200 × 600 px in a 288 pt square: filled it is scaled by the short side, so 600 px over 4 in
+    // is 150 ppi; fitted whole it is 1200 px over 4 in, 300 ppi.
+    book.spreads[1].frames.push(picture_frame(
+        "fill",
+        "assets/images/a.png",
+        288.0,
+        288.0,
+        Fit::Fill,
+    ));
+    book.spreads[1].frames.push(picture_frame(
+        "fit",
+        "assets/images/a.png",
+        288.0,
+        288.0,
+        Fit::Fit,
+    ));
+    let facts = facts(&[("assets/images/a.png", Raster { w: 1200, h: 600 })]);
+    let found = kinds_for(&book, &styles, &facts, 1);
+    assert!(found.contains(&(PreflightKind::LowResolution, Some("fill".into()), None)));
+    assert!(found.iter().all(|f| f.1.as_deref() != Some("fit")));
+}
+
+#[test]
+fn a_picture_background_is_checked_at_the_page_with_its_bleed_and_covers_count() {
+    use folio_layout::AssetFact::Raster;
+    let (mut book, styles) = sample(BookKind::Picture);
+    let page = book.spreads[0].pages[0].id.clone();
+    book.spreads[0].pages[0].bg = Some(folio_model::Background::Picture {
+        asset: "assets/images/bg.png".into(),
+        fit: folio_model::BgFit::Fill,
+        focus: (0.5, 0.5),
+    });
+    // The cover is trim plus bleed all round: a 2000 px picture over about 8.7 in is under 300 ppi.
+    let facts = facts(&[("assets/images/bg.png", Raster { w: 2000, h: 2000 })]);
+    let found = kinds_for(&book, &styles, &facts, 0);
+    assert_eq!(
+        found,
+        [(PreflightKind::LowResolution, None, Some(page.0.clone()))]
+    );
+    // Gone from the book: missing, at the page.
+    let none = folio_layout::AssetFacts::default();
+    assert_eq!(
+        kinds_for(&book, &styles, &none, 0),
+        [(PreflightKind::PictureMissing, None, Some(page.0.clone()))]
+    );
+    // No bleed: any background is a warning, whatever it is.
+    book.bleed = Pt(0.0);
+    book.spreads[0].pages[0].bg = Some(folio_model::Background::Colour {
+        colour: folio_model::Colour("#ffffff".into()),
+    });
+    assert_eq!(
+        kinds_for(&book, &styles, &none, 0),
+        [(PreflightKind::BleedNeeded, None, Some(page.0))]
+    );
+}
+
+#[test]
+fn pictures_are_not_checked_without_facts_about_them() {
+    let (mut book, styles) = sample(BookKind::Novel);
+    book.spreads[1].frames.push(picture_frame(
+        "gone",
+        "assets/images/d.png",
+        288.0,
+        288.0,
+        Fit::Fill,
+    ));
+    let fonts = FontBook::bundled();
+    let layout = Layouter::new(&book, &styles, &fonts)
+        .layout_spread(&book.spreads[1].id)
+        .unwrap()
+        .unwrap();
+    assert!(layout
+        .preflight
+        .iter()
+        .all(|p| p.kind != PreflightKind::PictureMissing));
 }

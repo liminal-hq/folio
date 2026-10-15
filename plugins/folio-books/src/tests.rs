@@ -460,3 +460,70 @@ fn a_file_that_is_not_what_its_name_says_and_a_link_are_refused() {
         assert!(books(&app).import_image(&id, &real).is_ok());
     }
 }
+
+/// A PNG header that says it is `w` × `h` pixels; enough for the book to read its size.
+fn png_of(w: u32, h: u32) -> Vec<u8> {
+    let mut png = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR".to_vec();
+    png.extend_from_slice(&w.to_be_bytes());
+    png.extend_from_slice(&h.to_be_bytes());
+    png
+}
+
+#[test]
+fn layout_reads_the_size_of_the_pictures_a_page_uses_and_says_when_one_is_missing() {
+    use folio_layout::wire::PreflightKind;
+    use folio_model::{Background, BackgroundTarget, BgFit};
+    let app = app();
+    let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();
+    let id = snapshot.summary.id.clone();
+    let cover = snapshot.book.spreads[0].clone();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("big.png");
+    std::fs::write(&file, png_of(4000, 4000)).unwrap();
+    let asset = books(&app).import_image(&id, &file).unwrap();
+    let set = |asset: &str| Intent::SetBackground {
+        target: BackgroundTarget::Page {
+            spread: cover.id.clone(),
+            page: cover.pages[0].id.clone(),
+        },
+        bg: Some(Background::Picture {
+            asset: asset.into(),
+            fit: BgFit::Fill,
+            focus: (0.5, 0.5),
+        }),
+    };
+    let problems = |app: &App| {
+        books(app)
+            .layout_spread(&id, &cover.id.0)
+            .unwrap()
+            .layout
+            .preflight
+            .into_iter()
+            .map(|p| p.kind)
+            .filter(|k| {
+                matches!(
+                    k,
+                    PreflightKind::PictureMissing
+                        | PreflightKind::LowResolution
+                        | PreflightKind::VeryLowResolution
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    books(&app).apply(&id, set(&asset)).unwrap();
+    assert!(
+        problems(&app).is_empty(),
+        "4000 px across a small page is sharp"
+    );
+    // A picture the book does not hold, by a path it could.
+    books(&app)
+        .apply(&id, set("assets/images/0000.png"))
+        .unwrap();
+    assert_eq!(problems(&app), [PreflightKind::PictureMissing]);
+    // A small picture is read too, and not remembered as the big one.
+    let small = dir.path().join("small.png");
+    std::fs::write(&small, png_of(300, 300)).unwrap();
+    let little = books(&app).import_image(&id, &small).unwrap();
+    books(&app).apply(&id, set(&little)).unwrap();
+    assert_eq!(problems(&app), [PreflightKind::VeryLowResolution]);
+}
