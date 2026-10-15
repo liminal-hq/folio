@@ -4,25 +4,31 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { FrameLayout } from '@liminal-hq/folio-protocol/generated/FrameLayout';
-import type { TextFrame } from '@liminal-hq/folio-protocol/generated/TextFrame';
+import type { InlineContent } from '@liminal-hq/folio-protocol/generated/InlineContent';
+import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import { useEffect, useRef } from 'react';
 import { t } from '../i18n/messages';
 import styles from './TextEditor.module.css';
 
+/** A frame with words of its own to edit: a text frame or a shape. */
+export type WordFrame = Extract<Frame, { type: 'text' | 'shape' }>;
+
 /** The words of a frame as plain text, or `null` when they carry emphasis that plain text would lose. */
-export function plainTextOf(frame: TextFrame): string | null {
+export function plainTextOf(frame: { content?: InlineContent | null }): string | null {
 	const runs = frame.content?.inline ?? [];
 	if (runs.some((r) => r.bold || r.italic || r.style)) return null;
 	return runs.map((r) => r.text).join('');
 }
 
 /** Whether a frame's words can be edited in place: its own, and plain. */
-export function canEditText(frame: TextFrame): boolean {
-	return !frame.locked && !frame.fromMaster && !frame.flow && plainTextOf(frame) !== null;
+export function canEditText(frame: WordFrame): boolean {
+	if (frame.locked || frame.fromMaster || plainTextOf(frame) === null) return false;
+	// A shape's words are always its own; a line has no inside to put them in.
+	return frame.type === 'shape' ? frame.shape !== 'line' : !frame.flow;
 }
 
 export interface TextEditorProps {
-	frame: TextFrame;
+	frame: WordFrame;
 	/** How the frame was laid out, for the font and line height the words are drawn in. */
 	layout: FrameLayout | undefined;
 	/** Screen pixels per point. */
@@ -42,6 +48,11 @@ export function TextEditor({ frame, layout, scale, at, onCommit }: TextEditorPro
 	const first = layout?.lines[0];
 	const run = first?.runs[0];
 	const initial = plainTextOf(frame) ?? '';
+	// A shape's words have a room of their own inside it, and the lines are already placed in it.
+	const room = frame.type === 'shape' ? layout?.textBox : undefined;
+	// The words are set as the layout's style sets them, whatever the shape.
+	const align = frame.type === 'shape' ? layout?.textAlign : undefined;
+	const centred = align === 'center';
 	const done = useRef(false);
 	/** What is in the box now, kept as it is typed because the box is gone by the time an unmount cleans up. */
 	const typed = useRef(initial);
@@ -83,12 +94,13 @@ export function TextEditor({ frame, layout, scale, at, onCommit }: TextEditorPro
 				}
 			}}
 			style={{
-				left: at.x,
-				top: at.y,
-				width: frame.box.w * scale,
-				height: frame.box.h * scale,
-				paddingLeft: (first?.x ?? 0) * scale,
-				paddingTop: Math.max(0, (first?.top ?? 0) * scale),
+				left: at.x + (room?.x ?? 0) * scale,
+				top: at.y + (room?.y ?? 0) * scale,
+				width: (room?.w ?? frame.box.w) * scale,
+				height: (room?.h ?? frame.box.h) * scale,
+				paddingLeft: centred ? 0 : ((first?.x ?? 0) - (room?.x ?? 0)) * scale,
+				paddingTop: Math.max(0, ((first?.top ?? 0) - (room?.y ?? 0)) * scale),
+				textAlign: align ?? undefined,
 				fontFamily: run ? `'${run.family}', serif` : undefined,
 				fontSize: (run?.size ?? 12) * scale,
 				fontWeight: run?.weight ?? 400,

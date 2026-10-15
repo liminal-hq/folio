@@ -291,7 +291,7 @@ impl<R: Runtime> Books<R> {
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
             (
                 open.session.book().clone(),
-                StyleSheet::from_value(open.package.styles()),
+                style_sheet(open.package.styles()),
                 open.session.revision(),
             )
         };
@@ -315,7 +315,7 @@ impl<R: Runtime> Books<R> {
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
             (
                 open.session.book().clone(),
-                StyleSheet::from_value(open.package.styles()),
+                style_sheet(open.package.styles()),
                 open.session.revision(),
             )
         };
@@ -439,4 +439,10 @@ impl<R: Runtime> Books<R> {
         }
         Ok(result)
     }
+}
+
+/// The styles a book has, with Folio's own behind them for any it never used.
+fn style_sheet(styles: &serde_json::Value) -> StyleSheet {
+    StyleSheet::from_value(styles)
+        .with_fallback(&StyleSheet::from_value(&folio_presets::preset_styles()))
 }

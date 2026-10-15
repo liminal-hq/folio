@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    Book, Flow, Frame, FrameId, InlineContent, MasterId, Pt, Spread, SpreadId, SpreadKind, StyleId,
-    TextFrame,
+    Book, Flow, Frame, FrameId, InlineContent, MasterId, Pt, ShapeFrame, Spread, SpreadId,
+    SpreadKind, StyleId, TextFrame,
 };
 
 use crate::error::LayoutError;
@@ -15,7 +15,8 @@ use crate::paragraph::{Span, Wrap};
 use crate::preflight::geometry_checks;
 use crate::styles::{ResolvedStyle, StyleSheet};
 use crate::wire::{
-    FrameLayout, LayoutLine, LayoutRun, Origin, PreflightItem, PreflightKind, SpreadLayout,
+    FrameLayout, LayoutLine, LayoutRect, LayoutRun, Origin, PreflightItem, PreflightKind,
+    SpreadLayout,
 };
 
 /// Lays out the text of a book. Cheap to make; holds nothing but what it was given.
@@ -65,8 +66,10 @@ impl<'a> Layouter<'a> {
         };
         let mut frames = Vec::new();
         for frame in &master.frames {
-            if let Frame::Text(text) = frame {
-                frames.push(self.own_text(text)?.0);
+            match frame {
+                Frame::Text(text) => frames.push(self.own_text(text)?.0),
+                Frame::Shape(shape) => frames.extend(self.shape_text(shape)?),
+                _ => {}
             }
         }
         Ok(Some(SpreadLayout {
@@ -81,6 +84,19 @@ impl<'a> Layouter<'a> {
         let mut preflight = geometry_checks(self.book, spread);
         let mut flowed: Vec<FlowLayout> = Vec::new();
         for frame in &spread.frames {
+            if let Frame::Shape(shape) = frame {
+                if let Some(laid) = self.shape_text(shape)? {
+                    if laid.overset {
+                        preflight.push(PreflightItem {
+                            kind: PreflightKind::OversetText,
+                            spread: spread.id.clone(),
+                            frame: shape.base.id.clone(),
+                        });
+                    }
+                    frames.push(laid);
+                }
+                continue;
+            }
             let Frame::Text(text) = frame else {
                 continue;
             };
@@ -167,6 +183,30 @@ impl<'a> Layouter<'a> {
             let number = first + index;
             let left = self.book.trim.w.0 * index as f64;
             for frame in &master.frames {
+                if let Frame::Shape(shape) = frame {
+                    if hidden.contains(&shape.base.id) {
+                        continue;
+                    }
+                    let mut copy = shape.clone();
+                    copy.base.rect.x = Pt(copy.base.rect.x.0 + left);
+                    copy.base.id = FrameId(format!("{}@{}", shape.base.id.0, page.id.0));
+                    if let Some(content) = &mut copy.content {
+                        for run in &mut content.inline {
+                            run.text = run
+                                .text
+                                .replace("{page}", &number.to_string())
+                                .replace("{book.title}", &self.book.title);
+                        }
+                    }
+                    if let Some(mut laid) = self.shape_text(&copy)? {
+                        laid.origin = Some(Origin {
+                            x: copy.base.rect.x.0,
+                            y: copy.base.rect.y.0,
+                        });
+                        out.push(laid);
+                    }
+                    continue;
+                }
                 let Frame::Text(text) = frame else {
                     continue;
                 };
@@ -223,6 +263,64 @@ impl<'a> Layouter<'a> {
             }
         }
         count + 1
+    }
+
+    /// The words of a shape, laid out in the body of its kind and centred top to bottom in it. A
+    /// shape that can hold words always has a layout, even with none, so an editor knows where to go.
+    fn shape_text(&self, shape: &ShapeFrame) -> Result<Option<FrameLayout>, LayoutError> {
+        if !shape.shape.holds_text() {
+            return Ok(None);
+        }
+        let inset = shape.shape.text_inset();
+        let (w, h) = (shape.base.rect.w.0, shape.base.rect.h.0);
+        let (x, y) = (inset.left * w, inset.top * h);
+        let inner_w = (w * (1.0 - inset.left - inset.right)).max(0.0);
+        let inner_h = (h * (1.0 - inset.top - inset.bottom)).max(0.0);
+        let mut base = shape.base.clone();
+        base.rect = folio_model::Rect {
+            x: Pt(0.0),
+            y: Pt(0.0),
+            w: Pt(inner_w),
+            h: Pt(inner_h),
+        };
+        let words = TextFrame {
+            base,
+            style: shape
+                .style
+                .clone()
+                .unwrap_or_else(|| StyleId(shape.shape.default_style().to_string())),
+            content: shape.content.clone(),
+            flow: None,
+            columns: 1,
+            baseline_lock: false,
+            overrides: shape.overrides.clone(),
+        };
+        let resolved = self.styles.resolve(&words.style, words.overrides.as_ref());
+        let (mut laid, _) = self.own_text(&words)?;
+        laid.text_align = Some(match resolved.align {
+            crate::paragraph::Align::Left => folio_model::Align::Left,
+            crate::paragraph::Align::Center => folio_model::Align::Center,
+            crate::paragraph::Align::Right => folio_model::Align::Right,
+            crate::paragraph::Align::Justify => folio_model::Align::Justify,
+        });
+        let used = laid
+            .lines
+            .iter()
+            .map(|l| l.top + l.height)
+            .fold(0.0, f64::max);
+        let shift = y + ((inner_h - used) / 2.0).max(0.0);
+        for line in &mut laid.lines {
+            line.x += x;
+            line.top += shift;
+            line.baseline += shift;
+        }
+        laid.text_box = Some(LayoutRect {
+            x,
+            y,
+            w: inner_w,
+            h: inner_h,
+        });
+        Ok(Some(laid))
     }
 
     /// A text frame that holds its own words.
@@ -494,6 +592,8 @@ fn frame_layout(
             .collect(),
         overset: flowed.overset && frame + 1 == flowed.used_height.len().max(1),
         origin: None,
+        text_box: None,
+        text_align: None,
     }
 }
 
@@ -510,6 +610,8 @@ fn flow_frame(
             lines: Vec::new(),
             overset: false,
             origin: None,
+            text_box: None,
+            text_align: None,
         };
     };
     FrameLayout {
@@ -522,5 +624,7 @@ fn flow_frame(
             .collect(),
         overset: laid.overset && index + 1 == laid.used_height.len(),
         origin: None,
+        text_box: None,
+        text_align: None,
     }
 }

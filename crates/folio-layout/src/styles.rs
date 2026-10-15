@@ -91,6 +91,15 @@ impl StyleSheet {
         Self { family, styles }
     }
 
+    /// This sheet with the styles of `fallback` it does not have: a book that never used a style
+    /// (a bubble's, say) still gets the one Folio ships, and a book that defines its own keeps it.
+    pub fn with_fallback(mut self, fallback: &StyleSheet) -> Self {
+        for (id, def) in &fallback.styles {
+            self.styles.entry(id.clone()).or_insert_with(|| def.clone());
+        }
+        self
+    }
+
     pub fn contains(&self, id: &StyleId) -> bool {
         self.styles.contains_key(&id.0)
     }

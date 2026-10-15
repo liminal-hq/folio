@@ -130,3 +130,40 @@ describe('editing when the frame goes away', () => {
 		expect(onEditText).toHaveBeenCalledWith('a', 'Typed, then gone');
 	});
 });
+
+describe('editing the words of a shape', () => {
+	const shape = (extra = {}) => ({
+		type: 'shape',
+		id: 'b',
+		box: { x: 20, y: 20, w: 200, h: 100 },
+		rotation: 0,
+		locked: false,
+		shape: 'speech',
+		fill: '#ffffff',
+		style: null,
+		...extra,
+	});
+
+	it('opens a bubble with no words yet, and sets the words it is given', () => {
+		const onEditText = vi.fn();
+		render(<Harness frames={[shape()]} onEditText={onEditText} />);
+		fireEvent.doubleClick(hit('b'));
+		const area = screen.getByRole('textbox', { name: 'Edit the words' });
+		expect(area).toHaveValue('');
+		fireEvent.change(area, { target: { value: 'Hello!' } });
+		fireEvent.keyDown(area, { key: 'Escape' });
+		expect(onEditText).toHaveBeenCalledWith('b', 'Hello!');
+	});
+
+	it('does not open a line, which has no inside', () => {
+		render(<Harness frames={[shape({ shape: 'line' })]} onEditText={vi.fn()} />);
+		fireEvent.doubleClick(hit('b'));
+		expect(screen.queryByRole('textbox')).toBeNull();
+	});
+
+	it('does not open a locked shape', () => {
+		render(<Harness frames={[shape({ locked: true })]} onEditText={vi.fn()} />);
+		fireEvent.doubleClick(hit('b'));
+		expect(screen.queryByRole('textbox')).toBeNull();
+	});
+});

@@ -260,9 +260,11 @@ export function SpreadCanvas({
 	const editedFrame = frames.find((f) => f.id === editing);
 	if (editing !== null && !editedFrame) setEditing(null);
 	const startEditing = (frame: Frame) => {
-		if (onEditText && frame.type === 'text' && canEditText(frame)) setEditing(frame.id);
+		if (onEditText && (frame.type === 'text' || frame.type === 'shape') && canEditText(frame))
+			setEditing(frame.id);
 	};
 	const byFrame = new Map(layout?.frames.map((f) => [f.frame, f]));
+	const furniture = masterFurniture(book, spread);
 	const grid = book.grid;
 
 	return (
@@ -337,15 +339,20 @@ export function SpreadCanvas({
 				<BackgroundLayer book={book} spread={spread} images={images} />
 				{/* The master pages' own text sits behind the page's frames. */}
 				{layout?.frames.map((laid) =>
-					laid.origin ? (
+					// A master shape's words are drawn over the shape, below.
+					laid.origin && !furniture.some((f) => f.id === laid.frame) ? (
 						<Lines key={laid.frame} id={laid.frame} at={laid.origin} layout={laid} />
 					) : null,
 				)}
-				{masterFurniture(book, spread).map((frame) => (
-					<g key={frame.id} data-master-item={frame.id} pointerEvents="none">
-						<Furniture frame={frame} images={images} />
-					</g>
-				))}
+				{furniture.map((frame) => {
+					const words = layout?.frames.find((l) => l.frame === frame.id && l.origin);
+					return (
+						<g key={frame.id} data-master-item={frame.id} pointerEvents="none">
+							<Furniture frame={frame} images={images} />
+							{words?.origin && <Lines id={words.frame} at={words.origin} layout={words} />}
+						</g>
+					);
+				})}
 				{frames.map((frame) => (
 					<g key={frame.id}>
 						<Furniture frame={frame} images={images} />
@@ -599,7 +606,7 @@ export function SpreadCanvas({
 					/>
 				))}
 			</svg>
-			{editedFrame?.type === 'text' && (
+			{(editedFrame?.type === 'text' || editedFrame?.type === 'shape') && (
 				<TextEditor
 					frame={editedFrame}
 					layout={byFrame.get(editedFrame.id)}

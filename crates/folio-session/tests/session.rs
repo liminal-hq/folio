@@ -2311,6 +2311,57 @@ fn a_shape_setting_is_refused_when_it_makes_no_sense_or_the_frame_is_not_free() 
 }
 
 #[test]
+fn words_go_into_a_shape_and_emptying_them_takes_them_out_but_a_line_has_no_inside() {
+    let mut s = session_with_shape();
+    s.apply(Intent::SetText {
+        frame: frame("fr_shape"),
+        text: "Hello".into(),
+    })
+    .unwrap();
+    assert_eq!(
+        shape_of(&s).content.unwrap().inline[0].text,
+        "Hello",
+        "the words are on the shape"
+    );
+    s.apply(Intent::OverrideStyle {
+        frame: frame("fr_shape"),
+        overrides: folio_model::StyleOverrides {
+            size: Some(folio_model::Pt(20.0)),
+            align: None,
+            bold: Some(true),
+            italic: None,
+        },
+    })
+    .unwrap();
+    assert_eq!(shape_of(&s).overrides.unwrap().bold, Some(true));
+    s.apply(Intent::SetText {
+        frame: frame("fr_shape"),
+        text: String::new(),
+    })
+    .unwrap();
+    assert!(shape_of(&s).content.is_none());
+
+    s.apply(Intent::SetShape {
+        frame: frame("fr_shape"),
+        kind: Some(folio_model::Shape::Line),
+        fill: None,
+        stroke: None,
+        stroke_width: None,
+        radius: None,
+        flip: None,
+    })
+    .unwrap();
+    assert_eq!(
+        s.apply(Intent::SetText {
+            frame: frame("fr_shape"),
+            text: "no".into()
+        })
+        .unwrap_err(),
+        SessionError::NotText("fr_shape".into())
+    );
+}
+
+#[test]
 fn changing_the_kind_or_clearing_a_colour_is_its_own_undo_step() {
     let mut s = session_with_shape();
     s.apply(shape_set(None, Some(1.0), None)).unwrap();
@@ -2332,4 +2383,19 @@ fn changing_the_kind_or_clearing_a_colour_is_its_own_undo_step() {
     );
     s.undo().unwrap();
     assert_eq!(shape_of(&s).stroke_width, None, "the two widths together");
+}
+
+#[test]
+fn turning_a_shape_into_a_line_takes_its_words_with_it_and_undo_brings_them_back() {
+    let mut s = session_with_shape();
+    s.apply(Intent::SetText {
+        frame: frame("fr_shape"),
+        text: "Hello".into(),
+    })
+    .unwrap();
+    s.apply(shape_set(None, None, Some(folio_model::Shape::Line)))
+        .unwrap();
+    assert!(shape_of(&s).content.is_none());
+    s.undo().unwrap();
+    assert!(shape_of(&s).content.is_some());
 }
