@@ -23,6 +23,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 dunce = { workspace = true }
 folio-layout = { path = "../../crates/folio-layout" }
 folio-spell = { path = "../../crates/folio-spell" }
+ureq = "3"
 folio-model = { path = "../../crates/folio-model" }
 folio-package = { path = "../../crates/folio-package" }
 folio-presets = { path = "../../crates/folio-presets" }

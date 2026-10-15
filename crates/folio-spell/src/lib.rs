@@ -8,6 +8,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 mod checker;
+pub mod dictionaries;
 mod words;
 
 pub use checker::{DictionaryError, SpellbookChecker};

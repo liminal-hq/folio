@@ -21,6 +21,8 @@ allow = [
   "Unicode-3.0",
   "CC0-1.0",
   "0BSD",
+  # The root certificates `ureq` trusts when a dictionary is downloaded: data under a permissive licence.
+  "CDLA-Permissive-2.0",
   # MPL-2.0 is file-level copyleft: fine when a crate is used unmodified, which these all are.
   # Folio's own use is `spellbook` (the spell checker); Tauri's web stack brings `cssparser`,
   # `selectors`, `dtoa-short` and `option-ext`. Each is listed in the third-party notices.

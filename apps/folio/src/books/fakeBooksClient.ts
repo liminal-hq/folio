@@ -14,6 +14,7 @@ import type {
 	PatchEvent,
 } from '@liminal-hq/folio-plugin-books';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
+import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import { applyPatch } from './applyPatch';
 import type { BooksClient, BooksListener } from './booksClient';
 import cases from './fixtures/patchCases.json';
@@ -117,6 +118,34 @@ export function createFakeBooksClient(): FakeBooks {
 	const refusals = new Map<string, { kind: string; message: string }>();
 	let counter = 0;
 	const misspelt: string[] = [];
+	const downloaded = new Set<string>();
+	const listing = (): DictionaryStatus[] => [
+		{
+			id: 'en-CA',
+			name: 'English (Canada)',
+			languages: ['en-CA'],
+			licence: '(MIT AND BSD)',
+			bytes: 0,
+			installed: true,
+			bundled: true,
+		},
+		...[
+			{
+				id: 'fr',
+				name: 'French',
+				languages: ['fr', 'fr-CA'],
+				licence: 'MPL-2.0',
+				bytes: 1_400_000,
+			},
+			{
+				id: 'nl',
+				name: 'Dutch',
+				languages: ['nl'],
+				licence: '(BSD-3-Clause OR CC-BY-3.0)',
+				bytes: 2_500_000,
+			},
+		].map((d) => ({ ...d, installed: downloaded.has(d.id), bundled: false })),
+	];
 
 	const summaries = (): BookSummary[] => [...held.values()].map((h) => summary(h));
 	const summary = (h: Held): BookSummary => ({
@@ -318,12 +347,26 @@ export function createFakeBooksClient(): FakeBooks {
 			const found = [...text.matchAll(/[\p{L}'’]+/gu)]
 				.filter((m) => flagged.has(m[0].toLowerCase()) && !ignored.has(m[0]))
 				.map((m) => ({ start: m.index!, end: m.index! + m[0].length, word: m[0] }));
-			return { supported: true, misspellings: found };
+			return { supported: true, dictionary: 'en-CA', offer: null, misspellings: found };
 		},
 		async spellSuggest(id, word) {
 			await call('spellSuggest', [id, word]);
 			find(id);
 			return [word.slice(0, -1), `${word}s`];
+		},
+		async dictionaries() {
+			await call('dictionaries');
+			return listing();
+		},
+		async downloadDictionary(id) {
+			await call('downloadDictionary', [id]);
+			downloaded.add(id);
+			return listing();
+		},
+		async removeDictionary(id) {
+			await call('removeDictionary', [id]);
+			downloaded.delete(id);
+			return listing();
 		},
 		async subscribe(listener) {
 			await call('subscribe');

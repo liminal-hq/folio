@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck';
 import type { SpreadLayoutResult } from '@liminal-hq/folio-protocol/generated/SpreadLayoutResult';
 import {
@@ -10,6 +11,9 @@ import {
 	applyIntent,
 	closeBook,
 	defaultSavePath,
+	dictionaries,
+	downloadDictionary,
+	removeDictionary,
 	importImage,
 	layoutMaster,
 	layoutSpread,
@@ -70,6 +74,12 @@ export interface BooksClient {
 	spellCheck(id: string, text: string, personal?: string[]): Promise<SpellCheck>;
 	/** Corrections for a word, best first. */
 	spellSuggest(id: string, word: string): Promise<string[]>;
+	/** Every dictionary there is, and whether it is in place. */
+	dictionaries(): Promise<DictionaryStatus[]>;
+	/** Downloads a dictionary, checked against what is pinned for it; resolves to the list again. */
+	downloadDictionary(id: string): Promise<DictionaryStatus[]>;
+	/** Takes a downloaded dictionary away; resolves to the list again. */
+	removeDictionary(id: string): Promise<DictionaryStatus[]>;
 	/** Resolves to the function that stops listening. */
 	subscribe(listener: BooksListener): Promise<() => void>;
 }
@@ -93,6 +103,9 @@ export const tauriBooksClient: BooksClient = {
 	assetData,
 	spellCheck,
 	spellSuggest,
+	dictionaries,
+	downloadDictionary,
+	removeDictionary,
 	async subscribe(listener) {
 		const stops = await Promise.all([
 			onPatch((event) => listener.onPatch(event)),

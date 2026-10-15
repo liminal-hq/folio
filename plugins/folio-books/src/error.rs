@@ -27,6 +27,9 @@ pub enum Error {
     /// A file offered as a picture is not one Folio can place.
     #[error("{0}")]
     BadImage(String),
+    /// A dictionary could not be downloaded, checked or kept.
+    #[error("{0}")]
+    Dictionary(String),
     /// A window asked for a spread the book does not have.
     #[error("the book has no spread `{0}`")]
     NoSuchSpread(String),
@@ -52,6 +55,7 @@ impl Error {
             Error::NoSuchSpread(_) => "noSuchSpread",
             Error::NoSuchMaster(_) => "noSuchMaster",
             Error::BadImage(_) => "image",
+            Error::Dictionary(_) => "dictionary",
         }
     }
 }

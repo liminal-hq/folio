@@ -573,15 +573,52 @@ fn spelling_checks_a_text_against_the_books_dictionary_and_its_ignore_list() {
 }
 
 #[test]
-fn only_english_has_a_dictionary_until_others_can_be_downloaded() {
+fn english_is_checked_with_the_bundled_dictionary_until_a_better_one_is_downloaded() {
     let app = app();
     let books = books(&app);
     for language in ["en", "en-CA", "en_GB", "EN-us"] {
-        assert!(books.speller_for(language).is_some(), "{language}");
+        let (id, _) = books.spelling.for_language(language).expect(language);
+        assert_eq!(id, "en-CA", "{language}");
     }
     for language in ["fr-CA", "de", "", "eng"] {
-        assert!(books.speller_for(language).is_none(), "{language}");
+        assert!(
+            books.spelling.for_language(language).is_none(),
+            "{language}"
+        );
     }
+    // A dictionary is on offer for a language that has one to download, and not for the bundled one.
+    assert_eq!(books.spelling.offer("fr-CA").unwrap().id, "fr");
+    assert_eq!(books.spelling.offer("en-GB").unwrap().id, "en-GB");
+    assert!(books.spelling.offer("en-CA").is_none());
+    assert!(books.spelling.offer("ja").is_none());
+}
+
+#[test]
+fn the_dictionary_list_has_the_bundled_one_first_and_the_rest_not_yet_in_place() {
+    let app = app();
+    let dir = tempfile::tempdir().unwrap();
+    books(&app)
+        .spelling
+        .keep_in(dir.path().join("dictionaries"));
+    let list = books(&app).spelling.status();
+    assert!(list[0].bundled && list[0].installed && list[0].id == "en-CA");
+    assert!(list.len() > 3);
+    assert!(list[1..]
+        .iter()
+        .all(|d| !d.bundled && !d.installed && d.bytes > 0));
+    assert!(list
+        .iter()
+        .any(|d| d.id == "fr" && d.languages.contains(&"fr-CA".to_owned())));
+    // Nothing is downloaded for an id the catalogue does not hold, and nothing is written.
+    assert!(matches!(
+        books(&app).spelling.download("../../etc"),
+        Err(Error::Dictionary(_))
+    ));
+    assert!(matches!(
+        books(&app).spelling.remove("nope"),
+        Err(Error::Dictionary(_))
+    ));
+    assert!(!dir.path().join("dictionaries").join("nope").exists());
 }
 
 #[test]
@@ -595,4 +632,26 @@ fn spelling_for_an_unknown_book_is_a_typed_error() {
         books(&app).spell_suggest("nope", "x"),
         Err(Error::NoSuchBook(_))
     ));
+}
+
+/// Run by hand (`cargo test -p tauri-plugin-folio-books -- --ignored`): the real download, checked
+/// against the pinned hashes, and used to check a word.
+#[test]
+#[ignore = "needs the network"]
+fn a_dictionary_downloads_checks_and_checks_words() {
+    let app = app();
+    let dir = tempfile::tempdir().unwrap();
+    books(&app)
+        .spelling
+        .keep_in(dir.path().join("dictionaries"));
+    books(&app).spelling.download("fr").unwrap();
+    let list = books(&app).spelling.status();
+    assert!(list.iter().any(|d| d.id == "fr" && d.installed));
+    let (id, french) = books(&app).spelling.for_language("fr-CA").unwrap();
+    assert_eq!(id, "fr");
+    assert!(folio_spell::Checker::check(&*french, "bonjour"));
+    assert!(!folio_spell::Checker::check(&*french, "bonjuor"));
+    assert!(dir.path().join("dictionaries/fr/LICENSE").is_file());
+    books(&app).spelling.remove("fr").unwrap();
+    assert!(books(&app).spelling.for_language("fr-CA").is_none());
 }

@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { t } from '../i18n/messages';
 import { useSettings, useSettingsError, useUpdateSettings } from '../settings/useSettings';
 import { AppTitleBar } from './AppTitleBar';
+import { useDictionaries } from './useDictionaries';
 import styles from './PreferencesScreen.module.css';
 
 type SectionId = 'interface' | 'appearance' | 'units' | 'help';
@@ -110,6 +111,7 @@ function UnitsPage() {
 function SpellingPage() {
 	const settings = useSettings();
 	const update = useUpdateSettings();
+	const dictionaries = useDictionaries();
 	return (
 		<SettingsSection>
 			<SettingsGroup>
@@ -119,6 +121,38 @@ function SpellingPage() {
 					checked={settings.spelling.enabled}
 					onChange={(enabled) => void update({ spelling: { enabled } })}
 				/>
+			</SettingsGroup>
+			<SettingsGroup>
+				{dictionaries.list.map((d) => (
+					<ButtonRow
+						key={d.id}
+						label={d.name}
+						description={
+							d.bundled
+								? t('preferences.dictionary.bundled', { licence: d.licence })
+								: t('preferences.dictionary.size', {
+										size: (d.bytes / 1_000_000).toFixed(1),
+										licence: d.licence,
+									})
+						}
+						actionLabel={
+							d.bundled
+								? t('preferences.dictionary.included')
+								: dictionaries.busy === d.id
+									? t('preferences.dictionary.working')
+									: d.installed
+										? t('preferences.dictionary.remove')
+										: t('preferences.dictionary.download')
+						}
+						disabled={d.bundled || dictionaries.busy !== null}
+						onAction={() => (d.installed ? dictionaries.remove(d.id) : dictionaries.download(d.id))}
+					/>
+				))}
+				{dictionaries.error && (
+					<p className={styles.empty} role="alert">
+						{t('preferences.dictionary.failed', { message: dictionaries.error })}
+					</p>
+				)}
 			</SettingsGroup>
 			<SettingsGroup>
 				{settings.spelling.personal.length === 0 ? (
