@@ -1930,7 +1930,8 @@ fn copying_a_master_item_to_a_page_hides_it_there_and_leaves_one_the_person_owns
     let sp = &s.book().spreads[2];
     assert_eq!(sp.frames.len(), before + 1);
     assert_eq!(sp.master_overrides[0].hide, vec![frame("fr_mine")]);
-    let made = sp.frames.last().unwrap().base();
+    // It goes first, so it is drawn beneath the page's other frames as the master's item was.
+    let made = sp.frames.first().unwrap().base();
     assert_ne!(made.id.0, "fr_mine");
     assert!(made.from_master.is_none() && !made.locked);
     assert_eq!(
@@ -1950,7 +1951,7 @@ fn copying_a_master_item_to_a_page_hides_it_there_and_leaves_one_the_person_owns
 }
 
 #[test]
-fn a_page_number_cannot_be_copied_to_a_page_and_a_frame_off_the_master_is_refused() {
+fn a_master_item_is_copied_once_and_only_when_it_is_on_the_pages_master() {
     let mut s = with_frame_on(folio_model::PageNumbers::Centre, "mst_a");
     let page = s.book().spreads[1].pages[0].id.clone();
     let on = |f: &str| Intent::CopyMasterItem {
@@ -1959,11 +1960,14 @@ fn a_page_number_cannot_be_copied_to_a_page_and_a_frame_off_the_master_is_refuse
         frame: frame(f),
     };
     assert_eq!(
-        s.apply(on("fr_pn_a")).unwrap_err(),
-        SessionError::PageNumber("fr_pn_a".into())
-    );
-    assert_eq!(
         s.apply(on("fr_other")).unwrap_err(),
         SessionError::NoSuchFrame("fr_other".into())
     );
+    // The page number is copied like any other item, and keeps counting where it is.
+    s.apply(on("fr_pn_a")).unwrap();
+    assert_eq!(
+        s.apply(on("fr_pn_a")).unwrap_err(),
+        SessionError::AlreadyHidden("fr_pn_a".into(), page.0.clone())
+    );
+    assert_eq!(s.book().spreads[1].frames.len(), 4);
 }
