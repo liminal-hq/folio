@@ -5,13 +5,15 @@
 
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
+import type { TableEdit } from '@liminal-hq/folio-protocol/generated/TableEdit';
 import type { FrameLayout } from '@liminal-hq/folio-protocol/generated/FrameLayout';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FocusedImage } from './FocusedImage';
 import { BackgroundLayer } from './BackgroundLayer';
 import { TableArt } from './TableArt';
+import { cellAt, cellId, cellText, nextCell, parseCellId } from './tableCells';
 import { turned } from './turned';
 import { turnedCursor, turnedHandle, turnPoint } from './turnedHandles';
 import { ShapeArt } from './ShapeArt';
@@ -62,6 +64,10 @@ export interface SpreadCanvasProps {
 	onPageMenu?(at: { x: number; y: number }, point: { x: number; y: number }): void;
 	/** New words for a text frame, after it was edited in place. */
 	onEditText?(id: string, text: string): void;
+	/** A change to a table, from editing one of its cells. */
+	onEditTable?(id: string, edit: TableEdit): void;
+	/** The cell being edited has changed: its row and column, or `null` when none is. */
+	onEditingCell?(cell: { row: number; col: number } | null): void;
 	/** The accessible name of the page area. */
 	label: string;
 }
@@ -211,6 +217,8 @@ export function SpreadCanvas({
 	onGuideMenu,
 	guideDrag = null,
 	onEditText,
+	onEditTable,
+	onEditingCell,
 	onPageMenu,
 	images = {},
 }: SpreadCanvasProps) {
@@ -246,9 +254,29 @@ export function SpreadCanvas({
 	});
 	const editable = onSelect !== undefined;
 	const [editing, setEditing] = useState<string | null>(null);
-	const editedFrame = frames.find((f) => f.id === editing);
+	const editingCell = editing === null ? null : parseCellId(editing);
+	const editedFrame = frames.find((f) => f.id === (editingCell?.frame ?? editing));
 	if (editing !== null && !editedFrame) setEditing(null);
-	const startEditing = (frame: Frame) => {
+	// Which cell is being edited, for the ribbon's row and column buttons.
+	useEffect(() => {
+		onEditingCell?.(editingCell && { row: editingCell.row, col: editingCell.col });
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [editing]);
+	/** Where on the page a pointer event is, in points. */
+	const pagePoint = (event: { clientX: number; clientY: number }) => {
+		const box = svg.current?.getBoundingClientRect();
+		return {
+			x: bounds.x + (event.clientX - (box?.left ?? 0)) / scale,
+			y: bounds.y + (event.clientY - (box?.top ?? 0)) / scale,
+		};
+	};
+	const startEditing = (frame: Frame, at?: { x: number; y: number }) => {
+		if (frame.type === 'table') {
+			if (!onEditTable || frame.locked || frame.fromMaster) return;
+			const cell = at ? cellAt(frame, at) : { frame: frame.id, row: 0, col: 0 };
+			if (cell && cellText(frame, cell.row, cell.col) !== null) setEditing(cellId(cell));
+			return;
+		}
 		if (onEditText && (frame.type === 'text' || frame.type === 'shape') && canEditText(frame))
 			setEditing(frame.id);
 	};
@@ -471,7 +499,7 @@ export function SpreadCanvas({
 								fill="transparent"
 								style={{ cursor: movable(frame) ? 'move' : 'default' }}
 								onPointerDown={(event) => drag.onFramePointerDown(event, frame)}
-								onDoubleClick={() => startEditing(frame)}
+								onDoubleClick={(event) => startEditing(frame, pagePoint(event))}
 								onContextMenu={(event) => {
 									event.preventDefault();
 									if (!selection.includes(frame.id)) onSelect?.([frame.id]);
@@ -650,6 +678,7 @@ export function SpreadCanvas({
 			</svg>
 			{(editedFrame?.type === 'text' || editedFrame?.type === 'shape') && (
 				<TextEditor
+					key={editing}
 					frame={editedFrame}
 					layout={byFrame.get(editedFrame.id)}
 					scale={scale}
@@ -665,6 +694,47 @@ export function SpreadCanvas({
 					}}
 				/>
 			)}
+			{editedFrame?.type === 'table' &&
+				editingCell &&
+				editingCell.row < editedFrame.rows.length &&
+				editingCell.col < editedFrame.cols.length && (
+					<TextEditor
+						key={editing}
+						frame={{
+							type: 'cell',
+							box: editedFrame.box,
+							content: editedFrame.rows[editingCell.row]![editingCell.col]!.content,
+						}}
+						layout={byFrame.get(editing!)}
+						scale={scale}
+						rotation={editedFrame.rotation}
+						at={{
+							x: (editedFrame.box.x - bounds.x) * scale,
+							y: (editedFrame.box.y - bounds.y) * scale,
+						}}
+						onCommit={(text) => {
+							setEditing(null);
+							if (text !== null) {
+								onEditTable?.(editedFrame.id, {
+									type: 'setCell',
+									row: editingCell.row,
+									col: editingCell.col,
+									text,
+								});
+							}
+							svg.current?.focus();
+						}}
+						onTab={(back) => {
+							const next = nextCell(editedFrame, editingCell, back);
+							if (next) setEditing(cellId(next));
+							else if (!back) {
+								// Tab out of the last cell makes a row for what comes next.
+								onEditTable?.(editedFrame.id, { type: 'addRow', at: editedFrame.rows.length });
+								setEditing(cellId({ frame: editedFrame.id, row: editedFrame.rows.length, col: 0 }));
+							}
+						}}
+					/>
+				)}
 		</div>
 	);
 }
