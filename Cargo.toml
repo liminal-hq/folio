@@ -6,6 +6,7 @@ members = [
   "crates/folio-presets",
   "crates/folio-protocol",
   "crates/folio-session",
+  "crates/folio-spell",
   "crates/folio-settings",
   "apps/folio/src-tauri",
   "crates/wayland-toplevel-drag",
