@@ -1,0 +1,48 @@
+.body {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.scopes,
+.tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.scope,
+.tab {
+	padding: 4px 10px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+}
+
+.scope[aria-checked='true'],
+.tab[aria-selected='true'] {
+	background: var(--folio-accent-subtle, var(--folio-bg-raised));
+	border-color: var(--folio-accent);
+}
+
+.gradients {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, 64px);
+	gap: 8px;
+}
+
+.gradient {
+	inline-size: 64px;
+	block-size: 40px;
+	padding: 0;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	cursor: pointer;
+}
+
+.gradient[aria-pressed='true'] {
+	outline: 2px solid var(--folio-accent);
+	outline-offset: 2px;
+}

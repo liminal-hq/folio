@@ -5,19 +5,21 @@
 
 import type { RibbonCommand } from '@liminal-hq/folio-ribbon/types';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { usePaintPresets } from './usePaintPresets';
 import { shelfLabels } from '../books/shelfLabels';
 import type { OpenBookCopy } from '../books/booksStore';
 import { useBooks } from '../books/useBooks';
 import { frameIntents } from '../canvas/frameMenu';
 import { boxAt, newFrame, type NewFrameKind } from '../canvas/newFrames';
 import { spreadGeometry } from '../canvas/geometry';
-import { masterFurniture } from '../canvas/masterItems';
+import { masterFurniture, pageAt } from '../canvas/masterItems';
 import { masterOfPage, masterSpread, surfaceOf } from '../canvas/masterView';
 import { defaultTextStyle, styleChoices } from '../inspector/styleChoices';
 import { Shelf } from '../canvas/Shelf';
 import { shelfIntent } from '../canvas/shelfMenu';
 import { guideIntents } from '../canvas/guides';
 import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../canvas/marksModel';
+import { PageBackgroundDialog } from '../canvas/PageBackgroundDialog';
 import { Stage, type ZoomApi } from '../canvas/Stage';
 import { useSelection } from '../canvas/useSelection';
 import { useAssetUrls } from '../canvas/useAssetUrls';
@@ -236,6 +238,10 @@ export function BookView({
 		} else setEditing(named);
 	};
 
+	// The page background dialog: which page it was asked about, and the palette it offers.
+	const [background, setBackground] = useState<{ page: number | null } | null>(null);
+	const paints = usePaintPresets(client, background !== null);
+
 	const perform = (action: EditorAction) => {
 		switch (action.kind) {
 			case 'intents':
@@ -271,6 +277,9 @@ export function BookView({
 			}
 			case 'fit':
 				apply({ type: 'SetImage', frame: action.frame, asset: null, fit: action.fit });
+				break;
+			case 'pageBackground':
+				setBackground({ page: null });
 				break;
 			case 'editMaster': {
 				if (editing !== null) setEditing(null);
@@ -366,6 +375,8 @@ export function BookView({
 							};
 							const kind = kinds[command];
 							if (kind) addFrame(kind, point);
+							else if (command === 'pageBackground')
+								setBackground({ page: pageAt(book, spread, point) });
 							else if (command.startsWith('editMaster:'))
 								setEditing(command.slice('editMaster:'.length));
 							else if (command === 'toggleMargins') setMarks({ margins: !marks.margins });
@@ -444,6 +455,15 @@ export function BookView({
 					// Nothing goes in front of a cover, and the selection follows the spread.
 					setSpreadIndex(Math.max(book.spreads[0]?.kind === 'cover' ? 1 : 0, to));
 				}}
+			/>
+			<PageBackgroundDialog
+				open={background !== null}
+				onClose={() => setBackground(null)}
+				book={book}
+				spread={spread}
+				page={background?.page ?? null}
+				presets={paints}
+				onApply={apply}
 			/>
 		</>
 	);
