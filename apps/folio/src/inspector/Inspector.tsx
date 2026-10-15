@@ -471,8 +471,8 @@ export function Inspector(props: InspectorProps) {
 		);
 	}
 	return (
-		<aside className={styles.card} aria-label={t('region.inspector')}>
+		<div className={styles.panel} role="region" aria-label={t('region.inspector')}>
 			{body}
-		</aside>
+		</div>
 	);
 }

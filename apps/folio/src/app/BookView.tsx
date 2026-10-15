@@ -29,6 +29,8 @@ import type { CommandId } from '../commands/appMenuModel';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import { Inspector } from '../inspector/Inspector';
+import { PagesPanel } from '../sidebar/PagesPanel';
+import { Sidebar, type SidebarGroup } from '../sidebar/Sidebar';
 import { t } from '../i18n/messages';
 import {
 	editorAction,
@@ -252,8 +254,13 @@ export function BookView({
 	};
 
 	// The page background dialog: which page it was asked about, and the palette it offers.
-	const [background, setBackground] = useState<{ page: number | null } | null>(null);
-	const paints = usePaintPresets(client, background !== null);
+	const [background, setBackground] = useState<{ page: number | null; scope?: string } | null>(
+		null,
+	);
+	// The sidebar's open group. Selecting something on the page brings the Properties forward.
+	const [group, setGroup] = useState<SidebarGroup>('properties');
+	const wantsPalette = background !== null || group === 'properties';
+	const paints = usePaintPresets(client, wantsPalette);
 
 	const perform = (action: EditorAction) => {
 		switch (action.kind) {
@@ -424,19 +431,41 @@ export function BookView({
 						}}
 					/>
 				</div>
-				<Inspector
-					book={book}
-					styleFile={copy.styles}
-					kindLabel={kindLabel}
-					units={settings.units}
-					mode={settings.mode}
-					spread={spread}
-					layout={layout}
-					selected={selected}
-					marks={marks}
-					onMarks={(next) => setMarks(next)}
-					apply={apply}
-					choosePicture={(frame) => void choosePicture(frame)}
+				<Sidebar
+					group={group}
+					onGroup={setGroup}
+					panels={{
+						properties: (
+							<Inspector
+								book={book}
+								styleFile={copy.styles}
+								kindLabel={kindLabel}
+								units={settings.units}
+								mode={settings.mode}
+								spread={spread}
+								layout={layout}
+								selected={selected}
+								marks={marks}
+								onMarks={(next) => setMarks(next)}
+								apply={apply}
+								choosePicture={(frame) => void choosePicture(frame)}
+							/>
+						),
+						pages: (
+							<PagesPanel
+								book={book}
+								labels={labels}
+								shown={shown}
+								images={images}
+								onShow={(index) => {
+									setEditing(null);
+									setSpreadIndex(index);
+								}}
+								onChange={(scope) => setBackground({ page: null, scope })}
+								onApply={apply}
+							/>
+						),
+					}}
 				/>
 			</main>
 			<Shelf
@@ -476,6 +505,7 @@ export function BookView({
 				book={book}
 				spread={spread}
 				page={background?.page ?? null}
+				scope={background?.scope ?? null}
 				presets={paints}
 				onPickPicture={pickBackgroundPicture}
 				onApply={apply}

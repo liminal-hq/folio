@@ -1,0 +1,22 @@
+.swatch {
+	position: relative;
+	display: inline-block;
+	flex: none;
+	inline-size: 40px;
+	block-size: 28px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	overflow: hidden;
+	background: var(--folio-paper, #fff);
+}
+
+.swatch[data-empty='true'] {
+	background: transparent;
+	border-style: dashed;
+}
+
+.fill {
+	position: absolute;
+	inset: 0;
+	display: block;
+}

@@ -25,6 +25,8 @@ export interface PageBackgroundDialogProps {
 	spread: Spread;
 	/** The page the person asked about, so its scope is the one chosen first; `null` for the whole spread. */
 	page: number | null;
+	/** The place to start on, by its id, when it is not one of the pages (every page, both pages). */
+	scope?: string | null;
 	presets: PaintPresets | null;
 	/** Asks for a picture and brings it into the book; its path, or `null` if none was chosen. */
 	onPickPicture(): Promise<string | null>;
@@ -68,12 +70,15 @@ export function PageBackgroundDialog({
 	book,
 	spread,
 	page,
+	scope: startScope = null,
 	presets,
 	onPickPicture,
 	onApply,
 }: PageBackgroundDialogProps) {
 	const scopes = backgroundTargets(spread);
-	const first: BackgroundScope = scopes[page === null || scopes.length < 3 ? 0 : page + 1]!;
+	const first: BackgroundScope =
+		scopes.find((s) => s.id === startScope) ??
+		scopes[page === null || scopes.length < 3 ? 0 : page + 1]!;
 	const [chosen, setChosen] = useState<BackgroundScope>(first);
 	const scope = scopes.find((s) => s.id === chosen.id) ?? scopes[0]!;
 	const now = currentBackground(book, spread, scope);
@@ -85,7 +90,7 @@ export function PageBackgroundDialog({
 		setChosen(first);
 		setKind(kindOf(currentBackground(book, spread, first)));
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [open, page, spread.id]);
+	}, [open, page, startScope, spread.id]);
 
 	const set = (bg: Background | null) =>
 		onApply({ type: 'SetBackground', target: scope.target, bg });
