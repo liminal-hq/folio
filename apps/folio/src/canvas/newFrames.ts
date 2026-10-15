@@ -7,7 +7,17 @@ import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import { t } from '../i18n/messages';
 import type { PlainRect } from './geometry';
 
-export type NewFrameKind = 'text' | 'picture' | 'note' | 'rect' | 'round' | 'ellipse';
+export type NewFrameKind =
+	| 'text'
+	| 'picture'
+	| 'note'
+	| 'rect'
+	| 'round'
+	| 'ellipse'
+	| 'line'
+	| 'speech'
+	| 'thought'
+	| 'shout';
 
 /** A frame id no other frame has: the `fr_` prefix and 12 hex digits. */
 export function newFrameId(): string {
@@ -23,6 +33,10 @@ const SIZES: Record<NewFrameKind, { w: number; h: number }> = {
 	rect: { w: 140, h: 100 },
 	round: { w: 140, h: 100 },
 	ellipse: { w: 140, h: 100 },
+	line: { w: 144, h: 0 },
+	speech: { w: 170, h: 120 },
+	thought: { w: 170, h: 130 },
+	shout: { w: 160, h: 130 },
 };
 
 /** The box for a new frame centred on `at`, kept inside the trim of `page`. */
@@ -64,10 +78,32 @@ export function newFrame(kind: NewFrameKind, box: PlainRect, style: string): Fra
 		return {
 			...base,
 			type: 'shape',
-			shape: 'rect',
+			shape: 'round',
 			fill: '#fff3b0',
 			style: null,
 			description: t('frame.new.note'),
+		} as unknown as Frame;
+	}
+	if (kind === 'line') {
+		return {
+			...base,
+			type: 'shape',
+			shape: 'line',
+			fill: null,
+			stroke: '#14110f',
+			strokeWidth: 2,
+			style: null,
+		} as unknown as Frame;
+	}
+	if (kind === 'speech' || kind === 'thought' || kind === 'shout') {
+		return {
+			...base,
+			type: 'shape',
+			shape: kind,
+			fill: '#ffffff',
+			stroke: '#14110f',
+			strokeWidth: 1.5,
+			style: null,
 		} as unknown as Frame;
 	}
 	return {

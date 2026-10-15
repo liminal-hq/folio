@@ -10,6 +10,7 @@ import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
 import { useRef, useState } from 'react';
 import { BackgroundLayer } from './BackgroundLayer';
+import { ShapeArt } from './ShapeArt';
 import styles from './SpreadCanvas.module.css';
 import './fonts.css';
 import { PX_PER_POINT, spreadGeometry, type PlainRect } from './geometry';
@@ -161,26 +162,24 @@ function Furniture({ frame, images }: { frame: Frame; images: Record<string, str
 			</g>
 		);
 	}
-	if (frame.type === 'shape') {
-		const fill = frame.fill ?? '#c9c4b8';
-		if (frame.shape === 'ellipse') {
-			return <ellipse cx={x + w / 2} cy={y + h / 2} rx={w / 2} ry={h / 2} fill={fill} />;
-		}
-		return (
-			<rect
-				x={x}
-				y={y}
-				width={w}
-				height={h}
-				rx={frame.shape === 'round' ? Math.min(w, h) * 0.12 : 0}
-				fill={fill}
-			/>
-		);
-	}
+	if (frame.type === 'shape') return <ShapeArt frame={frame} />;
 	return null;
 }
 
 const HANDLE_PX = 8;
+/** The least a frame's click area is across, in points, so a line with no height can still be picked. */
+const MIN_HIT = 10;
+
+function hitBox(box: PlainRect): { x: number; y: number; width: number; height: number } {
+	const width = Math.max(box.w, MIN_HIT);
+	const height = Math.max(box.h, MIN_HIT);
+	return {
+		x: box.x - (width - box.w) / 2,
+		y: box.y - (height - box.h) / 2,
+		width,
+		height,
+	};
+}
 
 /** What a frame is called to a screen reader: its description, its label, or the start of its words. */
 export function frameLabel(frame: Frame): string {
@@ -460,10 +459,7 @@ export function SpreadCanvas({
 								aria-selected={selection.includes(frame.id)}
 								aria-label={frameLabel(frame)}
 								data-hit={frame.id}
-								x={frame.box.x}
-								y={frame.box.y}
-								width={frame.box.w}
-								height={frame.box.h}
+								{...hitBox(frame.box)}
 								fill="transparent"
 								style={{ cursor: movable(frame) ? 'move' : 'default' }}
 								onPointerDown={(event) => drag.onFramePointerDown(event, frame)}

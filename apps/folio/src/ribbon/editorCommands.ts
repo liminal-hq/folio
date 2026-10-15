@@ -40,7 +40,7 @@ export interface EditorState {
 /** What a control asks the book view to do. */
 export type EditorAction =
 	| { kind: 'intents'; intents: Intent[] }
-	| { kind: 'add'; shape: NewFrameKind | 'rect' | 'round' | 'ellipse' }
+	| { kind: 'add'; shape: NewFrameKind }
 	| { kind: 'marks'; marks: Partial<Marks> }
 	| { kind: 'snap' }
 	| { kind: 'rulers' }
@@ -68,9 +68,14 @@ export function editorState(input: EditorInput): EditorState {
 	const available = new Set<string>([
 		'text',
 		'image',
+		'bubble',
 		'rect',
 		'round',
 		'ellipse',
+		'line',
+		'speech',
+		'thought',
+		'shout',
 		'addPage',
 		'margins',
 		'grid',
@@ -150,7 +155,13 @@ export function editorAction(
 		case 'rect':
 		case 'round':
 		case 'ellipse':
+		case 'line':
+		case 'speech':
+		case 'thought':
+		case 'shout':
 			return { kind: 'add', shape: id };
+		case 'bubble':
+			return { kind: 'add', shape: 'speech' };
 		case 'addPage':
 			return { kind: 'page', op: 'add' };
 		case 'dupPage':
