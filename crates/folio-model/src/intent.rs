@@ -81,6 +81,13 @@ pub enum Intent {
         frame: FrameId,
         hide: bool,
     },
+    /// Hides a master page's frame on one page and puts an editable copy of it there, so the page
+    /// can change it without changing the master. The copy is the person's own.
+    CopyMasterItem {
+        spread: SpreadId,
+        page: PageId,
+        frame: FrameId,
+    },
     /// Puts a ruler guide on a spread, or on a master page so it shows on every page using it.
     AddGuide {
         on: Surface,
