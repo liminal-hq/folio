@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { MenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
-import { AddPagesIcon, DuplicateIcon } from '../icons/AppIcons';
+import { AddPagesIcon, BackgroundIcon, DuplicateIcon } from '../icons/AppIcons';
 import { t } from '../i18n/messages';
 import type { MasterItem } from './masterItems';
 import type { Marks } from './marksModel';
@@ -17,6 +17,7 @@ export type PageCommand =
 	| 'duplicateSpread'
 	| 'toggleMargins'
 	| 'toggleGrid'
+	| 'pageBackground'
 	/** `editMaster:<master>` opens that master page to edit. */
 	| `editMaster:${string}`
 	/** `hideMaster:<page>:<frame>` hides a master item on one page; `showMaster:…` shows it again. */
@@ -68,6 +69,16 @@ export function pageMenuItems(
 		{ type: 'action', id: 'addPicture', label: t('page.addPicture'), icon: <Box /> },
 		{ type: 'action', id: 'addNote', label: t('page.addNote'), icon: <Box /> },
 		...pages,
+		...(onMaster
+			? []
+			: [
+					{
+						type: 'action',
+						id: 'pageBackground',
+						label: t('page.background'),
+						icon: <BackgroundIcon />,
+					} as MenuItem,
+				]),
 		{ type: 'separator' },
 		{ type: 'checkbox', id: 'toggleMargins', label: t('page.showMargins'), checked: marks.margins },
 		{

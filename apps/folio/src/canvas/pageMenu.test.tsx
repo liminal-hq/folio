@@ -58,6 +58,14 @@ describe('pageMenuItems', () => {
 		expect(plain.some((r) => String(r.id).startsWith('copyMaster:'))).toBe(false);
 	});
 
+	it('offers the page background on a page, and not on a master page', () => {
+		const row = pageMenuItems(DEFAULT_MARKS, true).find((r) => r.id === 'pageBackground');
+		expect(row).toMatchObject({ label: 'Page background…' });
+		expectEveryItemHasIcon([row!]);
+		const onMaster = pageMenuItems(DEFAULT_MARKS, true, [], true);
+		expect(onMaster.some((r) => r.id === 'pageBackground')).toBe(false);
+	});
+
 	it('adds nothing for a page with no master items', () => {
 		const rows = pageMenuItems(DEFAULT_MARKS, true);
 		expect(rows.some((r) => String(r.id).includes('Master'))).toBe(false);
