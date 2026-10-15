@@ -477,6 +477,7 @@ fn with_numbers(book: &mut Book) {
         name: "A".into(),
         frames: vec![frame],
         guides: Vec::new(),
+        bg: None,
     });
     for spread in book
         .spreads
@@ -779,6 +780,7 @@ fn words_in_a_master_shape_are_laid_out_on_the_page_and_in_the_master_view() {
             Some("Page {page}"),
         )],
         guides: Vec::new(),
+        bg: None,
     });
     for page in &mut book.spreads[1].pages {
         page.master = Some(folio_model::MasterId("mst_s".into()));
@@ -807,4 +809,44 @@ fn words_in_a_master_shape_are_laid_out_on_the_page_and_in_the_master_view() {
         .unwrap()
         .unwrap();
     assert!(in_view.frames.iter().any(|f| f.frame.0 == "fr_m"));
+}
+
+#[test]
+fn the_page_number_and_title_are_filled_in_for_a_frame_the_person_made() {
+    let (book, styles) = sample(BookKind::Picture);
+    let mut book = book;
+    // A frame over the right-hand page of the first spread after the cover.
+    book.spreads[2].frames.push(text_frame(
+        "fr_folio",
+        "body",
+        book.trim.w.0 + 20.0,
+        20.0,
+        200.0,
+        40.0,
+        "Page {page} of {book.title}",
+    ));
+    let fonts = FontBook::bundled();
+    let id = book.spreads[2].id.clone();
+    let layout = Layouter::new(&book, &styles, &fonts)
+        .layout_spread(&id)
+        .unwrap()
+        .unwrap();
+    let laid = layout
+        .frames
+        .iter()
+        .find(|f| f.frame.0 == "fr_folio")
+        .unwrap();
+    let words: String = laid
+        .lines
+        .iter()
+        .flat_map(|l| l.runs.iter().map(|r| r.text.as_str()))
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(!words.contains('{'), "{words}");
+    // Cover, then pages 1-2 on the first spread, so the right page of the next is page 4.
+    assert!(words.contains("4"), "{words}");
+    assert!(
+        words.contains(&book.title.split(' ').next().unwrap().to_string()),
+        "{words}"
+    );
 }

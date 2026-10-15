@@ -303,11 +303,13 @@ impl Builder<'_> {
                 .map(|_| Page {
                     id: PageId((self.ids)("pg")),
                     master: None,
+                    bg: None,
                 })
                 .collect(),
             frames,
             guides: Vec::new(),
             master_overrides: Vec::new(),
+            bg_span: None,
         }
     }
 

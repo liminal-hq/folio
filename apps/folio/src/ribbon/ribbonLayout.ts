@@ -378,7 +378,6 @@ export const RIBBON_LAYOUT: readonly LayoutTab[] = [
 					{
 						id: 'pageBg',
 						large: true,
-						kind: 'menu',
 						icon: 'background',
 					},
 				],

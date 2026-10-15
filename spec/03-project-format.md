@@ -10,7 +10,7 @@ mimetype                         # first entry, STORED (no compression), no extr
 META-INF/manifest.json           # every file, its media type, sha256, role
 book.json                        # the document model (see types/), pretty-printed, stable key order
 styles.json                      # paragraph + character styles, colour swatches
-masters.json                     # master pages (frames and `guides`; see D-22)
+masters.json                     # master pages (frames, `guides` and `bg`; see D-22, D-23)
 text/
   flow-<id>.md                   # long text flows as CommonMark + Folio attributes (see below)
 assets/
@@ -77,6 +77,8 @@ settings.json                    # per-book export settings, last target, prefli
   "metadata": { "isbn": { "paperback": null, "ebook": null }, "series": null, "description": "" }
 }
 ```
+
+A page may carry a `bg` (a background, spec 11), a spread a `bgSpan` across both pages, and a master a `bg` for the pages that use it. All three are omitted when there is none, so a book without backgrounds is unchanged.
 
 All lengths are in **points** (1/72 in), and coordinates are spread-relative with the origin at the top-left of the trim box. Negative values reach into the bleed.
 

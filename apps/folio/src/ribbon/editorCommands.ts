@@ -49,7 +49,8 @@ export type EditorAction =
 	| { kind: 'choosePicture'; frame: string }
 	| { kind: 'stretch'; frame: string }
 	| { kind: 'fit'; frame: string; fit: 'fill' | 'fit' }
-	| { kind: 'editMaster' };
+	| { kind: 'editMaster' }
+	| { kind: 'pageBackground' };
 
 const ALIGNS: Record<string, 'left' | 'center' | 'right' | 'justify'> = {
 	alignL: 'left',
@@ -110,6 +111,8 @@ export function editorState(input: EditorInput): EditorState {
 	}
 	if (input.master) active.master = true;
 	available.add('master');
+	// A master page has no spread to paint; its background is set from the pages that use it.
+	if (!input.master) available.add('pageBg');
 	if (selected.length > 0) available.add('lock');
 	if (selected.length > 0 && selected.every((f) => f.locked)) active.lock = true;
 	if (free(selected).length > 0) {
@@ -189,6 +192,8 @@ export function editorAction(
 			return { kind: 'marks', marks: { guides: !input.marks.guides } };
 		case 'master':
 			return { kind: 'editMaster' };
+		case 'pageBg':
+			return { kind: 'pageBackground' };
 		case 'rgClear':
 			return { kind: 'intents', intents: [{ type: 'ClearGuides', spread: spread.id }] };
 		case 'zoomIn':

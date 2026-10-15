@@ -11,6 +11,7 @@ import { AddPagesIcon } from '../icons/AppIcons';
 import { t } from '../i18n/messages';
 import { shelfMenuItems, type ShelfCommand } from './shelfMenu';
 import { spreadGeometry } from './geometry';
+import { BackgroundLayer } from './BackgroundLayer';
 import { turned } from './turned';
 import { ShapeArt } from './ShapeArt';
 import styles from './Shelf.module.css';
@@ -36,7 +37,15 @@ function Ruled({ frame }: { frame: Frame }) {
 	);
 }
 
-function Thumb({ book, index }: { book: Book; index: number }) {
+function Thumb({
+	book,
+	index,
+	images,
+}: {
+	book: Book;
+	index: number;
+	images: Record<string, string>;
+}) {
 	const spread = book.spreads[index]!;
 	const { bounds } = spreadGeometry(book, spread);
 	const scale = THUMB_HEIGHT / bounds.h;
@@ -55,6 +64,7 @@ function Thumb({ book, index }: { book: Book; index: number }) {
 				height={bounds.h}
 				fill="var(--folio-paper)"
 			/>
+			<BackgroundLayer book={book} spread={spread} images={images} thumbnail />
 			{spread.frames.map((frame) =>
 				frame.type === 'text' ? (
 					<Ruled key={frame.id} frame={frame} />
@@ -85,11 +95,22 @@ export interface ShelfProps {
 	onSelect(index: number): void;
 	onAdd?(): void;
 	onCommand?(command: ShelfCommand, index: number): void;
+	/** An address to draw for each picture a background uses, once it has been read. */
+	images?: Record<string, string>;
 	/** A thumbnail was dragged to `to`. */
 	onMove?(from: number, to: number): void;
 }
 
-export function Shelf({ book, labels, selected, onSelect, onAdd, onCommand, onMove }: ShelfProps) {
+export function Shelf({
+	book,
+	labels,
+	selected,
+	onSelect,
+	onAdd,
+	onCommand,
+	onMove,
+	images = {},
+}: ShelfProps) {
 	const [menu, setMenu] = useState<{ index: number; x: number; y: number } | null>(null);
 	const [dragging, setDragging] = useState<number | null>(null);
 	const [over, setOver] = useState<number | null>(null);
@@ -135,7 +156,7 @@ export function Shelf({ book, labels, selected, onSelect, onAdd, onCommand, onMo
 									setMenu({ index, x: event.clientX, y: event.clientY });
 								}}
 							>
-								<Thumb book={book} index={index} />
+								<Thumb book={book} index={index} images={images} />
 								<span className={styles.label}>{label}</span>
 							</button>
 						</li>

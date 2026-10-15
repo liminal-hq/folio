@@ -91,6 +91,12 @@ describe('editorState', () => {
 		expect(editorAction('master', undefined, plain)).toEqual({ kind: 'editMaster' });
 	});
 
+	it('offers the page background on a spread, and asks for its dialog', () => {
+		expect(editorState(input()).available.has('pageBg')).toBe(true);
+		expect(editorState(input([], { master: true })).available.has('pageBg')).toBe(false);
+		expect(editorAction('pageBg', undefined, input())).toEqual({ kind: 'pageBackground' });
+	});
+
 	it('keeps page operations and guide clearing for the spreads, and not for a master page', () => {
 		const onMaster = editorState(input([], { master: true }));
 		expect(onMaster.active.master).toBe(true);

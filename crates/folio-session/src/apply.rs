@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    Book, Colour, Frame, FrameId, Guide, InlineContent, Intent, Master, MasterId, Page, Paint, Pt,
-    ReorderTo, Run, Spread, SpreadId, SpreadKind, Surface,
+    BackgroundTarget, Book, Colour, Frame, FrameId, Guide, InlineContent, Intent, Master, MasterId,
+    Page, Paint, Pt, ReorderTo, Run, Spread, SpreadId, SpreadKind, Surface,
 };
 
 /// The widest an outline can be, and the roundest a corner, in points.
@@ -40,6 +40,13 @@ pub enum MergeKey {
     Text(FrameId),
     Style(FrameId),
     Shape(FrameId),
+    Background(BackgroundTarget),
+}
+
+/// Whether `asset` is a path inside the book's own pictures.
+fn is_asset_path(asset: &str) -> bool {
+    asset.starts_with("assets/images/")
+        && !asset.split('/').any(|part| part == ".." || part.is_empty())
 }
 
 fn spread<'a>(book: &'a Book, id: &SpreadId) -> Result<&'a Spread, SessionError> {
@@ -349,9 +356,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             };
             ensure_free(found)?;
             if let Some(asset) = asset {
-                let inside = asset.starts_with("assets/images/")
-                    && !asset.split('/').any(|part| part == ".." || part.is_empty());
-                if !inside {
+                if !is_asset_path(asset) {
                     return Err(SessionError::BadAsset(asset.clone()));
                 }
             }
@@ -371,11 +376,47 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             new_spread: None,
             merge: None,
         }),
+        Intent::SetBackground { target, bg } => {
+            if let Some(bg) = bg {
+                bg.checked(is_asset_path)
+                    .map_err(SessionError::BadBackground)?;
+            }
+            // Trying colours on one page is one undo step; taking the background off is its own.
+            let merge = bg.is_some().then(|| MergeKey::Background(target.clone()));
+            match target {
+                BackgroundTarget::Page { spread: s, page } => {
+                    let found = spread(book, s)?;
+                    if !found.pages.iter().any(|p| &p.id == page) {
+                        return Err(SessionError::NotOnSpread(page.0.clone(), s.0.clone()));
+                    }
+                    Ok(one(s.clone(), merge))
+                }
+                BackgroundTarget::Span { spread: s } => {
+                    if spread(book, s)?.pages.len() < 2 {
+                        return Err(SessionError::BadBackground(
+                            "a background across both pages needs two pages".into(),
+                        ));
+                    }
+                    Ok(one(s.clone(), merge))
+                }
+                // The masters may be made and given to pages, so every spread is part of it.
+                BackgroundTarget::EveryPage => Ok(Plan {
+                    touched: book.spreads.iter().map(|s| s.id.clone()).collect(),
+                    new_spread: None,
+                    merge,
+                }),
+            }
+        }
         Intent::HideMasterItem {
             spread: s,
             page,
             frame,
             ..
+        }
+        | Intent::CopyMasterItem {
+            spread: s,
+            page,
+            frame,
         } => {
             let found = spread(book, s)?;
             let on = found
@@ -390,6 +431,15 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             });
             if !owns {
                 return Err(SessionError::NoSuchFrame(frame.0.clone()));
+            }
+            // Copying what the page already hides would leave a second copy on top of the first.
+            if matches!(intent, Intent::CopyMasterItem { .. })
+                && found
+                    .master_overrides
+                    .iter()
+                    .any(|o| &o.page_id == page && o.hide.contains(frame))
+            {
+                return Err(SessionError::AlreadyHidden(frame.0.clone(), page.0.clone()));
             }
             Ok(one(s.clone(), None))
         }
@@ -738,6 +788,45 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             book.page_numbers = position;
             apply_page_numbers(book);
         }
+        Intent::SetBackground { target, bg } => {
+            // The plan checked it; store it the way it is kept.
+            let bg = bg.map(|b| b.checked(is_asset_path).unwrap_or(b));
+            match target {
+                BackgroundTarget::Page { spread: s, page } => {
+                    if let Some(p) = book
+                        .spreads
+                        .iter_mut()
+                        .find(|sp| sp.id == s)
+                        .and_then(|sp| sp.pages.iter_mut().find(|p| p.id == page))
+                    {
+                        p.bg = bg;
+                    }
+                }
+                BackgroundTarget::Span { spread: s } => {
+                    if let Some(sp) = book.spreads.iter_mut().find(|sp| sp.id == s) {
+                        sp.bg_span = bg;
+                    }
+                }
+                BackgroundTarget::EveryPage => {
+                    // Clearing needs no master that is not already there.
+                    if bg.is_some() {
+                        ensure_masters(book);
+                    }
+                    let used: Vec<_> = book
+                        .spreads
+                        .iter()
+                        .flat_map(|sp| sp.pages.iter().filter_map(|p| p.master.clone()))
+                        .collect();
+                    for m in book
+                        .master_pages
+                        .iter_mut()
+                        .filter(|m| used.contains(&m.id))
+                    {
+                        m.bg = bg.clone();
+                    }
+                }
+            }
+        }
         Intent::HideMasterItem {
             spread: s,
             page,
@@ -765,6 +854,50 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                     }
                     (None, false) => {}
                 }
+            }
+        }
+        Intent::CopyMasterItem {
+            spread: s,
+            page,
+            frame,
+        } => {
+            let Some(at) = book.spreads.iter().position(|sp| sp.id == s) else {
+                return;
+            };
+            let Some(index) = book.spreads[at].pages.iter().position(|p| p.id == page) else {
+                return;
+            };
+            let source = book.spreads[at].pages[index]
+                .master
+                .as_ref()
+                .and_then(|m| book.master_pages.iter().find(|mp| &mp.id == m))
+                .and_then(|mp| mp.frames.iter().find(|f| f.base().id == frame))
+                .cloned();
+            let Some(source) = source else {
+                return;
+            };
+            let mut copy = renewed(&source, ids);
+            let base = copy.base_mut();
+            // A master frame sits at a point on its page; the copy sits at the same point on the spread.
+            base.rect.x = Pt(base.rect.x.0 + book.trim.w.0 * index as f64);
+            base.locked = false;
+            base.from_master = None;
+            if let Frame::Text(t) = &mut copy {
+                t.flow = None;
+            }
+            let sp = &mut book.spreads[at];
+            // The page's own copy goes where the master's item was drawn, beneath the page's frames.
+            sp.frames.insert(0, copy);
+            match sp.master_overrides.iter_mut().find(|o| o.page_id == page) {
+                Some(o) => {
+                    if !o.hide.contains(&frame) {
+                        o.hide.push(frame);
+                    }
+                }
+                None => sp.master_overrides.push(folio_model::MasterOverride {
+                    page_id: page,
+                    hide: vec![frame],
+                }),
             }
         }
         Intent::AddGuide { on, axis, pos } => {
@@ -928,11 +1061,13 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                         .map(|p| Page {
                             id: folio_model::PageId(ids("pg")),
                             master: p.master.clone(),
+                            bg: p.bg.clone(),
                         })
                         .collect(),
                     frames: source.frames.iter().map(|f| renewed(f, ids)).collect(),
                     guides: source.guides.clone(),
                     master_overrides: Vec::new(),
+                    bg_span: source.bg_span.clone(),
                 }
             } else {
                 // The page after the cover opens on the right; every other new spread is a pair.
@@ -948,11 +1083,13 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                         .map(|_| Page {
                             id: folio_model::PageId(ids("pg")),
                             master: None,
+                            bg: None,
                         })
                         .collect(),
                     frames: Vec::new(),
                     guides: Vec::new(),
                     master_overrides: Vec::new(),
+                    bg_span: None,
                 }
             };
             book.spreads.insert(at + 1, made);

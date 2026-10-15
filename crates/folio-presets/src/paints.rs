@@ -31,12 +31,21 @@ pub struct GradientPreset {
     pub stops: Vec<GradientStop>,
 }
 
+/// A named texture. The id is one of `folio_model::TEXTURE_IDS`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct TexturePreset {
+    pub id: String,
+    pub name: String,
+}
+
 /// What the colour and gradient pickers offer.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct PaintPresets {
     pub swatches: Vec<Swatch>,
     pub gradients: Vec<GradientPreset>,
+    pub textures: Vec<TexturePreset>,
 }
 
 /// The palette, in the order it is offered.
@@ -56,6 +65,12 @@ mod tests {
         for swatch in &paints.swatches {
             assert_eq!(Colour::parse(&swatch.colour.0).as_ref(), Ok(&swatch.colour));
         }
+        let ids: Vec<_> = paints.textures.iter().map(|t| t.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            folio_model::TEXTURE_IDS,
+            "every texture is offered, in order"
+        );
         for gradient in &paints.gradients {
             assert!(gradient.stops.len() >= 2, "{}", gradient.name);
             assert!(gradient.stops.windows(2).all(|w| w[0].at <= w[1].at));
