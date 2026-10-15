@@ -407,6 +407,7 @@ export const RIBBON_LAYOUT: readonly LayoutTab[] = [
 				items: [
 					{
 						id: 'master',
+						kind: 'toggle',
 						large: true,
 					},
 					{

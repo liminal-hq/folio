@@ -132,6 +132,11 @@ export function BookView({
 		return () => window.removeEventListener('keydown', onKey);
 	}, [rulers.on, update]);
 
+	// A master that is gone (undone, or removed with the page numbers) ends the editing of it.
+	useEffect(() => {
+		if (editing !== null && masterSpread(book, editing) === null) setEditing(null);
+	}, [book, editing]);
+
 	// Escape leaves the master page, unless it is ending the editing of some words.
 	useEffect(() => {
 		if (editing === null) return;
@@ -346,7 +351,11 @@ export function BookView({
 							};
 							const kind = kinds[command];
 							if (kind) addFrame(kind, point);
-							else if (master) return;
+							else if (command === 'toggleMargins') setMarks({ margins: !marks.margins });
+							else if (command === 'toggleGrid') {
+								const on = !(marks.columns || marks.baseline);
+								setMarks({ columns: on, baseline: on });
+							} else if (master) return;
 							else if (command === 'addPages') {
 								apply({ type: 'AddSpread', after: spread.id, duplicate: false });
 								setSpreadIndex(shown + 1);
@@ -360,10 +369,6 @@ export function BookView({
 									frame,
 									hide: which === 'hideMaster',
 								});
-							} else if (command === 'toggleMargins') setMarks({ margins: !marks.margins });
-							else if (command === 'toggleGrid') {
-								const on = !(marks.columns || marks.baseline);
-								setMarks({ columns: on, baseline: on });
 							}
 						}}
 						onCommand={(command, ids) => {

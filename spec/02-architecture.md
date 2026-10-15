@@ -47,6 +47,7 @@ project_new(kind, trim) -> BookSnapshot
 project_open(path) -> BookSnapshot           project_save(path?) -> SaveResult
 apply_intent(intent) -> Patch                 undo() / redo() -> Patch
 layout_spread(spread_id) -> SpreadLayout      // shaped lines for the canvas
+layout_master(master_id) -> SpreadLayout      // a master's own text, with {page} etc. as written
 reader_preview(target, scale) -> ReaderPages  // reflow preview for Kindle/Kobo
 preflight(targets) -> Vec<Issue>
 export(targets, options) -> JobId             // progress via `export://progress` events

@@ -35,6 +35,7 @@ import { useElementSize } from './useElementSize';
 import type { FrameBoxMove } from './useFrameDrag';
 import { useGuideDrag } from './useGuideDrag';
 import { usePageOrigin } from './usePageOrigin';
+import { isMasterSpread } from './masterView';
 import { useStageZoom, type StageZoom } from './useStageZoom';
 
 export type ZoomApi = Pick<StageZoom, 'zoomIn' | 'zoomOut' | 'fit'>;
@@ -308,6 +309,7 @@ export function Stage({
 						marks ?? DEFAULT_MARKS,
 						spread.kind !== 'cover',
 						masterItemsAt(book, spread, pageMenu.point),
+						isMasterSpread(spread),
 					)}
 					position={pageMenu.at}
 					ariaLabel={t('page.menu')}
