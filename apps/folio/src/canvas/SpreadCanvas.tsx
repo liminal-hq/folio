@@ -12,6 +12,7 @@ import { useRef, useState } from 'react';
 import { FocusedImage } from './FocusedImage';
 import { BackgroundLayer } from './BackgroundLayer';
 import { turned } from './turned';
+import { turnedCursor, turnedHandle, turnPoint } from './turnedHandles';
 import { ShapeArt } from './ShapeArt';
 import styles from './SpreadCanvas.module.css';
 import './fonts.css';
@@ -21,7 +22,7 @@ import { canEditText, TextEditor } from './TextEditor';
 import { DEFAULT_MARK_COLOURS, DEFAULT_MARKS, type MarkColours, type Marks } from './marksModel';
 import { masterGuidesOn } from './masterGuides';
 import { masterFurniture } from './masterItems';
-import { HANDLES, type Handle } from './snap';
+import { HANDLES } from './snap';
 import type { GuideAxis } from './guides';
 import type { GuideDragState } from './useGuideDrag';
 import { movable, useFrameDrag, type FrameBoxMove } from './useFrameDrag';
@@ -43,6 +44,8 @@ export interface SpreadCanvasProps {
 	onSelect?(ids: string[]): void;
 	/** Commits a frame's new box; resolves once the book has it. */
 	onMove?(moves: FrameBoxMove[]): Promise<void>;
+	/** Commits a frame's new turn, in degrees clockwise; resolves once the book has it. */
+	onTurn?(id: string, degrees: number): Promise<void>;
 	onCommand?(command: FrameCommand, ids: string[]): void;
 	/** The context menu was asked for on a frame, at these viewport coordinates. */
 	onFrameMenu?(frame: Frame, at: { x: number; y: number }): void;
@@ -159,6 +162,8 @@ function Furniture({ frame, images }: { frame: Frame; images: Record<string, str
 }
 
 const HANDLE_PX = 8;
+/** How far the turn handle stands out from the top edge, in screen pixels. */
+const TURN_HANDLE_PX = 22;
 /** The least a frame's click area is across, in points, so a line with no height can still be picked. */
 const MIN_HIT = 10;
 
@@ -184,23 +189,6 @@ export function frameLabel(frame: Frame): string {
 	return frame.type === 'shape' ? 'Shape' : 'Group';
 }
 
-function handlePosition(box: PlainRect, handle: Handle) {
-	const x = handle.includes('w') ? box.x : handle.includes('e') ? box.x + box.w : box.x + box.w / 2;
-	const y = handle.includes('n') ? box.y : handle.includes('s') ? box.y + box.h : box.y + box.h / 2;
-	return { x, y };
-}
-
-const CURSORS: Record<Handle, string> = {
-	nw: 'nwse-resize',
-	se: 'nwse-resize',
-	ne: 'nesw-resize',
-	sw: 'nesw-resize',
-	n: 'ns-resize',
-	s: 'ns-resize',
-	e: 'ew-resize',
-	w: 'ew-resize',
-};
-
 export function SpreadCanvas({
 	book,
 	spread,
@@ -213,6 +201,7 @@ export function SpreadCanvas({
 	snap = true,
 	onSelect,
 	onMove,
+	onTurn,
 	onCommand,
 	onFrameMenu,
 	onGuidePointerDown,
@@ -242,11 +231,16 @@ export function SpreadCanvas({
 			: [],
 		onSelect,
 		onMove,
+		onTurn,
 		onCommand,
 	});
-	const frames = spread.frames.map((f) =>
-		drag.preview[f.id] ? ({ ...f, box: drag.preview[f.id] } as Frame) : f,
-	);
+	const frames = spread.frames.map((f) => {
+		const box = drag.preview[f.id];
+		const turn = drag.turning[f.id];
+		return box || turn !== undefined
+			? ({ ...f, box: box ?? f.box, rotation: turn ?? f.rotation } as Frame)
+			: f;
+	});
 	const editable = onSelect !== undefined;
 	const [editing, setEditing] = useState<string | null>(null);
 	const editedFrame = frames.find((f) => f.id === editing);
@@ -573,28 +567,64 @@ export function SpreadCanvas({
 					))}
 				{selection.length === 1 &&
 					frames
-						.filter((f) => f.id === selection[0] && movable(f) && !f.rotation)
-						.map((frame) =>
-							HANDLES.map((handle) => {
-								const at = handlePosition(frame.box, handle);
-								const size = HANDLE_PX / scale;
-								return (
-									<rect
-										key={handle}
-										data-handle={handle}
-										x={at.x - size / 2}
-										y={at.y - size / 2}
-										width={size}
-										height={size}
+						.filter((f) => f.id === selection[0] && movable(f))
+						.map((frame) => {
+							const size = HANDLE_PX / scale;
+							const top = turnedHandle(frame.box, frame.rotation, 'n');
+							const centre = {
+								x: frame.box.x + frame.box.w / 2,
+								y: frame.box.y + frame.box.h / 2,
+							};
+							// The turn handle stands out from the top edge, along the frame's own up.
+							const reach = TURN_HANDLE_PX / scale;
+							const out = turnPoint(
+								{ x: centre.x, y: frame.box.y - reach },
+								centre,
+								frame.rotation,
+							);
+							return (
+								<g key={frame.id}>
+									<line
+										x1={top.x}
+										y1={top.y}
+										x2={out.x}
+										y2={out.y}
+										stroke="var(--folio-accent)"
+										strokeWidth={1 / scale}
+										pointerEvents="none"
+									/>
+									<circle
+										data-handle="turn"
+										cx={out.x}
+										cy={out.y}
+										r={size * 0.7}
 										fill="#fff"
 										stroke="var(--folio-accent)"
 										strokeWidth={1.5 / scale}
-										style={{ cursor: CURSORS[handle] }}
-										onPointerDown={(event) => drag.onHandlePointerDown(event, frame.id, handle)}
+										style={{ cursor: 'grab' }}
+										onPointerDown={(event) => drag.onTurnPointerDown(event, frame.id)}
 									/>
-								);
-							}),
-						)}
+									{HANDLES.map((handle) => {
+										const at = turnedHandle(frame.box, frame.rotation, handle);
+										return (
+											<rect
+												key={handle}
+												data-handle={handle}
+												x={at.x - size / 2}
+												y={at.y - size / 2}
+												width={size}
+												height={size}
+												fill="#fff"
+												stroke="var(--folio-accent)"
+												strokeWidth={1.5 / scale}
+												style={{ cursor: turnedCursor(handle, frame.rotation) }}
+												onPointerDown={(event) => drag.onHandlePointerDown(event, frame.id, handle)}
+											/>
+										);
+									})}
+								</g>
+							);
+						})}
 				{drag.lines.map((line, i) => (
 					<line
 						key={i}

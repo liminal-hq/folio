@@ -276,6 +276,7 @@ export const messages = {
 	'inspector.gutter': 'Column gutter',
 	'inspector.columns': 'Columns',
 	'inspector.position': 'Position and size',
+	'inspector.rotation': 'Rotation',
 	'inspector.width': 'Width',
 	'inspector.height': 'Height',
 	'inspector.helpers.bleed': 'Bleed line',

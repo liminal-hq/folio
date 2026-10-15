@@ -69,6 +69,7 @@ export interface StageProps {
 	selection?: string[];
 	onSelect?(ids: string[]): void;
 	onMove?(moves: FrameBoxMove[]): Promise<void>;
+	onTurn?(id: string, degrees: number): Promise<void>;
 	onCommand?(command: FrameCommand, ids: string[]): void;
 	onEditText?(id: string, text: string): void;
 	/** A choice from the page menu; `point` is where it was asked for, in points on the spread. */
@@ -101,6 +102,7 @@ export function Stage({
 	selection,
 	onSelect,
 	onMove,
+	onTurn,
 	onCommand,
 	onEditText,
 	onPageCommand,
@@ -251,6 +253,7 @@ export function Stage({
 							selection={selection}
 							onSelect={onSelect}
 							onMove={onMove}
+							onTurn={onTurn}
 							onCommand={onCommand}
 							onEditText={onEditText}
 							onPageMenu={(at, point) => setPageMenu({ at, point })}
