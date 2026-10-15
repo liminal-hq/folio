@@ -1241,6 +1241,83 @@ fn turning_the_numbers_off_keeps_a_master_that_holds_more_than_numbers() {
     assert!(master(&s, "mst_b").is_none(), "B held only a number");
 }
 
+/// A session whose master `id` has the person's frame on it, after the numbers were `numbers`.
+fn with_frame_on(numbers: folio_model::PageNumbers, id: &str) -> Session {
+    let mut s = session();
+    s.apply(Intent::SetPageNumbers { position: numbers })
+        .unwrap();
+    let mut edited = s.book().clone();
+    edited
+        .master_pages
+        .iter_mut()
+        .find(|m| m.id.0 == id)
+        .unwrap()
+        .frames
+        .push(user_frame());
+    Session::new(edited)
+}
+
+#[test]
+fn a_new_spread_uses_the_master_the_person_kept_when_the_numbers_are_off() {
+    let mut s = with_frame_on(folio_model::PageNumbers::Centre, "mst_a");
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::None,
+    })
+    .unwrap();
+    s.apply(Intent::AddSpread {
+        after: spread("sp_1"),
+        duplicate: false,
+    })
+    .unwrap();
+    let masters = master_of_pages(&s);
+    assert_eq!(masters.len(), 6);
+    assert!(
+        masters[1..].iter().all(|m| m.as_deref() == Some("mst_a")),
+        "{masters:?}"
+    );
+}
+
+#[test]
+fn centring_the_numbers_keeps_a_master_b_the_person_filled_and_its_pages() {
+    let mut s = with_frame_on(folio_model::PageNumbers::Outside, "mst_b");
+    let before = master_of_pages(&s);
+    assert_eq!(
+        before,
+        vec![
+            None,
+            Some("mst_a".into()),
+            Some("mst_b".into()),
+            Some("mst_a".into())
+        ]
+    );
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::Centre,
+    })
+    .unwrap();
+    assert_eq!(
+        master_of_pages(&s),
+        before,
+        "the left page keeps its master"
+    );
+    let b = master(&s, "mst_b").unwrap();
+    assert!(b.frames.iter().any(|f| f.base().id.0 == "fr_mine"));
+    assert!(
+        b.frames.iter().any(|f| f.base().id.0 == "fr_pn_b"),
+        "so the left page still has a number"
+    );
+    s.apply(Intent::SetPageNumbers {
+        position: folio_model::PageNumbers::None,
+    })
+    .unwrap();
+    let b = master(&s, "mst_b").unwrap();
+    assert_eq!(b.frames.len(), 1, "only the number goes");
+    // A held only a number, so it went; the left page keeps B.
+    assert_eq!(
+        master_of_pages(&s),
+        vec![None, None, Some("mst_b".into()), None]
+    );
+}
+
 fn on_master(id: &str) -> folio_model::Surface {
     folio_model::Surface::Master(folio_model::MasterId(id.into()))
 }
@@ -1389,6 +1466,91 @@ fn guides_on_a_master_are_added_moved_locked_and_removed() {
     assert!(guides(&s).is_empty());
     s.undo().unwrap();
     assert_eq!(guides(&s).len(), 1);
+}
+
+#[test]
+fn deleting_a_master_frame_that_a_page_hid_forgets_the_hiding_and_undoes_with_it() {
+    let mut s = with_master_a();
+    s.apply(Intent::AddFrame {
+        on: on_master("mst_a"),
+        frame: user_frame(),
+    })
+    .unwrap();
+    let page = s.book().spreads[1].pages[0].id.clone();
+    s.apply(Intent::HideMasterItem {
+        spread: spread("sp_1"),
+        page,
+        frame: frame("fr_mine"),
+        hide: true,
+    })
+    .unwrap();
+    assert_eq!(s.book().spreads[1].master_overrides.len(), 1);
+    let patch = s
+        .apply(Intent::DeleteFrame {
+            on: on_master("mst_a"),
+            frame: frame("fr_mine"),
+        })
+        .unwrap();
+    assert!(s.book().spreads[1].master_overrides.is_empty());
+    assert!(
+        patch
+            .ops
+            .iter()
+            .any(|op| matches!(op, PatchOp::SetSpread { .. })),
+        "the spread that forgot it is patched"
+    );
+    s.undo().unwrap();
+    assert_eq!(s.book().spreads[1].master_overrides.len(), 1);
+    assert!(master(&s, "mst_a")
+        .unwrap()
+        .frames
+        .iter()
+        .any(|f| f.base().id.0 == "fr_mine"));
+}
+
+#[test]
+fn a_page_number_on_a_master_cannot_be_deleted_by_hand() {
+    let mut s = with_master_a();
+    assert!(matches!(
+        s.apply(Intent::DeleteFrame {
+            on: on_master("mst_a"),
+            frame: frame("fr_pn_a"),
+        }),
+        Err(SessionError::PageNumber(_))
+    ));
+}
+
+#[test]
+fn a_master_frame_is_duplicated_reordered_and_locked_on_its_master() {
+    let mut s = with_master_a();
+    s.apply(Intent::AddFrame {
+        on: on_master("mst_a"),
+        frame: user_frame(),
+    })
+    .unwrap();
+    s.apply(Intent::DuplicateFrame {
+        on: on_master("mst_a"),
+        frame: frame("fr_mine"),
+    })
+    .unwrap();
+    assert_eq!(master(&s, "mst_a").unwrap().frames.len(), 3);
+    s.apply(Intent::Reorder {
+        on: on_master("mst_a"),
+        frame: frame("fr_mine"),
+        to: folio_model::ReorderTo::Back,
+    })
+    .unwrap();
+    assert_eq!(
+        master(&s, "mst_a").unwrap().frames[0].base().id.0,
+        "fr_mine"
+    );
+    s.apply(Intent::LockFrame {
+        on: on_master("mst_a"),
+        frame: frame("fr_mine"),
+        locked: true,
+    })
+    .unwrap();
+    assert!(master(&s, "mst_a").unwrap().frames[0].base().locked);
 }
 
 #[test]
