@@ -11,6 +11,7 @@ import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { PaintPresets } from '@liminal-hq/folio-protocol/generated/PaintPresets';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import { useEffect, useState } from 'react';
+import { Segmented } from '../app/Segmented';
 import { t } from '../i18n/messages';
 import { ColourPicker } from '../inspector/ColourPicker';
 import { backgroundTargets, currentBackground, type BackgroundScope } from './backgroundScopes';
@@ -32,7 +33,7 @@ type Kind = 'colour' | 'gradient';
 const kindOf = (bg: Background | null): Kind => (bg?.type === 'gradient' ? 'gradient' : 'colour');
 
 const css = (bg: Extract<Background, { type: 'gradient' }>) =>
-	`linear-gradient(${bg.angle + 90}deg, ${bg.stops.map((s) => `${s.colour} ${s.at * 100}%`).join(', ')})`;
+	`linear-gradient(${bg.angle}deg, ${bg.stops.map((s) => `${s.colour} ${s.at * 100}%`).join(', ')})`;
 
 /**
  * Choosing a colour or a gradient applies it at once, so the page behind the dialog shows it; the
@@ -83,37 +84,26 @@ export function PageBackgroundDialog({
 			}
 		>
 			<div className={styles.body}>
-				<div role="radiogroup" aria-label={t('background.scope')} className={styles.scopes}>
-					{scopes.map((s) => (
-						<button
-							key={s.id}
-							type="button"
-							role="radio"
-							aria-checked={s.id === scope.id}
-							className={styles.scope}
-							onClick={() => {
-								setChosen(s);
-								setKind(kindOf(currentBackground(book, spread, s)));
-							}}
-						>
-							{t(s.label)}
-						</button>
-					))}
-				</div>
-				<div role="tablist" aria-label={t('background.kind')} className={styles.tabs}>
-					{(['colour', 'gradient'] as const).map((k) => (
-						<button
-							key={k}
-							type="button"
-							role="tab"
-							aria-selected={k === kind}
-							className={styles.tab}
-							onClick={() => setKind(k)}
-						>
-							{t(`background.kind.${k}`)}
-						</button>
-					))}
-				</div>
+				<Segmented
+					label={t('background.scope')}
+					value={scope.id}
+					options={scopes.map((s) => ({ value: s.id, label: t(s.label) }))}
+					onChange={(id) => {
+						const next = scopes.find((s) => s.id === id);
+						if (!next) return;
+						setChosen(next);
+						setKind(kindOf(currentBackground(book, spread, next)));
+					}}
+				/>
+				<Segmented
+					label={t('background.kind')}
+					value={kind}
+					options={(['colour', 'gradient'] as const).map((k) => ({
+						value: k,
+						label: t(`background.kind.${k}`),
+					}))}
+					onChange={setKind}
+				/>
 				{kind === 'colour' ? (
 					<ColourPicker
 						label={t('background.colour')}
