@@ -83,6 +83,7 @@ fn master_mut<'a>(book: &'a mut Book, id: &str, name: &str) -> &'a mut Master {
             name: name.into(),
             frames: Vec::new(),
             guides: Vec::new(),
+            bg: None,
         });
         book.master_pages.len() - 1
     });

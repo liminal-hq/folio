@@ -7,6 +7,7 @@
 // The model is the source of truth and lives in Rust (D-02). Every type that crosses to the UI
 // generates TypeScript into `packages/protocol`. All lengths are points (1/72 in).
 
+mod background;
 mod book;
 mod colour;
 mod cover;
@@ -18,6 +19,7 @@ mod snap;
 mod spread;
 mod units;
 
+pub use background::*;
 pub use book::*;
 pub use colour::*;
 pub use cover::*;

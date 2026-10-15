@@ -4,14 +4,21 @@ New tools are spread across the existing ribbon tabs. **Contextual tabs** (Pictu
 
 ## Page backgrounds
 
-`bg: { type: 'colour' | 'gradient' | 'texture' | 'picture', v }`
+A background is one of four kinds, stored as `{ "type": …, … }`:
+
+- `colour`: `{ colour: "#rrggbb" }`.
+- `gradient`: `{ angle, stops: [{ at, colour }] }`, with `angle` in degrees clockwise from up, as in CSS (90 runs left to right, 180 top to bottom). A preset is stored as the stops it expands to.
+- `texture`: `{ id, tint? }`, one of the bundled textures.
+- `picture`: `{ asset, fit: "fill" | "fit", focus: [x, y] }`.
 
 | Scope | Stored on | Notes |
 |---|---|---|
-| Left / Right / This page | `spread.bg[i]` | Reaches into the bleed on the outer edge |
-| Across both pages | `spread.bgSpan` | One background through the gutter, with a picture split at the gutter for EPUB fixed layout |
-| Every page | `masterBg` (master page A) | Pages with their own background keep it |
-| Cover | `cover.bg` | Whole sheet, into the bleed or wrap |
+| This page, Left or Right | `page.bg` | Reaches into the bleed on the outer edge |
+| Across both pages | `spread.bgSpan` | One background through the gutter, with a picture split at the gutter for EPUB fixed layout. Not offered on a single page. |
+| Every page | `master.bg` on each master in use | Pages with their own background keep it |
+| Cover | `page.bg` of the cover | Whole sheet, into the bleed or wrap |
+
+A page shows its own background, else the one across its spread, else its master's, else the paper. See D-23.
 
 Bundled textures (Linen, Laid paper, Kraft, Watercolour wash, Dot grid) ship as small tileable PNGs in the app. The prototype draws them with CSS gradients. Gradients: Dusk, Meadow, Sea, Peach, Night. A picture background is an image asset with Fill / Fit, preflighted for resolution like any picture.
 

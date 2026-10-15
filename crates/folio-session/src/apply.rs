@@ -874,11 +874,13 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                         .map(|p| Page {
                             id: folio_model::PageId(ids("pg")),
                             master: p.master.clone(),
+                            bg: p.bg.clone(),
                         })
                         .collect(),
                     frames: source.frames.iter().map(|f| renewed(f, ids)).collect(),
                     guides: source.guides.clone(),
                     master_overrides: Vec::new(),
+                    bg_span: source.bg_span.clone(),
                 }
             } else {
                 // The page after the cover opens on the right; every other new spread is a pair.
@@ -894,11 +896,13 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                         .map(|_| Page {
                             id: folio_model::PageId(ids("pg")),
                             master: None,
+                            bg: None,
                         })
                         .collect(),
                     frames: Vec::new(),
                     guides: Vec::new(),
                     master_overrides: Vec::new(),
+                    bg_span: None,
                 }
             };
             book.spreads.insert(at + 1, made);
