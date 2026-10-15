@@ -253,7 +253,11 @@ export function BookView({
 
 	// The page background dialog: which page it was asked about, and the palette it offers.
 	const [background, setBackground] = useState<{ page: number | null } | null>(null);
-	const paints = usePaintPresets(client, background !== null);
+	// The colours the pickers offer, read the first time the dialog opens or a shape is selected.
+	const paints = usePaintPresets(
+		client,
+		background !== null || selected.some((f) => f.type === 'shape'),
+	);
 
 	const perform = (action: EditorAction) => {
 		switch (action.kind) {
@@ -436,6 +440,7 @@ export function BookView({
 					marks={marks}
 					onMarks={(next) => setMarks(next)}
 					apply={apply}
+					paints={paints}
 					choosePicture={(frame) => void choosePicture(frame)}
 				/>
 			</main>

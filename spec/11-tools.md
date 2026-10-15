@@ -30,6 +30,7 @@ A shape is `{ shape: 'rect' | 'round' | 'ellipse' | 'line' | 'speech' | 'thought
 
 - Paths come from `shapePath(kind, w, h)` and stretch with the frame. The stroke is non-scaling.
 - Bubbles are shapes with text (`bubble` style, centred) and padding tuned per kind so the words sit in the body, not the tail.
+- **Looking at a shape:** selecting one shows its look in the inspector (Easy and Expert): the kind (rectangle, rounded, ellipse, line or a bubble), the fill and the outline from the swatches or any `#rrggbb` (a fill can be none; a line has only an outline), the outline width in points, how round a rounded shape's corners are, and "Run the other way" for a line. Trying colours or widths on one shape is one undo step.
 - Contextual **Shape** tab: Fill ▾, Outline ▾, Change shape ▾, rotate, wrap.
 - Note box: the existing `callout` text style.
 
