@@ -52,10 +52,12 @@ describe('paintRects', () => {
 });
 
 describe('gradientLine', () => {
-	it('runs left to right at 0 degrees and top to bottom at 90', () => {
+	it('runs left to right at 90 degrees and top to bottom at 180, clockwise from up like CSS', () => {
 		const rect = { x: 0, y: 0, w: 200, h: 100 };
-		expect(gradientLine(rect, 0)).toMatchObject({ x1: 0, y1: 50, x2: 200, y2: 50 });
-		const down = gradientLine(rect, 90);
+		const across = gradientLine(rect, 90);
+		expect([across.x1, across.x2]).toEqual([0, 200]);
+		expect(across.y1).toBeCloseTo(50);
+		const down = gradientLine(rect, 180);
 		expect(down.x1).toBeCloseTo(100);
 		expect(down.y1).toBeCloseTo(0);
 		expect(down.y2).toBeCloseTo(100);

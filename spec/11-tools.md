@@ -7,7 +7,7 @@ New tools are spread across the existing ribbon tabs. **Contextual tabs** (Pictu
 A background is one of four kinds, stored as `{ "type": …, … }`:
 
 - `colour`: `{ colour: "#rrggbb" }`.
-- `gradient`: `{ angle, stops: [{ at, colour }] }`, with `angle` in degrees (0 runs left to right, 90 top to bottom). A preset is stored as the stops it expands to.
+- `gradient`: `{ angle, stops: [{ at, colour }] }`, with `angle` in degrees clockwise from up, as in CSS (90 runs left to right, 180 top to bottom). A preset is stored as the stops it expands to.
 - `texture`: `{ id, tint? }`, one of the bundled textures.
 - `picture`: `{ asset, fit: "fill" | "fit", focus: [x, y] }`.
 
