@@ -7,7 +7,7 @@ import type { ShapeFrame } from '@liminal-hq/folio-protocol/generated/ShapeFrame
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { ShapeArt } from './ShapeArt';
-import { SHAPE_PATHS, TEXT_INSET } from './shapePaths';
+import { SHAPE_PATHS } from './shapePaths';
 
 const shape = (over: Record<string, unknown>) =>
 	({
@@ -87,13 +87,5 @@ describe('shape paths', () => {
 				expect(Math.max(...numbers)).toBeLessThanOrEqual(1);
 			}
 		}
-	});
-
-	it('leave room for words in the body of every kind, and none for a bubble tail', () => {
-		for (const [kind, inset] of Object.entries(TEXT_INSET)) {
-			expect(inset.left + inset.right, kind).toBeLessThan(1);
-			expect(inset.top + inset.bottom, kind).toBeLessThan(1);
-		}
-		expect(TEXT_INSET.speech.bottom).toBeGreaterThan(TEXT_INSET.speech.top);
 	});
 });

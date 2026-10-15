@@ -60,20 +60,3 @@ export const SHAPE_PATHS: Record<PathShape, string[]> = {
 	],
 	shout: [burst()],
 };
-
-/**
- * Where words sit inside each kind, as a share of the box on each side, so a bubble's text stays in
- * its body and out of its tail.
- */
-export const TEXT_INSET: Record<
-	Shape,
-	{ left: number; top: number; right: number; bottom: number }
-> = {
-	rect: { left: 0, top: 0, right: 0, bottom: 0 },
-	round: { left: 0.04, top: 0.04, right: 0.04, bottom: 0.04 },
-	ellipse: { left: 0.15, top: 0.15, right: 0.15, bottom: 0.15 },
-	line: { left: 0, top: 0, right: 0, bottom: 0 },
-	speech: { left: 0.08, top: 0.08, right: 0.08, bottom: 0.38 },
-	thought: { left: 0.18, top: 0.14, right: 0.18, bottom: 0.4 },
-	shout: { left: 0.2, top: 0.2, right: 0.2, bottom: 0.2 },
-};

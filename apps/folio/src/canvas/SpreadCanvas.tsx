@@ -259,7 +259,8 @@ export function SpreadCanvas({
 	const editedFrame = frames.find((f) => f.id === editing);
 	if (editing !== null && !editedFrame) setEditing(null);
 	const startEditing = (frame: Frame) => {
-		if (onEditText && frame.type === 'text' && canEditText(frame)) setEditing(frame.id);
+		if (onEditText && (frame.type === 'text' || frame.type === 'shape') && canEditText(frame))
+			setEditing(frame.id);
 	};
 	const byFrame = new Map(layout?.frames.map((f) => [f.frame, f]));
 	const grid = book.grid;
@@ -597,7 +598,7 @@ export function SpreadCanvas({
 					/>
 				))}
 			</svg>
-			{editedFrame?.type === 'text' && (
+			{(editedFrame?.type === 'text' || editedFrame?.type === 'shape') && (
 				<TextEditor
 					frame={editedFrame}
 					layout={byFrame.get(editedFrame.id)}

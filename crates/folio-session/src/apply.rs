@@ -784,15 +784,22 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             }
         }
         Intent::SetText { frame, text } => {
-            if let Some(Frame::Text(t)) = locate_mut(book, &frame) {
-                t.content = Some(InlineContent {
-                    inline: vec![Run {
-                        text,
-                        style: None,
-                        bold: false,
-                        italic: false,
-                    }],
-                });
+            let content = InlineContent {
+                inline: vec![Run {
+                    text,
+                    style: None,
+                    bold: false,
+                    italic: false,
+                }],
+            };
+            match locate_mut(book, &frame) {
+                Some(Frame::Text(t)) => t.content = Some(content),
+                // Emptied words are no words, so a bubble with none draws and lays out as bare.
+                Some(Frame::Shape(s)) => {
+                    s.content =
+                        Some(content).filter(|c| c.inline.iter().any(|r| !r.text.is_empty()));
+                }
+                _ => {}
             }
         }
         Intent::SetStyle { frame, style } => {
@@ -804,11 +811,11 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 }
             }
         }
-        Intent::OverrideStyle { frame, overrides } => {
-            if let Some(Frame::Text(t)) = locate_mut(book, &frame) {
-                t.overrides = Some(overrides);
-            }
-        }
+        Intent::OverrideStyle { frame, overrides } => match locate_mut(book, &frame) {
+            Some(Frame::Text(t)) => t.overrides = Some(overrides),
+            Some(Frame::Shape(s)) => s.overrides = Some(overrides),
+            _ => {}
+        },
         Intent::AddFrame { on, frame } => {
             if let Some(frames) = frames_on_mut(book, &on) {
                 frames.push(frame);
@@ -967,6 +974,7 @@ pub fn check_text(book: &Book, frame: &FrameId) -> Result<(), SessionError> {
     match found {
         Frame::Text(t) if t.flow.is_some() => Err(SessionError::FlowText(frame.0.clone())),
         Frame::Text(_) => ensure_free(found),
+        Frame::Shape(s) if s.shape.holds_text() => ensure_free(found),
         _ => Err(SessionError::NotText(frame.0.clone())),
     }
 }

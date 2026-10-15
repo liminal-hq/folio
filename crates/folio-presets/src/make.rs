@@ -331,6 +331,8 @@ impl Builder<'_> {
             stroke_width: None,
             radius: None,
             flip: false,
+            content: None,
+            overrides: None,
         })];
         let data = self.data;
         if spec.words == Words::Samples && is_sample_cover(&data.spreads) {

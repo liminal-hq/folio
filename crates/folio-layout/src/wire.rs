@@ -39,6 +39,16 @@ pub struct LayoutLine {
     pub runs: Vec<LayoutRun>,
 }
 
+/// A rectangle in points, from a frame's top-left.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct LayoutRect {
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase")]
@@ -52,6 +62,10 @@ pub struct FrameLayout {
     /// by `@`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
+    /// For a shape: the room its words have, from its top-left, where an editor goes. The lines
+    /// are already placed inside it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_box: Option<LayoutRect>,
 }
 
 /// A point on a spread, in points from the top-left of the first page's trim.
