@@ -2474,3 +2474,55 @@ fn a_picture_focus_is_kept_in_range_and_a_drag_of_it_is_one_undo_step() {
         SessionError::BadFocus
     );
 }
+
+fn table_json(rows: usize, cols: &[f64]) -> serde_json::Value {
+    json!({
+        "type": "table", "id": "fr_table", "box": { "x": 10, "y": 10, "w": 200, "h": 90 },
+        "cols": cols,
+        "rows": (0..rows).map(|_| cols.iter().map(|_| json!({})).collect::<Vec<_>>()).collect::<Vec<_>>(),
+        "head": 1, "look": "grid"
+    })
+}
+
+#[test]
+fn a_table_is_added_whole_and_one_that_cannot_exist_is_refused() {
+    let mut s = session();
+    let add = |s: &mut Session, value: serde_json::Value| {
+        s.apply(Intent::AddFrame {
+            on: folio_model::Surface::Spread(spread("sp_2")),
+            frame: serde_json::from_value(value).unwrap(),
+        })
+    };
+    add(&mut s, table_json(3, &[0.5, 0.5])).unwrap();
+    let Frame::Table(t) = &s.book().spreads[2].frames[0] else {
+        panic!("a table");
+    };
+    assert_eq!((t.rows.len(), t.cols.len(), t.head), (3, 2, 1));
+    s.undo().unwrap();
+    assert!(s.book().spreads[2].frames.is_empty());
+    for bad in [
+        table_json(0, &[1.0]),
+        table_json(51, &[1.0]),
+        table_json(2, &[]),
+        table_json(2, &[0.5, 0.4]),
+        table_json(2, &[1.5, -0.5]),
+    ] {
+        assert!(
+            matches!(add(&mut s, bad.clone()), Err(SessionError::BadTable(_))),
+            "{bad}"
+        );
+    }
+    // A row too short for the columns.
+    let mut ragged = table_json(2, &[0.5, 0.5]);
+    ragged["rows"][1] = json!([{}]);
+    assert!(matches!(
+        add(&mut s, ragged),
+        Err(SessionError::BadTable(_))
+    ));
+    let mut tall_head = table_json(2, &[1.0]);
+    tall_head["head"] = json!(3);
+    assert!(matches!(
+        add(&mut s, tall_head),
+        Err(SessionError::BadTable(_))
+    ));
+}

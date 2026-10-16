@@ -4,9 +4,10 @@ import type { ImageFrame } from "./ImageFrame";
 import type { MasterId } from "./MasterId";
 import type { Rect } from "./Rect";
 import type { ShapeFrame } from "./ShapeFrame";
+import type { TableFrame } from "./TableFrame";
 import type { TextFrame } from "./TextFrame";
 
-export type Frame = { "type": "text" } & TextFrame | { "type": "image" } & ImageFrame | { "type": "shape" } & ShapeFrame | { "type": "group", children: Array<Frame>, id: FrameId, box: Rect, rotation: number, locked: boolean, fromMaster?: MasterId | null, 
+export type Frame = { "type": "text" } & TextFrame | { "type": "image" } & ImageFrame | { "type": "shape" } & ShapeFrame | { "type": "table" } & TableFrame | { "type": "group", children: Array<Frame>, id: FrameId, box: Rect, rotation: number, locked: boolean, fromMaster?: MasterId | null, 
 /**
  * Alt text for pictures; accessible name for others.
  */

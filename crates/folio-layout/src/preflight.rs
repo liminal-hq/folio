@@ -95,7 +95,7 @@ pub fn geometry_checks(book: &Book, spread: &Spread) -> Vec<PreflightItem> {
         let r = &base.rect.turned_bounds(base.rotation);
         let (fx0, fy0, fx1, fy1) = (r.x.0, r.y.0, r.x.0 + r.w.0, r.y.0 + r.h.0);
         match frame {
-            Frame::Text(_) => {
+            Frame::Text(_) | Frame::Table(_) => {
                 let inside = pages.iter().any(|page| {
                     let (sx0, sy0, sx1, sy1) = safe_area(book, page);
                     fx0 >= sx0 - EPS && fy0 >= sy0 - EPS && fx1 <= sx1 + EPS && fy1 <= sy1 + EPS

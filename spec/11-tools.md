@@ -58,7 +58,7 @@ Pictures and shapes have `wrap: undefined | 'around' | 'topbottom'`.
 
 ## Tables (Insert → Table)
 
-`TableFrame { rows: string[][], head: boolean, ts: 'lined' | 'grid' | 'recipe' }`
+`TableFrame { cols: number[], rows: TableCell[][], head: number, look: 'lined' | 'grid' | 'recipe', style?, overrides? }`: `cols` are the column widths as shares of the table's width (they add up to 1), each cell holds inline words, and `head` is how many rows from the top are headers (set bold). A table has 1 to 50 rows and 1 to 50 columns, every row with one cell per column, and a book that breaks this is refused. Rows are equally tall. `folio-layout` lays out each cell in the `cell` style inside its own room (3 pt above and below, 4 pt either side) and flags a table whose cells run out of room as overset. Lined rules under every row, Grid rules round every cell, and Recipe rules the header and tints every other row below it. Insert → Table adds a 3 × 3 table with a header row.
 
 - When a table is selected, its cells are editable in place. Typing in a cell is one undo step per focus.
 - Contextual **Table** tab: add/remove row and column, header row, table style.

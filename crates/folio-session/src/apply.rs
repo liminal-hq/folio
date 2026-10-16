@@ -615,6 +615,9 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         }
         Intent::AddFrame { on, frame } => {
             frames_on(book, on)?;
+            if let Frame::Table(table) = frame {
+                table.check().map_err(SessionError::BadTable)?;
+            }
             let mut new_ids = Vec::new();
             every_id(frame, &mut new_ids);
             for id in new_ids {

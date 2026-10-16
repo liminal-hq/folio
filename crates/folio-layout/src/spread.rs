@@ -5,7 +5,7 @@
 
 use folio_model::{
     Book, Flow, Frame, FrameId, InlineContent, MasterId, Pt, ShapeFrame, Spread, SpreadId,
-    SpreadKind, StyleId, TextFrame,
+    SpreadKind, StyleId, TableFrame, TextFrame,
 };
 
 use crate::error::LayoutError;
@@ -95,6 +95,18 @@ impl<'a> Layouter<'a> {
                     }
                     frames.push(laid);
                 }
+                continue;
+            }
+            if let Frame::Table(table) = frame {
+                let cells = self.table_text(table)?;
+                if cells.iter().any(|c| c.overset) {
+                    preflight.push(PreflightItem {
+                        kind: PreflightKind::OversetText,
+                        spread: spread.id.clone(),
+                        frame: table.base.id.clone(),
+                    });
+                }
+                frames.extend(cells);
                 continue;
             }
             let Frame::Text(text) = frame else {
@@ -321,6 +333,74 @@ impl<'a> Layouter<'a> {
             h: inner_h,
         });
         Ok(Some(laid))
+    }
+
+    /// The words of each cell of a table, in the cell's room and from the top of it. A cell's layout
+    /// is named `<table>#<row>.<column>` and its lines are placed from the table's top-left, with
+    /// `text_box` the cell's room, so the canvas draws and edits a cell where it is. Header rows are
+    /// set bold.
+    fn table_text(&self, table: &TableFrame) -> Result<Vec<FrameLayout>, LayoutError> {
+        const PAD_X: f64 = 4.0;
+        const PAD_Y: f64 = 3.0;
+        let rows = table.rows.len().max(1) as f64;
+        let row_h = table.base.rect.h.0 / rows;
+        let style = table
+            .style
+            .clone()
+            .unwrap_or_else(|| StyleId("cell".to_string()));
+        let mut out = Vec::new();
+        for (r, row) in table.rows.iter().enumerate() {
+            let mut x = 0.0;
+            for (c, cell) in row.iter().enumerate() {
+                let w = table.base.rect.w.0 * table.cols.get(c).copied().unwrap_or(0.0);
+                let (inner_w, inner_h) =
+                    ((w - 2.0 * PAD_X).max(0.0), (row_h - 2.0 * PAD_Y).max(0.0));
+                let mut overrides = table.overrides.clone();
+                if r < usize::from(table.head) {
+                    overrides.get_or_insert_with(Default::default).bold = Some(true);
+                }
+                let mut base = table.base.clone();
+                base.id = FrameId(format!("{}#{r}.{c}", table.base.id.0));
+                base.rect = folio_model::Rect {
+                    x: Pt(0.0),
+                    y: Pt(0.0),
+                    w: Pt(inner_w),
+                    h: Pt(inner_h),
+                };
+                let words = TextFrame {
+                    base,
+                    style: style.clone(),
+                    content: cell.content.clone(),
+                    flow: None,
+                    columns: 1,
+                    baseline_lock: false,
+                    overrides,
+                };
+                let resolved = self.styles.resolve(&words.style, words.overrides.as_ref());
+                let (mut laid, _) = self.own_text(&words)?;
+                laid.text_align = Some(match resolved.align {
+                    crate::paragraph::Align::Left => folio_model::Align::Left,
+                    crate::paragraph::Align::Center => folio_model::Align::Center,
+                    crate::paragraph::Align::Right => folio_model::Align::Right,
+                    crate::paragraph::Align::Justify => folio_model::Align::Justify,
+                });
+                let (left, top) = (x + PAD_X, r as f64 * row_h + PAD_Y);
+                for line in &mut laid.lines {
+                    line.x += left;
+                    line.top += top;
+                    line.baseline += top;
+                }
+                laid.text_box = Some(LayoutRect {
+                    x: left,
+                    y: top,
+                    w: inner_w,
+                    h: inner_h,
+                });
+                out.push(laid);
+                x += w;
+            }
+        }
+        Ok(out)
     }
 
     /// A text frame that holds its own words.

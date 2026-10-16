@@ -883,3 +883,129 @@ fn a_turned_frame_is_checked_by_the_box_around_its_turned_corners() {
     book.spreads[1].frames.push(post);
     assert!(flagged(&book), "turned, it is not");
 }
+
+fn table_frame(id: &str, w: f64, h: f64, words: &[&[&str]]) -> Frame {
+    let mut table = folio_model::TableFrame::blank(
+        FrameBase {
+            id: FrameId(id.into()),
+            rect: Rect {
+                x: Pt(100.0),
+                y: Pt(50.0),
+                w: Pt(w),
+                h: Pt(h),
+            },
+            rotation: 0.0,
+            locked: false,
+            from_master: None,
+            description: None,
+        },
+        words.len(),
+        words[0].len(),
+    );
+    for (r, row) in words.iter().enumerate() {
+        for (c, text) in row.iter().enumerate() {
+            table.rows[r][c].content = (!text.is_empty()).then(|| InlineContent {
+                inline: vec![Run {
+                    text: (*text).into(),
+                    style: None,
+                    bold: false,
+                    italic: false,
+                }],
+            });
+        }
+    }
+    table.cols = vec![0.25, 0.75].into_iter().take(words[0].len()).collect();
+    if table.cols.len() == 1 {
+        table.cols = vec![1.0];
+    }
+    Frame::Table(table)
+}
+
+#[test]
+fn each_cell_of_a_table_is_laid_out_in_its_own_room_from_the_tables_top_left() {
+    let (_, layout) = laid_with(table_frame(
+        "fr_table",
+        400.0,
+        120.0,
+        &[&["Name", "What it is"], &["Pip", ""]],
+    ));
+    let cells: Vec<_> = layout
+        .frames
+        .iter()
+        .filter(|f| f.frame.0.starts_with("fr_table#"))
+        .collect();
+    assert_eq!(cells.len(), 4, "one layout for every cell, empty or not");
+    let cell = |name: &str| cells.iter().find(|f| f.frame.0 == name).unwrap();
+    let (a, b, c) = (
+        cell("fr_table#0.0"),
+        cell("fr_table#0.1"),
+        cell("fr_table#1.0"),
+    );
+    let (ra, rb, rc) = (
+        a.text_box.unwrap(),
+        b.text_box.unwrap(),
+        c.text_box.unwrap(),
+    );
+    // Columns take their shares of 400 pt; rows are 60 pt each.
+    assert!((ra.w - (100.0 - 8.0)).abs() < 1e-6 && (rb.w - (300.0 - 8.0)).abs() < 1e-6);
+    assert!(
+        (rb.x - (100.0 + 4.0)).abs() < 1e-6,
+        "the second column starts after the first"
+    );
+    assert!(
+        (rc.y - (60.0 + 3.0)).abs() < 1e-6,
+        "the second row starts after the first"
+    );
+    assert!(!a.lines.is_empty() && b.lines.len() == 1 && c.lines.len() == 1);
+    assert!(cell("fr_table#1.1").lines.is_empty());
+    for (laid, room) in [(a, ra), (b, rb), (c, rc)] {
+        for line in &laid.lines {
+            assert!(line.x >= room.x - 1e-6 && line.x + line.width <= room.x + room.w + 1e-6);
+            assert!(line.top >= room.y - 1e-6);
+        }
+    }
+    assert!(layout
+        .preflight
+        .iter()
+        .all(|p| p.kind != PreflightKind::OversetText));
+}
+
+#[test]
+fn a_table_with_too_much_in_a_cell_is_flagged_overset_once() {
+    let long = "words ".repeat(200);
+    let (_, layout) = laid_with(table_frame(
+        "fr_table",
+        200.0,
+        30.0,
+        &[&[long.as_str(), long.as_str()]],
+    ));
+    assert!(layout.frames.iter().any(|f| f.overset));
+    let flagged = layout
+        .preflight
+        .iter()
+        .filter(|p| p.kind == PreflightKind::OversetText && p.frame.0 == "fr_table")
+        .count();
+    assert_eq!(flagged, 1);
+}
+
+#[test]
+fn header_rows_are_set_bold() {
+    let (mut book, styles) = sample(BookKind::Picture);
+    let Frame::Table(mut table) =
+        table_frame("fr_table", 400.0, 120.0, &[&["Head", "Head"], &["a", "b"]])
+    else {
+        unreachable!()
+    };
+    table.head = 1;
+    book.spreads[1].frames.push(Frame::Table(table));
+    let fonts = FontBook::bundled();
+    let layout = Layouter::new(&book, &styles, &fonts)
+        .layout_spread(&book.spreads[1].id)
+        .unwrap()
+        .unwrap();
+    let weight = |id: &str| {
+        let f = layout.frames.iter().find(|f| f.frame.0 == id).unwrap();
+        f.lines[0].runs[0].weight
+    };
+    assert!(weight("fr_table#0.0") > weight("fr_table#1.0"));
+}

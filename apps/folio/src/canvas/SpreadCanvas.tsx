@@ -11,6 +11,7 @@ import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLa
 import { useRef, useState } from 'react';
 import { FocusedImage } from './FocusedImage';
 import { BackgroundLayer } from './BackgroundLayer';
+import { TableArt } from './TableArt';
 import { turned } from './turned';
 import { turnedCursor, turnedHandle, turnPoint } from './turnedHandles';
 import { ShapeArt } from './ShapeArt';
@@ -158,6 +159,7 @@ function Furniture({ frame, images }: { frame: Frame; images: Record<string, str
 		);
 	}
 	if (frame.type === 'shape') return <ShapeArt frame={frame} />;
+	if (frame.type === 'table') return <TableArt frame={frame} />;
 	return null;
 }
 
@@ -186,6 +188,7 @@ export function frameLabel(frame: Frame): string {
 		const words = frame.content?.inline.map((r) => r.text).join(' ') ?? '';
 		return words ? words.slice(0, 60) : 'Text';
 	}
+	if (frame.type === 'table') return 'Table';
 	return frame.type === 'shape' ? 'Shape' : 'Group';
 }
 
@@ -362,6 +365,12 @@ export function SpreadCanvas({
 						{byFrame.has(frame.id) && frame.id !== editing && (
 							<Lines id={frame.id} at={frame.box} layout={byFrame.get(frame.id)!} />
 						)}
+						{frame.type === 'table' &&
+							layout?.frames
+								.filter((cell) => cell.frame.startsWith(`${frame.id}#`) && cell.frame !== editing)
+								.map((cell) => (
+									<Lines key={cell.frame} id={cell.frame} at={frame.box} layout={cell} />
+								))}
 					</g>
 				))}
 				{marks.bleed && (
