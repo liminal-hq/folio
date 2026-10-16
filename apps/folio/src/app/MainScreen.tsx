@@ -18,6 +18,7 @@ import { AppMenu } from './AppMenu';
 import { BookView } from './BookView';
 import { AppTitleBar } from './AppTitleBar';
 import { useCloseQuestion } from './CloseBookDialog';
+import { useRecoveryQuestion } from './RecoveredBookDialog';
 import styles from './MainScreen.module.css';
 import { useAppMenu } from './useAppMenu';
 import { useAutosave } from './useAutosave';
@@ -73,7 +74,8 @@ export function MainScreen({
 			stop?.();
 		};
 	}, [closeRequests, actions, ask]);
-	const menu = useAppMenu(ask);
+	const recovery = useRecoveryQuestion();
+	const menu = useAppMenu(ask, recovery.ask);
 	useAutosave();
 	useBookKeys(menu.run);
 	const version = useAppVersion(client);
@@ -143,6 +145,7 @@ export function MainScreen({
 				</footer>
 			</div>
 			{dialog}
+			{recovery.dialog}
 		</WindowFrame>
 	);
 }

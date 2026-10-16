@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { describe, expect, it, vi } from 'vitest';
-import { createBookActions, needsAsking, withExtension } from './bookActions';
+import { createBookActions, needsAsking, samePath, withExtension } from './bookActions';
 import { activeBook, createBooksStore } from './booksStore';
 import { createFakeBooksClient } from './fakeBooksClient';
 import type { FileDialogs } from './dialogs';
@@ -138,6 +138,58 @@ describe('close', () => {
 		await store.apply(MOVE);
 		expect(await actions.close(decide)).toBe('done');
 		expect(decide).toHaveBeenCalledOnce();
+	});
+});
+
+describe('samePath', () => {
+	it('treats / and \\ alike, and ignores case only on a Windows drive', () => {
+		expect(samePath('/books/Pip.folio', '/books/Pip.folio')).toBe(true);
+		expect(samePath('/books/Pip.folio', '/books/pip.folio')).toBe(false);
+		expect(samePath('C:\\Books\\Pip.folio', 'c:/books/pip.folio')).toBe(true);
+		expect(samePath('\\\\?\\C:\\Books\\Pip.folio', 'C:/Books/Pip.folio')).toBe(true);
+	});
+});
+
+describe('opening a book a crash left work on', () => {
+	const left = { id: 'r1', title: 'Pip', path: '/books/Pip.folio', savedAt: 1_700_000_000 };
+
+	it('asks which to open, and restores the work when asked to', async () => {
+		const { fake, store, actions } = await setup();
+		fake.recoveries.push(left);
+		const decide = vi.fn(async () => 'restore' as const);
+		expect(await actions.open('/books/Pip.folio', decide)).toBe('done');
+		expect(decide).toHaveBeenCalledWith(left);
+		const shown = activeBook(store.state.getState())!;
+		expect(shown.summary.path).toBe('/books/Pip.folio');
+		expect(shown.summary.dirty).toBe(true);
+		expect(fake.recoveries).toEqual([]);
+	});
+
+	it('opens the file as saved, and gives the work up, when asked to', async () => {
+		const { fake, store, actions } = await setup();
+		fake.recoveries.push(left);
+		expect(await actions.open('/books/Pip.folio', async () => 'file')).toBe('done');
+		expect(activeBook(store.state.getState())!.summary.dirty).toBe(false);
+		expect(fake.recoveries).toEqual([]);
+	});
+
+	it('opens nothing and keeps the work when the person cancels', async () => {
+		const { fake, store, actions } = await setup();
+		fake.recoveries.push(left);
+		expect(await actions.open('/books/Pip.folio', async () => 'cancel')).toBe('cancelled');
+		expect(store.state.getState().summaries).toHaveLength(0);
+		expect(fake.recoveries).toEqual([left]);
+	});
+
+	it('does not ask about work on another book, or when no one is there to ask', async () => {
+		const { fake, actions } = await setup();
+		fake.recoveries.push({ ...left, path: '/books/Other.folio' });
+		const decide = vi.fn(async () => 'cancel' as const);
+		expect(await actions.open('/books/Pip.folio', decide)).toBe('done');
+		expect(decide).not.toHaveBeenCalled();
+		fake.recoveries.push(left);
+		expect(await actions.open('/books/Pip.folio')).toBe('done');
+		expect(fake.recoveries).toHaveLength(2);
 	});
 });
 

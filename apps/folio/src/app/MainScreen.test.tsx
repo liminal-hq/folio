@@ -149,6 +149,54 @@ describe('the welcome screen', () => {
 /** The ribbon's tabs, apart from the sidebar's own. */
 const ribbonTabs = () => screen.getByRole('tablist', { name: 'Ribbon tabs' });
 
+describe('work a crash left behind', () => {
+	const left = {
+		id: 'r1',
+		title: 'The Otter Who Couldn’t Sleep',
+		path: null,
+		savedAt: 1_700_000_000,
+	};
+
+	it('is offered on the start screen, and restored as a book that is still unsaved', async () => {
+		const { books } = setup();
+		books.recoveries.push(left);
+		expect(
+			await screen.findByRole('heading', { name: 'Unsaved work from last time' }),
+		).toBeInTheDocument();
+		expect(screen.getByText(/Never saved/)).toBeInTheDocument();
+		await userEvent.click(
+			screen.getByRole('button', { name: 'Restore The Otter Who Couldn’t Sleep' }),
+		);
+		await screen.findByRole('toolbar', { name: 'Toolbar' });
+		expect(screen.getByText('Not saved yet')).toBeInTheDocument();
+		expect(books.recoveries).toEqual([]);
+	});
+
+	it('can be given up, and the offer goes with it', async () => {
+		const { books } = setup();
+		books.recoveries.push(left);
+		await userEvent.click(
+			await screen.findByRole('button', {
+				name: 'Discard the unsaved work on The Otter Who Couldn’t Sleep',
+			}),
+		);
+		await waitFor(() =>
+			expect(
+				screen.queryByRole('heading', { name: 'Unsaved work from last time' }),
+			).not.toBeInTheDocument(),
+		);
+		expect(books.recoveries).toEqual([]);
+	});
+
+	it('says nothing when there is nothing to offer', async () => {
+		setup();
+		await screen.findByRole('heading', { name: 'What are you making?' });
+		expect(
+			screen.queryByRole('heading', { name: 'Unsaved work from last time' }),
+		).not.toBeInTheDocument();
+	});
+});
+
 describe('a book in the main window', () => {
 	it('shows its title, size, length and that it has not been saved', async () => {
 		setup();

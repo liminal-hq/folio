@@ -48,6 +48,8 @@ export interface BooksStore {
 	setActive(id: string | null): Promise<void>;
 	newBook(spec: Partial<NewBookSpec>): Promise<BookSnapshot | null>;
 	openBook(path: string): Promise<BookSnapshot | null>;
+	/** Opens a recovery copy as the book it was, still unsaved. */
+	restoreBook(id: string): Promise<BookSnapshot | null>;
 	save(id: string, path?: string): Promise<BookSummary | null>;
 	close(id: string): Promise<void>;
 	apply(intent: Intent): Promise<void>;
@@ -202,6 +204,15 @@ export function createBooksStore(client: BooksClient): BooksStore {
 		async newBook(spec) {
 			try {
 				const snapshot = await client.newBook(spec);
+				adopt(snapshot);
+				return snapshot;
+			} catch (reason) {
+				return fail(reason);
+			}
+		},
+		async restoreBook(id) {
+			try {
+				const snapshot = await client.restore(id);
 				adopt(snapshot);
 				return snapshot;
 			} catch (reason) {

@@ -206,6 +206,7 @@ export type {
 	Patch,
 	PatchEvent,
 	PluginStatus,
+	Recoverable,
 };
 
 /** Reads a picture file into the book; resolves to its path inside the book (`assets/images/…`). */
