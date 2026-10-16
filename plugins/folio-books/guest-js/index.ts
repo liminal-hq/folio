@@ -115,6 +115,16 @@ export function undo(id: string): Promise<Patch | null> {
 	return cmd<Patch | null>('undo', { id });
 }
 
+/** How many steps can be undone now: a mark to give `rewindHistory`. */
+export function historyMark(id: string): Promise<number> {
+	return cmd<number>('history_mark', { id });
+}
+
+/** Undoes steps until only `mark` can be undone. Every window hears each patch as an event. */
+export function rewindHistory(id: string, mark: number): Promise<void> {
+	return cmd<void>('rewind_history', { id, mark });
+}
+
 /** Redoes the last undone step; `null` when there is nothing to redo. */
 export function redo(id: string): Promise<Patch | null> {
 	return cmd<Patch | null>('redo', { id });

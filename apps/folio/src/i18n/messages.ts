@@ -184,6 +184,7 @@ export const messages = {
 	'background.gradient': 'Gradients',
 	'background.remove': 'Remove background',
 	'background.done': 'Done',
+	'background.cancel': 'Cancel',
 	'master.item.pageNumber': 'the page number',
 	'master.editing': 'Editing master page {name}',
 	'master.page': 'Master page {name}',

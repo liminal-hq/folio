@@ -21,7 +21,10 @@ import styles from './PageBackgroundDialog.module.css';
 
 export interface PageBackgroundDialogProps {
 	open: boolean;
+	/** Keeps what was chosen and closes. */
 	onClose(): void;
+	/** Puts the page back as it was when the dialog opened and closes; Escape does the same. Without it, Escape keeps. */
+	onCancel?(): void;
 	book: Book;
 	spread: Spread;
 	/** The page the person asked about, so its scope is the one chosen first; `null` for the whole spread. */
@@ -65,11 +68,13 @@ const css = (bg: Extract<Background, { type: 'gradient' }>) =>
 
 /**
  * Choosing a colour or a gradient applies it at once, so the page behind the dialog shows it; the
- * session joins the tries into one undo step. Done only closes.
+ * session joins the tries into one undo step. Done keeps them and closes; Cancel and Escape give
+ * them up, which the page does by rewinding the book to how it was when the dialog opened.
  */
 export function PageBackgroundDialog({
 	open,
 	onClose,
+	onCancel,
 	book,
 	spread,
 	page,
@@ -104,12 +109,13 @@ export function PageBackgroundDialog({
 			open={open}
 			title={t('background.title')}
 			size="medium"
-			onClose={onClose}
+			onClose={onCancel ?? onClose}
 			footer={
 				<DialogActions>
 					<DialogButton disabled={now === null} onClick={() => set(null)}>
 						{t('background.remove')}
 					</DialogButton>
+					{onCancel && <DialogButton onClick={onCancel}>{t('background.cancel')}</DialogButton>}
 					<DialogButton variant="primary" onClick={onClose}>
 						{t('background.done')}
 					</DialogButton>

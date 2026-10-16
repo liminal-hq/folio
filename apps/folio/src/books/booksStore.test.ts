@@ -71,6 +71,29 @@ describe('createBooksStore', () => {
 		expect(activeBook(store.state.getState())!.copy.book.bleed).toBe(before + 1);
 	});
 
+	it('rewinds to a mark, undoing every step taken since it', async () => {
+		const { store } = await started();
+		await store.newBook({});
+		const start = activeBook(store.state.getState())!.copy.book.bleed;
+		await store.apply(MOVE);
+		const mark = await store.mark();
+		expect(mark).toBe(1);
+		await store.apply(MOVE);
+		await store.apply(MOVE);
+		expect(activeBook(store.state.getState())!.copy.book.bleed).toBe(start + 3);
+
+		await store.rewind(mark!);
+		const rewound = activeBook(store.state.getState())!.copy;
+		expect(rewound.book.bleed).toBe(start + 1);
+		expect(rewound.canUndo).toBe(true);
+		expect(rewound.canRedo).toBe(true);
+	});
+
+	it('has no mark when no book is shown', async () => {
+		const { store } = await started();
+		expect(await store.mark()).toBeNull();
+	});
+
 	it('ignores a patch it has already applied, and one older than its copy', async () => {
 		const { fake, store } = await started();
 		const made = (await store.newBook({}))!;

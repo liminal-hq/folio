@@ -32,6 +32,8 @@ import {
 	spellSuggest,
 	snapshot,
 	undo,
+	historyMark,
+	rewindHistory,
 	type BookSnapshot,
 	type BookSummary,
 	type BooksChanged,
@@ -63,6 +65,10 @@ export interface BooksClient {
 	snapshot(id: string): Promise<BookSnapshot>;
 	apply(id: string, intent: Intent): Promise<Patch>;
 	undo(id: string): Promise<Patch | null>;
+	/** How many steps can be undone now: a mark to rewind to. */
+	historyMark(id: string): Promise<number>;
+	/** Undoes steps until only `mark` can be undone; each is announced as an event. */
+	rewindHistory(id: string, mark: number): Promise<void>;
 	redo(id: string): Promise<Patch | null>;
 	/** The spread's text shaped and broken into lines, from the book at the revision it carries. */
 	layoutSpread(id: string, spread: string, spelling?: string[]): Promise<SpreadLayoutResult>;
@@ -100,6 +106,8 @@ export const tauriBooksClient: BooksClient = {
 	snapshot,
 	apply: applyIntent,
 	undo,
+	historyMark,
+	rewindHistory,
 	redo,
 	layoutSpread,
 	layoutMaster,
