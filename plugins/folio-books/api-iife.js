@@ -64,6 +64,22 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function undo(id) {
         return cmd('undo', { id });
     }
+    /** Writes a recovery copy of each book with changes the last copy does not have; how many were written. */
+    function autosaveBooks() {
+        return cmd('autosave_books');
+    }
+    /** The books a crash left changes in, that are not open, newest first. */
+    function recoverableBooks() {
+        return cmd('recoverable_books');
+    }
+    /** Opens a recovery copy as the book it was, still unsaved. */
+    function restoreBook(id) {
+        return cmd('restore_book', { id });
+    }
+    /** Gives a recovery copy up. */
+    function discardRecovered(id) {
+        return cmd('discard_recovered', { id });
+    }
     /** How many steps can be undone now: a mark to give `rewindHistory`. */
     function historyMark(id) {
         return cmd('history_mark', { id });
@@ -138,9 +154,11 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.PATCH_EVENT = PATCH_EVENT;
     exports.applyIntent = applyIntent;
     exports.assetData = assetData;
+    exports.autosaveBooks = autosaveBooks;
     exports.closeBook = closeBook;
     exports.defaultSavePath = defaultSavePath;
     exports.dictionaries = dictionaries;
+    exports.discardRecovered = discardRecovered;
     exports.downloadDictionary = downloadDictionary;
     exports.getStatus = getStatus;
     exports.historyMark = historyMark;
@@ -155,8 +173,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.openBook = openBook;
     exports.paintPresets = paintPresets;
     exports.presets = presets;
+    exports.recoverableBooks = recoverableBooks;
     exports.redo = redo;
     exports.removeDictionary = removeDictionary;
+    exports.restoreBook = restoreBook;
     exports.rewindHistory = rewindHistory;
     exports.saveBook = saveBook;
     exports.snapshot = snapshot;

@@ -20,8 +20,7 @@ assets/
 thumbnails/
   cover.png                      # 512 px, for file managers (Waypoint, Nautilus, Dolphin, Explorer)
   spread-<n>.png                 # small, optional, regenerated on save
-recovery/                        # autosave journal: intents since last full save
-  journal-<timestamp>.ndjson
+recovery/                        # reserved: ignored on open, never written (see D-27)
 settings.json                    # per-book export settings, last target, preflight ignores
 ```
 

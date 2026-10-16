@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
+import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck';
@@ -36,6 +37,10 @@ import {
 	undo,
 	historyMark,
 	rewindHistory,
+	autosaveBooks,
+	recoverableBooks,
+	restoreBook,
+	discardRecovered,
 	type BookSnapshot,
 	type BookSummary,
 	type BooksChanged,
@@ -67,6 +72,14 @@ export interface BooksClient {
 	snapshot(id: string): Promise<BookSnapshot>;
 	apply(id: string, intent: Intent): Promise<Patch>;
 	undo(id: string): Promise<Patch | null>;
+	/** Writes a recovery copy of each book with changes the last copy lacks; how many were written. */
+	autosave(): Promise<number>;
+	/** The books a crash left changes in, that are not open, newest first. */
+	recoverable(): Promise<Recoverable[]>;
+	/** Opens a recovery copy as the book it was, still unsaved. */
+	restore(id: string): Promise<BookSnapshot>;
+	/** Gives a recovery copy up. */
+	discardRecovered(id: string): Promise<void>;
 	/** How many steps can be undone now: a mark to rewind to. */
 	historyMark(id: string): Promise<number>;
 	/** Undoes steps until only `mark` can be undone; each is announced as an event. */
@@ -110,6 +123,10 @@ export const tauriBooksClient: BooksClient = {
 	snapshot,
 	apply: applyIntent,
 	undo,
+	autosave: autosaveBooks,
+	recoverable: recoverableBooks,
+	restore: restoreBook,
+	discardRecovered,
 	historyMark,
 	rewindHistory,
 	redo,

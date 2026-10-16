@@ -5,6 +5,7 @@
 
 mod commands;
 mod error;
+mod recovery;
 mod spelling;
 mod state;
 #[cfg(test)]
@@ -45,6 +46,10 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::list_books,
             commands::snapshot,
             commands::apply_intent,
+            commands::autosave_books,
+            commands::recoverable_books,
+            commands::restore_book,
+            commands::discard_recovered,
             commands::undo,
             commands::history_mark,
             commands::rewind_history,
@@ -64,6 +69,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             let books = Books::new(app.clone());
             if let Ok(dir) = app.path().app_data_dir() {
                 books.spelling.keep_in(dir.join("dictionaries"));
+                books.recovery.keep_in(dir.join("recovery"));
             }
             app.manage(books);
             Ok(())

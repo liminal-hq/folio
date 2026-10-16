@@ -6,6 +6,7 @@
 use std::sync::{Arc, Mutex};
 
 use folio_model::{Intent, Pt, Rect, SpreadId};
+use folio_package::Package;
 use folio_presets::NewBookSpec;
 use tauri::test::{mock_builder, mock_context, noop_assets, MockRuntime};
 use tauri::{Listener, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -846,4 +847,136 @@ fn the_proofing_list_finds_misspelt_words_in_frames_cells_and_flowing_text_with_
         .unwrap();
     let left: Vec<_> = after.words.iter().map(|w| w.word.as_str()).collect();
     assert!(!left.contains(&"zorb") && !left.contains(&"blorp") && left.contains(&"ottr"));
+}
+
+/// A new app whose recovery copies are kept in `dir`, as a launch after a crash would find them.
+fn app_keeping_copies_in(dir: &std::path::Path) -> App {
+    let app = app();
+    books(&app).recovery.keep_in(dir.to_path_buf());
+    app
+}
+
+#[test]
+fn a_book_with_changes_is_copied_once_for_each_change_and_never_before_it_is_touched() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = app_keeping_copies_in(dir.path());
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    // Starting a book and leaving it alone costs nothing.
+    assert_eq!(books(&app).autosave(), 0);
+    assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+
+    books(&app).apply(&id, nudge(&app, &id, 10.0)).unwrap();
+    assert_eq!(books(&app).autosave(), 1);
+    // Nothing has changed since, so nothing is written again, until something does.
+    assert_eq!(books(&app).autosave(), 0);
+    books(&app).apply(&id, nudge(&app, &id, 20.0)).unwrap();
+    assert_eq!(books(&app).autosave(), 1);
+
+    // The book that is open is not offered back to itself.
+    assert!(books(&app).recoverable().is_empty());
+}
+
+#[test]
+fn a_book_a_crash_left_changes_in_comes_back_unsaved_and_a_save_clears_the_copy() {
+    let dir = tempfile::tempdir().unwrap();
+    let saved_as = dir.path().join("Books").join("Pip.folio");
+    {
+        let app = app_keeping_copies_in(&dir.path().join("recovery"));
+        let id = books(&app)
+            .new_book(&NewBookSpec::default())
+            .unwrap()
+            .summary
+            .id;
+        books(&app).save(&id, Some(&saved_as)).unwrap();
+        books(&app).apply(&id, nudge(&app, &id, 40.0)).unwrap();
+        assert_eq!(books(&app).autosave(), 1);
+        // The app stops here without closing the book: a crash, or the power going.
+    }
+
+    let app = app_keeping_copies_in(&dir.path().join("recovery"));
+    let found = books(&app).recoverable();
+    assert_eq!(found.len(), 1);
+    assert_eq!(
+        found[0].path.as_deref(),
+        Some(saved_as.canonicalize().unwrap().to_string_lossy().as_ref())
+    );
+
+    let restored = books(&app).restore(&found[0].id).unwrap();
+    // As it was: the same file, still unsaved, and what was changed is in it.
+    assert_eq!(restored.summary.path, found[0].path);
+    assert!(restored.summary.dirty);
+    let cover = &restored.book.spreads[0];
+    assert_eq!(cover.frames[0].base().rect.x.0, 40.0);
+    // An open book is not offered again, and cannot be thrown away from under itself.
+    assert!(books(&app).recoverable().is_empty());
+    books(&app).discard(&found[0].id);
+    assert_eq!(
+        std::fs::read_dir(dir.path().join("recovery"))
+            .unwrap()
+            .count(),
+        1
+    );
+
+    // Saving writes the real file and takes the copy away.
+    let saved = books(&app).save(&restored.summary.id, None).unwrap();
+    assert!(!saved.dirty);
+    assert_eq!(
+        std::fs::read_dir(dir.path().join("recovery"))
+            .unwrap()
+            .count(),
+        0
+    );
+    let reopened = Package::open(&saved_as).unwrap();
+    assert_eq!(reopened.book().spreads[0].frames[0].base().rect.x.0, 40.0);
+}
+
+#[test]
+fn a_book_never_saved_comes_back_untitled_and_closing_or_giving_up_leaves_no_copy() {
+    let dir = tempfile::tempdir().unwrap();
+    {
+        let app = app_keeping_copies_in(dir.path());
+        let id = books(&app)
+            .new_book(&NewBookSpec::default())
+            .unwrap()
+            .summary
+            .id;
+        books(&app).apply(&id, nudge(&app, &id, 55.0)).unwrap();
+        books(&app).autosave();
+    }
+    let app = app_keeping_copies_in(dir.path());
+    let found = books(&app).recoverable();
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].path, None);
+
+    // Restored, it has changes worth asking about even though none was made this time.
+    let restored = books(&app).restore(&found[0].id).unwrap();
+    assert!(restored.summary.dirty && restored.summary.path.is_none());
+    assert!(restored.revision > 0);
+
+    // Closing it on purpose leaves no copy behind.
+    books(&app).close(&restored.summary.id).unwrap();
+    assert!(books(&app).recoverable().is_empty());
+
+    // Giving one up works too, and an id that is not one of ours names nothing.
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    books(&app).apply(&id, nudge(&app, &id, 5.0)).unwrap();
+    books(&app).autosave();
+    let other = app_keeping_copies_in(dir.path());
+    let theirs = books(&other).recoverable();
+    assert_eq!(theirs.len(), 1);
+    books(&other).discard("../outside");
+    books(&other).discard(&theirs[0].id);
+    assert!(books(&other).recoverable().is_empty());
+    assert!(matches!(
+        books(&other).restore("../outside"),
+        Err(Error::Recovery(_))
+    ));
 }

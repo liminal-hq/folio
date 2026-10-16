@@ -14,8 +14,8 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow};
 use crate::error::Error;
 use crate::state::Books;
 use crate::wire::{
-    BookSnapshot, BookSpelling, BookSummary, DictionaryProgress, DictionaryStatus, SpellCheck,
-    SpreadLayoutResult,
+    BookSnapshot, BookSpelling, BookSummary, DictionaryProgress, DictionaryStatus, Recoverable,
+    SpellCheck, SpreadLayoutResult,
 };
 use crate::DICTIONARY_PROGRESS_EVENT;
 
@@ -122,6 +122,49 @@ pub async fn apply_intent<R: Runtime>(
     intent: Intent,
 ) -> Result<Patch, Error> {
     books.apply(&id, intent)
+}
+
+/// Writes a recovery copy of each book with changes the last copy does not have, and answers with
+/// how many were written. The window calls it every so often while it is open.
+#[tauri::command]
+pub async fn autosave_books<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+) -> Result<usize, Error> {
+    // Writing files is work for a blocking thread, not the async runtime.
+    tauri::async_runtime::spawn_blocking(move || Ok(app.state::<Books<R>>().autosave()))
+        .await
+        .expect("the autosave task does not panic")
+}
+
+/// The books a crash left changes in, that are not open.
+#[tauri::command]
+pub async fn recoverable_books<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+) -> Result<Vec<Recoverable>, Error> {
+    Ok(books.recoverable())
+}
+
+/// Opens a recovery copy as the book it was, still unsaved.
+#[tauri::command]
+pub async fn restore_book<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+) -> Result<BookSnapshot, Error> {
+    books.restore(&id)
+}
+
+/// Gives a recovery copy up.
+#[tauri::command]
+pub async fn discard_recovered<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+) -> Result<(), Error> {
+    books.discard(&id);
+    Ok(())
 }
 
 /// Undoes the last step; `null` when there is nothing to undo.
