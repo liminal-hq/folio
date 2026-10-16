@@ -79,6 +79,8 @@
 
 .field {
 	display: grid;
+	/* A control as wide as its widest choice (a language list) must not widen the card. */
+	grid-template-columns: minmax(0, 1fr);
 	gap: 6px;
 	font-size: 12px;
 	color: var(--folio-text-secondary);
@@ -217,4 +219,10 @@
 
 .number {
 	inline-size: 96px;
+}
+
+.field .select {
+	inline-size: 100%;
+	min-inline-size: 0;
+	text-overflow: ellipsis;
 }
