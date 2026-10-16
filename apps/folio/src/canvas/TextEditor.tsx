@@ -348,7 +348,17 @@ export function TextEditor({
 					open(miss, { x: event.clientX, y: event.clientY }, false);
 				}}
 				onKeyDown={(event) => {
-					if (event.key === 'Escape') {
+					if (
+						(event.ctrlKey || event.metaKey) &&
+						!event.shiftKey &&
+						!event.altKey &&
+						event.key.toLowerCase() === 'y' &&
+						typeof document.execCommand === 'function'
+					) {
+						// Redo is Ctrl+Shift+Z in some webviews and Ctrl+Y in others: both work in the box.
+						event.preventDefault();
+						document.execCommand('redo');
+					} else if (event.key === 'Escape') {
 						event.preventDefault();
 						event.stopPropagation();
 						finish();
