@@ -90,9 +90,9 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function assetData(id, asset) {
         return cmd('asset_data', { id, asset });
     }
-    /** The words of `text` the book's dictionary does not know, by UTF-16 range, and whether there is a dictionary. */
-    function spellCheck(id, text) {
-        return cmd('spell_check', { id, text });
+    /** The words of `text` the book's dictionary does not know (and neither the book nor `personal` ignores), by UTF-16 range, and whether there is a dictionary. */
+    function spellCheck(id, text, personal = []) {
+        return cmd('spell_check', { id, text, personal });
     }
     /** Corrections for a word, best first. */
     function spellSuggest(id, word) {

@@ -382,7 +382,12 @@ impl<R: Runtime> Books<R> {
     }
 
     /// The words of `text` the book's dictionary does not know and its ignore list does not hold.
-    pub fn spell_check(&self, id: &str, text: &str) -> Result<SpellCheck, Error> {
+    pub fn spell_check(
+        &self,
+        id: &str,
+        text: &str,
+        personal: &[String],
+    ) -> Result<SpellCheck, Error> {
         let (language, ignore) = {
             let inner = locked(&self.inner);
             let open = inner
@@ -391,7 +396,9 @@ impl<R: Runtime> Books<R> {
                 .find(|b| b.id == id)
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
             let book = open.session.book();
-            (book.language.clone(), book.proofing.ignore.clone())
+            let mut ignore = book.proofing.ignore.clone();
+            ignore.extend_from_slice(personal);
+            (book.language.clone(), ignore)
         };
         let Some(speller) = self.speller_for(&language) else {
             return Ok(SpellCheck {

@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import { ButtonRow } from '@liminal-hq/folio-chrome/SettingsShell/ButtonRow';
 import { SegmentedRow } from '@liminal-hq/folio-chrome/SettingsShell/SegmentedRow';
 import { SettingsGroup } from '@liminal-hq/folio-chrome/SettingsShell/SettingsGroup';
 import { SettingsSection } from '@liminal-hq/folio-chrome/SettingsShell/SettingsSection';
@@ -118,6 +119,24 @@ function SpellingPage() {
 					checked={settings.spelling.enabled}
 					onChange={(enabled) => void update({ spelling: { enabled } })}
 				/>
+			</SettingsGroup>
+			<SettingsGroup>
+				{settings.spelling.personal.length === 0 ? (
+					<p className={styles.empty}>{t('preferences.personal.none')}</p>
+				) : (
+					settings.spelling.personal.map((word) => (
+						<ButtonRow
+							key={word}
+							label={word}
+							actionLabel={t('preferences.personal.remove')}
+							onAction={() =>
+								void update({
+									spelling: { personal: settings.spelling.personal.filter((w) => w !== word) },
+								})
+							}
+						/>
+					))
+				)}
 			</SettingsGroup>
 		</SettingsSection>
 	);

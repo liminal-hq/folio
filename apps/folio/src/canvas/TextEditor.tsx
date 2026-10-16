@@ -36,6 +36,8 @@ export interface Speller {
 	suggest(word: string): Promise<string[]>;
 	/** Leaves the word alone from now on, in this book. */
 	ignore(word: string): void;
+	/** Adds the word to the dictionary for every book. */
+	addToDictionary(word: string): void;
 }
 
 /** How long after the last key the words are checked again, in milliseconds. */
@@ -204,6 +206,7 @@ export function TextEditor({
 			...words,
 			{ type: 'separator' },
 			{ type: 'action', id: 'ignore', label: t('spell.ignore') },
+			{ type: 'action', id: 'add', label: t('spell.add') },
 		];
 	};
 
@@ -330,8 +333,9 @@ export function TextEditor({
 						if (item.id.startsWith('fix:')) {
 							const word = menu.suggestions[Number(item.id.slice(4))];
 							if (word !== undefined) replace(miss, word);
-						} else if (item.id === 'ignore') {
-							speller?.ignore(miss.word);
+						} else if (item.id === 'ignore' || item.id === 'add') {
+							if (item.id === 'ignore') speller?.ignore(miss.word);
+							else speller?.addToDictionary(miss.word);
 							setMisses((now) => now.filter((m) => m.word !== miss.word));
 						}
 					}}

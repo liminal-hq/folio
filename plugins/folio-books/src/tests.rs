@@ -537,7 +537,7 @@ fn spelling_checks_a_text_against_the_books_dictionary_and_its_ignore_list() {
         .summary
         .id;
     let text = "A small ottr named Zorblat.";
-    let found = books(&app).spell_check(&id, text).unwrap();
+    let found = books(&app).spell_check(&id, text, &[]).unwrap();
     assert!(found.supported);
     let words: Vec<_> = found.misspellings.iter().map(|m| m.word.as_str()).collect();
     assert_eq!(words, ["ottr", "Zorblat"]);
@@ -552,17 +552,22 @@ fn spelling_checks_a_text_against_the_books_dictionary_and_its_ignore_list() {
             },
         )
         .unwrap();
-    let after = books(&app).spell_check(&id, text).unwrap();
+    let after = books(&app).spell_check(&id, text, &[]).unwrap();
     assert_eq!(after.misspellings.len(), 1);
     books(&app).undo(&id).unwrap();
     assert_eq!(
         books(&app)
-            .spell_check(&id, text)
+            .spell_check(&id, text, &[])
             .unwrap()
             .misspellings
             .len(),
         2
     );
+    // A word for every book is left alone too, and the book's own list is not touched by it.
+    let mine = books(&app)
+        .spell_check(&id, text, &["Zorblat".to_owned(), "ottr".to_owned()])
+        .unwrap();
+    assert!(mine.misspellings.is_empty());
     let suggestions = books(&app).spell_suggest(&id, "ottr").unwrap();
     assert!(suggestions.iter().any(|s| s == "otter"), "{suggestions:?}");
 }
@@ -583,7 +588,7 @@ fn only_english_has_a_dictionary_until_others_can_be_downloaded() {
 fn spelling_for_an_unknown_book_is_a_typed_error() {
     let app = app();
     assert!(matches!(
-        books(&app).spell_check("nope", "x"),
+        books(&app).spell_check("nope", "x", &[]),
         Err(Error::NoSuchBook(_))
     ));
     assert!(matches!(

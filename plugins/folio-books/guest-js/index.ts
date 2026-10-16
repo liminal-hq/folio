@@ -162,9 +162,9 @@ export function assetData(id: string, asset: string): Promise<ArrayBuffer> {
 	return cmd<ArrayBuffer>('asset_data', { id, asset });
 }
 
-/** The words of `text` the book's dictionary does not know, by UTF-16 range, and whether there is a dictionary. */
-export function spellCheck(id: string, text: string): Promise<SpellCheck> {
-	return cmd<SpellCheck>('spell_check', { id, text });
+/** The words of `text` the book's dictionary does not know (and neither the book nor `personal` ignores), by UTF-16 range, and whether there is a dictionary. */
+export function spellCheck(id: string, text: string, personal: string[] = []): Promise<SpellCheck> {
+	return cmd<SpellCheck>('spell_check', { id, text, personal });
 }
 
 /** Corrections for a word, best first. */

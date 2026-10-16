@@ -73,18 +73,27 @@ pub struct RulerSettings {
 
 /// Whether the editor underlines misspelt words (D-25). It is on, since a misspelling in a printed
 /// book is permanent.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct SpellingSettings {
     pub enabled: bool,
+    /// Words added to the dictionary for every book, on this computer.
+    pub personal: Vec<String>,
 }
 
 impl Default for SpellingSettings {
     fn default() -> Self {
-        Self { enabled: true }
+        Self {
+            enabled: true,
+            personal: Vec::new(),
+        }
     }
 }
+
+/// The longest a personal word can be, in characters, and the most the list holds.
+pub const PERSONAL_WORD_MAX: usize = 64;
+pub const PERSONAL_WORDS_MAX: usize = 5000;
 
 /// How much Jax, the optional helper, says.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
@@ -275,6 +284,23 @@ impl Settings {
                 });
             }
         }
+        let personal = &self.spelling.personal;
+        if personal.len() > PERSONAL_WORDS_MAX {
+            return Err(SettingsError::OutOfRange {
+                field: "spelling.personal",
+                min: 0,
+                max: PERSONAL_WORDS_MAX as u32,
+            });
+        }
+        if personal.iter().any(|w| {
+            w.is_empty()
+                || w.chars().count() > PERSONAL_WORD_MAX
+                || w.chars().any(char::is_whitespace)
+        }) {
+            return Err(SettingsError::Malformed(
+                "a personal word is one word of at most 64 characters".into(),
+            ));
+        }
         if self.recent_books.len() > RECENT_BOOKS_MAX {
             return Err(SettingsError::OutOfRange {
                 field: "recentBooks",
@@ -296,6 +322,12 @@ impl Settings {
             mark.colour = mark.colour.min(MARK_COLOURS - 1);
         }
         self.recent_books.truncate(RECENT_BOOKS_MAX);
+        self.spelling.personal.retain(|w| {
+            !w.is_empty()
+                && w.chars().count() <= PERSONAL_WORD_MAX
+                && !w.chars().any(char::is_whitespace)
+        });
+        self.spelling.personal.truncate(PERSONAL_WORDS_MAX);
         self
     }
 
@@ -488,6 +520,17 @@ mod tests {
         assert!(Settings::default()
             .patched(&json!({ "spelling": { "enabled": "sometimes" } }))
             .is_err());
+        // Words for every book are replaced as a list, and one that is not a word is refused.
+        let with = Settings::default()
+            .patched(&json!({ "spelling": { "personal": ["Zorblat", "Pip"] } }))
+            .unwrap();
+        assert_eq!(with.spelling.personal, ["Zorblat", "Pip"]);
+        assert!(with.spelling.enabled, "the rest is left alone");
+        for bad in [json!(["two words"]), json!([""]), json!(["x".repeat(65)])] {
+            assert!(Settings::default()
+                .patched(&json!({ "spelling": { "personal": bad } }))
+                .is_err());
+        }
         // A settings file from before spelling existed reads as on.
         let old: Settings = serde_json::from_value(json!({ "mode": "easy" })).unwrap();
         assert!(old.spelling.enabled);

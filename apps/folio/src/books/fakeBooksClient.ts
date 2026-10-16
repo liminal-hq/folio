@@ -310,10 +310,10 @@ export function createFakeBooksClient(): FakeBooks {
 			find(id);
 			return new Uint8Array([137, 80, 78, 71]).buffer;
 		},
-		async spellCheck(id, text) {
-			await call('spellCheck', [id, text]);
+		async spellCheck(id, text, personal = []) {
+			await call('spellCheck', [id, text, personal]);
 			find(id);
-			const ignored = new Set(find(id).snapshot.book.proofing?.ignore ?? []);
+			const ignored = new Set([...(find(id).snapshot.book.proofing?.ignore ?? []), ...personal]);
 			const flagged = new Set(misspelt.map((w) => w.toLowerCase()));
 			const found = [...text.matchAll(/[\p{L}'’]+/gu)]
 				.filter((m) => flagged.has(m[0].toLowerCase()) && !ignored.has(m[0]))
