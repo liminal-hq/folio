@@ -35,7 +35,7 @@
 	font: inherit;
 	font-size: 13px;
 	text-align: start;
-	cursor: pointer;
+	cursor: default;
 }
 
 .row:hover {
@@ -80,7 +80,7 @@
 	color: var(--folio-text-primary);
 	font: inherit;
 	font-size: 12px;
-	cursor: pointer;
+	cursor: default;
 }
 
 .action:hover:not(:disabled) {

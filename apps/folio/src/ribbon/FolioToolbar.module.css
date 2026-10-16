@@ -7,7 +7,7 @@
 	color: var(--folio-accent-contrast);
 	font: inherit;
 	font-weight: 600;
-	cursor: pointer;
+	cursor: default;
 }
 .export:disabled {
 	opacity: 0.45;

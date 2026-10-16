@@ -50,7 +50,7 @@
 	background: var(--folio-control-bg);
 	color: var(--folio-text-primary);
 	font: inherit;
-	cursor: pointer;
+	cursor: default;
 }
 
 .copy:hover {

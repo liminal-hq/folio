@@ -67,7 +67,7 @@
 	color: var(--folio-accent-fg);
 	font: inherit;
 	font-weight: 600;
-	cursor: pointer;
+	cursor: default;
 }
 
 .start:hover:not(:disabled) {
@@ -129,7 +129,7 @@
 	color: inherit;
 	font: inherit;
 	text-align: start;
-	cursor: pointer;
+	cursor: default;
 }
 
 .row:hover,

@@ -120,7 +120,7 @@
 	color: var(--folio-text-primary);
 	font: inherit;
 	font-size: 12px;
-	cursor: pointer;
+	cursor: default;
 }
 
 .chip:hover:not(:disabled),

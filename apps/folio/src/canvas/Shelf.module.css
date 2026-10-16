@@ -28,7 +28,7 @@
 	color: var(--folio-text-secondary);
 	font: inherit;
 	font-size: 11px;
-	cursor: pointer;
+	cursor: default;
 }
 
 .item:hover {
@@ -69,7 +69,7 @@
 	color: var(--folio-text-secondary);
 	font: inherit;
 	font-size: 11px;
-	cursor: pointer;
+	cursor: default;
 }
 
 .add:hover {
