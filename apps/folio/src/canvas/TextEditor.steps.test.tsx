@@ -138,4 +138,35 @@ describe('keeping typed words as undo steps', () => {
 		]);
 		expect(onCommit).not.toHaveBeenCalled();
 	});
+
+	it('puts a correction in as typing, so the box keeps its own undo history', async () => {
+		const speller: Speller = {
+			check: async (text) => {
+				const at = text.indexOf('ottr');
+				return at < 0 ? [] : [{ start: at, end: at + 4, word: 'ottr' }];
+			},
+			suggest: async () => ['otter'],
+			ignore: () => undefined,
+			addToDictionary: () => undefined,
+		};
+		// jsdom has no editing commands: this one types the text over the selection, as a browser does.
+		const typed = vi.fn((_command: string, _ui: boolean, text: string) => {
+			const el = document.activeElement as HTMLTextAreaElement;
+			el.setRangeText(text, el.selectionStart, el.selectionEnd, 'end');
+			return true;
+		});
+		Object.defineProperty(document, 'execCommand', { value: typed, configurable: true });
+		try {
+			const { box } = setup('A small ottr sat', speller);
+			await waitFor(() => expect(document.querySelector('[data-miss]')).not.toBeNull());
+			box.setSelectionRange(9, 9);
+			fireEvent.keyDown(box, { key: 'F10', shiftKey: true });
+			await screen.findByRole('menu', { name: 'Spelling' });
+			await userEvent.click(screen.getByRole('menuitem', { name: 'otter' }));
+			expect(typed).toHaveBeenCalledWith('insertText', false, 'otter');
+			expect(box.value).toBe('A small otter sat');
+		} finally {
+			Reflect.deleteProperty(document, 'execCommand');
+		}
+	});
 });

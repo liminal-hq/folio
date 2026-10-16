@@ -222,8 +222,16 @@ export function TextEditor({
 		if (!el) return;
 		// What was typed up to here is one step, and the correction another.
 		keep();
-		const next = el.value.slice(0, miss.start) + word + el.value.slice(miss.end);
-		el.value = next;
+		// The word goes in as typing does, so the box's own undo history survives it: assigning the
+		// value would empty that history, and Ctrl+Z would then do nothing for anything typed before.
+		el.focus();
+		el.setSelectionRange(miss.start, miss.end);
+		const typedIn =
+			typeof document.execCommand === 'function' && document.execCommand('insertText', false, word);
+		const next = typedIn
+			? el.value
+			: el.value.slice(0, miss.start) + word + el.value.slice(miss.end);
+		if (!typedIn) el.value = next;
 		typed.current = next;
 		setText(next);
 		keep();
