@@ -124,29 +124,40 @@ function SpellingPage() {
 			</SettingsGroup>
 			<SettingsGroup>
 				{dictionaries.list.map((d) => (
-					<ButtonRow
-						key={d.id}
-						label={d.name}
-						description={
-							d.bundled
-								? t('preferences.dictionary.bundled', { licence: d.licence })
-								: t('preferences.dictionary.size', {
-										size: (d.bytes / 1_000_000).toFixed(1),
-										licence: d.licence,
-									})
-						}
-						actionLabel={
-							d.bundled
-								? t('preferences.dictionary.included')
-								: dictionaries.busy === d.id
-									? t('preferences.dictionary.working')
-									: d.installed
-										? t('preferences.dictionary.remove')
-										: t('preferences.dictionary.download')
-						}
-						disabled={d.bundled || dictionaries.busy !== null}
-						onAction={() => (d.installed ? dictionaries.remove(d.id) : dictionaries.download(d.id))}
-					/>
+					<div key={d.id} className={styles.dictionary}>
+						{dictionaries.progress?.id === d.id && (
+							<progress
+								className={styles.progress}
+								max={1}
+								value={dictionaries.progress.fraction}
+								aria-label={t('preferences.dictionary.progress', { name: d.name })}
+							/>
+						)}
+						<ButtonRow
+							label={d.name}
+							description={
+								d.bundled
+									? t('preferences.dictionary.bundled', { licence: d.licence })
+									: t('preferences.dictionary.size', {
+											size: (d.bytes / 1_000_000).toFixed(1),
+											licence: d.licence,
+										})
+							}
+							actionLabel={
+								d.bundled
+									? t('preferences.dictionary.included')
+									: dictionaries.busy === d.id
+										? t('preferences.dictionary.working')
+										: d.installed
+											? t('preferences.dictionary.remove')
+											: t('preferences.dictionary.download')
+							}
+							disabled={d.bundled || dictionaries.busy !== null}
+							onAction={() =>
+								d.installed ? dictionaries.remove(d.id) : dictionaries.download(d.id)
+							}
+						/>
+					</div>
 				))}
 				{dictionaries.error && (
 					<p className={styles.empty} role="alert">

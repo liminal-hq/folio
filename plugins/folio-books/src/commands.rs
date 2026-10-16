@@ -9,13 +9,15 @@ use folio_model::Intent;
 use folio_presets::{KindInfo, NewBookSpec, PaintPresets};
 use folio_protocol::PluginStatus;
 use folio_session::Patch;
-use tauri::{AppHandle, Manager, Runtime, State, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow};
 
 use crate::error::Error;
 use crate::state::Books;
 use crate::wire::{
-    BookSnapshot, BookSpelling, BookSummary, DictionaryStatus, SpellCheck, SpreadLayoutResult,
+    BookSnapshot, BookSpelling, BookSummary, DictionaryProgress, DictionaryStatus, SpellCheck,
+    SpreadLayoutResult,
 };
+use crate::DICTIONARY_PROGRESS_EVENT;
 
 /// Reports that books work. They need nothing from the system, so this is always available.
 #[tauri::command]
@@ -276,7 +278,18 @@ pub async fn download_dictionary<R: Runtime>(
     // The download is work for a blocking thread, not the async runtime.
     tauri::async_runtime::spawn_blocking(move || {
         let books = app.state::<Books<R>>();
-        books.spelling.download(&id)?;
+        let sent = id.clone();
+        let tell = |received: u64, total: u64| {
+            let event = DictionaryProgress {
+                id: sent.clone(),
+                received: received as u32,
+                total: total as u32,
+            };
+            if let Err(e) = app.emit(DICTIONARY_PROGRESS_EVENT, event) {
+                log::warn!("could not announce a download's progress: {e}");
+            }
+        };
+        books.spelling.download(&id, &tell)?;
         Ok(books.spelling.status())
     })
     .await

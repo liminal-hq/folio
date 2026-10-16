@@ -3,7 +3,9 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use std::cell::Cell;
 use std::collections::HashMap;
+use std::io::Read;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -102,20 +104,40 @@ impl Spelling {
         out
     }
 
-    /// Downloads a dictionary and checks it against what the catalogue pins.
-    pub fn download(&self, id: &str) -> Result<(), Error> {
+    /// Downloads a dictionary and checks it against what the catalogue pins. `progress` is told how
+    /// many bytes have arrived of how many are expected, about once for each percent and at the end.
+    pub fn download(&self, id: &str, progress: &dyn Fn(u64, u64)) -> Result<(), Error> {
+        let total = catalogue()
+            .iter()
+            .find(|d| d.id == id)
+            .map_or(0, |d| d.bytes());
+        let received = Cell::new(0u64);
+        let told = Cell::new(0u64);
+        let step = (total / 100).max(1);
         let fetch = |url: &str, most: u64| -> Result<Vec<u8>, String> {
             let mut response = ureq::get(url).call().map_err(|e| e.to_string())?;
-            response
-                .body_mut()
-                .with_config()
-                .limit(most.min(MAX_DOWNLOAD) + 1)
-                .read_to_vec()
-                .map_err(|e| e.to_string())
+            let limit = most.min(MAX_DOWNLOAD) + 1;
+            let mut reader = response.body_mut().with_config().limit(limit).reader();
+            let mut bytes = Vec::new();
+            let mut chunk = [0u8; 16 * 1024];
+            loop {
+                let n = reader.read(&mut chunk).map_err(|e| e.to_string())?;
+                if n == 0 {
+                    break;
+                }
+                bytes.extend_from_slice(&chunk[..n]);
+                received.set(received.get() + n as u64);
+                if received.get() - told.get() >= step {
+                    told.set(received.get());
+                    progress(received.get(), total);
+                }
+            }
+            Ok(bytes)
         };
         self.store()?
             .install(id, &fetch)
             .map_err(|e| Error::Dictionary(e.to_string()))?;
+        progress(total, total);
         locked(&self.loaded).remove(id);
         Ok(())
     }

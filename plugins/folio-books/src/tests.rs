@@ -641,7 +641,7 @@ fn the_dictionary_list_has_the_bundled_one_first_and_the_rest_not_yet_in_place()
         .any(|d| d.id == "fr" && d.languages.contains(&"fr-CA".to_owned())));
     // Nothing is downloaded for an id the catalogue does not hold, and nothing is written.
     assert!(matches!(
-        books(&app).spelling.download("../../etc"),
+        books(&app).spelling.download("../../etc", &|_, _| {}),
         Err(Error::Dictionary(_))
     ));
     assert!(matches!(
@@ -674,7 +674,20 @@ fn a_dictionary_downloads_checks_and_checks_words() {
     books(&app)
         .spelling
         .keep_in(dir.path().join("dictionaries"));
-    books(&app).spelling.download("fr").unwrap();
+    let told = std::cell::RefCell::new(Vec::new());
+    books(&app)
+        .spelling
+        .download("fr", &|received, total| {
+            told.borrow_mut().push((received, total))
+        })
+        .unwrap();
+    // Progress comes as the bytes arrive, never goes back, and ends with all of them.
+    let told = told.into_inner();
+    assert!(told.len() > 2, "{told:?}");
+    assert!(told.windows(2).all(|w| w[0].0 <= w[1].0));
+    let (last, total) = *told.last().unwrap();
+    assert_eq!(last, total);
+    assert!(told.iter().all(|&(_, t)| t == total));
     let list = books(&app).spelling.status();
     assert!(list.iter().any(|d| d.id == "fr" && d.installed));
     let (id, french) = books(&app).spelling.for_language("fr-CA").unwrap();

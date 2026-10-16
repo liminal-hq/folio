@@ -11,6 +11,8 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     const PATCH_EVENT = 'folio-books://patch';
     /** Sent to every window when books open, close, save or become changed or clean; a `BooksChanged`. */
     const CHANGED_EVENT = 'folio-books://changed';
+    /** Sent to every window while a dictionary downloads. */
+    const DICTIONARY_PROGRESS_EVENT = 'folio-books://dictionary-progress';
     function cmd(name, args) {
         return core.invoke(`${PREFIX}${name}`, args);
     }
@@ -94,6 +96,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function onBooksChanged(listener) {
         return event.listen(CHANGED_EVENT, (e) => listener(e.payload));
     }
+    /** Hears how far a dictionary download has got. */
+    function onDictionaryProgress(listener) {
+        return event.listen(DICTIONARY_PROGRESS_EVENT, (e) => listener(e.payload));
+    }
     /** Reads a picture file into the book; resolves to its path inside the book (`assets/images/…`). */
     function importImage(id, path) {
         return cmd('import_image', { id, path });
@@ -128,6 +134,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     }
 
     exports.CHANGED_EVENT = CHANGED_EVENT;
+    exports.DICTIONARY_PROGRESS_EVENT = DICTIONARY_PROGRESS_EVENT;
     exports.PATCH_EVENT = PATCH_EVENT;
     exports.applyIntent = applyIntent;
     exports.assetData = assetData;
@@ -143,6 +150,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.listBooks = listBooks;
     exports.newBook = newBook;
     exports.onBooksChanged = onBooksChanged;
+    exports.onDictionaryProgress = onDictionaryProgress;
     exports.onPatch = onPatch;
     exports.openBook = openBook;
     exports.paintPresets = paintPresets;

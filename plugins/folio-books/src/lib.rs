@@ -27,6 +27,9 @@ pub const PATCH_EVENT: &str = "folio-books://patch";
 /// `BooksChanged`.
 pub const CHANGED_EVENT: &str = "folio-books://changed";
 
+/// Sent to every window while a dictionary downloads: how much has arrived.
+pub const DICTIONARY_PROGRESS_EVENT: &str = "folio-books://dictionary-progress";
+
 /// Registers the plugin.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("folio-books")
