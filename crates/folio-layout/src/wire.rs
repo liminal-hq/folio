@@ -91,6 +91,14 @@ pub enum PreflightKind {
     PictureShortOfBleed,
     /// A preserved poem line was too long and wrapped.
     PoemLineTooLong,
+    /// A picture frame or background names a picture that is not in the book.
+    PictureMissing,
+    /// A picture is drawn at under 300 pixels per inch: a warning.
+    LowResolution,
+    /// A picture is drawn at under 150 pixels per inch: an error.
+    VeryLowResolution,
+    /// A page has a background but the book has no bleed, so a trimmed edge may show paper.
+    BleedNeeded,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
@@ -99,7 +107,34 @@ pub enum PreflightKind {
 pub struct PreflightItem {
     pub kind: PreflightKind,
     pub spread: SpreadId,
-    pub frame: FrameId,
+    /// The frame at fault; none when it is a page's background.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frame: Option<FrameId>,
+    /// The page at fault, for a background.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub page: Option<folio_model::PageId>,
+}
+
+impl PreflightItem {
+    /// A problem with one frame of `spread`.
+    pub fn of_frame(kind: PreflightKind, spread: &SpreadId, frame: &FrameId) -> Self {
+        Self {
+            kind,
+            spread: spread.clone(),
+            frame: Some(frame.clone()),
+            page: None,
+        }
+    }
+
+    /// A problem with the background of one page of `spread`.
+    pub fn of_page(kind: PreflightKind, spread: &SpreadId, page: &folio_model::PageId) -> Self {
+        Self {
+            kind,
+            spread: spread.clone(),
+            frame: None,
+            page: Some(page.clone()),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]

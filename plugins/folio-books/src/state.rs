@@ -3,10 +3,13 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
-use folio_layout::{FontBook, Layouter, StyleSheet};
+use folio_layout::assets::sniff;
+use folio_layout::preflight::spread_assets;
+use folio_layout::{AssetFact, AssetFacts, FontBook, Layouter, StyleSheet};
 use folio_model::{Intent, SpreadId};
 use folio_package::{Package, SaveOptions};
 use folio_presets::{kind_infos, new_book, suggest_save_path, KindInfo, NewBookSpec};
@@ -56,9 +59,34 @@ struct OpenBook {
     session: Session,
     package: Package,
     path: Option<PathBuf>,
+    /// What is known of each picture, read from its header the first time layout needs it. A
+    /// picture's path is its content hash, so what is known of it never goes stale.
+    facts: HashMap<String, AssetFact>,
 }
 
 impl OpenBook {
+    /// What is known of the pictures spread `spread` uses. A picture that is not in the package is
+    /// left out, which is how layout knows it is missing; one that cannot be read is unreadable.
+    fn facts_for(&mut self, book: &folio_model::Book, spread: &str) -> AssetFacts {
+        let mut known = HashMap::new();
+        let Some(found) = book.spreads.iter().find(|s| s.id.0 == spread) else {
+            return AssetFacts(known);
+        };
+        for asset in spread_assets(book, found) {
+            if let Some(fact) = self.facts.get(&asset) {
+                known.insert(asset, *fact);
+            } else if self.package.asset_paths().any(|p| p == asset) {
+                let fact = match self.package.asset_bytes(&asset) {
+                    Ok(bytes) => sniff(&asset, &bytes),
+                    Err(_) => AssetFact::Unreadable,
+                };
+                self.facts.insert(asset.clone(), fact);
+                known.insert(asset, fact);
+            }
+        }
+        AssetFacts(known)
+    }
+
     fn summary(&self) -> BookSummary {
         let book = self.session.book();
         BookSummary {
@@ -173,6 +201,7 @@ impl<R: Runtime> Books<R> {
             session,
             package,
             path,
+            facts: HashMap::new(),
         };
         let snapshot = book.snapshot();
         inner.books.push(book);
@@ -282,21 +311,24 @@ impl<R: Runtime> Books<R> {
     /// and laid out after it is let go, so the answer and its revision agree and a long layout never
     /// holds up another command.
     pub fn layout_spread(&self, id: &str, spread: &str) -> Result<SpreadLayoutResult, Error> {
-        let (book, styles, revision) = {
-            let inner = locked(&self.inner);
+        let (book, styles, revision, facts) = {
+            let mut inner = locked(&self.inner);
             let open = inner
                 .books
-                .iter()
+                .iter_mut()
                 .find(|b| b.id == id)
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let book = open.session.book().clone();
+            let facts = open.facts_for(&book, spread);
             (
-                open.session.book().clone(),
+                book,
                 style_sheet(open.package.styles()),
                 open.session.revision(),
+                facts,
             )
         };
         let fonts = self.fonts.get_or_init(FontBook::with_system_fonts);
-        let layouter = Layouter::new(&book, &styles, fonts);
+        let layouter = Layouter::new(&book, &styles, fonts).with_assets(&facts);
         let layout = layouter
             .layout_spread(&SpreadId(spread.to_string()))?
             .ok_or_else(|| Error::NoSuchSpread(spread.to_string()))?;

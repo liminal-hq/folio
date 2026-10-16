@@ -8,11 +8,12 @@ use folio_model::{
     SpreadKind, StyleId, TableFrame, TextFrame,
 };
 
+use crate::assets::AssetFacts;
 use crate::error::LayoutError;
 use crate::flow::{flow, FlowOptions, Flowed, FrameBox, PlacedLine, StoryParagraph};
 use crate::fonts::{FontBook, FontRequest};
 use crate::paragraph::{Span, Wrap};
-use crate::preflight::geometry_checks;
+use crate::preflight::{asset_checks, geometry_checks};
 use crate::styles::{ResolvedStyle, StyleSheet};
 use crate::wire::{
     FrameLayout, LayoutLine, LayoutRect, LayoutRun, Origin, PreflightItem, PreflightKind,
@@ -26,6 +27,8 @@ pub struct Layouter<'a> {
     pub fonts: &'a FontBook,
     /// Optimal breaks (slower) or first-fit while the person is typing.
     pub optimal: bool,
+    /// What is known of the book's pictures, for preflight. Without it, pictures are not checked.
+    pub assets: Option<&'a AssetFacts>,
 }
 
 /// Inset of a text frame's text from its edges, in points. Frames carry no padding of their own
@@ -39,7 +42,14 @@ impl<'a> Layouter<'a> {
             styles,
             fonts,
             optimal: true,
+            assets: None,
         }
+    }
+
+    /// Checks the pictures against what is known of them too.
+    pub fn with_assets(mut self, assets: &'a AssetFacts) -> Self {
+        self.assets = Some(assets);
+        self
     }
 
     fn options(&self) -> FlowOptions {
@@ -82,16 +92,19 @@ impl<'a> Layouter<'a> {
     fn spread(&self, spread: &Spread) -> Result<SpreadLayout, LayoutError> {
         let mut frames = Vec::new();
         let mut preflight = geometry_checks(self.book, spread);
+        if let Some(facts) = self.assets {
+            preflight.extend(asset_checks(self.book, spread, facts));
+        }
         let mut flowed: Vec<FlowLayout> = Vec::new();
         for frame in &spread.frames {
             if let Frame::Shape(shape) = frame {
                 if let Some(laid) = self.shape_text(shape)? {
                     if laid.overset {
-                        preflight.push(PreflightItem {
-                            kind: PreflightKind::OversetText,
-                            spread: spread.id.clone(),
-                            frame: shape.base.id.clone(),
-                        });
+                        preflight.push(PreflightItem::of_frame(
+                            PreflightKind::OversetText,
+                            &spread.id,
+                            &shape.base.id,
+                        ));
                     }
                     frames.push(laid);
                 }
@@ -100,11 +113,11 @@ impl<'a> Layouter<'a> {
             if let Frame::Table(table) = frame {
                 let cells = self.table_text(table)?;
                 if cells.iter().any(|c| c.overset) {
-                    preflight.push(PreflightItem {
-                        kind: PreflightKind::OversetText,
-                        spread: spread.id.clone(),
-                        frame: table.base.id.clone(),
-                    });
+                    preflight.push(PreflightItem::of_frame(
+                        PreflightKind::OversetText,
+                        &spread.id,
+                        &table.base.id,
+                    ));
                 }
                 frames.extend(cells);
                 continue;
@@ -128,11 +141,11 @@ impl<'a> Layouter<'a> {
                             preflight.push(self.poem_item(spread, text));
                         }
                         if own.0.overset {
-                            preflight.push(PreflightItem {
-                                kind: PreflightKind::OversetText,
-                                spread: spread.id.clone(),
-                                frame: text.base.id.clone(),
-                            });
+                            preflight.push(PreflightItem::of_frame(
+                                PreflightKind::OversetText,
+                                &spread.id,
+                                &text.base.id,
+                            ));
                         }
                         frames.push(own.0);
                         continue;
@@ -157,11 +170,11 @@ impl<'a> Layouter<'a> {
                 }
             };
             if layout.overset {
-                preflight.push(PreflightItem {
-                    kind: PreflightKind::OversetText,
-                    spread: spread.id.clone(),
-                    frame: text.base.id.clone(),
-                });
+                preflight.push(PreflightItem::of_frame(
+                    PreflightKind::OversetText,
+                    &spread.id,
+                    &text.base.id,
+                ));
             }
             frames.push(layout.clone());
         }
@@ -429,11 +442,7 @@ impl<'a> Layouter<'a> {
     }
 
     fn poem_item(&self, spread: &Spread, text: &TextFrame) -> PreflightItem {
-        PreflightItem {
-            kind: PreflightKind::PoemLineTooLong,
-            spread: spread.id.clone(),
-            frame: text.base.id.clone(),
-        }
+        PreflightItem::of_frame(PreflightKind::PoemLineTooLong, &spread.id, &text.base.id)
     }
 
     /// The paragraphs of a text frame: one per line break, or the whole text for a style that

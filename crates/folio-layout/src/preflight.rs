@@ -3,7 +3,9 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use folio_model::{Book, Frame, Rect, Spread, SpreadKind};
+use folio_model::{Background, Book, Fit, Frame, Rect, Spread, SpreadKind};
+
+use crate::assets::{effective_ppi, AssetFact, AssetFacts, ERROR_PPI, WARN_PPI};
 
 use crate::wire::{PreflightItem, PreflightKind};
 
@@ -133,9 +135,129 @@ pub fn geometry_checks(book: &Book, spread: &Spread) -> Vec<PreflightItem> {
 }
 
 fn item(kind: PreflightKind, spread: &Spread, frame: &Frame) -> PreflightItem {
-    PreflightItem {
-        kind,
-        spread: spread.id.clone(),
-        frame: frame.base().id.clone(),
+    PreflightItem::of_frame(kind, &spread.id, &frame.base().id)
+}
+
+/// How a picture of `natural` pixels set in a `w` × `h` point box with `fit` is sharp enough:
+/// the problem with it, if it has one.
+fn sharpness(natural: (u32, u32), w: f64, h: f64, fit: Fit) -> Option<PreflightKind> {
+    let (nw, nh) = (f64::from(natural.0), f64::from(natural.1));
+    // The points one pixel covers: a fill covers the box with the picture, a fit keeps it all inside,
+    // and a stretch pulls each side to the box's.
+    let drawn = match fit {
+        Fit::Fit => {
+            let scale = (w / nw).min(h / nh);
+            (nw * scale, nh * scale)
+        }
+        Fit::Stretch => (w, h),
+        Fit::Fill | Fit::Manual => {
+            let scale = (w / nw).max(h / nh);
+            (nw * scale, nh * scale)
+        }
+    };
+    let ppi = effective_ppi(natural, drawn.0, drawn.1);
+    if ppi < ERROR_PPI {
+        Some(PreflightKind::VeryLowResolution)
+    } else if ppi < WARN_PPI {
+        Some(PreflightKind::LowResolution)
+    } else {
+        None
     }
+}
+
+/// The problems with the pictures of `spread`, in its picture frames and in its backgrounds: a
+/// picture that is not in the book, one drawn too coarsely for print, and a background in a book
+/// with no bleed. Covers are checked too, since a cover's picture is its background.
+pub fn asset_checks(book: &Book, spread: &Spread, facts: &AssetFacts) -> Vec<PreflightItem> {
+    let mut out = Vec::new();
+    for frame in &spread.frames {
+        let Frame::Image(image) = frame else {
+            continue;
+        };
+        let Some(asset) = &image.image.asset else {
+            continue;
+        };
+        let r = &image.base.rect;
+        match facts.0.get(asset) {
+            None => out.push(item(PreflightKind::PictureMissing, spread, frame)),
+            Some(AssetFact::Raster { w, h }) => {
+                if let Some(kind) = sharpness((*w, *h), r.w.0, r.h.0, image.image.fit) {
+                    out.push(item(kind, spread, frame));
+                }
+            }
+            Some(_) => {}
+        }
+    }
+    let trim = (book.trim.w.0, book.trim.h.0);
+    let bleed = book.bleed.0;
+    let resolved = folio_model::resolve(&book.master_pages, spread);
+    for (page, shown) in spread.pages.iter().zip(&resolved) {
+        let Some(shown) = shown else {
+            continue;
+        };
+        if bleed <= 0.0 {
+            out.push(PreflightItem::of_page(
+                PreflightKind::BleedNeeded,
+                &spread.id,
+                &page.id,
+            ));
+        }
+        let Background::Picture { asset, fit, .. } = &shown.bg else {
+            continue;
+        };
+        match facts.0.get(asset) {
+            None => out.push(PreflightItem::of_page(
+                PreflightKind::PictureMissing,
+                &spread.id,
+                &page.id,
+            )),
+            Some(AssetFact::Raster { w, h }) => {
+                // A background reaches the bleed, and one across both pages covers both.
+                let pages = if shown.source == folio_model::BgSource::Span {
+                    spread.pages.len() as f64
+                } else {
+                    1.0
+                };
+                let kind = sharpness(
+                    (*w, *h),
+                    trim.0 * pages + 2.0 * bleed,
+                    trim.1 + 2.0 * bleed,
+                    if *fit == folio_model::BgFit::Fit {
+                        Fit::Fit
+                    } else {
+                        Fit::Fill
+                    },
+                );
+                if let Some(kind) = kind {
+                    out.push(PreflightItem::of_page(kind, &spread.id, &page.id));
+                }
+            }
+            Some(_) => {}
+        }
+    }
+    out
+}
+
+/// The paths of the pictures `spread` uses: those in its picture frames and in the backgrounds its
+/// pages show.
+pub fn spread_assets(book: &Book, spread: &Spread) -> Vec<String> {
+    let mut out: Vec<String> = spread
+        .frames
+        .iter()
+        .filter_map(|f| match f {
+            Frame::Image(i) => i.image.asset.clone(),
+            _ => None,
+        })
+        .collect();
+    for shown in folio_model::resolve(&book.master_pages, spread)
+        .into_iter()
+        .flatten()
+    {
+        if let Background::Picture { asset, .. } = shown.bg {
+            out.push(asset);
+        }
+    }
+    out.sort();
+    out.dedup();
+    out
 }
