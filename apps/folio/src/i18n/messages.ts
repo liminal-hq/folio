@@ -82,6 +82,7 @@ export const messages = {
 	'preferences.dictionary.included': 'Included',
 	'preferences.dictionary.download': 'Download',
 	'preferences.dictionary.remove': 'Remove',
+	'preferences.dictionary.progress': 'Downloading the {name} dictionary',
 	'preferences.dictionary.working': 'Working…',
 	'preferences.dictionary.failed': 'The dictionary could not be changed: {message}',
 	'preferences.personal.none':

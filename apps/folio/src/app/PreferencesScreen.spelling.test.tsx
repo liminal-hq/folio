@@ -5,14 +5,15 @@
 
 import type { WindowControls } from '@liminal-hq/folio-chrome/TitleBar/windowControls';
 import { WindowChromeProvider } from '@liminal-hq/folio-chrome/WindowChromeProvider/WindowChromeProvider';
-import { render, screen, waitFor } from '@testing-library/react';
+import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { createFakeBooksClient } from '../books/fakeBooksClient';
 import { createFakeSettingsClient } from '../settings/fakeSettingsClient';
 import { SettingsProvider } from '../settings/SettingsProvider';
 import { PreferencesScreen } from './PreferencesScreen';
-import { DictionaryApiContext } from './useDictionaries';
+import { DictionaryApiContext, type DictionaryApi } from './useDictionaries';
 
 const controls: WindowControls = {
 	minimize: () => {},
@@ -87,5 +88,50 @@ describe('the Spelling page', () => {
 		await waitFor(async () =>
 			expect((await settings.get()).settings.spelling.personal).toEqual(['Pip']),
 		);
+	});
+
+	it('shows how far a download has got behind its row, and takes the bar away when it is done', async () => {
+		const books = createFakeBooksClient();
+		let hear: ((progress: DictionaryProgress) => void) | undefined;
+		let finish: (() => void) | undefined;
+		const api: DictionaryApi = {
+			...books.client,
+			onDictionaryProgress: async (listener) => {
+				hear = listener;
+				return () => {};
+			},
+			downloadDictionary: () =>
+				new Promise((resolve) => {
+					finish = () => resolve(books.client.dictionaries());
+				}),
+		};
+		render(
+			<DictionaryApiContext.Provider value={api}>
+				<SettingsProvider client={createFakeSettingsClient()}>
+					<WindowChromeProvider controls={controls}>
+						<PreferencesScreen />
+					</WindowChromeProvider>
+				</SettingsProvider>
+			</DictionaryApiContext.Provider>,
+		);
+		await userEvent.click(await screen.findByRole('button', { name: 'Spelling' }));
+		expect(screen.queryByRole('progressbar')).toBeNull();
+
+		await userEvent.click(
+			await screen.findByRole('button', { name: 'Download', description: /French/ }),
+		);
+		await waitFor(() => expect(hear).toBeDefined());
+		act(() => hear!({ id: 'fr', received: 350, total: 1000 }));
+		const bar = await screen.findByRole('progressbar', {
+			name: 'Downloading the French dictionary',
+		});
+		expect(bar).toHaveAttribute('value', '0.35');
+		// Only the dictionary being fetched has one.
+		expect(screen.getAllByRole('progressbar')).toHaveLength(1);
+
+		act(() => hear!({ id: 'fr', received: 1000, total: 1000 }));
+		expect(bar).toHaveAttribute('value', '1');
+		await act(async () => finish!());
+		await waitFor(() => expect(screen.queryByRole('progressbar')).toBeNull());
 	});
 });

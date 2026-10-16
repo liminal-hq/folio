@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
+import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck';
 import type { SpreadLayoutResult } from '@liminal-hq/folio-protocol/generated/SpreadLayoutResult';
@@ -15,6 +16,7 @@ import {
 	dictionaries,
 	downloadDictionary,
 	removeDictionary,
+	onDictionaryProgress,
 	importImage,
 	layoutMaster,
 	layoutSpread,
@@ -90,6 +92,8 @@ export interface BooksClient {
 	downloadDictionary(id: string): Promise<DictionaryStatus[]>;
 	/** Takes a downloaded dictionary away; resolves to the list again. */
 	removeDictionary(id: string): Promise<DictionaryStatus[]>;
+	/** Hears how far a dictionary download has got; resolves to the function that stops listening. */
+	onDictionaryProgress(listener: (progress: DictionaryProgress) => void): Promise<() => void>;
 	/** Resolves to the function that stops listening. */
 	subscribe(listener: BooksListener): Promise<() => void>;
 }
@@ -119,6 +123,7 @@ export const tauriBooksClient: BooksClient = {
 	dictionaries,
 	downloadDictionary,
 	removeDictionary,
+	onDictionaryProgress,
 	async subscribe(listener) {
 		const stops = await Promise.all([
 			onPatch((event) => listener.onPatch(event)),

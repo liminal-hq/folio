@@ -129,6 +129,18 @@ pub struct DictionaryStatus {
     pub bundled: bool,
 }
 
+/// How far a dictionary download has got, sent to every window as it goes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct DictionaryProgress {
+    pub id: String,
+    /// Bytes that have arrived, over every file of the dictionary.
+    pub received: u32,
+    /// Bytes expected in all: the sizes the catalogue pins.
+    pub total: u32,
+}
+
 /// A misspelt word somewhere in the book, and where to find it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

@@ -19,3 +19,32 @@
 	color: var(--folio-text-secondary);
 	font-size: 13px;
 }
+
+/* A dictionary's row, with its download drawn as a tint that fills in behind the text. */
+.dictionary {
+	position: relative;
+}
+
+.progress {
+	position: absolute;
+	inset: 0;
+	inline-size: 100%;
+	block-size: 100%;
+	appearance: none;
+	border: none;
+	background: transparent;
+	pointer-events: none;
+}
+
+.progress::-webkit-progress-bar {
+	background: transparent;
+}
+
+.progress::-webkit-progress-value {
+	background: color-mix(in srgb, var(--folio-accent) 22%, transparent);
+	transition: inline-size 150ms linear;
+}
+
+.progress::-moz-progress-bar {
+	background: color-mix(in srgb, var(--folio-accent) 22%, transparent);
+}

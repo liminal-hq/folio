@@ -10,6 +10,7 @@ import type { BookSummary } from '@liminal-hq/folio-protocol/generated/BookSumma
 import type { BooksChanged } from '@liminal-hq/folio-protocol/generated/BooksChanged';
 import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
 import type { DictionaryOffer } from '@liminal-hq/folio-protocol/generated/DictionaryOffer';
+import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import type { Misspelling } from '@liminal-hq/folio-protocol/generated/Misspelling';
 import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck';
@@ -29,6 +30,9 @@ export const PATCH_EVENT = 'folio-books://patch';
 
 /** Sent to every window when books open, close, save or become changed or clean; a `BooksChanged`. */
 export const CHANGED_EVENT = 'folio-books://changed';
+
+/** Sent to every window while a dictionary downloads. */
+export const DICTIONARY_PROGRESS_EVENT = 'folio-books://dictionary-progress';
 
 /**
  * What a rejected command carries. `kind` is a stable name: `noSuchBook`, `needsPath`, `preset`
@@ -156,6 +160,13 @@ export function onPatch(listener: (event: PatchEvent) => void): Promise<Unlisten
 /** Hears when books open, close, save or become changed or clean. */
 export function onBooksChanged(listener: (event: BooksChanged) => void): Promise<UnlistenFn> {
 	return listen<BooksChanged>(CHANGED_EVENT, (e) => listener(e.payload));
+}
+
+/** Hears how far a dictionary download has got. */
+export function onDictionaryProgress(
+	listener: (event: DictionaryProgress) => void,
+): Promise<UnlistenFn> {
+	return listen<DictionaryProgress>(DICTIONARY_PROGRESS_EVENT, (e) => listener(e.payload));
 }
 
 export type {

@@ -15,6 +15,7 @@ import type {
 } from '@liminal-hq/folio-plugin-books';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
+import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import { applyPatch } from './applyPatch';
 import type { BooksClient, BooksListener } from './booksClient';
@@ -120,6 +121,7 @@ export function createFakeBooksClient(): FakeBooks {
 	let counter = 0;
 	const misspelt: string[] = [];
 	const downloaded = new Set<string>();
+	const progress = new Set<(event: DictionaryProgress) => void>();
 	const listing = (): DictionaryStatus[] => [
 		{
 			id: 'en-CA',
@@ -417,8 +419,16 @@ export function createFakeBooksClient(): FakeBooks {
 		},
 		async downloadDictionary(id) {
 			await call('downloadDictionary', [id]);
+			// A download reports a quarter at a time, as the real one reports as it goes.
+			for (const received of [250, 500, 750, 1000]) {
+				for (const hear of progress) hear({ id, received, total: 1000 });
+			}
 			downloaded.add(id);
 			return listing();
+		},
+		async onDictionaryProgress(listener) {
+			progress.add(listener);
+			return () => progress.delete(listener);
 		},
 		async removeDictionary(id) {
 			await call('removeDictionary', [id]);
