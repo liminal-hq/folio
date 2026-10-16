@@ -3,7 +3,9 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use folio_model::{Grid, Margins, Master, MasterId, PageNumbers, Pt, Size, Spread, SpreadId};
+use folio_model::{
+    Grid, Margins, Master, MasterId, PageNumbers, Proofing, Pt, Size, Spread, SpreadId,
+};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -24,6 +26,8 @@ pub enum PatchOp {
         ids: Vec<MasterId>,
         numbers: PageNumbers,
     },
+    /// The words spelling leaves alone in the book.
+    SetProofing { proofing: Proofing },
     /// The book's page geometry.
     SetGeometry {
         trim: Size,

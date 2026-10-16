@@ -162,6 +162,13 @@ pub enum Intent {
         frame: FrameId,
         degrees: f64,
     },
+    /// Tells spelling to leave a word alone in this book, or to check it again.
+    IgnoreWord {
+        word: String,
+    },
+    UnignoreWord {
+        word: String,
+    },
     /// Starts a section at a spread, or changes the one it starts; `None` takes it away so the
     /// spread carries on the section before. The cover cannot start one.
     SetSection {

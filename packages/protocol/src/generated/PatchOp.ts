@@ -4,6 +4,7 @@ import type { Margins } from "./Margins";
 import type { Master } from "./Master";
 import type { MasterId } from "./MasterId";
 import type { PageNumbers } from "./PageNumbers";
+import type { Proofing } from "./Proofing";
 import type { Pt } from "./Pt";
 import type { Size } from "./Size";
 import type { Spread } from "./Spread";
@@ -12,4 +13,4 @@ import type { SpreadId } from "./SpreadId";
 /**
  * One change to the UI's copy of the book.
  */
-export type PatchOp = { "op": "setSpread", spread: Spread, } | { "op": "removeSpread", id: SpreadId, } | { "op": "setOrder", order: Array<SpreadId>, } | { "op": "setMasters", masters: Array<Master>, ids: Array<MasterId>, numbers: PageNumbers, } | { "op": "setGeometry", trim: Size, margins: Margins, bleed: Pt, grid: Grid, };
+export type PatchOp = { "op": "setSpread", spread: Spread, } | { "op": "removeSpread", id: SpreadId, } | { "op": "setOrder", order: Array<SpreadId>, } | { "op": "setMasters", masters: Array<Master>, ids: Array<MasterId>, numbers: PageNumbers, } | { "op": "setProofing", proofing: Proofing, } | { "op": "setGeometry", trim: Size, margins: Margins, bleed: Pt, grid: Grid, };

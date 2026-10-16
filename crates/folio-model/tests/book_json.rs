@@ -151,3 +151,18 @@ fn a_line_with_an_outline_keeps_its_fields_under_their_json_names() {
     assert_eq!(written["strokeWidth"], 2.0);
     assert_eq!(written["flip"], true);
 }
+
+#[test]
+fn the_ignored_words_are_kept_and_an_empty_list_is_left_out() {
+    let mut book: Book = serde_json::from_value(sample()).unwrap();
+    assert!(book.proofing.ignore.is_empty());
+    assert!(serde_json::to_value(&book)
+        .unwrap()
+        .get("proofing")
+        .is_none());
+    book.proofing.ignore = vec!["Zorblat".into()];
+    let written = serde_json::to_value(&book).unwrap();
+    assert_eq!(written["proofing"]["ignore"][0], "Zorblat");
+    let back: Book = serde_json::from_value(written).unwrap();
+    assert_eq!(back.proofing.ignore, ["Zorblat"]);
+}
