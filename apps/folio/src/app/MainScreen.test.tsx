@@ -12,6 +12,7 @@ import { BooksProvider } from '../books/BooksProvider';
 import { createFakeBooksClient } from '../books/fakeBooksClient';
 import type { FileDialogs } from '../books/dialogs';
 import type { AppInfoClient } from '../services/appInfoClient';
+import type { CloseRequests } from '../services/closeRequests';
 import { createFakeSettingsClient } from '../settings/fakeSettingsClient';
 import { SettingsProvider } from '../settings/SettingsProvider';
 import { MainScreen } from './MainScreen';
@@ -34,7 +35,24 @@ const info: AppInfoClient = {
 	}),
 };
 
-function setup(picks: { open?: string | null; save?: string | null } = {}) {
+/** A window that can be asked to close, as the ✕, Alt+F4 and Quit ask it. */
+function closableWindow() {
+	let allow: (() => Promise<boolean>) | undefined;
+	const requests: CloseRequests = {
+		onCloseRequested: async (guard) => {
+			allow = guard;
+			return () => {
+				allow = undefined;
+			};
+		},
+	};
+	return { requests, askToClose: () => allow!() };
+}
+
+function setup(
+	picks: { open?: string | null; save?: string | null } = {},
+	closing?: CloseRequests,
+) {
 	const settings = createFakeSettingsClient();
 	const books = createFakeBooksClient();
 	const dialogs: FileDialogs = {
@@ -46,7 +64,7 @@ function setup(picks: { open?: string | null; save?: string | null } = {}) {
 		<SettingsProvider client={settings}>
 			<WindowChromeProvider controls={controls}>
 				<BooksProvider client={books.client} dialogs={dialogs}>
-					<MainScreen client={info} />
+					<MainScreen client={info} {...(closing ? { closeRequests: closing } : {})} />
 				</BooksProvider>
 			</WindowChromeProvider>
 		</SettingsProvider>,
@@ -206,6 +224,44 @@ describe('a book in the main window', () => {
 		expect(
 			await screen.findByRole('heading', { name: 'What are you making?' }),
 		).toBeInTheDocument();
+	});
+
+	it('asks about changes when the window is asked to close, and lets it go only when answered', async () => {
+		const closing = closableWindow();
+		const { books } = setup({ save: '/books/Pip/Pip' }, closing.requests);
+		await startBook();
+		const id = (await books.client.list())[0]!.id;
+		await act(async () => {
+			await books.client.apply(id, { type: 'MoveFrame' } as never);
+		});
+
+		let answer!: Promise<boolean>;
+		act(() => {
+			answer = closing.askToClose();
+		});
+		const dialog = await screen.findByRole('dialog', { name: /Save changes to/ });
+		await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+		expect(await answer).toBe(false);
+		expect(screen.getByRole('toolbar', { name: 'Toolbar' })).toBeInTheDocument();
+
+		act(() => {
+			answer = closing.askToClose();
+		});
+		const again = await screen.findByRole('dialog', { name: /Save changes to/ });
+		await userEvent.click(within(again).getByRole('button', { name: 'Don’t save' }));
+		expect(await answer).toBe(true);
+	});
+
+	it('lets the window close at once when no book has changes', async () => {
+		const closing = closableWindow();
+		setup({}, closing.requests);
+		await startBook();
+		let answer!: Promise<boolean>;
+		act(() => {
+			answer = closing.askToClose();
+		});
+		expect(await answer).toBe(true);
+		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 	});
 
 	it('undoes and redoes with the keys once there is something to undo', async () => {

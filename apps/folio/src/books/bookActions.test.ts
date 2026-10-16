@@ -141,6 +141,53 @@ describe('close', () => {
 	});
 });
 
+describe('closeAll', () => {
+	it('closes books nobody has touched without asking, and says the app may go', async () => {
+		const { store, actions } = await setup();
+		await store.newBook({});
+		const decide = vi.fn(async () => 'cancel' as const);
+		expect(await actions.closeAll(decide)).toBe('done');
+		expect(decide).not.toHaveBeenCalled();
+		expect(store.state.getState().summaries).toHaveLength(0);
+	});
+
+	it('asks about each book with changes, in turn, and saves the ones asked to be', async () => {
+		const { store, actions } = await setup({ save: '/books/first' });
+		await store.newBook({ title: 'First' });
+		await store.apply(MOVE);
+		await store.newBook({ title: 'Second' });
+		await store.apply(MOVE);
+		const asked: string[] = [];
+		const decide = async (summary: { title: string }) => {
+			asked.push(summary.title);
+			return summary.title === 'First' ? ('save' as const) : ('discard' as const);
+		};
+		expect(await actions.closeAll(decide)).toBe('done');
+		expect(asked).toEqual(['First', 'Second']);
+		expect(store.state.getState().summaries).toHaveLength(0);
+	});
+
+	it('closes nothing when the person cancels, even the books already answered', async () => {
+		const { store, actions } = await setup();
+		await store.newBook({ title: 'First' });
+		await store.apply(MOVE);
+		await store.newBook({ title: 'Second' });
+		await store.apply(MOVE);
+		const decide = async (summary: { title: string }) =>
+			summary.title === 'First' ? ('discard' as const) : ('cancel' as const);
+		expect(await actions.closeAll(decide)).toBe('cancelled');
+		expect(store.state.getState().summaries).toHaveLength(2);
+	});
+
+	it('stays open when a save the person asked for is cancelled', async () => {
+		const { store, actions } = await setup({ save: null });
+		await store.newBook({ title: 'First' });
+		await store.apply(MOVE);
+		expect(await actions.closeAll(async () => 'save')).toBe('cancelled');
+		expect(store.state.getState().summaries).toHaveLength(1);
+	});
+});
+
 describe('needsAsking', () => {
 	it('is about changes, not about never having been saved', () => {
 		const summary = { id: 'x', title: 't', kind: 'picture', path: null, dirty: true } as const;

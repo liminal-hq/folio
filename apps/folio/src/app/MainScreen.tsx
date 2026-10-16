@@ -7,10 +7,11 @@ import { MenuBar } from '@liminal-hq/folio-chrome/MenuBar/MenuBar';
 import { WindowFrame } from '@liminal-hq/folio-chrome/WindowFrame';
 import { useEffect, useState } from 'react';
 import { formatTrim, pageCount } from '../books/format';
-import { useActiveBook, useBooksSelector } from '../books/useBooks';
+import { useActiveBook, useBooks, useBooksSelector } from '../books/useBooks';
 import { APP_MENU_MNEMONICS } from '../commands/appMenuModel';
 import { t } from '../i18n/messages';
 import { tauriAppInfoClient, type AppInfoClient } from '../services/appInfoClient';
+import { tauriCloseRequests, type CloseRequests } from '../services/closeRequests';
 import { useSettings } from '../settings/useSettings';
 import { WelcomeScreen } from '../welcome/WelcomeScreen';
 import { AppMenu } from './AppMenu';
@@ -48,9 +49,29 @@ function savedText(path: string | null, dirty: boolean): string {
 	return t('status.saved.to', { file: path.split(/[/\\]/).pop() ?? path });
 }
 
-export function MainScreen({ client = tauriAppInfoClient }: { client?: AppInfoClient }) {
+export function MainScreen({
+	client = tauriAppInfoClient,
+	closeRequests = tauriCloseRequests,
+}: {
+	client?: AppInfoClient;
+	closeRequests?: CloseRequests;
+}) {
 	const settings = useSettings();
 	const { ask, dialog } = useCloseQuestion();
+	const { actions } = useBooks();
+	// Closing the window (the ✕, Alt+F4 or Quit) asks about every book with changes first.
+	useEffect(() => {
+		let stop: (() => void) | undefined;
+		let live = true;
+		void closeRequests
+			.onCloseRequested(async () => (await actions.closeAll(ask)) === 'done')
+			.then((off) => (live ? (stop = off) : off()))
+			.catch(() => undefined);
+		return () => {
+			live = false;
+			stop?.();
+		};
+	}, [closeRequests, actions, ask]);
 	const menu = useAppMenu(ask);
 	useBookKeys(menu.run);
 	const version = useAppVersion(client);
