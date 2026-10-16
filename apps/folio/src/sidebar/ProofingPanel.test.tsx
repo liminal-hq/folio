@@ -156,4 +156,22 @@ describe('ProofingPanel', () => {
 		});
 		expect(screen.getByRole('region', { name: 'Ignored in this book' })).toBeInTheDocument();
 	});
+
+	it('offers the languages a book can be in, and changes it', async () => {
+		const onLanguage = vi.fn();
+		setup(found([]), {
+			languages: {
+				choices: [
+					{ value: 'en-CA', label: 'English (Canada)' },
+					{ value: 'fr', label: 'French' },
+				],
+				selected: 'en-CA',
+			},
+			onLanguage,
+		});
+		const select = screen.getByRole('combobox', { name: 'Language of the book' });
+		expect(select).toHaveValue('en-CA');
+		await userEvent.selectOptions(select, 'French');
+		expect(onLanguage).toHaveBeenCalledWith('fr');
+	});
 });

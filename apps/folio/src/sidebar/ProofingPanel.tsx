@@ -7,6 +7,8 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { MisspeltWord } from '@liminal-hq/folio-protocol/generated/MisspeltWord';
 import { useState } from 'react';
 import { t } from '../i18n/messages';
+import { LanguageSelect } from '../inspector/LanguageSelect';
+import type { LanguageChoice } from '../inspector/languageChoices';
 import styles from './PagesPanel.module.css';
 
 export interface ProofingPanelProps {
@@ -24,6 +26,9 @@ export interface ProofingPanelProps {
 	onChange(word: MisspeltWord, to: string): void;
 	/** Downloads the dictionary on offer. */
 	onDownload?(id: string): void;
+	/** The languages a book can be written in, which also pick the dictionary that checks it. */
+	languages?: { choices: LanguageChoice[]; selected: string };
+	onLanguage?(language: string): void;
 	/** The words this book leaves alone, so they can be taken off the list. */
 	ignored?: string[];
 	/** Checks a word again from now on, in this book. */
@@ -81,15 +86,27 @@ export function ProofingPanel({
 	onSuggest,
 	onChange,
 	onDownload,
+	languages,
+	onLanguage,
 	ignored = [],
 	onRestore,
 }: ProofingPanelProps) {
 	const [open, setOpen] = useState<{ key: string; suggestions: string[] } | null>(null);
 
+	const picker =
+		languages && onLanguage ? (
+			<LanguageSelect
+				label={t('proofing.language')}
+				choices={languages.choices}
+				value={languages.selected}
+				onChange={onLanguage}
+			/>
+		) : null;
 	if (found === null) return <p className={styles.note}>{t('proofing.checking')}</p>;
 	if (!found.supported) {
 		return (
 			<section className={styles.section}>
+				{picker}
 				<p className={styles.note}>{t('proofing.unsupported')}</p>
 				{found.offer && onDownload && (
 					<button
@@ -111,6 +128,7 @@ export function ProofingPanel({
 
 	return (
 		<>
+			{picker}
 			<p className={styles.note} role="status">
 				{found.words.length === 0
 					? t('proofing.none')

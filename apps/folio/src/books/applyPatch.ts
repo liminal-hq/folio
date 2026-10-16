@@ -39,6 +39,8 @@ function applyOp(book: Book, op: PatchOp): Book {
 				...(op.numbers !== 'none' ? { pageNumbers: op.numbers } : {}),
 			};
 		}
+		case 'setLanguage':
+			return { ...book, language: op.language };
 		case 'setProofing': {
 			// Rust leaves an empty list out of the book, and so does the copy.
 			const { proofing: _proofing, ...rest } = book;

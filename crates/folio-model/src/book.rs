@@ -114,6 +114,25 @@ impl Proofing {
     }
 }
 
+/// A language tag as it would be kept (a BCP 47 code such as `en-CA` or `fr`): trimmed, a two or
+/// three letter language and up to three more parts of letters or digits.
+pub fn clean_language(tag: &str) -> Result<String, String> {
+    let tag = tag.trim();
+    let mut parts = tag.split('-');
+    let language_ok = parts
+        .next()
+        .is_some_and(|l| (2..=3).contains(&l.len()) && l.chars().all(|c| c.is_ascii_alphabetic()));
+    let rest: Vec<&str> = parts.collect();
+    let rest_ok = rest.len() <= 3
+        && rest
+            .iter()
+            .all(|p| (1..=8).contains(&p.len()) && p.chars().all(|c| c.is_ascii_alphanumeric()));
+    if !language_ok || !rest_ok {
+        return Err("a language is a code such as en-CA or fr".into());
+    }
+    Ok(tag.to_owned())
+}
+
 /// A master page: frames drawn on every page that uses it, in the page's own coordinates (the
 /// origin is the top-left of its trim). Text in them may hold `{page}` and `{book.title}`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]

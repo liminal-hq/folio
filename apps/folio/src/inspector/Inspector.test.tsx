@@ -92,6 +92,29 @@ describe('page numbers', () => {
 	});
 });
 
+describe('the language of the book', () => {
+	const languages = {
+		choices: [
+			{ value: 'en-CA', label: 'English (Canada)' },
+			{ value: 'fr', label: 'French' },
+		],
+		selected: 'en-CA',
+	};
+
+	it('is offered with the dictionaries there are, and sets the language when changed', async () => {
+		const { apply } = setup([], { languages });
+		const select = screen.getByRole('combobox', { name: 'Language' });
+		expect(select).toHaveValue('en-CA');
+		await userEvent.selectOptions(select, 'French');
+		expect(apply).toHaveBeenCalledWith({ type: 'SetLanguage', language: 'fr' });
+	});
+
+	it('is not drawn when the dictionaries have not been listed', () => {
+		setup([]);
+		expect(screen.queryByRole('combobox', { name: 'Language' })).toBeNull();
+	});
+});
+
 describe('with a text frame selected', () => {
 	it('changes the words when the box loses focus, and only if they changed', () => {
 		const { apply } = setup([text()]);

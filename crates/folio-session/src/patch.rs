@@ -26,6 +26,8 @@ pub enum PatchOp {
         ids: Vec<MasterId>,
         numbers: PageNumbers,
     },
+    /// The language the book is written in.
+    SetLanguage { language: String },
     /// The words spelling leaves alone in the book.
     SetProofing { proofing: Proofing },
     /// The book's page geometry.
