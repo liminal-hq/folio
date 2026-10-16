@@ -10,6 +10,8 @@
 | **Structure** | Layers · Master pages (page numbers, running heads) · Text flow (reading order, chains) · Notes, glossary and index | | ✓ |
 | **Book** | Pictures in this book (needed px for 300 ppi, status) · Book details (title, subtitle, author, ISBNs, keywords, description = blurb) · Preflight, live · History (click to step back) | | ✓ |
 
+**Built so far:** the right-hand card has two groups, **Properties** (the inspector) and **Pages**, as tabs (a `tablist`: arrow keys, Home and End move between them). Selecting something on the page brings Properties forward. Pages lists the book's spreads, cover first, each with a small swatch of what its pages show; choosing one shows it. Under the list, **Page background** lists the places a background can go on the spread being shown (both pages, each page, every page; the cover offers its own page only), with what each has now in words and as a swatch, a Change… button that opens the page background dialog (spec 11) at that place, and Remove. The other groups come with the features they hold.
+
 - **Resizable:** drag the inner edge (240–560 px). The width persists per user.
 - **Collapse** (›) shrinks it to a 52 px icon rail; clicking an icon reopens that group.
 - **Pop out** (↗) tears the current group off into a floating window (below).

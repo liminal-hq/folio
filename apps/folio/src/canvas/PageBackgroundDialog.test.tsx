@@ -24,7 +24,12 @@ const pair = {
 } as unknown as Spread;
 const single = { ...pair, id: 's0', kind: 'opener', pages: [pair.pages[0]!] } as Spread;
 
-const setup = (spread: Spread, page: number | null = null, picked: string | null = null) => {
+const setup = (
+	spread: Spread,
+	page: number | null = null,
+	picked: string | null = null,
+	scope: string | null = null,
+) => {
 	const onApply = vi.fn();
 	const onPick = vi.fn(async () => picked);
 	render(
@@ -34,6 +39,7 @@ const setup = (spread: Spread, page: number | null = null, picked: string | null
 			book={book}
 			spread={spread}
 			page={page}
+			scope={scope}
 			presets={FAKE_PAINTS}
 			onPickPicture={onPick}
 			onApply={onApply}
@@ -180,6 +186,14 @@ describe('PageBackgroundDialog', () => {
 		first.focus();
 		await userEvent.keyboard('{ArrowRight}');
 		expect(screen.getByRole('radio', { name: 'Left page' })).toHaveAttribute(
+			'aria-checked',
+			'true',
+		);
+	});
+
+	it('starts on the place the sidebar named, such as every page', () => {
+		setup(pair, null, null, 'every');
+		expect(screen.getByRole('radio', { name: 'Every page' })).toHaveAttribute(
 			'aria-checked',
 			'true',
 		);

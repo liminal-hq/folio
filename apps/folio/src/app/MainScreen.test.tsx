@@ -128,6 +128,9 @@ describe('the welcome screen', () => {
 	});
 });
 
+/** The ribbon's tabs, apart from the sidebar's own. */
+const ribbonTabs = () => screen.getByRole('tablist', { name: 'Ribbon tabs' });
+
 describe('a book in the main window', () => {
 	it('shows its title, size, length and that it has not been saved', async () => {
 		setup();
@@ -237,15 +240,12 @@ describe('a book in the main window', () => {
 	it('shows the ribbon with its tabs, and Expert reveals the expert groups', async () => {
 		setup();
 		await startBook();
-		expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
-			'Home',
-			'Insert',
-			'Pages',
-			'Layout',
-			'View',
-			'Export',
-		]);
-		await userEvent.click(screen.getByRole('tab', { name: 'Pages' }));
+		expect(
+			within(ribbonTabs())
+				.getAllByRole('tab')
+				.map((tab) => tab.textContent),
+		).toEqual(['Home', 'Insert', 'Pages', 'Layout', 'View', 'Export']);
+		await userEvent.click(within(ribbonTabs()).getByRole('tab', { name: 'Pages' }));
 		expect(screen.queryByRole('group', { name: 'Masters' })).not.toBeInTheDocument();
 		await userEvent.click(screen.getByRole('radio', { name: 'Expert' }));
 		expect(await screen.findByRole('group', { name: 'Masters' })).toBeInTheDocument();
@@ -256,12 +256,12 @@ describe('a book in the main window', () => {
 		await startBook();
 		await settings.update({ interface: { toolbar: 'classic' } });
 		const toolbar = await screen.findByRole('toolbar', { name: 'Toolbar' });
-		expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+		expect(screen.queryByRole('tablist', { name: 'Ribbon tabs' })).not.toBeInTheDocument();
 		await userEvent.click(within(toolbar).getByRole('button', { name: 'Switch to the ribbon' }));
 		await waitFor(async () =>
 			expect((await settings.get()).settings.interface.toolbar).toBe('ribbon'),
 		);
-		expect(await screen.findAllByRole('tab')).not.toHaveLength(0);
+		expect(await screen.findByRole('tablist', { name: 'Ribbon tabs' })).toBeInTheDocument();
 	});
 
 	it('runs undo from the ribbon once there is something to undo', async () => {
@@ -301,9 +301,11 @@ describe('a book in the main window', () => {
 		await startBook();
 		const level = () => screen.getByLabelText(/^Zoom \d+%/).textContent;
 		const before = level();
-		await userEvent.click(screen.getByRole('tab', { name: 'View' }));
+		await userEvent.click(within(ribbonTabs()).getByRole('tab', { name: 'View' }));
 		await userEvent.click(
-			within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Zoom in' }),
+			within(screen.getByRole('tabpanel', { name: 'View' })).getByRole('button', {
+				name: 'Zoom in',
+			}),
 		);
 		await waitFor(() => expect(level()).not.toBe(before));
 	});
