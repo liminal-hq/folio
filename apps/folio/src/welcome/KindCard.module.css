@@ -9,7 +9,7 @@
 	color: inherit;
 	font: inherit;
 	text-align: start;
-	cursor: pointer;
+	cursor: default;
 }
 
 .card:hover {

@@ -29,7 +29,7 @@
 	background: transparent;
 	color: inherit;
 	font: inherit;
-	cursor: pointer;
+	cursor: default;
 }
 
 .zoom button:hover {
@@ -82,7 +82,7 @@
 	color: var(--folio-text-secondary);
 	font: inherit;
 	font-size: 9px;
-	cursor: pointer;
+	cursor: default;
 }
 
 .corner:hover {

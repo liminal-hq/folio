@@ -16,7 +16,7 @@
 	padding: 0;
 	border: 1px solid var(--folio-border-subtle);
 	border-radius: 6px;
-	cursor: pointer;
+	cursor: default;
 }
 
 .swatch[aria-pressed='true'] {
@@ -55,7 +55,7 @@
 	color: inherit;
 	font: inherit;
 	font-size: 12px;
-	cursor: pointer;
+	cursor: default;
 }
 
 .none[aria-pressed='true'] {

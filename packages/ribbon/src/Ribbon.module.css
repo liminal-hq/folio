@@ -39,7 +39,7 @@
 	background: transparent;
 	color: inherit;
 	font: inherit;
-	cursor: pointer;
+	cursor: default;
 }
 .tab {
 	padding: 0 12px;
@@ -209,7 +209,7 @@
 	background: transparent;
 	color: inherit;
 	font: inherit;
-	cursor: pointer;
+	cursor: default;
 }
 .button:hover:not(:disabled) {
 	background: var(--folio-control-bg-hover);
@@ -311,7 +311,7 @@
 	background: transparent;
 	color: inherit;
 	font: inherit;
-	cursor: pointer;
+	cursor: default;
 }
 .stepperButton:disabled {
 	opacity: 0.4;

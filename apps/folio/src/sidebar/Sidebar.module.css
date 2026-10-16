@@ -32,7 +32,7 @@
 	background: transparent;
 	color: var(--folio-text-secondary);
 	font: inherit;
-	cursor: pointer;
+	cursor: default;
 }
 
 .tab:hover {
