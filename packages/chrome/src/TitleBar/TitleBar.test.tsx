@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { AppMenuButton } from './AppMenuButton';
@@ -315,6 +315,16 @@ describe('TitleBar', () => {
 		const group = screen.getByRole('group', { name: 'Window controls' });
 		expect(group).toHaveAttribute('data-controls-style', 'win11');
 		expect(group).toHaveAttribute('data-controls-side', 'end');
+	});
+
+	it('draws the macOS traffic lights from the same three buttons', () => {
+		const { controls } = fakeControls();
+		renderBar(controls, { controlsStyle: 'macos', showAlwaysOnTop: false });
+		const group = screen.getByRole('group', { name: 'Window controls' });
+		expect(group).toHaveAttribute('data-controls-style', 'macos');
+		for (const name of ['Minimise', 'Maximise', 'Close']) {
+			expect(within(group).getByRole('button', { name })).toBeInTheDocument();
+		}
 	});
 
 	it('throws a clear error without a provider', () => {

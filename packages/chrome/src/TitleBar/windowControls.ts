@@ -47,4 +47,4 @@ export interface WindowControls {
 	handlesDoubleClickNatively?: boolean;
 }
 
-export type ControlsStyle = 'gnome' | 'kde' | 'win11' | 'cinnamon';
+export type ControlsStyle = 'gnome' | 'kde' | 'win11' | 'cinnamon' | 'macos';

@@ -36,6 +36,11 @@
 	--folio-control-bg-hover: rgb(255 255 255 / 14%);
 	--folio-window-close-hover-bg: #c42b1c;
 	--folio-window-close-hover-fg: #ffffff;
+	/* macOS traffic lights: the same in every theme, with a dark glyph that shows on hover */
+	--folio-traffic-close: #ff5f57;
+	--folio-traffic-minimise: #febc2e;
+	--folio-traffic-maximise: #28c840;
+	--folio-traffic-glyph: #4d0000;
 	--folio-title-bar-height: 40px;
 	--folio-title-bar-opacity: 0.85;
 

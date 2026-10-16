@@ -56,8 +56,9 @@ describe('titlebarConfigFor with the OS preferences', () => {
 			titlebarConfigFor(preferences({ desktopEnvironment }), 'linux').controlsStyle;
 		expect(style('gnome')).toBe('gnome');
 		expect(style('kde')).toBe('kde');
-		expect(style('cinnamon')).toBe('cinnamon');
+		expect(style('cinnamon')).toBe('gnome');
 		expect(style('windows')).toBe('win11');
+		expect(style('macos')).toBe('macos');
 		expect(style('xfce')).toBe('gnome');
 		expect(style('unknown')).toBe('gnome');
 	});

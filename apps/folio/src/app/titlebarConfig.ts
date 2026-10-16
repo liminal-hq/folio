@@ -22,12 +22,13 @@ export interface TitlebarConfig {
 const STYLE_BY_DESKTOP: Record<TitlebarPreferences['desktopEnvironment'], ControlsStyle> = {
 	gnome: 'gnome',
 	kde: 'kde',
-	cinnamon: 'cinnamon',
 	windows: 'win11',
-	// No dedicated style yet: these fall back to the GNOME look.
+	macos: 'macos',
+	// Folio draws its own window buttons in the GNOME look on every other desktop. Cinnamon's older
+	// square buttons are not used.
+	cinnamon: 'gnome',
 	mate: 'gnome',
 	xfce: 'gnome',
-	macos: 'gnome',
 	unknown: 'gnome',
 };
 
