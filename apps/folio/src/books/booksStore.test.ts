@@ -89,6 +89,18 @@ describe('createBooksStore', () => {
 		expect(rewound.canRedo).toBe(true);
 	});
 
+	it('runs changes in the order they were asked for, even when none is waited on', async () => {
+		const { store } = await started();
+		await store.newBook({});
+		const start = activeBook(store.state.getState())!.copy.book.bleed;
+		// A change and the undo that follows it are asked for back to back, as when words are kept and
+		// undo is pressed in the same breath.
+		await Promise.all([store.apply(MOVE), store.undo(), store.apply(MOVE), store.apply(MOVE)]);
+		const copy = activeBook(store.state.getState())!.copy;
+		expect(copy.book.bleed).toBe(start + 2);
+		expect(copy.revision).toBe(4);
+	});
+
 	it('has no mark when no book is shown', async () => {
 		const { store } = await started();
 		expect(await store.mark()).toBeNull();

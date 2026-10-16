@@ -162,6 +162,10 @@ pub enum Intent {
         frame: FrameId,
         degrees: f64,
     },
+    /// Closes the last undo step, so the next change on the same frame starts a new one instead of
+    /// joining it. It changes nothing in the book. Words typed in an editor send it before each pause
+    /// or paste is kept, so undo takes back one stretch of typing at a time.
+    EndUndoStep,
     /// Tells spelling to leave a word alone in this book, or to check it again.
     IgnoreWord {
         word: String,

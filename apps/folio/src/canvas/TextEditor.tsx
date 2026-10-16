@@ -10,6 +10,7 @@ import { ContextMenu } from '@liminal-hq/folio-chrome/ContextMenu';
 import type { MenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { t } from '../i18n/messages';
+import { KEEP_WORDS_EVENT, type KeepWordsDetail } from './editCheckpoint';
 import styles from './TextEditor.module.css';
 
 /** A frame with words of its own to edit: a text frame or a shape. */
@@ -43,6 +44,9 @@ export interface Speller {
 /** How long after the last key the words are checked again, in milliseconds. */
 const CHECK_DELAY_MS = 200;
 
+/** How long typing must pause before the words so far are kept as an undo step, in milliseconds. */
+const KEEP_AFTER_MS = 1000;
+
 /** What an editor needs of the words it edits: where they sit, and what they are. */
 export interface EditedWords {
 	/** A table's cell has its own room inside the table, as a shape's words do. */
@@ -64,6 +68,12 @@ export interface TextEditorProps {
 	at: { x: number; y: number };
 	/** The new words, or `null` when nothing changed. */
 	onCommit(text: string | null): void;
+	/**
+	 * Keeps the words so far as an undo step and goes on editing. Sent after a pause in typing, around a
+	 * paste, around a correction and before anything else changes the book, so that undo takes back
+	 * one stretch of typing at a time.
+	 */
+	onCheckpoint?(text: string): void;
 	/** Tab was pressed: the words are kept, then this is called. Without it, Tab moves on as usual. */
 	onTab?(back: boolean): void;
 	/** Underlines misspelt words, and offers corrections. Without it, nothing is checked. */
@@ -71,8 +81,9 @@ export interface TextEditorProps {
 }
 
 /**
- * A text area set in the frame's own font over the frame. Escape or leaving it keeps what was typed
- * as one change, so one undo takes it all back.
+ * A text area set in the frame's own font over the frame. Escape or leaving it keeps what was typed.
+ * Along the way a pause, a paste and a correction each keep the words so far as a step of their own,
+ * so undo takes back one stretch of typing at a time and not the whole session.
  */
 export function TextEditor({
 	frame,
@@ -81,6 +92,7 @@ export function TextEditor({
 	rotation = 0,
 	at,
 	onCommit,
+	onCheckpoint,
 	onTab,
 	speller,
 }: TextEditorProps) {
@@ -96,6 +108,9 @@ export function TextEditor({
 	const done = useRef(false);
 	/** What is in the box now, kept as it is typed because the box is gone by the time an unmount cleans up. */
 	const typed = useRef(initial);
+	/** The words last handed over, as a step or as the end of the editing. */
+	const sent = useRef(initial);
+	const pause = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
 	useEffect(() => {
 		const el = area.current;
@@ -104,11 +119,20 @@ export function TextEditor({
 		el.setSelectionRange(el.value.length, el.value.length);
 	}, []);
 
+	/** Keeps what is typed so far as an undo step, and goes on. */
+	const keep = () => {
+		clearTimeout(pause.current);
+		if (done.current || typed.current === sent.current) return;
+		sent.current = typed.current;
+		onCheckpoint?.(typed.current);
+	};
 	const finish = () => {
 		if (done.current) return;
+		clearTimeout(pause.current);
 		done.current = true;
 		const text = typed.current;
-		onCommit(text !== initial ? text : null);
+		onCommit(text !== sent.current ? text : null);
+		sent.current = text;
 	};
 	// Showing another spread or losing the frame closes the editor without a blur: keep the words.
 	const latest = useRef(finish);
@@ -117,11 +141,24 @@ export function TextEditor({
 	// development double run of effects must not close an editor that has only just opened.
 	useEffect(
 		() => () => {
-			if (typed.current !== initial) latest.current();
+			clearTimeout(pause.current);
+			if (typed.current !== sent.current) latest.current();
 		},
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[],
 	);
+	// Something is about to change the book: the words typed so far go in first, and an undo or redo
+	// closes the editing, since the box would show words the book no longer holds.
+	const kept = useRef(keep);
+	kept.current = keep;
+	useEffect(() => {
+		const onKeep = (event: Event) => {
+			const { end } = (event as CustomEvent<KeepWordsDetail>).detail;
+			if (end) latest.current();
+			else kept.current();
+		};
+		window.addEventListener(KEEP_WORDS_EVENT, onKeep);
+		return () => window.removeEventListener(KEEP_WORDS_EVENT, onKeep);
+	}, []);
 
 	// Misspellings of what is typed now, checked a moment after the last key. A check that comes back
 	// after more was typed is dropped, since its ranges no longer fit.
@@ -183,10 +220,13 @@ export function TextEditor({
 	const replace = (miss: { start: number; end: number }, word: string) => {
 		const el = area.current;
 		if (!el) return;
+		// What was typed up to here is one step, and the correction another.
+		keep();
 		const next = el.value.slice(0, miss.start) + word + el.value.slice(miss.end);
 		el.value = next;
 		typed.current = next;
 		setText(next);
+		keep();
 		const caret = miss.start + word.length;
 		el.setSelectionRange(caret, caret);
 	};
@@ -267,7 +307,17 @@ export function TextEditor({
 				onChange={(event) => {
 					typed.current = event.target.value;
 					setText(event.target.value);
+					const how = (event.nativeEvent as InputEvent).inputType;
+					// A paste, a drop or a cut is a step of its own, and typing is kept when it pauses.
+					if (how === 'insertFromPaste' || how === 'insertFromDrop' || how === 'deleteByCut')
+						keep();
+					else {
+						clearTimeout(pause.current);
+						pause.current = setTimeout(() => kept.current(), KEEP_AFTER_MS);
+					}
 				}}
+				onPaste={keep}
+				onCut={keep}
 				onBlur={() => {
 					if (!menuUp.current) finish();
 				}}

@@ -104,6 +104,16 @@ impl Session {
     /// Applies an intent as if it arrived at `at`, which decides whether it merges into the last
     /// undo step. A refused intent changes nothing, not even the revision.
     pub fn apply_at(&mut self, intent: Intent, at: Instant) -> Result<Patch, SessionError> {
+        if matches!(intent, Intent::EndUndoStep) {
+            // Nothing in the book changes: the last step is only closed to what comes next.
+            if let Some(last) = self.undo.last_mut() {
+                last.merge = None;
+            }
+            return Ok(Patch {
+                revision: self.revision,
+                ops: Vec::new(),
+            });
+        }
         let plan = plan(&self.book, &intent, &mut self.ids)?;
         let before = Delta::capture(&self.book, &plan.touched);
         run(&mut self.book, intent, &plan, &mut self.ids);

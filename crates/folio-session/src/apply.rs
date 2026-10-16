@@ -380,6 +380,11 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 merge: focus.is_some().then(|| MergeKey::Focus(frame.clone())),
             })
         }
+        Intent::EndUndoStep => Ok(Plan {
+            touched: Vec::new(),
+            new_spread: None,
+            merge: None,
+        }),
         Intent::EnsureMasters => Ok(Plan {
             touched: book.spreads.iter().map(|s| s.id.clone()).collect(),
             new_spread: None,
@@ -890,6 +895,7 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             }
         }
         Intent::EnsureMasters => ensure_masters(book),
+        Intent::EndUndoStep => {}
         Intent::IgnoreWord { word } => {
             if let Ok(word) = Proofing::clean(&word) {
                 if !book.proofing.ignore.contains(&word) {

@@ -720,6 +720,7 @@ export function SpreadCanvas({
 						x: (editedFrame.box.x - bounds.x) * scale,
 						y: (editedFrame.box.y - bounds.y) * scale,
 					}}
+					onCheckpoint={(text) => onEditText?.(editedFrame.id, text)}
 					onCommit={(text) => {
 						setEditing(null);
 						if (text !== null) onEditText?.(editedFrame.id, text);
@@ -746,6 +747,14 @@ export function SpreadCanvas({
 							x: (editedFrame.box.x - bounds.x) * scale,
 							y: (editedFrame.box.y - bounds.y) * scale,
 						}}
+						onCheckpoint={(text) =>
+							onEditTable?.(editedFrame.id, {
+								type: 'setCell',
+								row: editingCell.row,
+								col: editingCell.col,
+								text,
+							})
+						}
 						onCommit={(text) => {
 							setEditing(null);
 							if (text !== null) {

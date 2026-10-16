@@ -20,6 +20,7 @@ import { Shelf } from '../canvas/Shelf';
 import { shelfIntent } from '../canvas/shelfMenu';
 import { guideIntents } from '../canvas/guides';
 import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../canvas/marksModel';
+import { keepWords } from '../canvas/editCheckpoint';
 import { PageBackgroundDialog } from '../canvas/PageBackgroundDialog';
 import { Stage, type ZoomApi } from '../canvas/Stage';
 import type { Speller } from '../canvas/TextEditor';
@@ -204,7 +205,17 @@ export function BookView({
 		master && shownSpread?.pages.some((p) => p.master === editing) ? shownSpread.id : null;
 	const masterName = book.masterPages?.find((m) => m.id === editing)?.name ?? '';
 
-	const apply = (intent: Intent) => void store.apply(intent);
+	// Anything else that changes the book while words are being typed lands after those words: the
+	// editor keeps what it has first, so undo takes the changes back in the order they happened.
+	const apply = (intent: Intent) => {
+		keepWords();
+		void store.apply(intent);
+	};
+	/** Words kept from an editor are a step of their own, never joined to the typing before them. */
+	const keepAsStep = (intent: Intent) => {
+		void store.apply({ type: 'EndUndoStep' });
+		void store.apply(intent);
+	};
 
 	/** Puts a new frame of `kind` on the spread, centred on `point` (in points) or the first page. */
 	const addFrame = (kind: NewFrameKind, point?: { x: number; y: number }) => {
@@ -488,8 +499,8 @@ export function BookView({
 						onTurn={(frame, degrees) =>
 							store.apply({ type: 'RotateFrame', on: surface, frame, degrees })
 						}
-						onEditText={(frame, text) => void store.apply({ type: 'SetText', frame, text })}
-						onEditTable={(frame, edit) => void store.apply({ type: 'EditTable', frame, edit })}
+						onEditText={(frame, text) => keepAsStep({ type: 'SetText', frame, text })}
+						onEditTable={(frame, edit) => keepAsStep({ type: 'EditTable', frame, edit })}
 						speller={speller}
 						onEditingCell={(cell) => cell && setEditingCell(cell)}
 						editableMasters={settings.mode === 'expert'}
