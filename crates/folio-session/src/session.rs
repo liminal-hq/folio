@@ -52,6 +52,14 @@ impl Session {
         Self::with_ids(book, random_ids())
     }
 
+    /// A session for a book brought back after a crash: as unsaved as it can be, so closing it
+    /// asks and a save writes it out, though no change has been made to it in this session.
+    pub fn recovered(book: Book) -> Self {
+        let mut session = Self::new(book);
+        session.revision = 1;
+        session
+    }
+
     /// A session that makes ids its own way: a counter in tests, for example.
     pub fn with_ids(book: Book, ids: IdSource) -> Self {
         Self {

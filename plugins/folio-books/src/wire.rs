@@ -129,6 +129,19 @@ pub struct DictionaryStatus {
     pub bundled: bool,
 }
 
+/// A book with changes that were never saved, found after Folio stopped without closing it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct Recoverable {
+    pub id: String,
+    pub title: String,
+    /// Where the real file is, or nothing for a book that was never saved.
+    pub path: Option<String>,
+    /// When the copy was written, in seconds since 1970.
+    pub saved_at: u32,
+}
+
 /// How far a dictionary download has got, sent to every window as it goes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

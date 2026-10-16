@@ -19,6 +19,7 @@ import type { PaintPresets } from '@liminal-hq/folio-protocol/generated/PaintPre
 import type { KindInfo } from '@liminal-hq/folio-protocol/generated/KindInfo';
 import type { NewBookSpec } from '@liminal-hq/folio-protocol/generated/NewBookSpec';
 import type { Patch } from '@liminal-hq/folio-protocol/generated/Patch';
+import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { PatchEvent } from '@liminal-hq/folio-protocol/generated/PatchEvent';
 import type { PluginStatus } from '@liminal-hq/folio-protocol/generated/PluginStatus';
 import type { SpreadLayoutResult } from '@liminal-hq/folio-protocol/generated/SpreadLayoutResult';
@@ -117,6 +118,26 @@ export function applyIntent(id: string, intent: Intent): Promise<Patch> {
 /** Undoes the last step; `null` when there is nothing to undo. */
 export function undo(id: string): Promise<Patch | null> {
 	return cmd<Patch | null>('undo', { id });
+}
+
+/** Writes a recovery copy of each book with changes the last copy does not have; how many were written. */
+export function autosaveBooks(): Promise<number> {
+	return cmd<number>('autosave_books');
+}
+
+/** The books a crash left changes in, that are not open, newest first. */
+export function recoverableBooks(): Promise<Recoverable[]> {
+	return cmd<Recoverable[]>('recoverable_books');
+}
+
+/** Opens a recovery copy as the book it was, still unsaved. */
+export function restoreBook(id: string): Promise<BookSnapshot> {
+	return cmd<BookSnapshot>('restore_book', { id });
+}
+
+/** Gives a recovery copy up. */
+export function discardRecovered(id: string): Promise<void> {
+	return cmd<void>('discard_recovered', { id });
 }
 
 /** How many steps can be undone now: a mark to give `rewindHistory`. */

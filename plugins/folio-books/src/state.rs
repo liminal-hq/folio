@@ -18,10 +18,11 @@ use folio_spell::{find_misspellings, Checker};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::error::Error;
+use crate::recovery::{self, Recovery};
 use crate::spelling::Spelling;
 use crate::wire::{
     BookSnapshot, BookSpelling, BookSummary, BooksChanged, Misspelling, MisspeltWord, PatchEvent,
-    SpellCheck, SpreadLayoutResult,
+    Recoverable, SpellCheck, SpreadLayoutResult,
 };
 use crate::{CHANGED_EVENT, PATCH_EVENT};
 
@@ -67,6 +68,10 @@ struct OpenBook {
     session: Session,
     package: Package,
     path: Option<PathBuf>,
+    /// Where the copy of this book that a crash would be recovered from is kept.
+    recovery_id: String,
+    /// The revision the copy was last written at.
+    autosaved: Option<u64>,
     /// What is known of each picture, read from its header the first time layout needs it. A
     /// picture's path is its content hash, so what is known of it never goes stale.
     facts: HashMap<String, AssetFact>,
@@ -93,6 +98,17 @@ impl OpenBook {
             }
         }
         AssetFacts(known)
+    }
+
+    /// Whether a crash now would lose changes a copy does not have: the book has changes worth
+    /// keeping (a book never saved has them once touched), and it has changed since the copy.
+    fn needs_a_copy(&self) -> bool {
+        let touched = if self.path.is_none() {
+            self.session.revision() > 0
+        } else {
+            self.session.is_dirty()
+        };
+        touched && self.autosaved != Some(self.session.revision())
     }
 
     fn summary(&self) -> BookSummary {
@@ -141,6 +157,8 @@ pub struct Books<R: Runtime> {
     fonts: OnceLock<FontBook>,
     /// The dictionaries: the one that comes with Folio, and those downloaded.
     pub(crate) spelling: Spelling,
+    /// Copies of books with changes, for coming back after a crash.
+    pub(crate) recovery: Recovery,
 }
 
 impl<R: Runtime> Books<R> {
@@ -153,6 +171,7 @@ impl<R: Runtime> Books<R> {
             generator,
             fonts: OnceLock::new(),
             spelling: Spelling::default(),
+            recovery: Recovery::default(),
         }
     }
 
@@ -205,6 +224,17 @@ impl<R: Runtime> Books<R> {
     }
 
     fn add(&self, session: Session, package: Package, path: Option<PathBuf>) -> BookSnapshot {
+        self.add_recovering(session, package, path, None)
+    }
+
+    /// Adds a book. `recovery_id` is the copy it was brought back from, which it goes on using.
+    fn add_recovering(
+        &self,
+        session: Session,
+        package: Package,
+        path: Option<PathBuf>,
+        recovery_id: Option<String>,
+    ) -> BookSnapshot {
         let mut inner = locked(&self.inner);
         inner.next += 1;
         let book = OpenBook {
@@ -212,6 +242,8 @@ impl<R: Runtime> Books<R> {
             session,
             package,
             path,
+            recovery_id: recovery_id.unwrap_or_else(|| recovery::new_id(inner.next)),
+            autosaved: None,
             facts: HashMap::new(),
         };
         let snapshot = book.snapshot();
@@ -277,6 +309,9 @@ impl<R: Runtime> Books<R> {
             open.package.save(&target, &options)?;
             open.session.mark_saved();
             open.path = Some(dunce::canonicalize(&target).unwrap_or(target));
+            // What the copy kept is in the file now.
+            self.recovery.remove(&open.recovery_id);
+            open.autosaved = None;
             let summary = open.summary();
             self.announce(&inner);
             summary
@@ -294,11 +329,71 @@ impl<R: Runtime> Books<R> {
                 .iter()
                 .position(|b| b.id == id)
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
-            inner.books.remove(at);
+            let closed = inner.books.remove(at);
+            // Closed on purpose, saved or not: nothing is left to recover.
+            self.recovery.remove(&closed.recovery_id);
             self.announce(&inner);
         }
         self.fire(BookEvent::Closed(id.into()));
         Ok(())
+    }
+
+    /// Writes a recovery copy of each book that has changes one does not have yet, and says how many
+    /// were written. A copy that cannot be written is logged and tried again next time.
+    pub fn autosave(&self) -> usize {
+        let mut inner = locked(&self.inner);
+        let mut written = 0;
+        for open in inner.books.iter_mut().filter(|b| b.needs_a_copy()) {
+            *open.package.book_mut() = open.session.book().clone();
+            let title = open.session.book().title.clone();
+            let revision = open.session.revision();
+            match self.recovery.write(
+                &open.recovery_id,
+                &title,
+                open.path.as_deref(),
+                &mut open.package,
+                &self.generator,
+            ) {
+                Ok(()) => {
+                    open.autosaved = Some(revision);
+                    written += 1;
+                }
+                Err(e) => log::warn!("could not write a recovery copy of `{title}`: {e}"),
+            }
+        }
+        written
+    }
+
+    /// The recovery copies of books that are not open, newest first.
+    pub fn recoverable(&self) -> Vec<Recoverable> {
+        let open: Vec<String> = locked(&self.inner)
+            .books
+            .iter()
+            .map(|b| b.recovery_id.clone())
+            .collect();
+        self.recovery.list(&open)
+    }
+
+    /// Opens a recovery copy as the book it was, still unsaved: its file is where it was kept, so a
+    /// save puts it back, and a book never saved comes back untitled.
+    pub fn restore(&self, id: &str) -> Result<BookSnapshot, Error> {
+        let (package, note) = self.recovery.open(id)?;
+        let session = Session::recovered(package.book().clone());
+        let path = note.path.map(PathBuf::from);
+        let snapshot = self.add_recovering(session, package, path, Some(note.id));
+        self.fire(BookEvent::Opened(snapshot.summary.clone()));
+        Ok(snapshot)
+    }
+
+    /// Gives a recovery copy up. A copy of a book that is open is left to that book.
+    pub fn discard(&self, id: &str) {
+        let open = locked(&self.inner)
+            .books
+            .iter()
+            .any(|b| b.recovery_id == id);
+        if !open {
+            self.recovery.remove(id);
+        }
     }
 
     pub fn list(&self) -> Vec<BookSummary> {

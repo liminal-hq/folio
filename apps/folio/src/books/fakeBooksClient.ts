@@ -15,6 +15,7 @@ import type {
 } from '@liminal-hq/folio-plugin-books';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
+import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import { applyPatch } from './applyPatch';
@@ -109,6 +110,8 @@ export interface FakeBooks {
 	emit: { patch(event: PatchEvent): void; changed(): void };
 	/** Makes the next call named `name` fail with a refusal. */
 	refuseNext(name: string, kind: string, message: string): void;
+	/** Books a crash left changes in, which a test puts here for the client to offer. */
+	recoveries: Recoverable[];
 	/** The words the fake speller flags, whatever the case; none to begin with. */
 	misspelt: string[];
 }
@@ -121,6 +124,10 @@ export function createFakeBooksClient(): FakeBooks {
 	let counter = 0;
 	const misspelt: string[] = [];
 	const downloaded = new Set<string>();
+	/** Books a crash left changes in; a test puts some here. */
+	const recoveries: Recoverable[] = [];
+	/** The revision each book was last copied at, as the plugin keeps it. */
+	const copied = new Map<string, number>();
 	const progress = new Set<(event: DictionaryProgress) => void>();
 	const listing = (): DictionaryStatus[] => [
 		{
@@ -301,6 +308,53 @@ export function createFakeBooksClient(): FakeBooks {
 			changed();
 			return result;
 		},
+		async autosave() {
+			await call('autosave');
+			let written = 0;
+			for (const [id, h] of held) {
+				const touched = h.snapshot.summary.path === null ? h.past > 0 : !h.saved || h.past > 0;
+				if (touched && copied.get(id) !== h.snapshot.revision) {
+					copied.set(id, h.snapshot.revision);
+					written += 1;
+				}
+			}
+			return written;
+		},
+		async recoverable() {
+			await call('recoverable');
+			return [...recoveries];
+		},
+		async restore(id) {
+			await call('restore', [id]);
+			const at = recoveries.findIndex((r) => r.id === id);
+			if (at < 0) throw { kind: 'recovery', message: `there is no recovery copy ${id}` };
+			const [found] = recoveries.splice(at, 1);
+			counter += 1;
+			const bookId = `bs_${counter}`;
+			const snapshot: BookSnapshot = {
+				summary: {
+					id: bookId,
+					title: found!.title,
+					kind: 'picture',
+					path: found!.path,
+					dirty: true,
+				},
+				revision: 1,
+				book: { ...BASE_BOOK, title: found!.title },
+				styles: {},
+				settings: {},
+				canUndo: false,
+				canRedo: false,
+			};
+			held.set(bookId, { snapshot, past: 0, future: 0, saved: false });
+			changed();
+			return snapshot;
+		},
+		async discardRecovered(id) {
+			await call('discardRecovered', [id]);
+			const at = recoveries.findIndex((r) => r.id === id);
+			if (at >= 0) recoveries.splice(at, 1);
+		},
 		async historyMark(id) {
 			await call('historyMark', [id]);
 			return find(id).past;
@@ -451,5 +505,6 @@ export function createFakeBooksClient(): FakeBooks {
 		},
 		refuseNext: (name, kind, message) => refusals.set(name, { kind, message }),
 		misspelt,
+		recoveries,
 	};
 }

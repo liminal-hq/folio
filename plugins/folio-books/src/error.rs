@@ -30,6 +30,9 @@ pub enum Error {
     /// A dictionary could not be downloaded, checked or kept.
     #[error("{0}")]
     Dictionary(String),
+    /// A recovery copy could not be written, read or found.
+    #[error("{0}")]
+    Recovery(String),
     /// A window asked for a spread the book does not have.
     #[error("the book has no spread `{0}`")]
     NoSuchSpread(String),
@@ -56,6 +59,7 @@ impl Error {
             Error::NoSuchMaster(_) => "noSuchMaster",
             Error::BadImage(_) => "image",
             Error::Dictionary(_) => "dictionary",
+            Error::Recovery(_) => "recovery",
         }
     }
 }

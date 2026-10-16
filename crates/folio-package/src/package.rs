@@ -372,6 +372,28 @@ impl Package {
         options: &SaveOptions,
     ) -> Result<(), PackageError> {
         let path = path.as_ref();
+        self.write_atomically(path, options)?;
+        // Everything is in the new file now, so what was in memory can be read from there.
+        let absolute = dunce::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        for blob in self.assets.values_mut() {
+            *blob = Blob::Packed;
+        }
+        self.source = Some(absolute);
+        Ok(())
+    }
+
+    /// Writes the book as it is to `path`, atomically, and leaves the package as it was: it is not
+    /// the file at `path` afterwards, so what it reads still comes from where it did. For copies
+    /// kept beside the real file, such as the ones that let a crash be recovered from.
+    pub fn save_copy(
+        &mut self,
+        path: impl AsRef<Path>,
+        options: &SaveOptions,
+    ) -> Result<(), PackageError> {
+        self.write_atomically(path.as_ref(), options)
+    }
+
+    fn write_atomically(&mut self, path: &Path, options: &SaveOptions) -> Result<(), PackageError> {
         let temporary = beside(path, ".tmp");
         let result = self.write_to(&temporary, options).and_then(|()| {
             if options.keep_backup && path.exists() {
@@ -386,15 +408,8 @@ impl Package {
         });
         if result.is_err() {
             let _ = fs::remove_file(&temporary);
-            return result;
         }
-        // Everything is in the new file now, so what was in memory can be read from there.
-        let absolute = dunce::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-        for blob in self.assets.values_mut() {
-            *blob = Blob::Packed;
-        }
-        self.source = Some(absolute);
-        Ok(())
+        result
     }
 
     fn write_to(&mut self, temporary: &Path, options: &SaveOptions) -> Result<(), PackageError> {

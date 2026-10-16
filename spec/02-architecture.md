@@ -9,7 +9,7 @@ folio/
 │  └─ src-tauri/               # thin shell: commands, window setup, menus, plugins
 ├─ crates/
 │  ├─ folio-model/             # document model (serde), units, ids, migrations — no IO
-│  ├─ folio-package/           # .folio zip read/write, manifest, autosave journal
+│  ├─ folio-package/           # .folio zip read/write, manifest, a recovery copy of a book beside its file
 │  ├─ folio-layout/            # text shaping + line breaking + flow, snapping maths, preflight geometry (built: D-20) (built: D-20)
 │  ├─ folio-export/            # EPUB 3 / KEPUB writer, PDF writer (PDF/X), cover builder
 │  ├─ folio-import/            # docx, odt, rtf, md, html-paste, sla, idml, epub → model
@@ -33,7 +33,7 @@ folio/
 | Crate | Responsibility | Likely deps |
 |---|---|---|
 | `folio-model` | `Book`, `Spread`, `Page`, `Frame`, `Style`, `Master`, units (`Pt`), id newtypes, schema version + migrations | `serde`, `serde_json`, `ts-rs`, `uuid` |
-| `folio-package` | zip container, `mimetype` first + stored, manifest, asset dedupe by SHA-256, autosave journal (`/recovery/`) | `zip`, `sha2`, `tempfile` |
+| `folio-package` | zip container, `mimetype` first + stored, manifest, asset dedupe by SHA-256, a recovery copy of a book beside its file (D-27) | `zip`, `sha2`, `tempfile` |
 | `folio-layout` | font loading, shaping, Knuth–Plass line breaking with a greedy fallback, hyphenation, frame threading, overset detection, snapping maths shared with the UI via WASM (optional) | `rustybuzz`, `ttf-parser`, `fontdb`, `hyphenation`, `unicode-linebreak` |
 | `folio-export` | EPUB 3 (OPF, nav, XHTML, CSS), KEPUB spans, fixed-layout `rendition:layout`, PDF generation, PDF/X output intent, cover PDF | `quick-xml`, `pdf-writer`, `subsetter`, `image` |
 | `folio-color` | sRGB/Display-P3 in, CMYK out (GRACoL 2013, FOGRA39), soft-proof previews | `lcms2` |
@@ -57,7 +57,7 @@ jax_ask(question, context) -> JaxAnswer       jax_checklist(spread_id) -> Vec<Ch
 show_native_menu(items, at) -> Option<ItemId> // lifted from Waypoint (see 06)
 ```
 
-Events: `export://progress`, `autosave://saved`, `fonts://changed`, `jax://ready`.
+Events: `export://progress`, `fonts://changed`, `jax://ready`.
 
 ## Window chrome (D-03)
 

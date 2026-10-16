@@ -60,7 +60,7 @@ modifiers: Alt = no snapping · Shift (resize) = keep aspect · Shift (move) = c
 ## Undo
 
 - Rust keeps an intent-level undo stack (default 200 steps, coalescing for drag/nudge/typing).
-- The undo stack is also persisted in the autosave journal, so a crash loses at most 30 seconds.
+- A crash loses at most the autosave interval (30 seconds by default): a recovery copy of the book is kept beside the real file (D-27). A recovered book starts with no undo history.
 
 ## Reflow preview (Kindle/Kobo)
 

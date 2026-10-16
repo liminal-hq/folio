@@ -188,6 +188,51 @@ fn pictures_survive_a_save_as_and_a_save_over_without_being_loaded() {
 }
 
 #[test]
+fn a_copy_is_written_without_the_package_becoming_that_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let real = dir.path().join("real.folio");
+    let copy = dir.path().join("recovery").join("copy.folio");
+    let mut package = Package::new(book());
+    let saved = package.add_image(vec![1; 2048], "png");
+    package.save(&real, &SaveOptions::default()).unwrap();
+
+    // A picture added since, and a change to the words: the copy has both, and the real file neither.
+    let added = package.add_image(vec![2; 2048], "png");
+    package
+        .set_flow_text("text/flow-main.md", "newer words")
+        .unwrap();
+    fs::create_dir_all(copy.parent().unwrap()).unwrap();
+    let options = SaveOptions {
+        keep_backup: false,
+        ..SaveOptions::default()
+    };
+    package.save_copy(&copy, &options).unwrap();
+    package.save_copy(&copy, &options).unwrap();
+
+    let from_copy = Package::open(&copy).unwrap();
+    assert_eq!(from_copy.asset_bytes(&saved).unwrap(), vec![1; 2048]);
+    assert_eq!(from_copy.asset_bytes(&added).unwrap(), vec![2; 2048]);
+    assert_eq!(
+        from_copy.flow_text("text/flow-main.md"),
+        Some("newer words")
+    );
+    let from_real = Package::open(&real).unwrap();
+    assert_eq!(from_real.asset_paths().count(), 1);
+    assert_eq!(from_real.flow_text("text/flow-main.md"), None);
+
+    // The package still reads from the real file, so removing the copy loses nothing, and a save
+    // afterwards still writes the real file whole.
+    fs::remove_file(&copy).unwrap();
+    assert_eq!(package.asset_bytes(&saved).unwrap(), vec![1; 2048]);
+    package.save(&real, &SaveOptions::default()).unwrap();
+    let after = Package::open(&real).unwrap();
+    assert_eq!(after.asset_bytes(&added).unwrap(), vec![2; 2048]);
+    assert_eq!(after.flow_text("text/flow-main.md"), Some("newer words"));
+    // No half-written file is left beside the copy.
+    assert!(!dir.path().join("recovery").join("copy.folio.tmp").exists());
+}
+
+#[test]
 fn a_save_keeps_the_previous_one_as_a_backup() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("otter.folio");
