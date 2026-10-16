@@ -36,6 +36,7 @@ interface TextFrame { text: string; runs?: Run[]; /* box-level */ s: StyleId; fo
 - Commit (blur, Esc, clicking the page) parses the DOM back with `domToRuns` (tags B/I/U/S/SUP/SUB/A plus inline `font-weight`, `font-style`, `text-decoration`, `font-variant`, `color` and `background-color`). Adjacent equal runs are merged, and if nothing is rich the result collapses back to plain `text`.
 - In the desktop app the editor is a Rust-shaped text view rather than `contentEditable` (02). The run model is the same.
 - Ctrl+B/I/U work while typing and on a selected box.
+- **Undo while typing.** Undo takes back one stretch of typing at a time, not the whole editing session. The words typed so far are kept as an undo step after a pause of a second in the typing, before and after a paste or a cut, before and after a correction from the spelling menu, and before anything else changes the book (a style, a move, an undo or redo). The editor stays open through all of these. Undo and redo from the ribbon, menu or keyboard shortcut close the editor first, so that what is on the page and what the book holds are the same. Ctrl+Z with the caret in the box is the box's own: it takes back the last typing in the box without touching the book.
 
 ## Paragraph details
 

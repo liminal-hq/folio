@@ -2846,3 +2846,40 @@ fn a_word_is_ignored_in_the_book_sorted_once_and_undone_with_it() {
     s.undo().unwrap();
     assert_eq!(s.book().proofing.ignore, ["Zorblat"]);
 }
+
+#[test]
+fn ending_an_undo_step_keeps_the_next_words_from_joining_it() {
+    let text = |t: &str| Intent::SetText {
+        frame: frame("fr_text"),
+        text: t.into(),
+    };
+    let words = |s: &Session| {
+        let Frame::Text(t) = &s.book().spreads[1].frames[1] else {
+            panic!("text")
+        };
+        t.content.as_ref().unwrap().inline[0].text.clone()
+    };
+
+    // Typing again soon after joins the step before it, so one undo takes both back.
+    let mut joined = session();
+    joined.apply(text("Once")).unwrap();
+    joined.apply(text("Once upon")).unwrap();
+    joined.undo().unwrap();
+    assert!(!joined.can_undo());
+
+    // Closing the step in between keeps them apart, and closing one changes nothing at all.
+    let mut apart = session();
+    apart.apply(text("Once")).unwrap();
+    let revision = apart.revision();
+    let sealed = apart.apply(Intent::EndUndoStep).unwrap();
+    assert!(sealed.ops.is_empty());
+    assert_eq!(sealed.revision, revision);
+    apart.apply(text("Once upon")).unwrap();
+    assert_eq!(words(&apart), "Once upon");
+    apart.undo().unwrap();
+    assert_eq!(words(&apart), "Once");
+    assert!(apart.can_undo());
+
+    // With nothing to close, it is simply nothing.
+    assert!(session().apply(Intent::EndUndoStep).unwrap().ops.is_empty());
+}

@@ -5,6 +5,7 @@
 
 import type { Settings, SettingsPatch } from '@liminal-hq/folio-plugin-settings';
 import type { WindowKind } from '@liminal-hq/folio-protocol/generated/WindowKind';
+import { keepWords } from '../canvas/editCheckpoint';
 import { RECENT_PREFIX, type CommandId } from './appMenuModel';
 
 /** What the books can do for a command. Each answers when it is finished. */
@@ -105,9 +106,13 @@ export async function runCommand(
 			return books.saveAs();
 		case 'file.close':
 			return books.close();
+		// Words being typed are kept first, and the editing closes, so the undo or redo that follows
+		// acts on the book as it stands and not on the box.
 		case 'edit.undo':
+			keepWords(true);
 			return books.undo();
 		case 'edit.redo':
+			keepWords(true);
 			return books.redo();
 		default:
 			return;

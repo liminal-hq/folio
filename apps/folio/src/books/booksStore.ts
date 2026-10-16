@@ -121,6 +121,17 @@ export function createBooksStore(client: BooksClient): BooksStore {
 		}
 	};
 
+	/**
+	 * Changes to a book run one at a time, in the order they were asked for. An edit kept and an undo
+	 * that follows it are two calls, and the undo must not reach Rust first.
+	 */
+	let queue: Promise<unknown> = Promise.resolve();
+	const inOrder = <T>(job: () => Promise<T>): Promise<T> => {
+		const run = queue.then(job);
+		queue = run.catch(() => undefined);
+		return run;
+	};
+
 	const onPatch = (event: PatchEvent) => {
 		const held = state.getState().copies[event.id];
 		if (!held) return;
@@ -229,55 +240,65 @@ export function createBooksStore(client: BooksClient): BooksStore {
 		async apply(intent) {
 			const id = active();
 			if (id === null) return;
-			try {
-				const patch = await client.apply(id, intent);
-				onPatch({
-					id,
-					patch,
-					canUndo: true,
-					canRedo: false,
-				});
-				state.setState({ error: null });
-			} catch (reason) {
-				fail(reason);
-			}
+			await inOrder(async () => {
+				try {
+					const patch = await client.apply(id, intent);
+					onPatch({
+						id,
+						patch,
+						canUndo: true,
+						canRedo: false,
+					});
+					state.setState({ error: null });
+				} catch (reason) {
+					fail(reason);
+				}
+			});
 		},
 		async undo() {
 			const id = active();
 			if (id === null) return;
-			try {
-				await client.undo(id);
-			} catch (reason) {
-				fail(reason);
-			}
+			await inOrder(async () => {
+				try {
+					await client.undo(id);
+				} catch (reason) {
+					fail(reason);
+				}
+			});
 		},
 		async mark() {
 			const id = active();
 			if (id === null) return null;
-			try {
-				return await client.historyMark(id);
-			} catch (reason) {
-				fail(reason);
-				return null;
-			}
+			return inOrder(async () => {
+				try {
+					return await client.historyMark(id);
+				} catch (reason) {
+					fail(reason);
+					return null;
+				}
+			});
 		},
 		async rewind(mark: number) {
 			const id = active();
 			if (id === null) return;
-			try {
-				await client.rewindHistory(id, mark);
-			} catch (reason) {
-				fail(reason);
-			}
+			await inOrder(async () => {
+				try {
+					await client.rewindHistory(id, mark);
+				} catch (reason) {
+					fail(reason);
+				}
+			});
 		},
 		async redo() {
 			const id = active();
 			if (id === null) return;
-			try {
-				await client.redo(id);
-			} catch (reason) {
-				fail(reason);
-			}
+			await inOrder(async () => {
+				try {
+					await client.redo(id);
+				} catch (reason) {
+					fail(reason);
+				}
+			});
 		},
 	};
 }
