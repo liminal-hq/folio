@@ -59,7 +59,8 @@ export interface RibbonTab {
 }
 
 export interface RibbonModel {
-	file?: { label: string; items?: [value: string, label: string][] };
+	/** The File menu's choices: a value, a label and, optionally, a 16 px SVG path for its icon. */
+	file?: { label: string; items?: [value: string, label: string, d?: string][] };
 	tabs: RibbonTab[];
 }
 

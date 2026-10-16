@@ -7,7 +7,7 @@ import { ContextMenu } from '@liminal-hq/folio-chrome/ContextMenu';
 import type { MenuItem, SelectableMenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
 import { useState, type ReactNode } from 'react';
 import type { RibbonLabels } from './labels';
-import { RibbonControl } from './RibbonControls';
+import { Glyph, RibbonControl } from './RibbonControls';
 import type { RibbonCommand, RibbonItem, RibbonValue } from './types';
 import { useRibbonTooltip } from './useRibbonTooltip';
 
@@ -32,7 +32,7 @@ export interface RibbonControls {
 	/** Draws one item as its control; state is kept per `scope` and id, so same-id controls in different scopes stay independent. */
 	control: (item: RibbonItem, showLabel: boolean, scope?: string) => ReactNode;
 	/** Opens the File menu under `anchor`. */
-	openFile: (anchor: HTMLElement, label: string, items: [string, string][]) => void;
+	openFile: (anchor: HTMLElement, label: string, items: [string, string, string?][]) => void;
 	/** The tooltip and the open menu, to render once inside the ribbon. */
 	overlays: ReactNode;
 }
@@ -120,7 +120,12 @@ export function useRibbonControls(
 				label,
 				x: rect.left,
 				y: rect.bottom,
-				items: items.map(([value, text]) => ({ type: 'action', id: value, label: text })),
+				items: items.map(([value, text, d]) => ({
+					type: 'action',
+					id: value,
+					label: text,
+					...(d ? { icon: <Glyph d={d} px={14} /> } : {}),
+				})),
 			});
 		},
 		overlays: (
