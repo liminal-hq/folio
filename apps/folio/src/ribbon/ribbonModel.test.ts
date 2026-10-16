@@ -101,7 +101,21 @@ describe('buildRibbonModel', () => {
 
 	it('puts the commands that can run in the File menu', () => {
 		const model = buildRibbonModel({ settings: DEFAULT_SETTINGS, available: some });
-		expect(model.file?.items).toEqual([['file.save', 'Save']]);
+		expect(model.file?.items?.map(([id, label]) => [id, label])).toEqual([['file.save', 'Save']]);
+	});
+
+	it('gives every File menu command an icon', () => {
+		const every = new Set<CommandId>([
+			'file.new',
+			'file.open',
+			'file.save',
+			'file.saveAs',
+			'file.export',
+			'file.close',
+		]);
+		const items = buildRibbonModel({ settings: DEFAULT_SETTINGS, available: every }).file?.items;
+		expect(items).toHaveLength(6);
+		for (const [id, , d] of items ?? []) expect(d, id).toMatch(/^M/);
 	});
 
 	it('leaves values to the ribbon: no invented size and no placeholder value on unavailable selects', () => {

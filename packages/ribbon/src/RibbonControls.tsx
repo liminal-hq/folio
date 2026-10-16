@@ -9,7 +9,7 @@ import styles from './Ribbon.module.css';
 import type { RibbonTooltip } from './useRibbonTooltip';
 import type { RibbonItem, RibbonValue } from './types';
 
-function Glyph({ d, px, swatch }: { d: string; px: number; swatch?: string }) {
+export function Glyph({ d, px, swatch }: { d: string; px: number; swatch?: string }) {
 	return (
 		<span className={styles.glyph}>
 			<svg width={px} height={px} viewBox="0 0 16 16" aria-hidden="true" focusable="false">

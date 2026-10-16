@@ -60,6 +60,16 @@ const FILE_COMMANDS: readonly [CommandId, MessageKey][] = [
 	['file.close', 'ribbon.file.close'],
 ];
 
+/** The File menu's icons: the ribbon's own paths where it has them, and two more for Save as and Close. */
+const FILE_ICONS: Readonly<Record<string, string>> = {
+	'file.new': RIBBON_ICONS.newBook!,
+	'file.open': RIBBON_ICONS.open!,
+	'file.save': RIBBON_ICONS.save!,
+	'file.saveAs': 'M3 2h8l3 3v3M3 2a1 1 0 00-1 1v10a1 1 0 001 1h4M5 2v4h5V2M10 14l4-4 1 1-4 4h-1z',
+	'file.export': RIBBON_ICONS.export!,
+	'file.close': 'M3 3l10 10M13 3L3 13',
+};
+
 function isAvailable(id: string, context: RibbonContext): boolean {
 	const command = RIBBON_COMMANDS[id];
 	if (command !== undefined && context.available.has(command)) return true;
@@ -118,10 +128,9 @@ export function buildRibbonModel(context: RibbonContext): RibbonModel {
 	return {
 		file: {
 			label: t('ribbon.file'),
-			items: FILE_COMMANDS.filter(([id]) => context.available.has(id)).map(([id, key]) => [
-				id,
-				t(key),
-			]),
+			items: FILE_COMMANDS.filter(([id]) => context.available.has(id)).map(
+				([id, key]): [string, string, string?] => [id, t(key), FILE_ICONS[id]],
+			),
 		},
 		tabs,
 	};
