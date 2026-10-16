@@ -17,6 +17,7 @@ import {
 	type Handle,
 	type Snapped,
 } from './snap';
+import { resizeTurned, turnAngle } from './turnedHandles';
 
 /** A pointer must travel this far, in screen pixels, before a press becomes a drag. */
 const DRAG_SLOP_PX = 3;
@@ -35,10 +36,13 @@ type Drag =
 			id: string;
 			handle: Handle;
 			origin: PlainRect;
+			/** How far the frame was turned when the drag began. */
+			rotation: number;
 			start: Point;
 			px: Point;
 			moved: boolean;
-	  };
+	  }
+	| { kind: 'turn'; id: string; centre: Point; px: Point; moved: boolean };
 
 interface Point {
 	x: number;
@@ -65,6 +69,8 @@ export interface FrameDragOptions {
 	onSelect?(ids: string[]): void;
 	/** Commits the new boxes of one or more frames as one change; resolves once the book has them. */
 	onMove?(moves: FrameBoxMove[]): Promise<void>;
+	/** Commits a frame's new turn, in degrees clockwise; resolves once the book has it. */
+	onTurn?(id: string, degrees: number): Promise<void>;
 	/** A command on the selection, from the keys: duplicate, delete. */
 	onCommand?(command: FrameCommand, ids: string[]): void;
 }
@@ -88,6 +94,7 @@ export function useFrameDrag(options: FrameDragOptions) {
 		guides = [],
 		onSelect,
 		onMove,
+		onTurn,
 		onCommand,
 	} = options;
 	const drag = useRef<Drag | null>(null);
@@ -95,6 +102,8 @@ export function useFrameDrag(options: FrameDragOptions) {
 	const nudged = useRef(new Map<string, PlainRect>());
 	const [preview, setPreview] = useState<Record<string, PlainRect>>({});
 	const [lines, setLines] = useState<Snapped['lines']>([]);
+	/** The angle each frame being turned has been dragged to. */
+	const [turning, setTurning] = useState<Record<string, number>>({});
 
 	// A new copy of the frames is the book answering, so what was asked for is no longer pending.
 	useEffect(() => {
@@ -156,7 +165,22 @@ export function useFrameDrag(options: FrameDragOptions) {
 			id,
 			handle,
 			origin: { ...origin },
+			rotation: frames.find((f) => f.id === id)?.rotation ?? 0,
 			start: toPoint(event),
+			px: { x: event.clientX, y: event.clientY },
+			moved: false,
+		});
+	};
+
+	const onTurnPointerDown = (event: PointerEvent, id: string) => {
+		if (event.button !== 0) return;
+		event.stopPropagation();
+		const origin = boxOf(id);
+		if (!origin) return;
+		begin(event, {
+			kind: 'turn',
+			id,
+			centre: { x: origin.x + origin.w / 2, y: origin.y + origin.h / 2 },
 			px: { x: event.clientX, y: event.clientY },
 			moved: false,
 		});
@@ -176,6 +200,10 @@ export function useFrameDrag(options: FrameDragOptions) {
 			d.moved = true;
 		}
 		const now = toPoint(event);
+		if (d.kind === 'turn') {
+			setTurning({ [d.id]: turnAngle(d.centre, now, event.shiftKey) });
+			return;
+		}
 		let dx = now.x - d.start.x;
 		let dy = now.y - d.start.y;
 		const threshold = SNAP_THRESHOLD_PX / scale;
@@ -210,9 +238,10 @@ export function useFrameDrag(options: FrameDragOptions) {
 			);
 			return;
 		}
-		let next = resizeRect(d.origin, d.handle, dx, dy, event.shiftKey);
+		let next = resizeTurned(d.origin, d.rotation, d.handle, dx, dy, event.shiftKey);
 		const drawn: Snapped['lines'] = [];
-		if (snap && !event.altKey) {
+		// Edges that are not square to the page have nothing to snap to, so a turned frame does not.
+		if (snap && !event.altKey && !d.rotation) {
 			// Snap the edges this handle is dragging, then resize again with the correction.
 			const xs = [
 				...(d.handle.includes('w') ? [next.x] : []),
@@ -244,9 +273,21 @@ export function useFrameDrag(options: FrameDragOptions) {
 		const d = drag.current;
 		drag.current = null;
 		const boxes = preview;
+		const turns = turning;
 		setLines([]);
 		if (!d || !d.moved || !commit) {
 			setPreview({});
+			setTurning({});
+			return;
+		}
+		if (d.kind === 'turn') {
+			const angle = turns[d.id];
+			try {
+				if (angle !== undefined && angle !== (frames.find((f) => f.id === d.id)?.rotation ?? 0))
+					await onTurn?.(d.id, angle);
+			} finally {
+				setTurning({});
+			}
 			return;
 		}
 		const moves = Object.entries(boxes).flatMap(([id, rect]) => {
@@ -317,9 +358,11 @@ export function useFrameDrag(options: FrameDragOptions) {
 
 	return {
 		preview,
+		turning,
 		lines,
 		onFramePointerDown,
 		onHandlePointerDown,
+		onTurnPointerDown,
 		onBackgroundPointerDown,
 		onPointerMove,
 		onPointerUp,

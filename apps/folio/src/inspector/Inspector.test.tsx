@@ -251,6 +251,29 @@ describe('in Expert mode', () => {
 		expect(apply).toHaveBeenCalledTimes(1);
 	});
 
+	it('turns the frame by a typed angle, and puts back what is not a number', async () => {
+		const { apply } = setup([text({ rotation: 30 })], { mode: 'expert' });
+		const angle = screen.getByRole('textbox', { name: 'Rotation (°)' });
+		expect(angle).toHaveValue('30');
+		await userEvent.clear(angle);
+		await userEvent.type(angle, '-12,5{Enter}');
+		expect(apply).toHaveBeenLastCalledWith({
+			type: 'RotateFrame',
+			on: { spread: 'sp' },
+			frame: 't',
+			degrees: -12.5,
+		});
+		await userEvent.clear(angle);
+		await userEvent.type(angle, 'sideways{Enter}');
+		expect(apply).toHaveBeenCalledTimes(1);
+		expect(angle).toHaveValue('30');
+	});
+
+	it('has no Rotation box in Easy mode', () => {
+		setup([text()]);
+		expect(screen.queryByRole('textbox', { name: 'Rotation (°)' })).toBeNull();
+	});
+
 	it('disables the position boxes of a locked frame', () => {
 		setup([text({ locked: true })], { mode: 'expert' });
 		expect(screen.getByRole('textbox', { name: 'X (in)' })).toBeDisabled();

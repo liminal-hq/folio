@@ -91,6 +91,13 @@ export const HANDLES: Handle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 
 export const MIN_SIZE = 4;
 
+/** Where a handle sits on a rectangle: a corner, or the middle of an edge. */
+export function handlePoint(box: PlainRect, handle: Handle): { x: number; y: number } {
+	const x = handle.includes('w') ? box.x : handle.includes('e') ? box.x + box.w : box.x + box.w / 2;
+	const y = handle.includes('n') ? box.y : handle.includes('s') ? box.y + box.h : box.y + box.h / 2;
+	return { x, y };
+}
+
 /**
  * Resizes `rect` by dragging `handle` by `(dx, dy)`. The edges the handle does not own stay put;
  * `keepAspect` holds the shape (corner handles only), and a frame never goes below `MIN_SIZE`.

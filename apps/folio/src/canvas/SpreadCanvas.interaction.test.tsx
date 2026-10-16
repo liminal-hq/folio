@@ -119,7 +119,8 @@ describe('selecting', () => {
 	it('shows resize handles for one unlocked frame only', () => {
 		render(<Harness />);
 		fireEvent.pointerDown(hit('a'), { button: 0 });
-		expect(document.querySelectorAll('[data-handle]')).toHaveLength(8);
+		expect(document.querySelectorAll('rect[data-handle]')).toHaveLength(8);
+		expect(document.querySelector('[data-handle="turn"]')).not.toBeNull();
 		fireEvent.pointerDown(hit('b'), { button: 0, shiftKey: true });
 		expect(document.querySelectorAll('[data-handle]')).toHaveLength(0);
 		fireEvent.pointerDown(hit('c'), { button: 0 });

@@ -13,7 +13,7 @@ import type { ShapeFrame } from '@liminal-hq/folio-protocol/generated/ShapeFrame
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
 import type { TextFrame } from '@liminal-hq/folio-protocol/generated/TextFrame';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Segmented } from '../app/Segmented';
 import { formatLength, formatTrim, pageCount } from '../books/format';
 import { plainTextOf } from '../canvas/TextEditor';
@@ -206,6 +206,52 @@ function GeometrySection({ book, units, apply }: Pick<InspectorProps, 'book' | '
 	);
 }
 
+/** A turn in degrees. Enter or leaving the box keeps a number; Escape, or anything else, puts it back. */
+function AngleField({
+	label,
+	degrees,
+	disabled,
+	onCommit,
+}: {
+	label: string;
+	degrees: number;
+	disabled: boolean;
+	onCommit(degrees: number): void;
+}) {
+	const shown = String(Math.round(degrees * 100) / 100);
+	const [draft, setDraft] = useState<string | null>(null);
+	const finish = () => {
+		if (draft === null) return;
+		const next = Number(draft.trim().replace(',', '.').replace('°', ''));
+		setDraft(null);
+		if (draft.trim() !== '' && Number.isFinite(next) && next !== Number(shown)) onCommit(next);
+	};
+	return (
+		<label className={styles.length}>
+			<span>{label}</span>
+			<input
+				type="text"
+				inputMode="decimal"
+				value={draft ?? shown}
+				disabled={disabled}
+				aria-label={`${label} (°)`}
+				onChange={(event) => setDraft(event.target.value)}
+				onBlur={finish}
+				onKeyDown={(event) => {
+					if (event.key === 'Enter') {
+						event.preventDefault();
+						finish();
+					} else if (event.key === 'Escape') {
+						event.preventDefault();
+						event.stopPropagation();
+						setDraft(null);
+					}
+				}}
+			/>
+		</label>
+	);
+}
+
 function PositionSection({
 	frame,
 	units,
@@ -245,6 +291,14 @@ function PositionSection({
 					}}
 				/>
 			))}
+			<AngleField
+				label={t('inspector.rotation')}
+				degrees={frame.rotation ?? 0}
+				disabled={locked}
+				onCommit={(degrees) =>
+					apply({ type: 'RotateFrame', on: surfaceOf(spread), frame: frame.id, degrees })
+				}
+			/>
 		</fieldset>
 	);
 }

@@ -390,6 +390,9 @@ export function BookView({
 										},
 							)
 						}
+						onTurn={(frame, degrees) =>
+							store.apply({ type: 'RotateFrame', on: surface, frame, degrees })
+						}
 						onEditText={(frame, text) => void store.apply({ type: 'SetText', frame, text })}
 						editableMasters={settings.mode === 'expert'}
 						demoteTo={demoteTo}
