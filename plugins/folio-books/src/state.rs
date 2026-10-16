@@ -14,10 +14,14 @@ use folio_model::{Intent, SpreadId};
 use folio_package::{Package, SaveOptions};
 use folio_presets::{kind_infos, new_book, suggest_save_path, KindInfo, NewBookSpec};
 use folio_session::{Patch, Session};
+use folio_spell::{find_misspellings, Checker, SpellbookChecker};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::error::Error;
-use crate::wire::{BookSnapshot, BookSummary, BooksChanged, PatchEvent, SpreadLayoutResult};
+use crate::wire::{
+    BookSnapshot, BookSummary, BooksChanged, Misspelling, PatchEvent, SpellCheck,
+    SpreadLayoutResult,
+};
 use crate::{CHANGED_EVENT, PATCH_EVENT};
 
 /// What happened to the open books, for the app to react to (the recents list, for one).
@@ -131,6 +135,8 @@ pub struct Books<R: Runtime> {
     generator: String,
     /// The bundled fonts and the system's, found the first time a spread is laid out.
     fonts: OnceLock<FontBook>,
+    /// The bundled English (Canada) dictionary, read the first time something is checked.
+    speller: OnceLock<Option<SpellbookChecker>>,
 }
 
 impl<R: Runtime> Books<R> {
@@ -142,6 +148,7 @@ impl<R: Runtime> Books<R> {
             hooks: Mutex::new(Vec::new()),
             generator,
             fonts: OnceLock::new(),
+            speller: OnceLock::new(),
         }
     }
 
@@ -357,6 +364,72 @@ impl<R: Runtime> Books<R> {
             .layout_master(&folio_model::MasterId(master.to_string()))?
             .ok_or_else(|| Error::NoSuchMaster(master.to_string()))?;
         Ok(SpreadLayoutResult { revision, layout })
+    }
+
+    /// The dictionary for a book's language, if there is one. English is checked against the bundled
+    /// English (Canada) dictionary until others can be downloaded; any other language has none.
+    pub(crate) fn speller_for(&self, language: &str) -> Option<&SpellbookChecker> {
+        let english = language
+            .split(['-', '_'])
+            .next()
+            .is_some_and(|l| l.eq_ignore_ascii_case("en"));
+        if !english {
+            return None;
+        }
+        self.speller
+            .get_or_init(|| SpellbookChecker::en_ca().ok())
+            .as_ref()
+    }
+
+    /// The words of `text` the book's dictionary does not know and its ignore list does not hold.
+    pub fn spell_check(&self, id: &str, text: &str) -> Result<SpellCheck, Error> {
+        let (language, ignore) = {
+            let inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let book = open.session.book();
+            (book.language.clone(), book.proofing.ignore.clone())
+        };
+        let Some(speller) = self.speller_for(&language) else {
+            return Ok(SpellCheck {
+                supported: false,
+                misspellings: Vec::new(),
+            });
+        };
+        Ok(SpellCheck {
+            supported: true,
+            misspellings: find_misspellings(speller, text, &ignore)
+                .into_iter()
+                .map(|m| Misspelling {
+                    start: m.start as u32,
+                    end: m.end as u32,
+                    word: m.word,
+                })
+                .collect(),
+        })
+    }
+
+    /// Corrections for `word` in the book's language, best first.
+    pub fn spell_suggest(&self, id: &str, word: &str) -> Result<Vec<String>, Error> {
+        let language = {
+            let inner = locked(&self.inner);
+            inner
+                .books
+                .iter()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?
+                .session
+                .book()
+                .language
+                .clone()
+        };
+        Ok(self
+            .speller_for(&language)
+            .map(|s| s.suggest(&word.replace('’', "'"), 6))
+            .unwrap_or_default())
     }
 
     /// Reads a picture file into the book's package and returns its path there. The same bytes give

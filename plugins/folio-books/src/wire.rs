@@ -75,3 +75,24 @@ pub struct PatchEvent {
 pub struct BooksChanged {
     pub books: Vec<BookSummary>,
 }
+
+/// A word the speller does not know, by where it is in the text asked about, in UTF-16 code units.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct Misspelling {
+    pub start: u32,
+    pub end: u32,
+    pub word: String,
+}
+
+/// What checking a text found.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct SpellCheck {
+    /// Whether there is a dictionary for the book's language. Without one nothing is flagged, and
+    /// the UI can say so instead of showing a clean page.
+    pub supported: bool,
+    pub misspellings: Vec<Misspelling>,
+}

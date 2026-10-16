@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck';
 import type { SpreadLayoutResult } from '@liminal-hq/folio-protocol/generated/SpreadLayoutResult';
 import {
 	assetData,
@@ -21,6 +22,8 @@ import {
 	presets,
 	redo,
 	saveBook,
+	spellCheck,
+	spellSuggest,
 	snapshot,
 	undo,
 	type BookSnapshot,
@@ -63,6 +66,10 @@ export interface BooksClient {
 	importImage(id: string, path: string): Promise<string>;
 	/** One of the book's pictures as raw bytes. */
 	assetData(id: string, asset: string): Promise<ArrayBuffer>;
+	/** The words of `text` the book's dictionary does not know, by UTF-16 range, and whether it has a dictionary. */
+	spellCheck(id: string, text: string): Promise<SpellCheck>;
+	/** Corrections for a word, best first. */
+	spellSuggest(id: string, word: string): Promise<string[]>;
 	/** Resolves to the function that stops listening. */
 	subscribe(listener: BooksListener): Promise<() => void>;
 }
@@ -84,6 +91,8 @@ export const tauriBooksClient: BooksClient = {
 	layoutMaster,
 	importImage,
 	assetData,
+	spellCheck,
+	spellSuggest,
 	async subscribe(listener) {
 		const stops = await Promise.all([
 			onPatch((event) => listener.onPatch(event)),

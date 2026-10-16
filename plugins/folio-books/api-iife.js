@@ -90,6 +90,14 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function assetData(id, asset) {
         return cmd('asset_data', { id, asset });
     }
+    /** The words of `text` the book's dictionary does not know, by UTF-16 range, and whether there is a dictionary. */
+    function spellCheck(id, text) {
+        return cmd('spell_check', { id, text });
+    }
+    /** Corrections for a word, best first. */
+    function spellSuggest(id, word) {
+        return cmd('spell_suggest', { id, word });
+    }
 
     exports.CHANGED_EVENT = CHANGED_EVENT;
     exports.PATCH_EVENT = PATCH_EVENT;
@@ -111,6 +119,8 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.redo = redo;
     exports.saveBook = saveBook;
     exports.snapshot = snapshot;
+    exports.spellCheck = spellCheck;
+    exports.spellSuggest = spellSuggest;
     exports.undo = undo;
 
     return exports;

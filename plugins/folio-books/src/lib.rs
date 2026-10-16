@@ -47,6 +47,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::layout_master,
             commands::import_image,
             commands::asset_data,
+            commands::spell_check,
+            commands::spell_suggest,
         ])
         .setup(|app, _api| {
             app.manage(Books::new(app.clone()));

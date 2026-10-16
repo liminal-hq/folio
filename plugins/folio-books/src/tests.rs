@@ -527,3 +527,67 @@ fn layout_reads_the_size_of_the_pictures_a_page_uses_and_says_when_one_is_missin
     books(&app).apply(&id, set(&little)).unwrap();
     assert_eq!(problems(&app), [PreflightKind::VeryLowResolution]);
 }
+
+#[test]
+fn spelling_checks_a_text_against_the_books_dictionary_and_its_ignore_list() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let text = "A small ottr named Zorblat.";
+    let found = books(&app).spell_check(&id, text).unwrap();
+    assert!(found.supported);
+    let words: Vec<_> = found.misspellings.iter().map(|m| m.word.as_str()).collect();
+    assert_eq!(words, ["ottr", "Zorblat"]);
+    assert_eq!(found.misspellings[0].start, 8);
+    assert_eq!(found.misspellings[0].end, 12);
+    // A word the book ignores is no longer flagged, and undoing brings it back.
+    books(&app)
+        .apply(
+            &id,
+            Intent::IgnoreWord {
+                word: "Zorblat".into(),
+            },
+        )
+        .unwrap();
+    let after = books(&app).spell_check(&id, text).unwrap();
+    assert_eq!(after.misspellings.len(), 1);
+    books(&app).undo(&id).unwrap();
+    assert_eq!(
+        books(&app)
+            .spell_check(&id, text)
+            .unwrap()
+            .misspellings
+            .len(),
+        2
+    );
+    let suggestions = books(&app).spell_suggest(&id, "ottr").unwrap();
+    assert!(suggestions.iter().any(|s| s == "otter"), "{suggestions:?}");
+}
+
+#[test]
+fn only_english_has_a_dictionary_until_others_can_be_downloaded() {
+    let app = app();
+    let books = books(&app);
+    for language in ["en", "en-CA", "en_GB", "EN-us"] {
+        assert!(books.speller_for(language).is_some(), "{language}");
+    }
+    for language in ["fr-CA", "de", "", "eng"] {
+        assert!(books.speller_for(language).is_none(), "{language}");
+    }
+}
+
+#[test]
+fn spelling_for_an_unknown_book_is_a_typed_error() {
+    let app = app();
+    assert!(matches!(
+        books(&app).spell_check("nope", "x"),
+        Err(Error::NoSuchBook(_))
+    ));
+    assert!(matches!(
+        books(&app).spell_suggest("nope", "x"),
+        Err(Error::NoSuchBook(_))
+    ));
+}

@@ -71,6 +71,21 @@ pub struct RulerSettings {
     pub units: RulerUnit,
 }
 
+/// Whether the editor underlines misspelt words (D-25). It is on, since a misspelling in a printed
+/// book is permanent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct SpellingSettings {
+    pub enabled: bool,
+}
+
+impl Default for SpellingSettings {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
+}
+
 /// How much Jax, the optional helper, says.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
@@ -219,6 +234,7 @@ pub struct Settings {
     pub interface: InterfaceSettings,
     pub marks: MarksSettings,
     pub rulers: RulerSettings,
+    pub spelling: SpellingSettings,
     /// The paths of recently opened books, newest first.
     pub recent_books: Vec<String>,
 }
@@ -460,6 +476,21 @@ mod tests {
         assert!(Settings::default()
             .patched(&json!({ "rulers": { "units": "cubits" } }))
             .is_err());
+    }
+
+    #[test]
+    fn spelling_starts_on_and_is_turned_off_by_a_patch() {
+        assert!(Settings::default().spelling.enabled);
+        let off = Settings::default()
+            .patched(&json!({ "spelling": { "enabled": false } }))
+            .unwrap();
+        assert!(!off.spelling.enabled);
+        assert!(Settings::default()
+            .patched(&json!({ "spelling": { "enabled": "sometimes" } }))
+            .is_err());
+        // A settings file from before spelling existed reads as on.
+        let old: Settings = serde_json::from_value(json!({ "mode": "easy" })).unwrap();
+        assert!(old.spelling.enabled);
     }
 
     #[test]

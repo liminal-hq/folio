@@ -18,4 +18,6 @@ permissions = [
   "allow-layout-master",
   "allow-import-image",
   "allow-asset-data",
+  "allow-spell-check",
+  "allow-spell-suggest",
 ]

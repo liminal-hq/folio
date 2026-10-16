@@ -8,6 +8,8 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { BookSnapshot } from '@liminal-hq/folio-protocol/generated/BookSnapshot';
 import type { BookSummary } from '@liminal-hq/folio-protocol/generated/BookSummary';
 import type { BooksChanged } from '@liminal-hq/folio-protocol/generated/BooksChanged';
+import type { Misspelling } from '@liminal-hq/folio-protocol/generated/Misspelling';
+import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { PaintPresets } from '@liminal-hq/folio-protocol/generated/PaintPresets';
 import type { KindInfo } from '@liminal-hq/folio-protocol/generated/KindInfo';
@@ -137,6 +139,8 @@ export function onBooksChanged(listener: (event: BooksChanged) => void): Promise
 
 export type {
 	BookSnapshot,
+	Misspelling,
+	SpellCheck,
 	BookSummary,
 	BooksChanged,
 	Intent,
@@ -156,4 +160,14 @@ export function importImage(id: string, path: string): Promise<string> {
 /** One of the book's pictures as raw bytes. */
 export function assetData(id: string, asset: string): Promise<ArrayBuffer> {
 	return cmd<ArrayBuffer>('asset_data', { id, asset });
+}
+
+/** The words of `text` the book's dictionary does not know, by UTF-16 range, and whether there is a dictionary. */
+export function spellCheck(id: string, text: string): Promise<SpellCheck> {
+	return cmd<SpellCheck>('spell_check', { id, text });
+}
+
+/** Corrections for a word, best first. */
+export function spellSuggest(id: string, word: string): Promise<string[]> {
+	return cmd<string[]>('spell_suggest', { id, word });
 }

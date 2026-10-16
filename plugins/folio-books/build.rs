@@ -21,6 +21,8 @@ const COMMANDS: &[&str] = &[
     "layout_master",
     "import_image",
     "asset_data",
+    "spell_check",
+    "spell_suggest",
 ];
 
 fn main() {

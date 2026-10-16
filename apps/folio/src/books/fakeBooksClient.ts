@@ -106,6 +106,8 @@ export interface FakeBooks {
 	emit: { patch(event: PatchEvent): void; changed(): void };
 	/** Makes the next call named `name` fail with a refusal. */
 	refuseNext(name: string, kind: string, message: string): void;
+	/** The words the fake speller flags, whatever the case; none to begin with. */
+	misspelt: string[];
 }
 
 export function createFakeBooksClient(): FakeBooks {
@@ -114,6 +116,7 @@ export function createFakeBooksClient(): FakeBooks {
 	const calls: string[] = [];
 	const refusals = new Map<string, { kind: string; message: string }>();
 	let counter = 0;
+	const misspelt: string[] = [];
 
 	const summaries = (): BookSummary[] => [...held.values()].map((h) => summary(h));
 	const summary = (h: Held): BookSummary => ({
@@ -307,6 +310,21 @@ export function createFakeBooksClient(): FakeBooks {
 			find(id);
 			return new Uint8Array([137, 80, 78, 71]).buffer;
 		},
+		async spellCheck(id, text) {
+			await call('spellCheck', [id, text]);
+			find(id);
+			const ignored = new Set(find(id).snapshot.book.proofing?.ignore ?? []);
+			const flagged = new Set(misspelt.map((w) => w.toLowerCase()));
+			const found = [...text.matchAll(/[\p{L}'’]+/gu)]
+				.filter((m) => flagged.has(m[0].toLowerCase()) && !ignored.has(m[0]))
+				.map((m) => ({ start: m.index!, end: m.index! + m[0].length, word: m[0] }));
+			return { supported: true, misspellings: found };
+		},
+		async spellSuggest(id, word) {
+			await call('spellSuggest', [id, word]);
+			find(id);
+			return [word.slice(0, -1), `${word}s`];
+		},
 		async subscribe(listener) {
 			await call('subscribe');
 			listeners.add(listener);
@@ -322,5 +340,6 @@ export function createFakeBooksClient(): FakeBooks {
 			changed,
 		},
 		refuseNext: (name, kind, message) => refusals.set(name, { kind, message }),
+		misspelt,
 	};
 }
