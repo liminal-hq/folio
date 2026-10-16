@@ -12,13 +12,13 @@ import type { SettingsSectionDef } from '@liminal-hq/folio-chrome/SettingsShell/
 import { ToggleRow } from '@liminal-hq/folio-chrome/SettingsShell/ToggleRow';
 import { WindowFrame } from '@liminal-hq/folio-chrome/WindowFrame';
 import { useState } from 'react';
-import { t } from '../i18n/messages';
+import { t, type MessageKey } from '../i18n/messages';
 import { useSettings, useSettingsError, useUpdateSettings } from '../settings/useSettings';
 import { AppTitleBar } from './AppTitleBar';
 import { useDictionaries } from './useDictionaries';
 import styles from './PreferencesScreen.module.css';
 
-type SectionId = 'interface' | 'appearance' | 'units' | 'help';
+type SectionId = 'interface' | 'appearance' | 'units' | 'spelling' | 'saving' | 'help';
 
 function InterfacePage() {
 	const settings = useSettings();
@@ -81,6 +81,35 @@ function AppearancePage() {
 						{ value: 'dark', label: t('preferences.colourMode.dark') },
 					]}
 					onChange={(colourMode) => void update({ colourMode })}
+				/>
+			</SettingsGroup>
+		</SettingsSection>
+	);
+}
+
+/** The intervals Preferences offers between recovery copies, in seconds. */
+const AUTOSAVE_CHOICES = [15, 30, 60, 300] as const;
+
+function SavingPage() {
+	const settings = useSettings();
+	const update = useUpdateSettings();
+	return (
+		<SettingsSection>
+			<SettingsGroup>
+				<ToggleRow
+					label={t('preferences.autosave')}
+					description={t('preferences.autosave.description')}
+					checked={settings.autosave.enabled}
+					onChange={(enabled) => void update({ autosave: { enabled } })}
+				/>
+				<SegmentedRow
+					label={t('preferences.autosave.every')}
+					value={String(settings.autosave.intervalSecs)}
+					options={AUTOSAVE_CHOICES.map((secs) => ({
+						value: String(secs),
+						label: t(`preferences.autosave.every.${secs}` as MessageKey),
+					}))}
+					onChange={(secs) => void update({ autosave: { intervalSecs: Number(secs) } })}
 				/>
 			</SettingsGroup>
 		</SettingsSection>
@@ -223,6 +252,7 @@ function sections(): SettingsSectionDef[] {
 			label: t('preferences.section.spelling'),
 			render: () => <SpellingPage />,
 		},
+		{ id: 'saving', label: t('preferences.section.saving'), render: () => <SavingPage /> },
 		{ id: 'help', label: t('preferences.section.help'), render: () => <HelpPage /> },
 	];
 }

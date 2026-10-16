@@ -91,6 +91,30 @@ impl Default for SpellingSettings {
     }
 }
 
+/// Whether Folio keeps a recovery copy of a book with changes while it is open (D-27), and how often.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct AutosaveSettings {
+    pub enabled: bool,
+    /// Seconds between copies.
+    pub interval_secs: u32,
+}
+
+impl Default for AutosaveSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            interval_secs: AUTOSAVE_SECS_DEFAULT,
+        }
+    }
+}
+
+/// How often a copy is written by default, and the shortest and longest interval allowed.
+pub const AUTOSAVE_SECS_DEFAULT: u32 = 30;
+pub const AUTOSAVE_SECS_MIN: u32 = 5;
+pub const AUTOSAVE_SECS_MAX: u32 = 3600;
+
 /// The longest a personal word can be, in characters, and the most the list holds.
 pub const PERSONAL_WORD_MAX: usize = 64;
 pub const PERSONAL_WORDS_MAX: usize = 5000;
@@ -244,6 +268,7 @@ pub struct Settings {
     pub marks: MarksSettings,
     pub rulers: RulerSettings,
     pub spelling: SpellingSettings,
+    pub autosave: AutosaveSettings,
     /// The paths of recently opened books, newest first.
     pub recent_books: Vec<String>,
 }
@@ -284,6 +309,14 @@ impl Settings {
                 });
             }
         }
+        let every = self.autosave.interval_secs;
+        if !(AUTOSAVE_SECS_MIN..=AUTOSAVE_SECS_MAX).contains(&every) {
+            return Err(SettingsError::OutOfRange {
+                field: "autosave.intervalSecs",
+                min: AUTOSAVE_SECS_MIN,
+                max: AUTOSAVE_SECS_MAX,
+            });
+        }
         let personal = &self.spelling.personal;
         if personal.len() > PERSONAL_WORDS_MAX {
             return Err(SettingsError::OutOfRange {
@@ -322,6 +355,10 @@ impl Settings {
             mark.colour = mark.colour.min(MARK_COLOURS - 1);
         }
         self.recent_books.truncate(RECENT_BOOKS_MAX);
+        self.autosave.interval_secs = self
+            .autosave
+            .interval_secs
+            .clamp(AUTOSAVE_SECS_MIN, AUTOSAVE_SECS_MAX);
         self.spelling.personal.retain(|w| {
             !w.is_empty()
                 && w.chars().count() <= PERSONAL_WORD_MAX
@@ -534,6 +571,34 @@ mod tests {
         // A settings file from before spelling existed reads as on.
         let old: Settings = serde_json::from_value(json!({ "mode": "easy" })).unwrap();
         assert!(old.spelling.enabled);
+    }
+
+    #[test]
+    fn autosave_starts_on_every_thirty_seconds_and_keeps_to_its_range() {
+        let start = Settings::default().autosave;
+        assert!(start.enabled);
+        assert_eq!(start.interval_secs, 30);
+        let slower = Settings::default()
+            .patched(&json!({ "autosave": { "intervalSecs": 300 } }))
+            .unwrap();
+        assert_eq!(slower.autosave.interval_secs, 300);
+        assert!(slower.autosave.enabled, "the rest is left alone");
+        let off = Settings::default()
+            .patched(&json!({ "autosave": { "enabled": false } }))
+            .unwrap();
+        assert!(!off.autosave.enabled);
+        for bad in [json!(0), json!(4), json!(3601), json!("soon")] {
+            assert!(Settings::default()
+                .patched(&json!({ "autosave": { "intervalSecs": bad } }))
+                .is_err());
+        }
+        // A document edited by hand to something silly still lets the app start, at the nearest value.
+        let mut hand = Settings::default();
+        hand.autosave.interval_secs = 1;
+        assert_eq!(hand.clamped().autosave.interval_secs, 5);
+        // A settings file from before autosave existed reads as on.
+        let old: Settings = serde_json::from_value(json!({ "mode": "easy" })).unwrap();
+        assert!(old.autosave.enabled);
     }
 
     #[test]

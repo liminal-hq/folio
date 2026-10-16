@@ -20,6 +20,7 @@ import { AppTitleBar } from './AppTitleBar';
 import { useCloseQuestion } from './CloseBookDialog';
 import styles from './MainScreen.module.css';
 import { useAppMenu } from './useAppMenu';
+import { useAutosave } from './useAutosave';
 import { useBookKeys } from './useBookKeys';
 
 /** The app's version, or `null` until it is known (and for good outside Tauri). */
@@ -73,6 +74,7 @@ export function MainScreen({
 		};
 	}, [closeRequests, actions, ask]);
 	const menu = useAppMenu(ask);
+	useAutosave();
 	useBookKeys(menu.run);
 	const version = useAppVersion(client);
 	const active = useActiveBook();
