@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    Book, Flow, Frame, FrameId, InlineContent, MasterId, Pt, ShapeFrame, Spread, SpreadId,
-    SpreadKind, StyleId, TableFrame, TextFrame,
+    page_labels, Book, Flow, Frame, FrameId, InlineContent, MasterId, PageLabel, Pt, ShapeFrame,
+    Spread, SpreadId, StyleId, TableFrame, TextFrame,
 };
 
 use crate::assets::AssetFacts;
@@ -190,7 +190,7 @@ impl<'a> Layouter<'a> {
     /// spread, with `{page}` and `{book.title}` filled in.
     fn master_frames(&self, spread: &Spread) -> Result<Vec<FrameLayout>, LayoutError> {
         let mut out = Vec::new();
-        let first = self.first_page_number(spread);
+        let labels = self.labels_of(spread);
         for (index, page) in spread.pages.iter().enumerate() {
             let Some(master) = page
                 .master
@@ -205,7 +205,7 @@ impl<'a> Layouter<'a> {
                 .find(|o| o.page_id == page.id)
                 .map(|o| o.hide.as_slice())
                 .unwrap_or(&[]);
-            let number = first + index;
+            let label = labels.get(index).cloned().unwrap_or_default();
             let left = self.book.trim.w.0 * index as f64;
             for frame in &master.frames {
                 if let Frame::Shape(shape) = frame {
@@ -215,14 +215,7 @@ impl<'a> Layouter<'a> {
                     let mut copy = shape.clone();
                     copy.base.rect.x = Pt(copy.base.rect.x.0 + left);
                     copy.base.id = FrameId(format!("{}@{}", shape.base.id.0, page.id.0));
-                    if let Some(content) = &mut copy.content {
-                        for run in &mut content.inline {
-                            run.text = run
-                                .text
-                                .replace("{page}", &number.to_string())
-                                .replace("{book.title}", &self.book.title);
-                        }
-                    }
+                    self.fill_shape_tokens(&mut copy, &label);
                     if let Some(mut laid) = self.shape_text(&copy)? {
                         laid.origin = Some(Origin {
                             x: copy.base.rect.x.0,
@@ -241,7 +234,7 @@ impl<'a> Layouter<'a> {
                 let mut copy = text.clone();
                 copy.base.rect.x = Pt(copy.base.rect.x.0 + left);
                 copy.base.id = FrameId(format!("{}@{}", text.base.id.0, page.id.0));
-                self.fill_tokens(&mut copy, number);
+                self.fill_tokens(&mut copy, &label);
                 let (mut laid, _) = self.own_text(&copy)?;
                 laid.origin = Some(Origin {
                     x: copy.base.rect.x.0,
@@ -253,14 +246,28 @@ impl<'a> Layouter<'a> {
         Ok(out)
     }
 
-    /// `{page}` and `{book.title}` in a frame's words, filled in for the page `number`.
-    fn fill_tokens(&self, text: &mut TextFrame, number: usize) {
+    /// `{page}`, `{section}` and `{book.title}` in some words, filled in for a page.
+    fn tokens(&self, words: &str, label: &PageLabel) -> String {
+        words
+            .replace("{page}", &label.label)
+            .replace("{section}", &label.section)
+            .replace("{book.title}", &self.book.title)
+    }
+
+    /// The tokens in a text frame's words, filled in for a page.
+    fn fill_tokens(&self, text: &mut TextFrame, label: &PageLabel) {
         if let Some(content) = &mut text.content {
             for run in &mut content.inline {
-                run.text = run
-                    .text
-                    .replace("{page}", &number.to_string())
-                    .replace("{book.title}", &self.book.title);
+                run.text = self.tokens(&run.text, label);
+            }
+        }
+    }
+
+    /// The tokens in a shape's words, filled in for a page.
+    fn fill_shape_tokens(&self, shape: &mut ShapeFrame, label: &PageLabel) {
+        if let Some(content) = &mut shape.content {
+            for run in &mut content.inline {
+                run.text = self.tokens(&run.text, label);
             }
         }
     }
@@ -272,22 +279,24 @@ impl<'a> Layouter<'a> {
         let middle = text.base.rect.x.0 + text.base.rect.w.0 / 2.0;
         let page = (middle / self.book.trim.w.0).floor().max(0.0) as usize;
         let page = page.min(spread.pages.len().saturating_sub(1));
-        self.fill_tokens(&mut copy, self.first_page_number(spread) + page);
+        let label = self
+            .labels_of(spread)
+            .get(page)
+            .cloned()
+            .unwrap_or_default();
+        self.fill_tokens(&mut copy, &label);
         copy
     }
 
-    /// The number of the first page of `spread`: pages count from the first after the cover.
-    fn first_page_number(&self, spread: &Spread) -> usize {
-        let mut count = 0;
-        for earlier in &self.book.spreads {
-            if earlier.id == spread.id {
-                break;
-            }
-            if earlier.kind != SpreadKind::Cover {
-                count += earlier.pages.len();
-            }
-        }
-        count + 1
+    /// What each page of `spread` is called, from the book's sections: its number as written, and
+    /// the name of its section.
+    fn labels_of(&self, spread: &Spread) -> Vec<PageLabel> {
+        page_labels(&self.book.spreads)
+            .into_iter()
+            .zip(&self.book.spreads)
+            .find(|(_, s)| s.id == spread.id)
+            .map(|(labels, _)| labels)
+            .unwrap_or_default()
     }
 
     /// The words of a shape, laid out in the body of its kind and centred top to bottom in it. A

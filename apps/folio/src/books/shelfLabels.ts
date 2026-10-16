@@ -4,17 +4,21 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
+import { pageLabels } from './pageLabels';
 
 /**
  * A label for each spread: "Cover", then "Page 1" for a page that opens on the right, and "Pages 2–3"
- * for a pair. Pages are numbered from the first page after the cover.
+ * for a pair, in the numbering of the page's section (Roman for the front matter). A spread whose
+ * section shows no numbers is called by the section's name.
  */
 export function shelfLabels(book: Book): string[] {
-	let page = 0;
-	return book.spreads.map((spread) => {
+	const labels = pageLabels(book.spreads);
+	return book.spreads.map((spread, index) => {
 		if (spread.kind === 'cover') return 'Cover';
-		const first = page + 1;
-		page += spread.pages.length;
-		return spread.pages.length === 1 ? `Page ${first}` : `Pages ${first}–${page}`;
+		const pages = labels[index]!;
+		const first = pages[0]?.label ?? '';
+		if (first === '') return pages[0]?.section || 'Unnumbered';
+		const last = pages[pages.length - 1]!.label;
+		return pages.length === 1 ? `Page ${first}` : `Pages ${first}–${last}`;
 	});
 }

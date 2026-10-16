@@ -11,6 +11,7 @@ use crate::book::{Grid, PageNumbers};
 use crate::colour::Colour;
 use crate::frame::{Fit, Frame, Shape, StyleOverrides, TableLook};
 use crate::ids::{FrameId, MasterId, PageId, SpreadId, StyleId};
+use crate::sections::Section;
 use crate::spread::Axis;
 use crate::units::{Margins, Pt, Rect, Size};
 
@@ -160,6 +161,12 @@ pub enum Intent {
         on: Surface,
         frame: FrameId,
         degrees: f64,
+    },
+    /// Starts a section at a spread, or changes the one it starts; `None` takes it away so the
+    /// spread carries on the section before. The cover cannot start one.
+    SetSection {
+        spread: SpreadId,
+        section: Option<Section>,
     },
     /// Puts page numbers on every page after the cover, or takes them off.
     SetPageNumbers {
