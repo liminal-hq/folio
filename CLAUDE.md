@@ -53,7 +53,7 @@ Read `spec/02-architecture.md` first; the rules that bite:
 
 **Reusable first, and published means dependency.** Generic plugins stay free of Folio concepts. If one is published on crates.io and npm, depend on it; copy only unpublished ones, with a `PROVENANCE.md`.
 
-**One log stream.** `tauri-plugin-log` in `src-tauri` plus `src/services/logger.ts` (webview `console.*` redirected, tagged with the window label). Call `initLogger(label)` in every window entry.
+**One log stream.** `tauri-plugin-log` in `src-tauri` plus `src/services/logger.ts` (webview `console.*`, uncaught errors and unhandled rejections redirected, tagged with the window label). Call `initLogger(label)` in every window entry.
 
 **The Linux webview is WebKitGTK.** Verify performance, transparency and `backdrop-filter` work there, and on Wayland, not only in Chromium.
 

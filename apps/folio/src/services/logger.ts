@@ -110,6 +110,27 @@ function forwardConsole(method: ConsoleMethod, logger: PluginLogger, prefix: str
 	};
 }
 
+/** What an uncaught error or a rejection nobody handled looks like in the log. */
+function describeFailure(reason: unknown): string {
+	if (reason instanceof Error) return reason.stack ?? `${reason.name}: ${reason.message}`;
+	return serialiseConsoleArg(reason);
+}
+
+/**
+ * Sends errors nothing caught (a thrown error, a rejected promise with no handler) to the log, since
+ * they never pass through `console` and would otherwise leave no trace in a release build.
+ */
+function forwardUncaught(logger: PluginLogger, prefix: string): void {
+	const send = (message: string) => void logger(prefix + message).catch(() => {});
+	window.addEventListener('error', (event) => {
+		const where = event.filename ? ` (${event.filename}:${event.lineno}:${event.colno})` : '';
+		send(`Uncaught ${event.error ? describeFailure(event.error) : event.message}${where}`);
+	});
+	window.addEventListener('unhandledrejection', (event) => {
+		send(`Unhandled rejection: ${describeFailure(event.reason)}`);
+	});
+}
+
 let installed = false;
 
 /** Call once at startup with this webview's window label — see `main.tsx`.
@@ -125,4 +146,5 @@ export function initLogger(windowLabel: string): void {
 	forwardConsole('info', info, prefix);
 	forwardConsole('warn', warn, prefix);
 	forwardConsole('error', error, prefix);
+	forwardUncaught(error, prefix);
 }

@@ -145,7 +145,7 @@ An agent driving the running app (screenshots, DOM snapshots, JS eval, simulated
 
 ### Logging
 
-Native Rust and webview output share one log stream. `tauri-plugin-log` is configured in `src-tauri/src/lib.rs` (`Trace` in debug builds, `Info` in release; stdout plus a rotating `Folio.log`), and `src/services/logger.ts` redirects every webview `console.*` call into it, prefixed with the window label. Rules:
+Native Rust and webview output share one log stream. `tauri-plugin-log` is configured in `src-tauri/src/lib.rs` (`Trace` in debug builds, `Info` in release; stdout plus a rotating `Folio.log`), and `src/services/logger.ts` redirects every webview `console.*` call into it, prefixed with the window label, and also logs uncaught errors and unhandled promise rejections, which never pass through `console`. Rules:
 
 - Every window entry calls `initLogger(label)` once at startup; new window kinds must too.
 - Use `log::{trace,debug,info,warn,error}!` in Rust and `console.*` in the front end. Do not add a second logging path, and never log secrets, credentials or book text.
