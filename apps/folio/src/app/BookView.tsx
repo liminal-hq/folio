@@ -70,6 +70,8 @@ export function BookView({
 	const [spreadIndex, setSpreadIndex] = useState(0);
 	/** The master page being edited, in place of the shelf's spread, or `null`. */
 	const [editing, setEditing] = useState<string | null>(null);
+	/** The last cell edited in the selected table: where the ribbon puts a row or column. */
+	const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null);
 	const update = useUpdateSettings();
 	const marks = useMemo(() => marksOf(settings.marks), [settings.marks]);
 	const colours = useMemo(() => coloursOf(settings.marks), [settings.marks]);
@@ -106,6 +108,8 @@ export function BookView({
 		() => spread?.frames.filter((f) => selection.includes(f.id)) ?? [],
 		[spread, selection],
 	);
+	// A cell belongs to the table it was edited in, so choosing something else forgets it.
+	useEffect(() => setEditingCell(null), [selection.join('|')]);
 	const input: EditorInput | null = spread
 		? {
 				spread,
@@ -118,11 +122,23 @@ export function BookView({
 				snap,
 				rulers: rulers.on,
 				master: master !== null,
+				cell: editingCell,
 			}
 		: null;
 	const editor = useMemo(
 		() => (input ? editorState(input) : undefined),
-		[spread, shown, book.spreads.length, selected, layout, choices, marks, snap, rulers.on],
+		[
+			spread,
+			shown,
+			book.spreads.length,
+			selected,
+			layout,
+			choices,
+			marks,
+			snap,
+			rulers.on,
+			editingCell,
+		],
 	);
 
 	// Ctrl+R shows and hides the rulers, and is kept from reloading the page.
@@ -394,6 +410,8 @@ export function BookView({
 							store.apply({ type: 'RotateFrame', on: surface, frame, degrees })
 						}
 						onEditText={(frame, text) => void store.apply({ type: 'SetText', frame, text })}
+						onEditTable={(frame, edit) => void store.apply({ type: 'EditTable', frame, edit })}
+						onEditingCell={(cell) => cell && setEditingCell(cell)}
 						editableMasters={settings.mode === 'expert'}
 						demoteTo={demoteTo}
 						onPageCommand={(command, point) => {

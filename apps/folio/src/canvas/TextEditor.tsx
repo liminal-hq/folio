@@ -27,8 +27,17 @@ export function canEditText(frame: WordFrame): boolean {
 	return frame.type === 'shape' ? frame.shape !== 'line' : !frame.flow;
 }
 
+/** What an editor needs of the words it edits: where they sit, and what they are. */
+export interface EditedWords {
+	/** A table's cell has its own room inside the table, as a shape's words do. */
+	type: 'text' | 'shape' | 'cell';
+	/** The box the words' room is measured from and the turn is about: a cell's is its table's. */
+	box: { w: number; h: number };
+	content?: InlineContent | null;
+}
+
 export interface TextEditorProps {
-	frame: WordFrame;
+	frame: EditedWords;
 	/** How the frame was laid out, for the font and line height the words are drawn in. */
 	layout: FrameLayout | undefined;
 	/** Screen pixels per point. */
@@ -39,21 +48,31 @@ export interface TextEditorProps {
 	at: { x: number; y: number };
 	/** The new words, or `null` when nothing changed. */
 	onCommit(text: string | null): void;
+	/** Tab was pressed: the words are kept, then this is called. Without it, Tab moves on as usual. */
+	onTab?(back: boolean): void;
 }
 
 /**
  * A text area set in the frame's own font over the frame. Escape or leaving it keeps what was typed
  * as one change, so one undo takes it all back.
  */
-export function TextEditor({ frame, layout, scale, rotation = 0, at, onCommit }: TextEditorProps) {
+export function TextEditor({
+	frame,
+	layout,
+	scale,
+	rotation = 0,
+	at,
+	onCommit,
+	onTab,
+}: TextEditorProps) {
 	const area = useRef<HTMLTextAreaElement | null>(null);
 	const first = layout?.lines[0];
 	const run = first?.runs[0];
 	const initial = plainTextOf(frame) ?? '';
 	// A shape's words have a room of their own inside it, and the lines are already placed in it.
-	const room = frame.type === 'shape' ? layout?.textBox : undefined;
+	const room = frame.type !== 'text' ? layout?.textBox : undefined;
 	// The words are set as the layout's style sets them, whatever the shape.
-	const align = frame.type === 'shape' ? layout?.textAlign : undefined;
+	const align = frame.type !== 'text' ? layout?.textAlign : undefined;
 	const centred = align === 'center';
 	const done = useRef(false);
 	/** What is in the box now, kept as it is typed because the box is gone by the time an unmount cleans up. */
@@ -75,7 +94,15 @@ export function TextEditor({ frame, layout, scale, rotation = 0, at, onCommit }:
 	// Showing another spread or losing the frame closes the editor without a blur: keep the words.
 	const latest = useRef(finish);
 	latest.current = finish;
-	useEffect(() => () => latest.current(), []);
+	// Only words that changed need keeping then: with none, there is nothing to send, and React's
+	// development double run of effects must not close an editor that has only just opened.
+	useEffect(
+		() => () => {
+			if (typed.current !== initial) latest.current();
+		},
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[],
+	);
 
 	return (
 		<textarea
@@ -93,6 +120,11 @@ export function TextEditor({ frame, layout, scale, rotation = 0, at, onCommit }:
 					event.preventDefault();
 					event.stopPropagation();
 					finish();
+				} else if (event.key === 'Tab' && onTab) {
+					event.preventDefault();
+					event.stopPropagation();
+					finish();
+					onTab(event.shiftKey);
 				}
 			}}
 			style={{

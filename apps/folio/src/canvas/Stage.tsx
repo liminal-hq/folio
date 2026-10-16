@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import type { TableEdit } from '@liminal-hq/folio-protocol/generated/TableEdit';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
@@ -72,6 +73,8 @@ export interface StageProps {
 	onTurn?(id: string, degrees: number): Promise<void>;
 	onCommand?(command: FrameCommand, ids: string[]): void;
 	onEditText?(id: string, text: string): void;
+	onEditTable?(id: string, edit: TableEdit): void;
+	onEditingCell?(cell: { row: number; col: number } | null): void;
 	/** A choice from the page menu; `point` is where it was asked for, in points on the spread. */
 	onPageCommand?(command: PageCommand, point: { x: number; y: number }): void;
 	/** The spread a master's guide goes back onto from its menu, while a master is edited. */
@@ -105,6 +108,8 @@ export function Stage({
 	onTurn,
 	onCommand,
 	onEditText,
+	onEditTable,
+	onEditingCell,
 	onPageCommand,
 	editableMasters = false,
 	demoteTo = null,
@@ -256,6 +261,8 @@ export function Stage({
 							onTurn={onTurn}
 							onCommand={onCommand}
 							onEditText={onEditText}
+							onEditTable={onEditTable}
+							onEditingCell={onEditingCell}
 							onPageMenu={(at, point) => setPageMenu({ at, point })}
 							onFrameMenu={(_, at) => setMenu(at)}
 							onGuidePointerDown={(axis, index, event) => guideDrag.fromGuide(axis, index)(event)}
