@@ -37,6 +37,12 @@ export interface BookActions {
 	open(path?: string): Promise<ActionResult>;
 	/** Closes the book being shown, asking `decide` first when it has changes worth keeping. */
 	close(decide: (summary: BookSummary) => Promise<CloseChoice>): Promise<ActionResult>;
+	/**
+	 * Closes every open book, asking `decide` about each that has changes worth keeping, one after
+	 * another. It stops at the first the person cancels or that cannot be saved, and then closes
+	 * nothing: 'done' means the app may go.
+	 */
+	closeAll(decide: (summary: BookSummary) => Promise<CloseChoice>): Promise<ActionResult>;
 }
 
 export function createBookActions(
@@ -46,8 +52,15 @@ export function createBookActions(
 ): BookActions {
 	const shown = () => activeBook(store.state.getState());
 
-	const saveAs = async (): Promise<ActionResult> => {
-		const book = shown();
+	const find = (id: string) => {
+		const state = store.state.getState();
+		const summary = state.summaries.find((b) => b.id === id);
+		const copy = state.copies[id];
+		return summary && copy ? { summary, copy } : null;
+	};
+
+	const saveAsBook = async (id: string): Promise<ActionResult> => {
+		const book = find(id);
 		if (!book) return 'failed';
 		const start = book.summary.path ?? (await client.defaultSavePath(book.summary.title));
 		const picked = await dialogs.pickSavePath(start);
@@ -55,11 +68,21 @@ export function createBookActions(
 		return (await store.save(book.summary.id, withExtension(picked))) ? 'done' : 'failed';
 	};
 
+	const saveBook = async (id: string): Promise<ActionResult> => {
+		const book = find(id);
+		if (!book) return 'failed';
+		if (book.summary.path === null) return saveAsBook(id);
+		return (await store.save(book.summary.id)) ? 'done' : 'failed';
+	};
+
+	const saveAs = async (): Promise<ActionResult> => {
+		const book = shown();
+		return book ? saveAsBook(book.summary.id) : 'failed';
+	};
+
 	const save = async (): Promise<ActionResult> => {
 		const book = shown();
-		if (!book) return 'failed';
-		if (book.summary.path === null) return saveAs();
-		return (await store.save(book.summary.id)) ? 'done' : 'failed';
+		return book ? saveBook(book.summary.id) : 'failed';
 	};
 
 	return {
@@ -83,6 +106,22 @@ export function createBookActions(
 				}
 			}
 			await store.close(book.summary.id);
+			return 'done';
+		},
+		async closeAll(decide) {
+			const open = [...store.state.getState().summaries];
+			for (const { id } of open) {
+				const book = find(id);
+				if (!book || !needsAsking(book.summary, book.copy)) continue;
+				const choice = await decide(book.summary);
+				if (choice === 'cancel') return 'cancelled';
+				if (choice === 'save') {
+					const saved = await saveBook(id);
+					if (saved !== 'done') return saved;
+				}
+			}
+			// Everyone has been asked: the books go, so nothing is left behind for the next launch.
+			for (const { id } of open) await store.close(id);
 			return 'done';
 		},
 	};
