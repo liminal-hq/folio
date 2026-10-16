@@ -128,3 +128,38 @@ pub struct DictionaryStatus {
     /// It comes with Folio and cannot be removed.
     pub bundled: bool,
 }
+
+/// A misspelt word somewhere in the book, and where to find it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct MisspeltWord {
+    pub spread: String,
+    /// The frame it is in; for flowing text, the first frame of the flow.
+    pub frame: String,
+    /// The row and column of the table cell it is in, for a table.
+    pub row: Option<u32>,
+    pub col: Option<u32>,
+    pub word: String,
+    /// Where it is in the frame's (or cell's) words, in UTF-16 code units.
+    pub start: u32,
+    pub end: u32,
+    /// A few words round it, to know it by.
+    pub context: String,
+    /// Whether it can be changed from here: its words are plain text of a frame of its own.
+    /// Flowing text and words with emphasis are changed on the page.
+    pub replaceable: bool,
+}
+
+/// Every misspelt word in a book.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct BookSpelling {
+    pub supported: bool,
+    pub dictionary: Option<String>,
+    pub offer: Option<DictionaryOffer>,
+    pub words: Vec<MisspeltWord>,
+    /// There were more than are listed.
+    pub truncated: bool,
+}

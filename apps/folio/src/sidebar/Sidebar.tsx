@@ -7,9 +7,9 @@ import { useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { t } from '../i18n/messages';
 import styles from './Sidebar.module.css';
 
-export type SidebarGroup = 'properties' | 'pages';
+export type SidebarGroup = 'properties' | 'pages' | 'proofing';
 
-const GROUPS: readonly SidebarGroup[] = ['properties', 'pages'];
+const GROUPS: readonly SidebarGroup[] = ['properties', 'pages', 'proofing'];
 
 export interface SidebarProps {
 	group: SidebarGroup;

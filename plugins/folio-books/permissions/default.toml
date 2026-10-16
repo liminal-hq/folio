@@ -20,6 +20,7 @@ permissions = [
   "allow-asset-data",
   "allow-spell-check",
   "allow-spell-suggest",
+  "allow-spell-check-book",
   "allow-dictionaries",
   "allow-download-dictionary",
   "allow-remove-dictionary",

@@ -114,6 +114,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function removeDictionary(id) {
         return cmd('remove_dictionary', { id });
     }
+    /** Every misspelt word in the book, and where it is. */
+    function spellCheckBook(id, personal = []) {
+        return cmd('spell_check_book', { id, personal });
+    }
 
     exports.CHANGED_EVENT = CHANGED_EVENT;
     exports.PATCH_EVENT = PATCH_EVENT;
@@ -139,6 +143,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.saveBook = saveBook;
     exports.snapshot = snapshot;
     exports.spellCheck = spellCheck;
+    exports.spellCheckBook = spellCheckBook;
     exports.spellSuggest = spellSuggest;
     exports.undo = undo;
 

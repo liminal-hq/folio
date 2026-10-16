@@ -13,7 +13,9 @@ use tauri::{AppHandle, Manager, Runtime, State, WebviewWindow};
 
 use crate::error::Error;
 use crate::state::Books;
-use crate::wire::{BookSnapshot, BookSummary, DictionaryStatus, SpellCheck, SpreadLayoutResult};
+use crate::wire::{
+    BookSnapshot, BookSpelling, BookSummary, DictionaryStatus, SpellCheck, SpreadLayoutResult,
+};
 
 /// Reports that books work. They need nothing from the system, so this is always available.
 #[tauri::command]
@@ -269,4 +271,20 @@ pub async fn remove_dictionary<R: Runtime>(
 ) -> Result<Vec<DictionaryStatus>, Error> {
     books.spelling.remove(&id)?;
     Ok(books.spelling.status())
+}
+
+/// Every misspelt word in a book, and where it is.
+#[tauri::command]
+pub async fn spell_check_book<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    personal: Option<Vec<String>>,
+) -> Result<BookSpelling, Error> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Books<R>>()
+            .spell_check_book(&id, &personal.unwrap_or_default())
+    })
+    .await
+    .expect("the spelling task does not panic")
 }

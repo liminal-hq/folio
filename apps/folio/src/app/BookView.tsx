@@ -31,6 +31,8 @@ import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import { Inspector } from '../inspector/Inspector';
 import { PagesPanel } from '../sidebar/PagesPanel';
+import { ProofingPanel } from '../sidebar/ProofingPanel';
+import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
 import { Sidebar, type SidebarGroup } from '../sidebar/Sidebar';
 import { t } from '../i18n/messages';
 import {
@@ -298,8 +300,39 @@ export function BookView({
 	// The sidebar's open group. Selecting something on the page brings the Properties forward.
 	const [group, setGroup] = useState<SidebarGroup>('properties');
 	useEffect(() => {
-		if (selection.length > 0) setGroup('properties');
+		// The Proofing list is a task: showing a word selects it, and the list stays.
+		if (selection.length > 0) setGroup((open) => (open === 'proofing' ? open : 'properties'));
 	}, [selection]);
+	// What spelling finds in the whole book, read when the Proofing group is open and read again a
+	// moment after the book, the dictionary or the words added for every book change.
+	const [proofing, setProofing] = useState<BookSpelling | null>(null);
+	const [dictionaryTick, setDictionaryTick] = useState(0);
+	const personalKey = settings.spelling.personal.join('\u0000');
+	useEffect(() => {
+		if (group !== 'proofing') return;
+		let live = true;
+		const wait = setTimeout(() => {
+			client
+				.spellCheckBook(id, settings.spelling.personal)
+				.then((found) => live && setProofing(found))
+				.catch(
+					() =>
+						live &&
+						setProofing({
+							supported: false,
+							dictionary: null,
+							offer: null,
+							words: [],
+							truncated: false,
+						}),
+				);
+		}, 300);
+		return () => {
+			live = false;
+			clearTimeout(wait);
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [group, client, id, copy.revision, personalKey, dictionaryTick]);
 	// The colours the pickers offer, read the first time the dialog opens or a shape is selected.
 	const paints = usePaintPresets(
 		client,
@@ -504,6 +537,61 @@ export function BookView({
 								paints={paints}
 								images={images}
 								choosePicture={(frame) => void choosePicture(frame)}
+							/>
+						),
+						proofing: (
+							<ProofingPanel
+								found={proofing}
+								spreads={book.spreads.map((s, i) => ({ id: s.id, label: labels[i] ?? '' }))}
+								onShow={(word) => {
+									const index = book.spreads.findIndex((s) => s.id === word.spread);
+									if (index < 0) return;
+									setEditing(null);
+									setSpreadIndex(index);
+									select([word.frame]);
+								}}
+								onIgnore={(word) => void store.apply({ type: 'IgnoreWord', word: word.word })}
+								onAdd={(word) =>
+									void update({
+										spelling: { personal: [...new Set([...personal, word.word])].sort() },
+									} as SettingsPatch)
+								}
+								onSuggest={(word) => client.spellSuggest(id, word).catch(() => [])}
+								onChange={(word, to) => {
+									const frame = book.spreads
+										.flatMap((s) => s.frames)
+										.find((f) => f.id === word.frame);
+									if (!frame) return;
+									const words = (content?: { inline: { text: string }[] } | null) =>
+										content?.inline.map((r) => r.text).join('') ?? '';
+									const swap = (text: string) =>
+										text.slice(0, word.start) + to + text.slice(word.end);
+									if (frame.type === 'table' && word.row !== null && word.col !== null) {
+										const cell = frame.rows[word.row]?.[word.col];
+										if (!cell) return;
+										void store.apply({
+											type: 'EditTable',
+											frame: frame.id,
+											edit: {
+												type: 'setCell',
+												row: word.row,
+												col: word.col,
+												text: swap(words(cell.content)),
+											},
+										});
+									} else if (frame.type === 'text' || frame.type === 'shape') {
+										void store.apply({
+											type: 'SetText',
+											frame: frame.id,
+											text: swap(words(frame.content)),
+										});
+									}
+								}}
+								onDownload={(dictionary) =>
+									void client
+										.downloadDictionary(dictionary)
+										.then(() => setDictionaryTick((n) => n + 1))
+								}
 							/>
 						),
 						pages: (

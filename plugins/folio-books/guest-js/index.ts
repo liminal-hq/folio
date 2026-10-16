@@ -8,6 +8,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { BookSnapshot } from '@liminal-hq/folio-protocol/generated/BookSnapshot';
 import type { BookSummary } from '@liminal-hq/folio-protocol/generated/BookSummary';
 import type { BooksChanged } from '@liminal-hq/folio-protocol/generated/BooksChanged';
+import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
 import type { DictionaryOffer } from '@liminal-hq/folio-protocol/generated/DictionaryOffer';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import type { Misspelling } from '@liminal-hq/folio-protocol/generated/Misspelling';
@@ -149,6 +150,7 @@ export function onBooksChanged(listener: (event: BooksChanged) => void): Promise
 
 export type {
 	BookSnapshot,
+	BookSpelling,
 	DictionaryOffer,
 	DictionaryStatus,
 	Misspelling,
@@ -197,4 +199,9 @@ export function downloadDictionary(id: string): Promise<DictionaryStatus[]> {
 /** Takes a downloaded dictionary away; resolves to the list again. */
 export function removeDictionary(id: string): Promise<DictionaryStatus[]> {
 	return cmd<DictionaryStatus[]>('remove_dictionary', { id });
+}
+
+/** Every misspelt word in the book, and where it is. */
+export function spellCheckBook(id: string, personal: string[] = []): Promise<BookSpelling> {
+	return cmd<BookSpelling>('spell_check_book', { id, personal });
 }
