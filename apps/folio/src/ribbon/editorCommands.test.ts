@@ -47,11 +47,19 @@ const shape = (extra = {}) =>
 		...extra,
 	}) as unknown as Frame;
 
-describe('turning a shape', () => {
-	it('offers the turn buttons for one free shape only', () => {
+describe('turning a frame', () => {
+	it('offers the turn buttons for one free frame only', () => {
 		expect(editorState(input([shape()])).available.has('rotL')).toBe(true);
+		expect(editorState(input([image()])).available.has('rotR')).toBe(true);
+		expect(editorState(input([text()])).available.has('rotL')).toBe(true);
 		expect(editorState(input([shape({ locked: true })])).available.has('rotR')).toBe(false);
-		expect(editorState(input([text()])).available.has('rotL')).toBe(false);
+		expect(editorState(input([shape(), image({ id: 'j' })])).available.has('rotL')).toBe(false);
+	});
+
+	it('cannot stretch a turned picture to the bleed line', () => {
+		const turnedPicture = image({ rotation: 90 });
+		expect(editorState(input([turnedPicture])).available.has('toBleed')).toBe(false);
+		expect(editorAction('toBleed', undefined, input([turnedPicture]))).toBeNull();
 	});
 
 	it('turns a quarter either way from where the shape is now', () => {
@@ -62,7 +70,10 @@ describe('turning a shape', () => {
 		});
 		const right = editorAction('rotR', undefined, input([shape({ rotation: 30 })]));
 		expect(right).toMatchObject({ intents: [{ degrees: 120 }] });
-		expect(editorAction('rotR', undefined, input([image()]))).toBeNull();
+		expect(editorAction('rotR', undefined, input([image({ locked: true })]))).toBeNull();
+		expect(editorAction('rotR', undefined, input([image({ rotation: 0 })]))).toMatchObject({
+			intents: [{ type: 'RotateFrame', degrees: 90 }],
+		});
 	});
 });
 

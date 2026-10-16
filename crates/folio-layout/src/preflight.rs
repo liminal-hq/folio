@@ -91,7 +91,8 @@ pub fn geometry_checks(book: &Book, spread: &Spread) -> Vec<PreflightItem> {
         if base.from_master.is_some() {
             continue;
         }
-        let r = &base.rect;
+        // A turned frame is held to the box that holds its turned corners.
+        let r = &base.rect.turned_bounds(base.rotation);
         let (fx0, fy0, fx1, fy1) = (r.x.0, r.y.0, r.x.0 + r.w.0, r.y.0 + r.h.0);
         match frame {
             Frame::Text(_) => {

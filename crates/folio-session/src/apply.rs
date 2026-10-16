@@ -501,9 +501,6 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         Intent::RotateFrame { on, frame, degrees } => {
             let target = find(frames_on(book, on)?, frame)
                 .ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
-            if !matches!(target, Frame::Shape(_)) {
-                return Err(SessionError::NotShape(frame.0.clone()));
-            }
             ensure_free(target)?;
             if !degrees.is_finite() {
                 return Err(SessionError::BadShape("an angle is a number".into()));

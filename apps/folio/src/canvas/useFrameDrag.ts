@@ -190,7 +190,12 @@ export function useFrameDrag(options: FrameDragOptions) {
 			let applied = { dx, dy };
 			let drawn: Snapped['lines'] = [];
 			if (snap && !event.altKey) {
-				const snapped = snapMove({ ...lead, x: lead.x + dx, y: lead.y + dy }, targets, threshold);
+				const snapped = snapMove(
+					{ ...lead, x: lead.x + dx, y: lead.y + dy },
+					targets,
+					threshold,
+					frames.find((f) => f.id === d.ids[0])?.rotation ?? 0,
+				);
 				applied = { dx: snapped.rect.x - lead.x, dy: snapped.rect.y - lead.y };
 				drawn = snapped.lines;
 			}

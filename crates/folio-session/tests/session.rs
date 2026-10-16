@@ -2366,7 +2366,7 @@ fn words_go_into_a_shape_and_emptying_them_takes_them_out_but_a_line_has_no_insi
 }
 
 #[test]
-fn a_shape_turns_to_an_angle_kept_in_a_full_turn_and_other_frames_do_not_turn() {
+fn a_frame_turns_to_an_angle_kept_in_a_full_turn_and_a_locked_one_does_not() {
     let mut s = session_with_shape();
     let on = folio_model::Surface::Spread(spread("sp_2"));
     let turn = |degrees: f64| Intent::RotateFrame {
@@ -2384,6 +2384,20 @@ fn a_shape_turns_to_an_angle_kept_in_a_full_turn_and_other_frames_do_not_turn() 
         s.apply(turn(f64::NAN)).unwrap_err(),
         SessionError::BadShape(_)
     ));
+    // Words and pictures turn too.
+    s.apply(Intent::RotateFrame {
+        on: folio_model::Surface::Spread(spread("sp_1")),
+        frame: frame("fr_text"),
+        degrees: -30.0,
+    })
+    .unwrap();
+    assert_eq!(s.book().spreads[1].frames[1].base().rotation, 330.0);
+    s.apply(Intent::LockFrame {
+        on: folio_model::Surface::Spread(spread("sp_1")),
+        frame: frame("fr_text"),
+        locked: true,
+    })
+    .unwrap();
     assert_eq!(
         s.apply(Intent::RotateFrame {
             on: folio_model::Surface::Spread(spread("sp_1")),
@@ -2391,7 +2405,7 @@ fn a_shape_turns_to_an_angle_kept_in_a_full_turn_and_other_frames_do_not_turn() 
             degrees: 90.0
         })
         .unwrap_err(),
-        SessionError::NotShape("fr_text".into())
+        SessionError::Locked("fr_text".into())
     );
 }
 

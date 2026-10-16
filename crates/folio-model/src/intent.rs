@@ -116,7 +116,8 @@ pub enum Intent {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         flip: Option<bool>,
     },
-    /// Turns a shape to `degrees` clockwise (0 is upright). Any angle is kept in 0 to 360.
+    /// Turns a frame to `degrees` clockwise about its middle (0 is upright). Any angle is kept in 0
+    /// to 360.
     RotateFrame {
         on: Surface,
         frame: FrameId,
