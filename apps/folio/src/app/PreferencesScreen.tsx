@@ -106,6 +106,23 @@ function UnitsPage() {
 	);
 }
 
+function SpellingPage() {
+	const settings = useSettings();
+	const update = useUpdateSettings();
+	return (
+		<SettingsSection>
+			<SettingsGroup>
+				<ToggleRow
+					label={t('preferences.spelling')}
+					description={t('preferences.spelling.description')}
+					checked={settings.spelling.enabled}
+					onChange={(enabled) => void update({ spelling: { enabled } })}
+				/>
+			</SettingsGroup>
+		</SettingsSection>
+	);
+}
+
 function HelpPage() {
 	const settings = useSettings();
 	const update = useUpdateSettings();
@@ -137,6 +154,11 @@ function sections(): SettingsSectionDef[] {
 			render: () => <AppearancePage />,
 		},
 		{ id: 'units', label: t('preferences.section.units'), render: () => <UnitsPage /> },
+		{
+			id: 'spelling',
+			label: t('preferences.section.spelling'),
+			render: () => <SpellingPage />,
+		},
 		{ id: 'help', label: t('preferences.section.help'), render: () => <HelpPage /> },
 	];
 }

@@ -210,6 +210,7 @@ export const RIBBON_LAYOUT: readonly LayoutTab[] = [
 					},
 					{
 						id: 'spell',
+						kind: 'toggle',
 					},
 				],
 			},

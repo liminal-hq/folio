@@ -73,6 +73,10 @@ export const messages = {
 	'preferences.toolbar': 'Toolbar',
 	'preferences.toolbar.ribbon': 'Ribbon',
 	'preferences.toolbar.classic': 'Classic',
+	'preferences.section.spelling': 'Spelling',
+	'preferences.spelling': 'Check spelling while typing',
+	'preferences.spelling.description':
+		'Underlines misspelt words. The dictionary follows the book’s language; English (Canada) comes with Folio.',
 	'preferences.largerControls': 'Larger controls',
 	'preferences.largerControls.description': 'Make buttons and rows easier to hit.',
 	'preferences.mode': 'How do you like to work?',

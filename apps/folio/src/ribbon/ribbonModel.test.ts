@@ -89,6 +89,15 @@ describe('buildRibbonModel', () => {
 		expect(find(DEFAULT_SETTINGS)?.active).toBe(false);
 	});
 
+	it('reflects the spelling setting on its toggle', () => {
+		const off = { ...DEFAULT_SETTINGS, spelling: { enabled: false } };
+		const find = (settings: typeof off) =>
+			allItems(buildRibbonModel({ settings, available: some })).find((i) => i.id === 'spell');
+		expect(find(DEFAULT_SETTINGS)?.kind).toBe('toggle');
+		expect(find(DEFAULT_SETTINGS)?.active).toBe(true);
+		expect(find(off)?.active).toBe(false);
+	});
+
 	it('puts the commands that can run in the File menu', () => {
 		const model = buildRibbonModel({ settings: DEFAULT_SETTINGS, available: some });
 		expect(model.file?.items).toEqual([['file.save', 'Save']]);

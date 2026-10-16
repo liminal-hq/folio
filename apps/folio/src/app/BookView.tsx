@@ -301,6 +301,9 @@ export function BookView({
 			case 'rulers':
 				void update({ rulers: { on: !rulers.on } } as SettingsPatch);
 				break;
+			case 'spelling':
+				void update({ spelling: { enabled: !settings.spelling.enabled } } as SettingsPatch);
+				break;
 			case 'zoom':
 				if (action.zoom === 'in') zoomApi.current?.zoomIn();
 				else if (action.zoom === 'out') zoomApi.current?.zoomOut();
