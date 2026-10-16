@@ -233,8 +233,9 @@ export function Stage({
 					ref={ref}
 					className={styles.table}
 					onPointerDown={(event) => {
-						// A press on the bare table, not on the page, lets go of the selection.
-						if (!(event.target as Element).closest('svg')) onSelect?.([]);
+						// A press on the bare table, not on the page, lets go of the selection. The words being
+						// edited sit beside the page, so a press in them (placing the caret, picking a word) does not.
+						if (!(event.target as Element).closest('svg, textarea')) onSelect?.([]);
 					}}
 				>
 					<div className={styles.sheet}>
