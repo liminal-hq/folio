@@ -2526,3 +2526,197 @@ fn a_table_is_added_whole_and_one_that_cannot_exist_is_refused() {
         Err(SessionError::BadTable(_))
     ));
 }
+
+fn session_with_table() -> Session {
+    let mut s = session();
+    s.apply(Intent::AddFrame {
+        on: folio_model::Surface::Spread(spread("sp_2")),
+        frame: serde_json::from_value(table_json(3, &[0.5, 0.5])).unwrap(),
+    })
+    .unwrap();
+    s
+}
+
+fn table_of(s: &Session) -> folio_model::TableFrame {
+    match &s.book().spreads[2].frames[0] {
+        Frame::Table(t) => t.clone(),
+        _ => unreachable!(),
+    }
+}
+
+fn edit(s: &mut Session, edit: folio_model::TableEdit) -> Result<(), SessionError> {
+    s.apply(Intent::EditTable {
+        frame: frame("fr_table"),
+        edit,
+    })
+    .map(|_| ())
+}
+
+fn words(t: &folio_model::TableFrame, row: usize, col: usize) -> Option<String> {
+    t.rows[row][col]
+        .content
+        .as_ref()
+        .map(|c| c.inline[0].text.clone())
+}
+
+#[test]
+fn typing_in_one_cell_is_one_undo_step_and_emptying_it_leaves_no_words() {
+    use folio_model::TableEdit::SetCell;
+    let mut s = session_with_table();
+    for text in ["P", "Pi", "Pip"] {
+        edit(
+            &mut s,
+            SetCell {
+                row: 1,
+                col: 0,
+                text: text.into(),
+            },
+        )
+        .unwrap();
+    }
+    edit(
+        &mut s,
+        SetCell {
+            row: 2,
+            col: 1,
+            text: "x".into(),
+        },
+    )
+    .unwrap();
+    assert_eq!(words(&table_of(&s), 1, 0).as_deref(), Some("Pip"));
+    s.undo().unwrap();
+    assert_eq!(
+        words(&table_of(&s), 2, 1),
+        None,
+        "another cell is its own step"
+    );
+    assert_eq!(words(&table_of(&s), 1, 0).as_deref(), Some("Pip"));
+    s.undo().unwrap();
+    assert_eq!(
+        words(&table_of(&s), 1, 0),
+        None,
+        "the three tries are one step"
+    );
+    edit(
+        &mut s,
+        SetCell {
+            row: 0,
+            col: 0,
+            text: "a".into(),
+        },
+    )
+    .unwrap();
+    edit(
+        &mut s,
+        SetCell {
+            row: 0,
+            col: 0,
+            text: String::new(),
+        },
+    )
+    .unwrap();
+    assert_eq!(words(&table_of(&s), 0, 0), None);
+}
+
+#[test]
+fn rows_and_columns_are_added_and_removed_keeping_the_table_whole() {
+    use folio_model::TableEdit::*;
+    let mut s = session_with_table();
+    // 3 rows in 90 pt: a row is 30 pt.
+    edit(&mut s, AddRow { at: 1 }).unwrap();
+    let t = table_of(&s);
+    assert_eq!((t.rows.len(), t.base.rect.h.0), (4, 120.0));
+    assert!(t.rows[1].iter().all(|c| c.content.is_none()));
+    // Put in above the one header row, a row pushes the header down with it.
+    edit(&mut s, AddRow { at: 0 }).unwrap();
+    assert_eq!(table_of(&s).head, 2);
+    edit(&mut s, RemoveRow { at: 0 }).unwrap();
+    assert_eq!(table_of(&s).head, 1);
+    edit(&mut s, RemoveRow { at: 1 }).unwrap();
+    assert_eq!(table_of(&s).base.rect.h.0, 90.0);
+
+    edit(&mut s, AddColumn { at: 2 }).unwrap();
+    let t = table_of(&s);
+    assert_eq!(t.cols.len(), 3);
+    assert!((t.cols.iter().sum::<f64>() - 1.0).abs() < 1e-9);
+    assert!((t.cols[2] - 1.0 / 3.0).abs() < 1e-9 && (t.cols[0] - 1.0 / 3.0).abs() < 1e-9);
+    assert!(t.rows.iter().all(|r| r.len() == 3));
+    edit(&mut s, RemoveColumn { at: 0 }).unwrap();
+    let t = table_of(&s);
+    assert_eq!(t.cols.len(), 2);
+    assert!((t.cols.iter().sum::<f64>() - 1.0).abs() < 1e-9);
+    s.undo().unwrap();
+    assert_eq!(table_of(&s).cols.len(), 3);
+}
+
+#[test]
+fn a_table_keeps_a_row_and_a_column_and_refuses_what_is_not_there() {
+    use folio_model::TableEdit::*;
+    let mut s = session_with_table();
+    for _ in 0..2 {
+        edit(&mut s, RemoveRow { at: 0 }).unwrap();
+    }
+    assert!(matches!(
+        edit(&mut s, RemoveRow { at: 0 }),
+        Err(SessionError::BadTable(_))
+    ));
+    edit(&mut s, RemoveColumn { at: 1 }).unwrap();
+    assert!(matches!(
+        edit(&mut s, RemoveColumn { at: 0 }),
+        Err(SessionError::BadTable(_))
+    ));
+    for bad in [
+        SetCell {
+            row: 5,
+            col: 0,
+            text: "x".into(),
+        },
+        AddRow { at: 5 },
+        AddColumn { at: 5 },
+        RemoveColumn { at: 5 },
+    ] {
+        assert!(
+            matches!(edit(&mut s, bad.clone()), Err(SessionError::BadTable(_))),
+            "{bad:?}"
+        );
+    }
+    assert!(matches!(
+        edit(&mut s, SetHead { head: 9 }),
+        Err(SessionError::BadTable(_))
+    ));
+    assert_eq!(table_of(&s).head, 0, "a refused edit changes nothing");
+}
+
+#[test]
+fn a_table_look_and_header_rows_change_and_only_a_table_is_edited() {
+    use folio_model::TableEdit::*;
+    let mut s = session_with_table();
+    edit(
+        &mut s,
+        SetLook {
+            look: folio_model::TableLook::Recipe,
+        },
+    )
+    .unwrap();
+    edit(&mut s, SetHead { head: 2 }).unwrap();
+    let t = table_of(&s);
+    assert_eq!((t.look, t.head), (folio_model::TableLook::Recipe, 2));
+    assert_eq!(
+        s.apply(Intent::EditTable {
+            frame: frame("fr_text"),
+            edit: SetHead { head: 1 }
+        })
+        .unwrap_err(),
+        SessionError::NotTable("fr_text".into())
+    );
+    s.apply(Intent::LockFrame {
+        on: folio_model::Surface::Spread(spread("sp_2")),
+        frame: frame("fr_table"),
+        locked: true,
+    })
+    .unwrap();
+    assert!(matches!(
+        edit(&mut s, SetHead { head: 1 }),
+        Err(SessionError::Locked(_))
+    ));
+}

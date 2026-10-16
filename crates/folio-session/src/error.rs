@@ -32,6 +32,8 @@ pub enum SessionError {
     BadShape(String),
     #[error("{0}")]
     BadGeometry(String),
+    #[error("the frame `{0}` is not a table")]
+    NotTable(String),
     #[error("that table cannot be used: {0}")]
     BadTable(String),
     #[error("that background cannot be used: {0}")]

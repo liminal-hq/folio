@@ -5,7 +5,8 @@
 
 use folio_model::{
     BackgroundTarget, Book, Colour, Frame, FrameId, Guide, InlineContent, Intent, Master, MasterId,
-    Page, Paint, Pt, ReorderTo, Run, Spread, SpreadId, SpreadKind, Surface,
+    Page, Paint, Pt, ReorderTo, Run, Spread, SpreadId, SpreadKind, Surface, TableCell, TableEdit,
+    TableFrame,
 };
 
 /// The widest an outline can be, and the roundest a corner, in points.
@@ -41,6 +42,7 @@ pub enum MergeKey {
     Style(FrameId),
     Shape(FrameId),
     Focus(FrameId),
+    Cell(FrameId, usize, usize),
     Background(BackgroundTarget),
 }
 
@@ -585,6 +587,43 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 merge: Some(MergeKey::Text(frame.clone())),
             })
         }
+        Intent::EditTable { frame, edit } => {
+            let Some(found) = locate(book, frame) else {
+                return Err(SessionError::NoSuchFrame(frame.0.clone()));
+            };
+            let Frame::Table(table) = found else {
+                return Err(SessionError::NotTable(frame.0.clone()));
+            };
+            ensure_free(found)?;
+            let mut after = table.clone();
+            edit_table(&mut after, edit);
+            after.check().map_err(SessionError::BadTable)?;
+            // Edits that run past the ends are refused rather than clamped, so a stale UI is told.
+            let (rows, cols) = (table.rows.len(), table.cols.len());
+            let in_range = match edit {
+                TableEdit::SetCell { row, col, .. } => *row < rows && *col < cols,
+                TableEdit::AddRow { at } => *at <= rows,
+                TableEdit::RemoveRow { at } => *at < rows,
+                TableEdit::AddColumn { at } => *at <= cols,
+                TableEdit::RemoveColumn { at } => *at < cols,
+                TableEdit::SetHead { .. } | TableEdit::SetLook { .. } => true,
+            };
+            if !in_range {
+                return Err(SessionError::BadTable(
+                    "that row or column is not there".into(),
+                ));
+            }
+            Ok(Plan {
+                touched: touched_by(book, frame)?,
+                new_spread: None,
+                merge: match edit {
+                    TableEdit::SetCell { row, col, .. } => {
+                        Some(MergeKey::Cell(frame.clone(), *row, *col))
+                    }
+                    _ => None,
+                },
+            })
+        }
         Intent::SetStyle { frame, .. } => {
             let touched = touched_by(book, frame)?;
             let styled =
@@ -983,6 +1022,11 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 _ => {}
             }
         }
+        Intent::EditTable { frame, edit } => {
+            if let Some(Frame::Table(table)) = locate_mut(book, &frame) {
+                edit_table(table, &edit);
+            }
+        }
         Intent::SetStyle { frame, style } => {
             if let Some(f) = locate_mut(book, &frame) {
                 match f {
@@ -1161,5 +1205,67 @@ pub fn check_text(book: &Book, frame: &FrameId) -> Result<(), SessionError> {
         Frame::Text(_) => ensure_free(found),
         Frame::Shape(s) if s.shape.holds_text() => ensure_free(found),
         _ => Err(SessionError::NotText(frame.0.clone())),
+    }
+}
+
+/// Applies `edit` to a table, leaving an edit that does not fit to the caller's check. The caller
+/// checks the result with `TableFrame::check` and that the row or column is there.
+fn edit_table(table: &mut TableFrame, edit: &TableEdit) {
+    let rows = table.rows.len();
+    let cols = table.cols.len();
+    match edit {
+        TableEdit::SetCell { row, col, text } => {
+            if let Some(cell) = table.rows.get_mut(*row).and_then(|r| r.get_mut(*col)) {
+                cell.content = (!text.is_empty()).then(|| InlineContent {
+                    inline: vec![Run {
+                        text: text.clone(),
+                        style: None,
+                        bold: false,
+                        italic: false,
+                    }],
+                });
+            }
+        }
+        TableEdit::AddRow { at } if *at <= rows => {
+            let row_h = table.base.rect.h.0 / rows.max(1) as f64;
+            table.rows.insert(*at, vec![TableCell::default(); cols]);
+            table.base.rect.h = Pt(row_h * (rows + 1) as f64);
+            // A row put in above the header rows is not one of them.
+            if *at < usize::from(table.head) {
+                table.head = table.head.saturating_add(1);
+            }
+        }
+        TableEdit::RemoveRow { at } if *at < rows => {
+            let row_h = table.base.rect.h.0 / rows as f64;
+            table.rows.remove(*at);
+            table.base.rect.h = Pt(row_h * (rows - 1) as f64);
+            if *at < usize::from(table.head) {
+                table.head -= 1;
+            }
+            table.head = table.head.min(table.rows.len().min(255) as u8);
+        }
+        TableEdit::AddColumn { at } if *at <= cols => {
+            let share = 1.0 / (cols + 1) as f64;
+            for w in &mut table.cols {
+                *w *= 1.0 - share;
+            }
+            table.cols.insert(*at, share);
+            for row in &mut table.rows {
+                row.insert(*at, TableCell::default());
+            }
+        }
+        TableEdit::RemoveColumn { at } if *at < cols => {
+            table.cols.remove(*at);
+            let sum: f64 = table.cols.iter().sum();
+            for w in &mut table.cols {
+                *w /= sum;
+            }
+            for row in &mut table.rows {
+                row.remove(*at);
+            }
+        }
+        TableEdit::SetHead { head } => table.head = *head,
+        TableEdit::SetLook { look } => table.look = *look,
+        _ => {}
     }
 }

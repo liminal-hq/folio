@@ -54,6 +54,72 @@ describe('adding a table', () => {
 	});
 });
 
+describe('editing a table', () => {
+	const table = (extra = {}) =>
+		({
+			type: 'table',
+			id: 'tb',
+			box: {},
+			locked: false,
+			rotation: 0,
+			head: 1,
+			look: 'lined',
+			cols: [0.5, 0.5],
+			rows: [
+				[{}, {}],
+				[{}, {}],
+			],
+			...extra,
+		}) as unknown as Frame;
+	const edit = (id: string, frame = table(), extra: Partial<EditorInput> = {}) =>
+		editorAction(id, undefined, input([frame], extra));
+
+	it('shows the Table tab and its controls for one table, with the look and header on', () => {
+		const s = editorState(input([table()]));
+		expect(s.contextual).toEqual(['table']);
+		for (const id of ['rowAdd', 'rowDel', 'colAdd', 'colDel', 'headToggle', 'tableLined']) {
+			expect(s.available.has(id), id).toBe(true);
+		}
+		expect(s.active).toMatchObject({ headToggle: true, tableLined: true, tableGrid: false });
+	});
+
+	it('keeps the last row and column, and is off for a locked table', () => {
+		const one = editorState(input([table({ rows: [[{}]], cols: [1] })]));
+		expect(one.available.has('rowDel')).toBe(false);
+		expect(one.available.has('colDel')).toBe(false);
+		expect(editorState(input([table({ locked: true })])).available.has('rowAdd')).toBe(false);
+		expect(edit('rowAdd', table({ locked: true }))).toBeNull();
+	});
+
+	it('adds and removes at the end until a cell says where', () => {
+		const intent = (action: ReturnType<typeof edit>) =>
+			action && action.kind === 'intents' ? action.intents[0] : null;
+		expect(intent(edit('rowAdd'))).toEqual({
+			type: 'EditTable',
+			frame: 'tb',
+			edit: { type: 'addRow', at: 2 },
+		});
+		expect(intent(edit('colDel'))).toMatchObject({ edit: { type: 'removeColumn', at: 1 } });
+		const here = { cell: { row: 0, col: 1 } };
+		expect(intent(edit('rowAdd', table(), here))).toMatchObject({ edit: { at: 0 } });
+		expect(intent(edit('colAdd', table(), here))).toMatchObject({ edit: { at: 1 } });
+		expect(intent(edit('rowDel', table(), here))).toMatchObject({ edit: { at: 0 } });
+	});
+
+	it('toggles the header and picks a look', () => {
+		const intent = (action: ReturnType<typeof edit>) =>
+			action && action.kind === 'intents' ? action.intents[0] : null;
+		expect(intent(edit('headToggle'))).toMatchObject({ edit: { type: 'setHead', head: 0 } });
+		expect(intent(edit('headToggle', table({ head: 0 })))).toMatchObject({
+			edit: { type: 'setHead', head: 1 },
+		});
+		expect(intent(edit('tableRecipe'))).toMatchObject({
+			edit: { type: 'setLook', look: 'recipe' },
+		});
+		expect(intent(edit('tableGrid'))).toMatchObject({ edit: { look: 'grid' } });
+	});
+});
+
 describe('turning a frame', () => {
 	it('offers the turn buttons for one free frame only', () => {
 		expect(editorState(input([shape()])).available.has('rotL')).toBe(true);
