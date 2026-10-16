@@ -56,8 +56,8 @@ The picker offers the bundled families (Literata, Source Serif 4, Atkinson Hyper
 
 ## Find & replace and spelling
 
-- **Find bar** (Ctrl+F or Home → Find & replace) sits under the toolbar: Find, Replace with, live count ("3 found in this book"), Next (jumps to the spread and selects the box), Replace, Replace all (one undo step, with a toast saying how many matches it changed).
-- **Spelling:** wavy underlines while typing, using the system checker (Hunspell on Linux, the Windows spell checker on Windows, via `tauri-plugin-spellcheck`), with suggestions on right-click. It is off by default so the page stays calm. The toggle lives in the find bar and the Home tab.
+- **Find & replace** (Ctrl+F or Home → Find & replace): Find, Replace with, a live count ("3 found in this book"), Next (jumps to the spread and selects the box), Replace, and Replace all (one undo step, with a toast saying how many matches it changed).
+- **Spelling** (D-25): wavy underlines under misspelt words while typing, from Folio's own checker rather than the webview's or the system's, so the language is the same on Linux and Windows and Rust-owned text can be checked too. It is on by default, and the Home tab's Spelling button and Preferences turn it off. The language is the book's (en-CA unless the book says otherwise), and a run can carry its own `lang`. Right-click a misspelt word for suggestions, Ignore in this book and Add to dictionary; Alt+F7 jumps to the next misspelling and Shift+F10 opens the same menu from the keyboard. Words ignored in a book travel with the file (`proofing.ignore`). The English (Canada) dictionary is bundled; other languages are downloaded when asked for, with each dictionary's licence kept beside it. Underlines are never the only sign: a live region says how many misspellings a frame has.
 
 ## Footnotes, glossary, index
 
