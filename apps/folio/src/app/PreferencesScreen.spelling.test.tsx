@@ -134,4 +134,19 @@ describe('the Spelling page', () => {
 		await act(async () => finish!());
 		await waitFor(() => expect(screen.queryByRole('progressbar')).toBeNull());
 	});
+
+	it('has a Saving page that turns recovery copies off and sets how often they are kept', async () => {
+		const { settings } = await openSpelling();
+		await userEvent.click(await screen.findByRole('button', { name: 'Saving' }));
+		const toggle = screen.getByRole('switch', { name: 'Keep a recovery copy while I work' });
+		expect(toggle).toBeChecked();
+		expect(screen.getByRole('radio', { name: '30 seconds' })).toBeChecked();
+
+		await userEvent.click(screen.getByRole('radio', { name: '5 minutes' }));
+		await waitFor(async () =>
+			expect((await settings.get()).settings.autosave.intervalSecs).toBe(300),
+		);
+		await userEvent.click(toggle);
+		await waitFor(async () => expect((await settings.get()).settings.autosave.enabled).toBe(false));
+	});
 });

@@ -74,6 +74,15 @@ export const messages = {
 	'preferences.toolbar.ribbon': 'Ribbon',
 	'preferences.toolbar.classic': 'Classic',
 	'preferences.section.spelling': 'Spelling',
+	'preferences.section.saving': 'Saving',
+	'preferences.autosave': 'Keep a recovery copy while I work',
+	'preferences.autosave.description':
+		'If Folio stops or the power goes out, it offers your work back the next time it starts. Your book’s own file only changes when you save.',
+	'preferences.autosave.every': 'How often',
+	'preferences.autosave.every.15': '15 seconds',
+	'preferences.autosave.every.30': '30 seconds',
+	'preferences.autosave.every.60': '1 minute',
+	'preferences.autosave.every.300': '5 minutes',
 	'preferences.spelling': 'Check spelling while typing',
 	'preferences.spelling.description':
 		'Underlines misspelt words. The dictionary follows the book’s language; English (Canada) comes with Folio.',
