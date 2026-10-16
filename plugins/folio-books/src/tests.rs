@@ -324,7 +324,7 @@ fn a_spread_is_laid_out_at_the_revision_the_book_is_at() {
     let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();
     let spread = snapshot.book.spreads[1].id.0.clone();
     let before = books(&app)
-        .layout_spread(&snapshot.summary.id, &spread)
+        .layout_spread(&snapshot.summary.id, &spread, None)
         .unwrap();
     assert_eq!(before.revision, snapshot.revision);
     assert_eq!(before.layout.spread.0, spread);
@@ -334,7 +334,7 @@ fn a_spread_is_laid_out_at_the_revision_the_book_is_at() {
         .apply(&snapshot.summary.id, nudge(&app, &snapshot.summary.id, 5.0))
         .unwrap();
     let after = books(&app)
-        .layout_spread(&snapshot.summary.id, &spread)
+        .layout_spread(&snapshot.summary.id, &spread, None)
         .unwrap();
     assert_eq!(after.revision, before.revision + 1);
 }
@@ -375,13 +375,13 @@ fn a_master_page_is_laid_out_with_its_tokens_as_written() {
 fn laying_out_an_unknown_book_or_spread_is_a_typed_error() {
     let app = app();
     let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();
-    let missing = books(&app).layout_spread("nope", "x").unwrap_err();
+    let missing = books(&app).layout_spread("nope", "x", None).unwrap_err();
     assert_eq!(
         serde_json::to_value(&missing).unwrap()["kind"],
         "noSuchBook"
     );
     let spread = books(&app)
-        .layout_spread(&snapshot.summary.id, "no-such-spread")
+        .layout_spread(&snapshot.summary.id, "no-such-spread", None)
         .unwrap_err();
     assert_eq!(
         serde_json::to_value(&spread).unwrap()["kind"],
@@ -494,7 +494,7 @@ fn layout_reads_the_size_of_the_pictures_a_page_uses_and_says_when_one_is_missin
     };
     let problems = |app: &App| {
         books(app)
-            .layout_spread(&id, &cover.id.0)
+            .layout_spread(&id, &cover.id.0, None)
             .unwrap()
             .layout
             .preflight
@@ -654,4 +654,60 @@ fn a_dictionary_downloads_checks_and_checks_words() {
     assert!(dir.path().join("dictionaries/fr/LICENSE").is_file());
     books(&app).spelling.remove("fr").unwrap();
     assert!(books(&app).spelling.for_language("fr-CA").is_none());
+}
+
+#[test]
+fn layout_marks_misspelt_words_only_when_asked_and_leaves_ignored_ones_alone() {
+    let app = app();
+    let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();
+    let id = snapshot.summary.id.clone();
+    let spread = snapshot.book.spreads[1].clone();
+    // A long word may break across two lines, so the marked pieces are put back together.
+    let words = |layout: &folio_layout::wire::SpreadLayout| -> String {
+        layout
+            .frames
+            .iter()
+            .flat_map(|f| f.lines.iter())
+            .flat_map(|l| l.runs.iter())
+            .filter(|r| !r.miss.is_empty())
+            .map(|r| r.text.clone())
+            .collect()
+    };
+    // Put a made-up word into the spread's first text frame.
+    let frame = spread
+        .frames
+        .iter()
+        .find(|f| matches!(f, folio_model::Frame::Text(_)))
+        .unwrap()
+        .base()
+        .id
+        .clone();
+    books(&app)
+        .apply(
+            &id,
+            Intent::SetText {
+                frame,
+                text: "A small otter named Zorblat swam by.".into(),
+            },
+        )
+        .unwrap();
+    let laid = |spelling: Option<&[String]>| {
+        books(&app)
+            .layout_spread(&id, &spread.id.0, spelling)
+            .unwrap()
+            .layout
+    };
+    assert!(words(&laid(None)).is_empty(), "off unless asked");
+    assert_eq!(words(&laid(Some(&[]))), "Zorblat");
+    // Ignored in the book, or added for every book, it is no longer marked.
+    assert!(words(&laid(Some(&["Zorblat".to_owned()]))).is_empty());
+    books(&app)
+        .apply(
+            &id,
+            Intent::IgnoreWord {
+                word: "Zorblat".into(),
+            },
+        )
+        .unwrap();
+    assert!(words(&laid(Some(&[]))).is_empty());
 }

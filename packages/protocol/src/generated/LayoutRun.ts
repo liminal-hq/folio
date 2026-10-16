@@ -15,4 +15,8 @@ tracking: number,
 /**
  * A hyphen drawn at the end of a line; it is not part of the text.
  */
-hyphen: boolean, };
+hyphen: boolean, 
+/**
+ * The misspelt parts of `text`, each as where it starts and ends in UTF-16 code units.
+ */
+miss?: Array<[number, number]>, };

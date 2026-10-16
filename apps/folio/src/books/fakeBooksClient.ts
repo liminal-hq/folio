@@ -308,8 +308,8 @@ export function createFakeBooksClient(): FakeBooks {
 			changed();
 			return result;
 		},
-		async layoutSpread(id, spread) {
-			await call('layoutSpread', [id, spread]);
+		async layoutSpread(id, spread, spelling) {
+			await call('layoutSpread', spelling ? [id, spread, spelling] : [id, spread]);
 			const h = find(id);
 			const found = h.snapshot.book.spreads.find((s) => s.id === spread);
 			if (!found) throw { kind: 'noSuchSpread', message: `there is no spread \`${spread}\`` };

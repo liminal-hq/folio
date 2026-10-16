@@ -8,6 +8,8 @@ use folio_model::{
     Spread, SpreadId, StyleId, TableFrame, TextFrame,
 };
 
+use std::ops::Range;
+
 use crate::assets::AssetFacts;
 use crate::error::LayoutError;
 use crate::flow::{flow, FlowOptions, Flowed, FrameBox, PlacedLine, StoryParagraph};
@@ -20,6 +22,9 @@ use crate::wire::{
     SpreadLayout,
 };
 
+/// Finds the misspelt words of some text, as ranges of its bytes.
+pub type Proofer<'a> = &'a dyn Fn(&str) -> Vec<Range<usize>>;
+
 /// Lays out the text of a book. Cheap to make; holds nothing but what it was given.
 pub struct Layouter<'a> {
     pub book: &'a Book,
@@ -29,6 +34,9 @@ pub struct Layouter<'a> {
     pub optimal: bool,
     /// What is known of the book's pictures, for preflight. Without it, pictures are not checked.
     pub assets: Option<&'a AssetFacts>,
+    /// Finds the misspelt words of a paragraph as ranges of bytes, so the lines they are on can say
+    /// where to underline. Without it, nothing is marked.
+    pub proofing: Option<Proofer<'a>>,
 }
 
 /// Inset of a text frame's text from its edges, in points. Frames carry no padding of their own
@@ -43,7 +51,14 @@ impl<'a> Layouter<'a> {
             fonts,
             optimal: true,
             assets: None,
+            proofing: None,
         }
+    }
+
+    /// Marks the misspelt words in the lines it lays out, using `find` to say where they are.
+    pub fn with_proofing(mut self, find: Proofer<'a>) -> Self {
+        self.proofing = Some(find);
+        self
     }
 
     /// Checks the pictures against what is known of them too.
@@ -156,7 +171,7 @@ impl<'a> Layouter<'a> {
                     let FlowLayout {
                         flowed: laid,
                         order,
-                        styles,
+                        info,
                         ..
                     } = flowed
                         .iter()
@@ -166,7 +181,7 @@ impl<'a> Layouter<'a> {
                     if laid.overlong && index == Some(0) {
                         preflight.push(self.poem_item(spread, text));
                     }
-                    flow_frame(&text.base.id, laid, index, styles)
+                    flow_frame(&text.base.id, laid, index, info)
                 }
             };
             if layout.overset {
@@ -554,7 +569,7 @@ impl<'a> Layouter<'a> {
             id: chain.id.0.clone(),
             flowed: laid,
             order,
-            styles,
+            info: styles,
         })
     }
 
@@ -570,8 +585,8 @@ impl<'a> Layouter<'a> {
     }
 
     /// For the wire: the family, size and so on of a run come from its span.
-    fn runs_info(&self, story: &[StoryParagraph]) -> Vec<Vec<RunStyle>> {
-        story
+    fn runs_info(&self, story: &[StoryParagraph]) -> StoryInfo {
+        let styles = story
             .iter()
             .map(|p| {
                 p.spans
@@ -602,8 +617,33 @@ impl<'a> Layouter<'a> {
                     })
                     .collect()
             })
-            .collect()
+            .collect();
+        // Where the misspelt words of each paragraph are, so a line can say where to underline.
+        let texts: Vec<String> = story
+            .iter()
+            .map(|p| p.spans.iter().map(|s| s.text.as_str()).collect())
+            .collect();
+        let misses = match self.proofing {
+            Some(find) => texts.iter().map(|t| find(t)).collect(),
+            None => Vec::new(),
+        };
+        StoryInfo {
+            styles,
+            texts,
+            misses,
+        }
     }
+}
+
+/// What is known of a story's paragraphs besides where their lines fall.
+struct StoryInfo {
+    /// The look of each run of each paragraph.
+    styles: Vec<Vec<RunStyle>>,
+    /// The text of each paragraph.
+    texts: Vec<String>,
+    /// The misspelt words of each paragraph, as ranges of bytes of its text; empty when spelling is
+    /// not being checked.
+    misses: Vec<Vec<Range<usize>>>,
 }
 
 /// A flow's text poured through its frames: the frames in order, and the style of each run.
@@ -611,7 +651,7 @@ struct FlowLayout {
     id: String,
     flowed: Flowed,
     order: Vec<FrameId>,
-    styles: Vec<Vec<RunStyle>>,
+    info: StoryInfo,
 }
 
 #[derive(Clone)]
@@ -634,13 +674,60 @@ fn paragraph_from(spans: Vec<Span>, style: &ResolvedStyle) -> StoryParagraph {
     p
 }
 
-fn wire_line(placed: &PlacedLine, styles: &[Vec<RunStyle>]) -> LayoutLine {
+/// The misspelt parts of each run of a line, as UTF-16 ranges of the run's own text. Each run is
+/// found in the paragraph's text where the line is, and what a misspelt word shares with it is what
+/// is marked.
+fn run_marks(placed: &PlacedLine, info: &StoryInfo) -> Vec<Vec<(u32, u32)>> {
+    let none = || vec![Vec::new(); placed.line.runs.len()];
+    let (Some(text), Some(misses)) = (
+        info.texts.get(placed.paragraph),
+        info.misses.get(placed.paragraph),
+    ) else {
+        return none();
+    };
+    if misses.is_empty() {
+        return none();
+    }
+    let line = placed.offset + placed.line.text.start..placed.offset + placed.line.text.end;
+    let mut at = line.start;
+    placed
+        .line
+        .runs
+        .iter()
+        .map(|run| {
+            if run.hyphen {
+                return Vec::new();
+            }
+            let Some(found) = text.get(at..line.end).and_then(|rest| rest.find(&run.text)) else {
+                return Vec::new();
+            };
+            let (start, end) = (at + found, at + found + run.text.len());
+            at = end;
+            misses
+                .iter()
+                .filter_map(|m| {
+                    let (from, to) = (m.start.max(start), m.end.min(end));
+                    (from < to).then(|| {
+                        let utf16 =
+                            |bytes: usize| run.text[..bytes - start].encode_utf16().count() as u32;
+                        (utf16(from), utf16(to))
+                    })
+                })
+                .collect()
+        })
+        .collect()
+}
+
+fn wire_line(placed: &PlacedLine, info: &StoryInfo) -> LayoutLine {
+    let marks = run_marks(placed, info);
     let runs = placed
         .line
         .runs
         .iter()
-        .map(|r| {
-            let s = styles
+        .zip(marks)
+        .map(|(r, miss)| {
+            let s = info
+                .styles
                 .get(placed.paragraph)
                 .and_then(|p| p.get(r.span))
                 .cloned()
@@ -661,6 +748,7 @@ fn wire_line(placed: &PlacedLine, styles: &[Vec<RunStyle>]) -> LayoutLine {
                 italic: s.italic,
                 tracking: s.tracking,
                 hyphen: r.hyphen,
+                miss,
             }
         })
         .collect();
@@ -674,19 +762,14 @@ fn wire_line(placed: &PlacedLine, styles: &[Vec<RunStyle>]) -> LayoutLine {
     }
 }
 
-fn frame_layout(
-    id: &FrameId,
-    flowed: &Flowed,
-    frame: usize,
-    styles: &[Vec<RunStyle>],
-) -> FrameLayout {
+fn frame_layout(id: &FrameId, flowed: &Flowed, frame: usize, info: &StoryInfo) -> FrameLayout {
     FrameLayout {
         frame: id.clone(),
         lines: flowed
             .lines
             .iter()
             .filter(|l| l.frame == frame)
-            .map(|l| wire_line(l, styles))
+            .map(|l| wire_line(l, info))
             .collect(),
         overset: flowed.overset && frame + 1 == flowed.used_height.len().max(1),
         origin: None,
@@ -696,12 +779,7 @@ fn frame_layout(
 }
 
 /// The lines of the `index`th frame of a flow.
-fn flow_frame(
-    id: &FrameId,
-    laid: &Flowed,
-    index: Option<usize>,
-    styles: &[Vec<RunStyle>],
-) -> FrameLayout {
+fn flow_frame(id: &FrameId, laid: &Flowed, index: Option<usize>, info: &StoryInfo) -> FrameLayout {
     let Some(index) = index else {
         return FrameLayout {
             frame: id.clone(),
@@ -718,7 +796,7 @@ fn flow_frame(
             .lines
             .iter()
             .filter(|l| l.frame == index)
-            .map(|l| wire_line(l, styles))
+            .map(|l| wire_line(l, info))
             .collect(),
         overset: laid.overset && index + 1 == laid.used_height.len(),
         origin: None,

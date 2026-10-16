@@ -24,6 +24,9 @@ pub struct LayoutRun {
     pub tracking: f64,
     /// A hyphen drawn at the end of a line; it is not part of the text.
     pub hyphen: bool,
+    /// The misspelt parts of `text`, each as where it starts and ends in UTF-16 code units.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub miss: Vec<(u32, u32)>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]

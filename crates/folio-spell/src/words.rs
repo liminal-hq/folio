@@ -11,6 +11,8 @@ pub struct WordSpan {
     pub start: usize,
     pub end: usize,
     pub word: String,
+    /// The same place as a range of bytes of the text, for the one that holds the text in Rust.
+    pub bytes: std::ops::Range<usize>,
 }
 
 /// A word the checker does not know.
@@ -96,6 +98,7 @@ pub fn words(text: &str) -> Vec<WordSpan> {
             start: utf16[start],
             end: utf16[end],
             word: text[from..to].to_owned(),
+            bytes: from..to,
         });
     }
     out
@@ -155,6 +158,16 @@ mod tests {
         assert_eq!(found("🦦 otter"), [(3, 8, "otter".into())]);
         // An accented word is one word and one unit per letter.
         assert_eq!(found("café au lait")[0], (0, 4, "café".into()));
+    }
+
+    #[test]
+    fn a_word_is_also_placed_by_bytes_for_whoever_holds_the_text() {
+        let text = "🦦 café au lait";
+        let all = words(text);
+        for w in &all {
+            assert_eq!(&text[w.bytes.clone()], w.word);
+        }
+        assert_eq!(all[0].bytes, 5..10);
     }
 
     #[test]
