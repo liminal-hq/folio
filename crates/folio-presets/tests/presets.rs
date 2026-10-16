@@ -102,7 +102,10 @@ fn samples_give_a_cover_and_the_kinds_sample_spreads() {
         .iter()
         .all(|s| s.kind == SpreadKind::Spread));
     // The sample cover brings its own picture placeholder over the cover colour.
-    assert!(matches!(picture.spreads[0].frames[0], Frame::Shape(_)));
+    assert!(matches!(
+        picture.spreads[0].pages[0].bg,
+        Some(folio_model::Background::Colour { .. })
+    ));
     assert!(picture.spreads[0]
         .frames
         .iter()
@@ -163,15 +166,17 @@ fn the_title_author_and_cover_colour_go_where_they_belong() {
     assert!(texts.contains(&"Pip and the Moon".to_owned()), "{texts:?}");
     assert!(texts.iter().any(|t| t.contains("Scott")), "{texts:?}");
     assert!(!texts.iter().any(|t| t.contains("Mom")), "{texts:?}");
-    let Frame::Shape(cover) = &book.spreads[0].frames[0] else {
-        panic!("the cover colour comes first");
-    };
-    assert_eq!(cover.fill, Some(Colour("#1f3a5f".into())));
+    assert_eq!(
+        book.spreads[0].pages[0].bg,
+        Some(folio_model::Background::Colour {
+            colour: Colour("#1f3a5f".into())
+        })
+    );
     assert_eq!(made.settings["coverColour"], "#1f3a5f");
 }
 
 #[test]
-fn a_generated_cover_carries_the_title_and_author_over_a_colour_that_bleeds() {
+fn a_generated_cover_carries_the_title_and_author_over_a_background_colour() {
     let book = new_book(&NewBookSpec {
         title: "Watercolour Basics".into(),
         author: "Mara".into(),
@@ -180,12 +185,12 @@ fn a_generated_cover_carries_the_title_and_author_over_a_colour_that_bleeds() {
     .unwrap()
     .book;
     let cover = &book.spreads[0];
-    assert_eq!(cover.frames.len(), 3, "colour, title, byline");
-    // The colour block runs past the trim on every side, to the bleed line.
-    let colour = cover.frames[0].base().rect;
-    assert_eq!(colour.x, Pt(-book.bleed.0));
-    assert_eq!(colour.w, Pt(book.trim.w.0 + 2.0 * book.bleed.0));
-    assert_eq!(colour.h, Pt(book.trim.h.0 + 2.0 * book.bleed.0));
+    assert_eq!(cover.frames.len(), 2, "title, byline");
+    // The colour is the page's background, which already runs to the bleed line.
+    assert!(matches!(
+        cover.pages[0].bg,
+        Some(folio_model::Background::Colour { .. })
+    ));
 }
 
 #[test]

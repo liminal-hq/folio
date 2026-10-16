@@ -6,10 +6,10 @@
 use std::collections::BTreeSet;
 
 use folio_model::{
-    Book, BookId, BookKind, BookMetadata, Colour, Contributor, ContributorRole, Fit, Frame,
-    FrameBase, FrameId, Grid, ImageFrame, ImageRef, InlineContent, Isbns, LayoutMode, Margins,
-    Page, PageId, Pt, Rect, Run, Shape, ShapeFrame, Size, Spread, SpreadId, SpreadKind, StyleId,
-    TextFrame, SCHEMA_VERSION,
+    Background, Book, BookId, BookKind, BookMetadata, Colour, Contributor, ContributorRole, Fit,
+    Frame, FrameBase, FrameId, Grid, ImageFrame, ImageRef, InlineContent, Isbns, LayoutMode,
+    Margins, Page, PageId, Pt, Rect, Run, Size, Spread, SpreadId, SpreadKind, StyleId, TextFrame,
+    SCHEMA_VERSION,
 };
 use serde_json::{json, Value};
 
@@ -79,7 +79,7 @@ pub fn new_book_with_ids(
         used_styles: BTreeSet::new(),
     };
 
-    let mut spreads = vec![builder.cover(spec, &cover_colour, width, height, bleed)];
+    let mut spreads = vec![builder.cover(spec, &cover_colour, width, height)];
     if samples {
         let skip = usize::from(is_sample_cover(&data.spreads));
         for sample in data.spreads.iter().skip(skip) {
@@ -313,7 +313,7 @@ impl Builder<'_> {
         }
     }
 
-    /// The cover: a full-bleed block of the chosen colour, with the kind's own cover pictures and
+    /// The cover: the chosen colour as the page's background, with the kind's own cover pictures and
     /// words over it, or a title and byline when the kind has none.
     fn cover(
         &mut self,
@@ -321,21 +321,8 @@ impl Builder<'_> {
         cover_colour: &Colour,
         width: f64,
         height: f64,
-        bleed: f64,
     ) -> Spread {
-        let colour = self.base(-bleed, -bleed, width + 2.0 * bleed, height + 2.0 * bleed);
-        let mut frames = vec![Frame::Shape(ShapeFrame {
-            base: colour,
-            shape: Shape::Rect,
-            fill: Some(cover_colour.clone()),
-            style: None,
-            stroke: None,
-            stroke_width: None,
-            radius: None,
-            flip: false,
-            content: None,
-            overrides: None,
-        })];
+        let mut frames = Vec::new();
         let data = self.data;
         if spec.words == Words::Samples && is_sample_cover(&data.spreads) {
             for sample in &data.spreads[0].frames {
@@ -369,6 +356,10 @@ impl Builder<'_> {
                 ));
             }
         }
-        self.assembled(SpreadKind::Cover, 1, frames)
+        let mut cover = self.assembled(SpreadKind::Cover, 1, frames);
+        cover.pages[0].bg = Some(Background::Colour {
+            colour: cover_colour.clone(),
+        });
+        cover
     }
 }
