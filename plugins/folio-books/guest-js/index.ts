@@ -175,11 +175,7 @@ export function assetData(id: string, asset: string): Promise<ArrayBuffer> {
 }
 
 /** The words of `text` the book's dictionary does not know (and neither the book nor `personal` ignores), by UTF-16 range, and whether there is a dictionary. */
-export function spellCheck(
-	id: string,
-	text: string,
-	personal: string[] = [],
-): Promise<SpellCheck> {
+export function spellCheck(id: string, text: string, personal: string[] = []): Promise<SpellCheck> {
 	return cmd<SpellCheck>('spell_check', { id, text, personal });
 }
 
