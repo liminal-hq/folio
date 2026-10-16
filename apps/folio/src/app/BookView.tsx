@@ -22,6 +22,7 @@ import { guideIntents } from '../canvas/guides';
 import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../canvas/marksModel';
 import { PageBackgroundDialog } from '../canvas/PageBackgroundDialog';
 import { Stage, type ZoomApi } from '../canvas/Stage';
+import type { Speller } from '../canvas/TextEditor';
 import { useSelection } from '../canvas/useSelection';
 import { useAssetUrls } from '../canvas/useAssetUrls';
 import { useSpreadLayout } from '../canvas/useSpreadLayout';
@@ -110,6 +111,20 @@ export function BookView({
 	);
 	// A cell belongs to the table it was edited in, so choosing something else forgets it.
 	useEffect(() => setEditingCell(null), [selection.join('|')]);
+	// Spelling is checked in Rust, in the book's own language and against its ignore list.
+	const spelling = settings.spelling.enabled;
+	const speller = useMemo<Speller | undefined>(
+		() =>
+			spelling
+				? {
+						check: (text) => client.spellCheck(id, text).then((found) => found.misspellings),
+						suggest: (word) => client.spellSuggest(id, word),
+						ignore: (word) => void store.apply({ type: 'IgnoreWord', word }),
+					}
+				: undefined,
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[spelling, client, id],
+	);
 	const input: EditorInput | null = spread
 		? {
 				spread,
@@ -414,6 +429,7 @@ export function BookView({
 						}
 						onEditText={(frame, text) => void store.apply({ type: 'SetText', frame, text })}
 						onEditTable={(frame, edit) => void store.apply({ type: 'EditTable', frame, edit })}
+						speller={speller}
 						onEditingCell={(cell) => cell && setEditingCell(cell)}
 						editableMasters={settings.mode === 'expert'}
 						demoteTo={demoteTo}

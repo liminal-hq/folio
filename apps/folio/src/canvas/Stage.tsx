@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { TableEdit } from '@liminal-hq/folio-protocol/generated/TableEdit';
+import type { Speller } from './TextEditor';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
@@ -74,6 +75,7 @@ export interface StageProps {
 	onCommand?(command: FrameCommand, ids: string[]): void;
 	onEditText?(id: string, text: string): void;
 	onEditTable?(id: string, edit: TableEdit): void;
+	speller?: Speller;
 	onEditingCell?(cell: { row: number; col: number } | null): void;
 	/** A choice from the page menu; `point` is where it was asked for, in points on the spread. */
 	onPageCommand?(command: PageCommand, point: { x: number; y: number }): void;
@@ -110,6 +112,7 @@ export function Stage({
 	onEditText,
 	onEditTable,
 	onEditingCell,
+	speller,
 	onPageCommand,
 	editableMasters = false,
 	demoteTo = null,
@@ -262,6 +265,7 @@ export function Stage({
 							onCommand={onCommand}
 							onEditText={onEditText}
 							onEditTable={onEditTable}
+							speller={speller}
 							onEditingCell={onEditingCell}
 							onPageMenu={(at, point) => setPageMenu({ at, point })}
 							onFrameMenu={(_, at) => setMenu(at)}

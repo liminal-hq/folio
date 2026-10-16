@@ -12,3 +12,38 @@
 	color: var(--folio-ink);
 	overflow: hidden;
 }
+
+/* With a speller the box is clear and the mirror under it carries the paper. */
+.clear {
+	background: transparent;
+}
+
+.mirror {
+	position: absolute;
+	box-sizing: border-box;
+	margin: 0;
+	border: 0;
+	background: color-mix(in srgb, var(--folio-paper) 92%, transparent);
+	color: transparent;
+	overflow: hidden;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+	pointer-events: none;
+	user-select: none;
+}
+
+.miss {
+	text-decoration: underline wavy var(--folio-danger, #d64545);
+	text-decoration-thickness: 1.5px;
+	text-underline-offset: 2px;
+	text-decoration-skip-ink: none;
+}
+
+.hidden {
+	position: absolute;
+	inline-size: 1px;
+	block-size: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
