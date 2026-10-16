@@ -77,6 +77,13 @@ export const messages = {
 	'preferences.spelling': 'Check spelling while typing',
 	'preferences.spelling.description':
 		'Underlines misspelt words. The dictionary follows the book’s language; English (Canada) comes with Folio.',
+	'preferences.dictionary.bundled': 'Comes with Folio · {licence}',
+	'preferences.dictionary.size': '{size} MB to download · {licence}',
+	'preferences.dictionary.included': 'Included',
+	'preferences.dictionary.download': 'Download',
+	'preferences.dictionary.remove': 'Remove',
+	'preferences.dictionary.working': 'Working…',
+	'preferences.dictionary.failed': 'The dictionary could not be changed: {message}',
 	'preferences.personal.none':
 		'No words added yet. Right-click a misspelt word and choose Add to dictionary.',
 	'preferences.personal.remove': 'Remove',

@@ -5,6 +5,7 @@
 
 mod commands;
 mod error;
+mod spelling;
 mod state;
 #[cfg(test)]
 mod tests;
@@ -49,9 +50,16 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::asset_data,
             commands::spell_check,
             commands::spell_suggest,
+            commands::dictionaries,
+            commands::download_dictionary,
+            commands::remove_dictionary,
         ])
         .setup(|app, _api| {
-            app.manage(Books::new(app.clone()));
+            let books = Books::new(app.clone());
+            if let Ok(dir) = app.path().app_data_dir() {
+                books.spelling.keep_in(dir.join("dictionaries"));
+            }
+            app.manage(books);
             Ok(())
         })
         .build()

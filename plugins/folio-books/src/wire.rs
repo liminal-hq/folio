@@ -94,5 +94,37 @@ pub struct SpellCheck {
     /// Whether there is a dictionary for the book's language. Without one nothing is flagged, and
     /// the UI can say so instead of showing a clean page.
     pub supported: bool,
+    /// The dictionary that checked the text, by id.
+    pub dictionary: Option<String>,
+    /// A dictionary that would check the book's language better, which can be downloaded.
+    pub offer: Option<DictionaryOffer>,
     pub misspellings: Vec<Misspelling>,
+}
+
+/// A dictionary on offer for a book's language.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct DictionaryOffer {
+    pub id: String,
+    pub name: String,
+    /// What it takes to download, in bytes.
+    pub bytes: u32,
+}
+
+/// A dictionary, and whether it is in place.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct DictionaryStatus {
+    pub id: String,
+    pub name: String,
+    /// The languages it checks, as BCP 47 codes.
+    pub languages: Vec<String>,
+    /// Its own licence, whose text is kept beside it.
+    pub licence: String,
+    pub bytes: u32,
+    pub installed: bool,
+    /// It comes with Folio and cannot be removed.
+    pub bundled: bool,
 }

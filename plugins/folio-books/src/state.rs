@@ -14,10 +14,11 @@ use folio_model::{Intent, SpreadId};
 use folio_package::{Package, SaveOptions};
 use folio_presets::{kind_infos, new_book, suggest_save_path, KindInfo, NewBookSpec};
 use folio_session::{Patch, Session};
-use folio_spell::{find_misspellings, Checker, SpellbookChecker};
+use folio_spell::{find_misspellings, Checker};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::error::Error;
+use crate::spelling::Spelling;
 use crate::wire::{
     BookSnapshot, BookSummary, BooksChanged, Misspelling, PatchEvent, SpellCheck,
     SpreadLayoutResult,
@@ -135,8 +136,8 @@ pub struct Books<R: Runtime> {
     generator: String,
     /// The bundled fonts and the system's, found the first time a spread is laid out.
     fonts: OnceLock<FontBook>,
-    /// The bundled English (Canada) dictionary, read the first time something is checked.
-    speller: OnceLock<Option<SpellbookChecker>>,
+    /// The dictionaries: the one that comes with Folio, and those downloaded.
+    pub(crate) spelling: Spelling,
 }
 
 impl<R: Runtime> Books<R> {
@@ -148,7 +149,7 @@ impl<R: Runtime> Books<R> {
             hooks: Mutex::new(Vec::new()),
             generator,
             fonts: OnceLock::new(),
-            speller: OnceLock::new(),
+            spelling: Spelling::default(),
         }
     }
 
@@ -366,21 +367,6 @@ impl<R: Runtime> Books<R> {
         Ok(SpreadLayoutResult { revision, layout })
     }
 
-    /// The dictionary for a book's language, if there is one. English is checked against the bundled
-    /// English (Canada) dictionary until others can be downloaded; any other language has none.
-    pub(crate) fn speller_for(&self, language: &str) -> Option<&SpellbookChecker> {
-        let english = language
-            .split(['-', '_'])
-            .next()
-            .is_some_and(|l| l.eq_ignore_ascii_case("en"));
-        if !english {
-            return None;
-        }
-        self.speller
-            .get_or_init(|| SpellbookChecker::en_ca().ok())
-            .as_ref()
-    }
-
     /// The words of `text` the book's dictionary does not know and its ignore list does not hold.
     pub fn spell_check(
         &self,
@@ -400,15 +386,19 @@ impl<R: Runtime> Books<R> {
             ignore.extend_from_slice(personal);
             (book.language.clone(), ignore)
         };
-        let Some(speller) = self.speller_for(&language) else {
+        let Some((dictionary, speller)) = self.spelling.for_language(&language) else {
             return Ok(SpellCheck {
                 supported: false,
+                dictionary: None,
+                offer: self.spelling.offer(&language),
                 misspellings: Vec::new(),
             });
         };
         Ok(SpellCheck {
             supported: true,
-            misspellings: find_misspellings(speller, text, &ignore)
+            dictionary: Some(dictionary),
+            offer: self.spelling.offer(&language),
+            misspellings: find_misspellings(&*speller, text, &ignore)
                 .into_iter()
                 .map(|m| Misspelling {
                     start: m.start as u32,
@@ -434,8 +424,9 @@ impl<R: Runtime> Books<R> {
                 .clone()
         };
         Ok(self
-            .speller_for(&language)
-            .map(|s| s.suggest(&word.replace('’', "'"), 6))
+            .spelling
+            .for_language(&language)
+            .map(|(_, s)| s.suggest(&word.replace('’', "'"), 6))
             .unwrap_or_default())
     }
 

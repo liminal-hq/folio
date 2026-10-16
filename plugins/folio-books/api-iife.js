@@ -98,6 +98,18 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function spellSuggest(id, word) {
         return cmd('spell_suggest', { id, word });
     }
+    /** Every dictionary there is, and whether it is in place. */
+    function dictionaries() {
+        return cmd('dictionaries');
+    }
+    /** Downloads a dictionary, checked against what is pinned for it; resolves to the list again. */
+    function downloadDictionary(id) {
+        return cmd('download_dictionary', { id });
+    }
+    /** Takes a downloaded dictionary away; resolves to the list again. */
+    function removeDictionary(id) {
+        return cmd('remove_dictionary', { id });
+    }
 
     exports.CHANGED_EVENT = CHANGED_EVENT;
     exports.PATCH_EVENT = PATCH_EVENT;
@@ -105,6 +117,8 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.assetData = assetData;
     exports.closeBook = closeBook;
     exports.defaultSavePath = defaultSavePath;
+    exports.dictionaries = dictionaries;
+    exports.downloadDictionary = downloadDictionary;
     exports.getStatus = getStatus;
     exports.importImage = importImage;
     exports.layoutMaster = layoutMaster;
@@ -117,6 +131,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.paintPresets = paintPresets;
     exports.presets = presets;
     exports.redo = redo;
+    exports.removeDictionary = removeDictionary;
     exports.saveBook = saveBook;
     exports.snapshot = snapshot;
     exports.spellCheck = spellCheck;

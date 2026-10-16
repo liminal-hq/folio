@@ -13,7 +13,7 @@ use tauri::{AppHandle, Manager, Runtime, State, WebviewWindow};
 
 use crate::error::Error;
 use crate::state::Books;
-use crate::wire::{BookSnapshot, BookSummary, SpellCheck, SpreadLayoutResult};
+use crate::wire::{BookSnapshot, BookSummary, DictionaryStatus, SpellCheck, SpreadLayoutResult};
 
 /// Reports that books work. They need nothing from the system, so this is always available.
 #[tauri::command]
@@ -230,4 +230,41 @@ pub async fn spell_suggest<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().spell_suggest(&id, &word))
         .await
         .expect("the spelling task does not panic")
+}
+
+/// Every dictionary there is, and whether it is in place.
+#[tauri::command]
+pub async fn dictionaries<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+) -> Result<Vec<DictionaryStatus>, Error> {
+    Ok(books.spelling.status())
+}
+
+/// Downloads a dictionary, checks it against what is pinned for it, and answers with the list again.
+#[tauri::command]
+pub async fn download_dictionary<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+) -> Result<Vec<DictionaryStatus>, Error> {
+    // The download is work for a blocking thread, not the async runtime.
+    tauri::async_runtime::spawn_blocking(move || {
+        let books = app.state::<Books<R>>();
+        books.spelling.download(&id)?;
+        Ok(books.spelling.status())
+    })
+    .await
+    .expect("the download task does not panic")
+}
+
+/// Takes a downloaded dictionary away, and answers with the list again.
+#[tauri::command]
+pub async fn remove_dictionary<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+) -> Result<Vec<DictionaryStatus>, Error> {
+    books.spelling.remove(&id)?;
+    Ok(books.spelling.status())
 }

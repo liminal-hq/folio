@@ -23,6 +23,9 @@ const COMMANDS: &[&str] = &[
     "asset_data",
     "spell_check",
     "spell_suggest",
+    "dictionaries",
+    "download_dictionary",
+    "remove_dictionary",
 ];
 
 fn main() {
