@@ -79,6 +79,44 @@ describe('initLogger outside a Tauri context', () => {
 });
 
 describe('initLogger inside a Tauri context', () => {
+	it('logs an error nothing caught, with where it came from', async () => {
+		tauriEnv = true;
+		const { initLogger } = await import('./logger');
+		initLogger('main');
+
+		window.dispatchEvent(
+			new ErrorEvent('error', {
+				error: new Error('boom'),
+				message: 'boom',
+				filename: 'http://localhost/app.js',
+				lineno: 7,
+				colno: 3,
+			}),
+		);
+		await flushMicrotasks();
+
+		expect(pluginLog.error).toHaveBeenCalledWith(
+			expect.stringMatching(
+				/^\[main\] Uncaught Error: boom[\s\S]*\(http:\/\/localhost\/app\.js:7:3\)$/,
+			),
+		);
+	});
+
+	it('logs a rejected promise nobody handled', async () => {
+		tauriEnv = true;
+		const { initLogger } = await import('./logger');
+		initLogger('main');
+
+		const event = new Event('unhandledrejection');
+		Object.assign(event, { reason: new Error('nobody listened') });
+		window.dispatchEvent(event);
+		await flushMicrotasks();
+
+		expect(pluginLog.error).toHaveBeenCalledWith(
+			expect.stringContaining('[main] Unhandled rejection: Error: nobody listened'),
+		);
+	});
+
 	it('forwards console.log through info without throwing or rejecting, even if the bridge call fails', async () => {
 		tauriEnv = true;
 		pluginLog.info.mockRejectedValue(new Error('bridge misconfigured'));
