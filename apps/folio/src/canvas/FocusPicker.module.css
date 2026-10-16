@@ -1,0 +1,41 @@
+.picker {
+	position: relative;
+	display: inline-block;
+	max-inline-size: 100%;
+	line-height: 0;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	cursor: crosshair;
+	touch-action: none;
+	user-select: none;
+}
+
+.picker img {
+	display: block;
+	max-inline-size: 100%;
+	max-block-size: 160px;
+	border-radius: 5px;
+}
+
+.picker:focus-visible {
+	outline: 2px solid var(--folio-accent);
+	outline-offset: 2px;
+}
+
+.picker[aria-disabled='true'] {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.mark {
+	position: absolute;
+	inline-size: 16px;
+	block-size: 16px;
+	margin: -8px 0 0 -8px;
+	border: 2px solid #fff;
+	border-radius: 50%;
+	box-shadow:
+		0 0 0 1.5px #000,
+		inset 0 0 0 1.5px #000;
+	pointer-events: none;
+}

@@ -264,7 +264,7 @@ describe('choosing a picture', () => {
 			id: 'i',
 			box: { x: 0, y: 0, w: 100, h: 100 },
 			locked: false,
-			image: { asset, fit },
+			image: { asset, fit, focus: [0.5, 0.5] },
 		}) as unknown as Frame;
 
 	it('asks for a picture for the frame', async () => {
@@ -280,6 +280,36 @@ describe('choosing a picture', () => {
 		expect(screen.getByRole('radio', { name: 'Fill frame' })).toBeChecked();
 		await userEvent.click(screen.getByRole('radio', { name: 'Fit inside' }));
 		expect(apply).toHaveBeenCalledWith({ type: 'SetImage', frame: 'i', asset: null, fit: 'fit' });
+	});
+});
+
+describe('the part of a picture to keep in view', () => {
+	const picture = (fit: string) =>
+		({
+			type: 'image',
+			id: 'i',
+			box: { x: 0, y: 0, w: 100, h: 100 },
+			locked: false,
+			image: { asset: 'assets/images/a.png', fit, focus: [0.5, 0.5] },
+		}) as unknown as Frame;
+	const images = { 'assets/images/a.png': 'blob:a' };
+
+	it('is moved by the arrow keys, keeping the picture and fit as they are', async () => {
+		const { apply } = setup([picture('fill')], { images });
+		screen.getByRole('slider').focus();
+		await userEvent.keyboard('{ArrowDown}');
+		expect(apply).toHaveBeenCalledWith({
+			type: 'SetImage',
+			frame: 'i',
+			asset: null,
+			fit: null,
+			focus: [0.5, expect.closeTo(0.55)],
+		});
+	});
+
+	it('is left out when the whole picture shows or it has not been read yet', () => {
+		setup([picture('fit')], { images });
+		expect(screen.queryByRole('slider')).toBeNull();
 	});
 });
 

@@ -8,6 +8,7 @@ import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import { useId } from 'react';
 import { gradientLine, paintRects, resolveBackgrounds, type Rect } from './backgrounds';
+import { FocusedImage } from './FocusedImage';
 import { hasTexture, TexturePattern } from './textures';
 
 /** What a background paints with, and the `<defs>` it needs: a colour, or a gradient by id. */
@@ -59,13 +60,11 @@ function Fill({
 	const href = images[bg.asset];
 	if (!href) return null;
 	return (
-		<image
+		<FocusedImage
 			href={href}
-			x={rect.x}
-			y={rect.y}
-			width={rect.w}
-			height={rect.h}
-			preserveAspectRatio={bg.fit === 'fill' ? 'xMidYMid slice' : 'xMidYMid meet'}
+			box={rect}
+			fit={bg.fit === 'fill' ? 'fill' : 'fit'}
+			focus={bg.focus}
 		/>
 	);
 }

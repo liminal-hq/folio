@@ -14,6 +14,7 @@ import { useEffect, useId, useState } from 'react';
 import { Segmented } from '../app/Segmented';
 import { t } from '../i18n/messages';
 import { ColourPicker } from '../inspector/ColourPicker';
+import { FocusPicker } from './FocusPicker';
 import { TexturePattern } from './textures';
 import { backgroundTargets, currentBackground, type BackgroundScope } from './backgroundScopes';
 import styles from './PageBackgroundDialog.module.css';
@@ -28,6 +29,8 @@ export interface PageBackgroundDialogProps {
 	/** The place to start on, by its id, when it is not one of the pages (every page, both pages). */
 	scope?: string | null;
 	presets: PaintPresets | null;
+	/** An address to draw for each picture's asset path, once it has been read. */
+	images?: Record<string, string>;
 	/** Asks for a picture and brings it into the book; its path, or `null` if none was chosen. */
 	onPickPicture(): Promise<string | null>;
 	onApply(intent: Intent): void;
@@ -72,6 +75,7 @@ export function PageBackgroundDialog({
 	page,
 	scope: startScope = null,
 	presets,
+	images = {},
 	onPickPicture,
 	onApply,
 }: PageBackgroundDialogProps) {
@@ -170,6 +174,16 @@ export function PageBackgroundDialog({
 								}))}
 								onChange={(fit) => set({ ...now, fit })}
 							/>
+						)}
+						{now?.type === 'picture' && now.fit === 'fill' && images[now.asset] && (
+							<>
+								<p className={styles.hint}>{t('focus.hint')}</p>
+								<FocusPicker
+									href={images[now.asset]!}
+									focus={now.focus}
+									onChange={(focus) => set({ ...now, focus })}
+								/>
+							</>
 						)}
 					</div>
 				) : kind === 'texture' ? (

@@ -699,6 +699,7 @@ fn a_picture_is_set_and_fitted_and_only_on_a_picture_frame() {
         frame: frame("fr_pic"),
         asset: Some("assets/images/abc.jpg".into()),
         fit: None,
+        focus: None,
     })
     .unwrap();
     let image = |s: &Session| match &s.book().spreads[1].frames[0] {
@@ -711,6 +712,7 @@ fn a_picture_is_set_and_fitted_and_only_on_a_picture_frame() {
         frame: frame("fr_pic"),
         asset: None,
         fit: Some(folio_model::Fit::Fit),
+        focus: None,
     })
     .unwrap();
     assert_eq!(image(&s).asset.as_deref(), Some("assets/images/abc.jpg"));
@@ -722,6 +724,7 @@ fn a_picture_is_set_and_fitted_and_only_on_a_picture_frame() {
             frame: frame("fr_text"),
             asset: Some("x".into()),
             fit: None,
+            focus: None,
         })
         .unwrap_err(),
         SessionError::NotImage("fr_text".into())
@@ -950,7 +953,8 @@ fn a_picture_must_be_one_of_the_books_own_assets() {
             s.apply(Intent::SetImage {
                 frame: frame("fr_pic"),
                 asset: Some(bad.into()),
-                fit: None
+                fit: None,
+                focus: None,
             })
             .unwrap_err(),
             SessionError::BadAsset(bad.into()),
@@ -2428,4 +2432,31 @@ fn turning_a_shape_into_a_line_takes_its_words_with_it_and_undo_brings_them_back
     assert!(shape_of(&s).content.is_none());
     s.undo().unwrap();
     assert!(shape_of(&s).content.is_some());
+}
+
+#[test]
+fn a_picture_focus_is_kept_in_range_and_a_drag_of_it_is_one_undo_step() {
+    let mut s = session();
+    let focus = |s: &Session| match &s.book().spreads[1].frames[0] {
+        Frame::Image(i) => i.image.focus,
+        _ => unreachable!(),
+    };
+    let set = |s: &mut Session, f: (f64, f64)| {
+        s.apply(Intent::SetImage {
+            frame: frame("fr_pic"),
+            asset: None,
+            fit: None,
+            focus: Some(f),
+        })
+    };
+    set(&mut s, (0.2, 0.3)).unwrap();
+    set(&mut s, (0.25, 0.35)).unwrap();
+    set(&mut s, (4.0, -1.0)).unwrap();
+    assert_eq!(focus(&s), (1.0, 0.0));
+    s.undo().unwrap();
+    assert_eq!(focus(&s), (0.5, 0.5));
+    assert_eq!(
+        set(&mut s, (f64::NAN, 0.0)).unwrap_err(),
+        SessionError::BadFocus
+    );
 }
