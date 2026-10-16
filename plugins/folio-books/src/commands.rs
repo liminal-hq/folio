@@ -132,6 +132,27 @@ pub async fn undo<R: Runtime>(
     books.undo(&id)
 }
 
+/// How many steps can be undone now, to come back to with `rewind_history`.
+#[tauri::command]
+pub async fn history_mark<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+) -> Result<usize, Error> {
+    books.history_mark(&id)
+}
+
+/// Undoes steps until only `mark` can be undone; every window is sent each patch as an event.
+#[tauri::command]
+pub async fn rewind_history<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+    mark: usize,
+) -> Result<(), Error> {
+    books.rewind(&id, mark)
+}
+
 /// Redoes the last undone step; `null` when there is nothing to redo.
 #[tauri::command]
 pub async fn redo<R: Runtime>(

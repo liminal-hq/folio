@@ -62,6 +62,14 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function undo(id) {
         return cmd('undo', { id });
     }
+    /** How many steps can be undone now: a mark to give `rewindHistory`. */
+    function historyMark(id) {
+        return cmd('history_mark', { id });
+    }
+    /** Undoes steps until only `mark` can be undone. Every window hears each patch as an event. */
+    function rewindHistory(id, mark) {
+        return cmd('rewind_history', { id, mark });
+    }
     /** Redoes the last undone step; `null` when there is nothing to redo. */
     function redo(id) {
         return cmd('redo', { id });
@@ -128,6 +136,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.dictionaries = dictionaries;
     exports.downloadDictionary = downloadDictionary;
     exports.getStatus = getStatus;
+    exports.historyMark = historyMark;
     exports.importImage = importImage;
     exports.layoutMaster = layoutMaster;
     exports.layoutSpread = layoutSpread;
@@ -140,6 +149,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.presets = presets;
     exports.redo = redo;
     exports.removeDictionary = removeDictionary;
+    exports.rewindHistory = rewindHistory;
     exports.saveBook = saveBook;
     exports.snapshot = snapshot;
     exports.spellCheck = spellCheck;

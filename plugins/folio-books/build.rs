@@ -16,6 +16,8 @@ const COMMANDS: &[&str] = &[
     "snapshot",
     "apply_intent",
     "undo",
+    "history_mark",
+    "rewind_history",
     "redo",
     "layout_spread",
     "layout_master",

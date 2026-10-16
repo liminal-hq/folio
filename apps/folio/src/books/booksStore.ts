@@ -53,6 +53,10 @@ export interface BooksStore {
 	apply(intent: Intent): Promise<void>;
 	undo(): Promise<void>;
 	redo(): Promise<void>;
+	/** How many steps of the shown book can be undone now, or `null` with no book: a mark to rewind to. */
+	mark(): Promise<number | null>;
+	/** Undoes the shown book's steps until only `mark` can be undone. */
+	rewind(mark: number): Promise<void>;
 }
 
 function asCommandError(reason: unknown): BooksCommandError {
@@ -243,6 +247,25 @@ export function createBooksStore(client: BooksClient): BooksStore {
 			if (id === null) return;
 			try {
 				await client.undo(id);
+			} catch (reason) {
+				fail(reason);
+			}
+		},
+		async mark() {
+			const id = active();
+			if (id === null) return null;
+			try {
+				return await client.historyMark(id);
+			} catch (reason) {
+				fail(reason);
+				return null;
+			}
+		},
+		async rewind(mark: number) {
+			const id = active();
+			if (id === null) return;
+			try {
+				await client.rewindHistory(id, mark);
 			} catch (reason) {
 				fail(reason);
 			}

@@ -671,6 +671,27 @@ impl<R: Runtime> Books<R> {
         )
     }
 
+    /// How many steps of the book can be undone now: a mark for [`Books::rewind`].
+    pub fn history_mark(&self, id: &str) -> Result<usize, Error> {
+        let inner = locked(&self.inner);
+        let open = inner
+            .books
+            .iter()
+            .find(|b| b.id == id)
+            .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+        Ok(open.session.undo_depth())
+    }
+
+    /// Undoes steps, one at a time and each announced as it goes, until only `mark` remain.
+    pub fn rewind(&self, id: &str, mark: usize) -> Result<(), Error> {
+        while self.history_mark(id)? > mark {
+            if self.undo(id)?.is_none() {
+                break;
+            }
+        }
+        Ok(())
+    }
+
     /// Redoes the last undone step, or `None` when there is nothing to redo.
     pub fn redo(&self, id: &str) -> Result<Option<Patch>, Error> {
         self.change(

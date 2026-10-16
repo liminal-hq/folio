@@ -234,4 +234,32 @@ describe('PageBackgroundDialog', () => {
 		setup(single);
 		expect(screen.getByRole('button', { name: 'Remove background' })).toBeDisabled();
 	});
+
+	it('offers Cancel only when the page can put the book back, and Escape then cancels too', async () => {
+		const onClose = vi.fn();
+		const onCancel = vi.fn();
+		const props = {
+			open: true,
+			onClose,
+			book,
+			spread: single,
+			page: null,
+			presets: FAKE_PAINTS,
+			onPickPicture: async () => null,
+			onApply: () => undefined,
+		};
+		const { rerender } = render(<PageBackgroundDialog {...props} />);
+		expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
+
+		rerender(<PageBackgroundDialog {...props} onCancel={onCancel} />);
+		await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		expect(onCancel).toHaveBeenCalledTimes(1);
+		expect(onClose).not.toHaveBeenCalled();
+
+		await userEvent.keyboard('{Escape}');
+		expect(onCancel).toHaveBeenCalledTimes(2);
+
+		await userEvent.click(screen.getByRole('button', { name: 'Done' }));
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
 });

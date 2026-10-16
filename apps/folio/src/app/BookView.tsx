@@ -297,6 +297,27 @@ export function BookView({
 	const [background, setBackground] = useState<{ page: number | null; scope?: string } | null>(
 		null,
 	);
+
+	// The page background dialog applies each try at once. Cancelling rewinds the book to how many steps
+	// it could undo when the dialog opened.
+	const backgroundOpen = background !== null;
+	const backgroundMark = useRef<number | null>(null);
+	useEffect(() => {
+		if (!backgroundOpen) return;
+		backgroundMark.current = null;
+		let live = true;
+		void store.mark().then((mark) => {
+			if (live) backgroundMark.current = mark;
+		});
+		return () => {
+			live = false;
+		};
+	}, [backgroundOpen, store]);
+	const cancelBackground = () => {
+		const mark = backgroundMark.current;
+		setBackground(null);
+		if (mark !== null) void store.rewind(mark);
+	};
 	// The sidebar's open group. Selecting something on the page brings the Properties forward.
 	const [group, setGroup] = useState<SidebarGroup>('properties');
 	useEffect(() => {
@@ -645,6 +666,7 @@ export function BookView({
 			<PageBackgroundDialog
 				open={background !== null}
 				onClose={() => setBackground(null)}
+				onCancel={cancelBackground}
 				book={book}
 				spread={spread}
 				page={background?.page ?? null}

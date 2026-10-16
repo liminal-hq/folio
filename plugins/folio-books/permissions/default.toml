@@ -13,6 +13,8 @@ permissions = [
   "allow-snapshot",
   "allow-apply-intent",
   "allow-undo",
+  "allow-history-mark",
+  "allow-rewind-history",
   "allow-redo",
   "allow-layout-spread",
   "allow-layout-master",

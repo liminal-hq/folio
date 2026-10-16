@@ -87,6 +87,11 @@ impl Session {
         !self.undo.is_empty()
     }
 
+    /// How many steps can be undone: a mark to come back to with [`Session::undo`].
+    pub fn undo_depth(&self) -> usize {
+        self.undo.len()
+    }
+
     pub fn can_redo(&self) -> bool {
         !self.redo.is_empty()
     }

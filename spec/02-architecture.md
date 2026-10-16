@@ -46,6 +46,7 @@ folio/
 project_new(kind, trim) -> BookSnapshot
 project_open(path) -> BookSnapshot           project_save(path?) -> SaveResult
 apply_intent(intent) -> Patch                 undo() / redo() -> Patch
+history_mark() -> usize                       rewind_history(mark)   // undo back to a mark, a patch each
 layout_spread(spread_id) -> SpreadLayout      // shaped lines for the canvas
 layout_master(master_id) -> SpreadLayout      // a master's own text, with {page} etc. as written
 reader_preview(target, scale) -> ReaderPages  // reflow preview for Kindle/Kobo

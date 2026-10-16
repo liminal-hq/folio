@@ -299,6 +299,20 @@ export function createFakeBooksClient(): FakeBooks {
 			changed();
 			return result;
 		},
+		async historyMark(id) {
+			await call('historyMark', [id]);
+			return find(id).past;
+		},
+		async rewindHistory(id, mark) {
+			await call('rewindHistory', [id, mark]);
+			const h = find(id);
+			while (h.past > mark) {
+				h.past -= 1;
+				h.future += 1;
+				patch(id, h, h.snapshot.book.bleed - 1);
+			}
+			changed();
+		},
 		async redo(id) {
 			await call('redo', [id]);
 			const h = find(id);

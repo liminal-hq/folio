@@ -43,6 +43,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::snapshot,
             commands::apply_intent,
             commands::undo,
+            commands::history_mark,
+            commands::rewind_history,
             commands::redo,
             commands::layout_spread,
             commands::layout_master,

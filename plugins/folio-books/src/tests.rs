@@ -156,6 +156,36 @@ fn undo_and_redo_send_patches_too_and_say_when_there_is_nothing_to_do() {
 }
 
 #[test]
+fn rewinding_to_a_mark_undoes_the_steps_since_it_and_announces_each() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    books(&app).apply(&id, nudge(&app, &id, 10.0)).unwrap();
+    let mark = books(&app).history_mark(&id).unwrap();
+    assert_eq!(mark, 1);
+
+    let heard = hear::<PatchEvent>(&app, "main", PATCH_EVENT);
+    // Words ignored are a step each, where moving a frame again would join the step before it.
+    for word in ["otter", "reed"] {
+        let word = word.to_string();
+        books(&app).apply(&id, Intent::IgnoreWord { word }).unwrap();
+    }
+    assert_eq!(books(&app).history_mark(&id).unwrap(), 3);
+    assert_eq!(heard.lock().unwrap().len(), 2);
+
+    books(&app).rewind(&id, mark).unwrap();
+    assert_eq!(books(&app).history_mark(&id).unwrap(), mark);
+    // Two steps went, and each was announced on its own so a window's copy stays in step.
+    assert_eq!(heard.lock().unwrap().len(), 4);
+    // Rewinding to where the book already is does nothing.
+    books(&app).rewind(&id, mark).unwrap();
+    assert_eq!(heard.lock().unwrap().len(), 4);
+}
+
+#[test]
 fn a_refused_intent_is_a_typed_error_and_nothing_is_sent() {
     let app = app();
     let id = books(&app)
