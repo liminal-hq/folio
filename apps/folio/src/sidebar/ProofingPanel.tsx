@@ -24,6 +24,45 @@ export interface ProofingPanelProps {
 	onChange(word: MisspeltWord, to: string): void;
 	/** Downloads the dictionary on offer. */
 	onDownload?(id: string): void;
+	/** The words this book leaves alone, so they can be taken off the list. */
+	ignored?: string[];
+	/** Checks a word again from now on, in this book. */
+	onRestore?(word: string): void;
+}
+
+/** The words the book leaves alone, each with a way to stop. Nothing is drawn when there are none. */
+function IgnoredWords({
+	words,
+	onRestore,
+}: {
+	words: string[];
+	onRestore?: (word: string) => void;
+}) {
+	if (words.length === 0 || !onRestore) return null;
+	return (
+		<section className={styles.section} aria-label={t('proofing.ignored')}>
+			<h2 className={styles.heading}>{t('proofing.ignored')}</h2>
+			<ul className={styles.list}>
+				{words.map((word) => (
+					<li key={word} className={styles.misspelt}>
+						<span className={styles.label}>
+							<strong>{word}</strong>
+						</span>
+						<span className={styles.actions}>
+							<button
+								type="button"
+								className={styles.action}
+								aria-label={t('proofing.restore.for', { word })}
+								onClick={() => onRestore(word)}
+							>
+								{t('proofing.restore')}
+							</button>
+						</span>
+					</li>
+				))}
+			</ul>
+		</section>
+	);
 }
 
 const key = (w: MisspeltWord) => `${w.frame}/${w.row ?? ''}.${w.col ?? ''}/${w.start}`;
@@ -42,6 +81,8 @@ export function ProofingPanel({
 	onSuggest,
 	onChange,
 	onDownload,
+	ignored = [],
+	onRestore,
 }: ProofingPanelProps) {
 	const [open, setOpen] = useState<{ key: string; suggestions: string[] } | null>(null);
 
@@ -59,6 +100,7 @@ export function ProofingPanel({
 						{t('proofing.download', { name: found.offer.name })}
 					</button>
 				)}
+				<IgnoredWords words={ignored} onRestore={onRestore} />
 			</section>
 		);
 	}
@@ -165,6 +207,7 @@ export function ProofingPanel({
 					</ul>
 				</section>
 			))}
+			<IgnoredWords words={ignored} onRestore={onRestore} />
 		</>
 	);
 }

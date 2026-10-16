@@ -582,6 +582,8 @@ export function BookView({
 									setSpreadIndex(index);
 									select([word.frame]);
 								}}
+								ignored={book.proofing?.ignore ?? []}
+								onRestore={(word) => void store.apply({ type: 'UnignoreWord', word })}
 								onIgnore={(word) => void store.apply({ type: 'IgnoreWord', word: word.word })}
 								onAdd={(word) =>
 									void update({
