@@ -28,6 +28,8 @@ import { ColourPicker } from './ColourPicker';
 import { LengthField } from './LengthField';
 import { unitLabel } from './units';
 import { styleChoices } from './styleChoices';
+import { LanguageSelect } from './LanguageSelect';
+import type { LanguageChoice } from './languageChoices';
 import { effectiveSize, withOverrides } from './textFacts';
 
 export interface InspectorProps {
@@ -49,6 +51,8 @@ export interface InspectorProps {
 	choosePicture?(frame: string): void;
 	/** An address to draw for each picture's asset path, once it has been read. */
 	images?: Record<string, string>;
+	/** The languages a book can be written in. Without them the book's language is not offered. */
+	languages?: { choices: LanguageChoice[]; selected: string };
 }
 
 const MARK_ROWS: { key: keyof Marks; label: string }[] = [
@@ -83,7 +87,16 @@ function Header({ title, badges }: { title: string; badges: string[] }) {
 	);
 }
 
-function BookSection({ book, kindLabel, units, mode, apply, marks, onMarks }: InspectorProps) {
+function BookSection({
+	book,
+	kindLabel,
+	units,
+	mode,
+	apply,
+	marks,
+	onMarks,
+	languages,
+}: InspectorProps) {
 	const pages = pageCount(book);
 	return (
 		<>
@@ -100,6 +113,14 @@ function BookSection({ book, kindLabel, units, mode, apply, marks, onMarks }: In
 				/>
 				<Row label={t('inspector.book.bleed')} value={formatLength(book.bleed, units)} />
 			</dl>
+			{languages && (
+				<LanguageSelect
+					label={t('inspector.language')}
+					choices={languages.choices}
+					value={languages.selected}
+					onChange={(language) => apply({ type: 'SetLanguage', language })}
+				/>
+			)}
 			<div className={styles.field}>
 				<span>{t('inspector.pageNumbers')}</span>
 				<Segmented

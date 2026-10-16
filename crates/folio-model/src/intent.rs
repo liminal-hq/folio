@@ -162,6 +162,11 @@ pub enum Intent {
         frame: FrameId,
         degrees: f64,
     },
+    /// Sets the language the book is written in, as a BCP 47 code such as `en-CA` or `fr`. It
+    /// decides which dictionary checks the spelling, and how words are hyphenated and shaped.
+    SetLanguage {
+        language: String,
+    },
     /// Closes the last undo step, so the next change on the same frame starts a new one instead of
     /// joining it. It changes nothing in the book. Words typed in an editor send it before each pause
     /// or paste is kept, so undo takes back one stretch of typing at a time.

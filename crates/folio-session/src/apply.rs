@@ -4,9 +4,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    BackgroundTarget, Book, Colour, Frame, FrameId, Guide, InlineContent, Intent, Master, MasterId,
-    Page, Paint, Proofing, Pt, ReorderTo, Run, Spread, SpreadId, SpreadKind, Surface, TableCell,
-    TableEdit, TableFrame, MAX_IGNORED_WORDS,
+    clean_language, BackgroundTarget, Book, Colour, Frame, FrameId, Guide, InlineContent, Intent,
+    Master, MasterId, Page, Paint, Proofing, Pt, ReorderTo, Run, Spread, SpreadId, SpreadKind,
+    Surface, TableCell, TableEdit, TableFrame, MAX_IGNORED_WORDS,
 };
 
 /// The widest an outline can be, and the roundest a corner, in points.
@@ -378,6 +378,14 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: touched_by(book, frame)?,
                 new_spread: None,
                 merge: focus.is_some().then(|| MergeKey::Focus(frame.clone())),
+            })
+        }
+        Intent::SetLanguage { language } => {
+            clean_language(language).map_err(SessionError::BadLanguage)?;
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                merge: None,
             })
         }
         Intent::EndUndoStep => Ok(Plan {
@@ -895,6 +903,11 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             }
         }
         Intent::EnsureMasters => ensure_masters(book),
+        Intent::SetLanguage { language } => {
+            if let Ok(language) = clean_language(&language) {
+                book.language = language;
+            }
+        }
         Intent::EndUndoStep => {}
         Intent::IgnoreWord { word } => {
             if let Ok(word) = Proofing::clean(&word) {

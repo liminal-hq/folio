@@ -616,6 +616,13 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
         .unwrap()
     });
     record("undo the page numbers", &mut s, &|s| s.undo().unwrap());
+    record("write the book in French", &mut s, &|s| {
+        s.apply(Intent::SetLanguage {
+            language: "fr-CA".into(),
+        })
+        .unwrap()
+    });
+    record("undo the language", &mut s, &|s| s.undo().unwrap());
     record("ignore a word", &mut s, &|s| {
         s.apply(Intent::IgnoreWord {
             word: "Zorblat".into(),
@@ -2882,4 +2889,43 @@ fn ending_an_undo_step_keeps_the_next_words_from_joining_it() {
 
     // With nothing to close, it is simply nothing.
     assert!(session().apply(Intent::EndUndoStep).unwrap().ops.is_empty());
+}
+
+#[test]
+fn the_language_is_set_checked_and_undone() {
+    let mut s = session();
+    let was = s.book().language.clone();
+    let patch = s
+        .apply(Intent::SetLanguage {
+            language: " fr-CA ".into(),
+        })
+        .unwrap();
+    assert_eq!(s.book().language, "fr-CA");
+    assert_eq!(patch.ops.len(), 1);
+
+    // The same language again changes nothing, so there is no step to undo for it.
+    let again = s
+        .apply(Intent::SetLanguage {
+            language: "fr-CA".into(),
+        })
+        .unwrap();
+    assert!(again.ops.is_empty());
+
+    s.undo().unwrap();
+    assert_eq!(s.book().language, was);
+    s.redo().unwrap();
+    assert_eq!(s.book().language, "fr-CA");
+
+    for bad in ["", "english", "e", "en_CA", "en-", "en-CA-a-b-c-d", "fr CA"] {
+        assert!(
+            matches!(
+                s.apply(Intent::SetLanguage {
+                    language: bad.into()
+                }),
+                Err(SessionError::BadLanguage(_))
+            ),
+            "{bad:?} should be refused"
+        );
+    }
+    assert_eq!(s.book().language, "fr-CA");
 }

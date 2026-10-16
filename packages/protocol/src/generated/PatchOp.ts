@@ -13,4 +13,4 @@ import type { SpreadId } from "./SpreadId";
 /**
  * One change to the UI's copy of the book.
  */
-export type PatchOp = { "op": "setSpread", spread: Spread, } | { "op": "removeSpread", id: SpreadId, } | { "op": "setOrder", order: Array<SpreadId>, } | { "op": "setMasters", masters: Array<Master>, ids: Array<MasterId>, numbers: PageNumbers, } | { "op": "setProofing", proofing: Proofing, } | { "op": "setGeometry", trim: Size, margins: Margins, bleed: Pt, grid: Grid, };
+export type PatchOp = { "op": "setSpread", spread: Spread, } | { "op": "removeSpread", id: SpreadId, } | { "op": "setOrder", order: Array<SpreadId>, } | { "op": "setMasters", masters: Array<Master>, ids: Array<MasterId>, numbers: PageNumbers, } | { "op": "setLanguage", language: string, } | { "op": "setProofing", proofing: Proofing, } | { "op": "setGeometry", trim: Size, margins: Margins, bleed: Pt, grid: Grid, };

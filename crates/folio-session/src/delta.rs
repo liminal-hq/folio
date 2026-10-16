@@ -85,6 +85,7 @@ pub struct Delta {
     pub geometry: Geometry,
     pub masters: Masters,
     pub proofing: Proofing,
+    pub language: String,
     pub spreads: Vec<(SpreadId, Option<Spread>)>,
 }
 
@@ -96,6 +97,7 @@ impl Delta {
             geometry: Geometry::of(book),
             masters: Masters::of(book),
             proofing: book.proofing.clone(),
+            language: book.language.clone(),
             spreads: touched
                 .iter()
                 .map(|id| {
@@ -115,6 +117,7 @@ impl Delta {
         let was_geometry = Geometry::of(book);
         let was_masters = Masters::of(book);
         let was_proofing = book.proofing.clone();
+        let was_language = book.language.clone();
 
         for (id, spread) in &self.spreads {
             match spread {
@@ -153,6 +156,12 @@ impl Delta {
         if was_masters != self.masters {
             self.masters.apply(book);
             ops.push(self.masters.op());
+        }
+        if was_language != self.language {
+            book.language = self.language.clone();
+            ops.push(PatchOp::SetLanguage {
+                language: self.language.clone(),
+            });
         }
         if was_proofing != self.proofing {
             book.proofing = self.proofing.clone();

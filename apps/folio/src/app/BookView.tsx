@@ -30,7 +30,9 @@ import { useSpreadLayout } from '../canvas/useSpreadLayout';
 import type { CommandId } from '../commands/appMenuModel';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
+import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import { Inspector } from '../inspector/Inspector';
+import { languageChoices } from '../inspector/languageChoices';
 import { PagesPanel } from '../sidebar/PagesPanel';
 import { ProofingPanel } from '../sidebar/ProofingPanel';
 import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
@@ -340,6 +342,22 @@ export function BookView({
 	const [proofing, setProofing] = useState<BookSpelling | null>(null);
 	const [dictionaryTick, setDictionaryTick] = useState(0);
 	const personalKey = settings.spelling.personal.join('\u0000');
+	// The dictionaries there are, for the language list: read once and again after a download.
+	const [dictionaries, setDictionaries] = useState<DictionaryStatus[]>([]);
+	useEffect(() => {
+		let live = true;
+		client
+			.dictionaries()
+			.then((found) => live && setDictionaries(found))
+			.catch(() => undefined);
+		return () => {
+			live = false;
+		};
+	}, [client, dictionaryTick]);
+	const languages = useMemo(
+		() => languageChoices(dictionaries, book.language),
+		[dictionaries, book.language],
+	);
 	useEffect(() => {
 		if (group !== 'proofing') return;
 		let live = true;
@@ -569,6 +587,7 @@ export function BookView({
 								paints={paints}
 								images={images}
 								choosePicture={(frame) => void choosePicture(frame)}
+								languages={languages}
 							/>
 						),
 						proofing: (
@@ -582,6 +601,8 @@ export function BookView({
 									setSpreadIndex(index);
 									select([word.frame]);
 								}}
+								languages={languages}
+								onLanguage={(language) => void store.apply({ type: 'SetLanguage', language })}
 								ignored={book.proofing?.ignore ?? []}
 								onRestore={(word) => void store.apply({ type: 'UnignoreWord', word })}
 								onIgnore={(word) => void store.apply({ type: 'IgnoreWord', word: word.word })}
