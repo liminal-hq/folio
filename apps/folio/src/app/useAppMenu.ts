@@ -5,9 +5,9 @@
 
 import type { MenuItem, SelectableMenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
 import { useWindowControls } from '@liminal-hq/folio-chrome/WindowChromeProvider/WindowChromeProvider';
-import type { BookSummary } from '@liminal-hq/folio-plugin-books';
+import type { BookSummary, Recoverable } from '@liminal-hq/folio-plugin-books';
 import { useCallback, useMemo } from 'react';
-import type { CloseChoice } from '../books/bookActions';
+import type { CloseChoice, RecoveredChoice } from '../books/bookActions';
 import { useActiveBook, useBooks } from '../books/useBooks';
 import { buildAppMenu, buildMenuBar, type CommandId } from '../commands/appMenuModel';
 import {
@@ -32,7 +32,10 @@ export interface AppMenuModel {
 }
 
 /** `ask` puts the "save changes?" question to the person when a book with changes would close. */
-export function useAppMenu(ask: (summary: BookSummary) => Promise<CloseChoice>): AppMenuModel {
+export function useAppMenu(
+	ask: (summary: BookSummary) => Promise<CloseChoice>,
+	askRecovered?: (found: Recoverable) => Promise<RecoveredChoice>,
+): AppMenuModel {
 	const settings = useSettings();
 	const update = useUpdateSettings();
 	const controls = useWindowControls();
@@ -67,7 +70,7 @@ export function useAppMenu(ask: (summary: BookSummary) => Promise<CloseChoice>):
 				// Choose first, then close: cancelling the picker must not lose the book being shown.
 				const target = path ?? (await actions.pick());
 				if (target === null || !(await makeRoom())) return;
-				await actions.open(target);
+				await actions.open(target, askRecovered);
 			},
 			save: async () => void (await actions.save()),
 			saveAs: async () => void (await actions.saveAs()),
@@ -75,7 +78,7 @@ export function useAppMenu(ask: (summary: BookSummary) => Promise<CloseChoice>):
 			undo: () => store.undo(),
 			redo: () => store.redo(),
 		};
-	}, [active, actions, ask, store]);
+	}, [active, actions, ask, askRecovered, store]);
 
 	const run = useCallback(
 		(id: string) => {

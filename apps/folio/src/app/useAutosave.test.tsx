@@ -6,10 +6,17 @@
 import { act, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BooksProvider } from '../books/BooksProvider';
+import type { FileDialogs } from '../books/dialogs';
 import { createFakeBooksClient } from '../books/fakeBooksClient';
 import { createFakeSettingsClient } from '../settings/fakeSettingsClient';
 import { SettingsProvider } from '../settings/SettingsProvider';
 import { useAutosave } from './useAutosave';
+
+const dialogs: FileDialogs = {
+	pickBook: async () => null,
+	pickSavePath: async () => null,
+	pickImage: async () => null,
+};
 
 function Clock() {
 	useAutosave();
@@ -25,7 +32,7 @@ async function start() {
 	await act(async () => {
 		render(
 			<SettingsProvider client={settings}>
-				<BooksProvider client={books.client}>
+				<BooksProvider client={books.client} dialogs={dialogs}>
 					<Clock />
 				</BooksProvider>
 			</SettingsProvider>,

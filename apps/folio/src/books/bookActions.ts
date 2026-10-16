@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import type { BookSummary } from '@liminal-hq/folio-plugin-books';
+import type { BookSummary, Recoverable } from '@liminal-hq/folio-plugin-books';
 import type { BooksClient } from './booksClient';
 import { activeBook, type BooksStore, type OpenBookCopy } from './booksStore';
 import type { FileDialogs } from './dialogs';
@@ -28,13 +28,34 @@ export function withExtension(path: string): string {
 	return /\.folio$/i.test(path) ? path : `${path}.folio`;
 }
 
+/** What the person chose when a book they open has unsaved work a crash left behind. */
+export type RecoveredChoice = 'restore' | 'file' | 'cancel';
+
+/** Whether two paths name the same file: `/` and `\` alike, and without case on a Windows drive. */
+export function samePath(a: string, b: string): boolean {
+	const plain = (p: string) => p.replace(/^\\\\\?\\/, '').replace(/\\/g, '/');
+	const [x, y] = [plain(a), plain(b)];
+	return /^[a-z]:\//i.test(x) ? x.toLowerCase() === y.toLowerCase() : x === y;
+}
+
 export interface BookActions {
 	save(): Promise<ActionResult>;
 	saveAs(): Promise<ActionResult>;
 	/** Asks which book to open: its path, or `null` when the picker is cancelled. */
 	pick(): Promise<string | null>;
-	/** Opens a book from the picker, or from `path` when it is given (the recents list). */
-	open(path?: string): Promise<ActionResult>;
+	/**
+	 * Opens a book from the picker, or from `path` when it is given (the recents list). When a crash
+	 * left unsaved work on that file, `decideRecovered` asks whether to restore it or open the file as
+	 * it was saved; without it the file is opened and the work is left for the start screen.
+	 */
+	open(
+		path?: string,
+		decideRecovered?: (found: Recoverable) => Promise<RecoveredChoice>,
+	): Promise<ActionResult>;
+	/** Brings back what a crash left, as the book it was, still unsaved. */
+	restore(id: string): Promise<ActionResult>;
+	/** Gives up what a crash left. */
+	discard(id: string): Promise<void>;
 	/** Closes the book being shown, asking `decide` first when it has changes worth keeping. */
 	close(decide: (summary: BookSummary) => Promise<CloseChoice>): Promise<ActionResult>;
 	/**
@@ -89,10 +110,27 @@ export function createBookActions(
 		save,
 		saveAs,
 		pick: () => dialogs.pickBook(),
-		async open(path) {
+		async open(path, decideRecovered) {
 			const target = path ?? (await dialogs.pickBook());
 			if (target === null) return 'cancelled';
+			if (decideRecovered) {
+				const left = await client.recoverable().catch(() => [] as Recoverable[]);
+				const found = left.find((r) => r.path !== null && samePath(r.path, target));
+				if (found) {
+					const choice = await decideRecovered(found);
+					if (choice === 'cancel') return 'cancelled';
+					if (choice === 'restore') return (await store.restoreBook(found.id)) ? 'done' : 'failed';
+					// The file as saved was asked for, so the work that was left is given up.
+					await client.discardRecovered(found.id).catch(() => undefined);
+				}
+			}
 			return (await store.openBook(target)) ? 'done' : 'failed';
+		},
+		async restore(id) {
+			return (await store.restoreBook(id)) ? 'done' : 'failed';
+		},
+		async discard(id) {
+			await client.discardRecovered(id).catch(() => undefined);
 		},
 		async close(decide) {
 			const book = shown();
