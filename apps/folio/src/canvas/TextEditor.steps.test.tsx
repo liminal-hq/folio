@@ -169,4 +169,21 @@ describe('keeping typed words as undo steps', () => {
 			Reflect.deleteProperty(document, 'execCommand');
 		}
 	});
+
+	it("redoes the box's own typing with Ctrl+Y as well as Ctrl+Shift+Z", () => {
+		const redo = vi.fn(() => true);
+		Object.defineProperty(document, 'execCommand', { value: redo, configurable: true });
+		try {
+			const { box } = setup('Once');
+			expect(fireEvent.keyDown(box, { key: 'y', ctrlKey: true })).toBe(false);
+			expect(redo).toHaveBeenCalledWith('redo');
+			redo.mockClear();
+			// Other combinations are left to the webview.
+			fireEvent.keyDown(box, { key: 'y', ctrlKey: true, shiftKey: true });
+			fireEvent.keyDown(box, { key: 'y' });
+			expect(redo).not.toHaveBeenCalled();
+		} finally {
+			Reflect.deleteProperty(document, 'execCommand');
+		}
+	});
 });
