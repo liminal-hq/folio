@@ -239,3 +239,52 @@
 	background: var(--folio-danger);
 	color: var(--folio-danger-fg);
 }
+
+/*
+ * macOS: three round "traffic light" buttons. The button box is the full 28 px and the coloured
+ * disc is a pseudo-element inset to 12 px, as the GNOME and KDE shapes are, so the clickable area
+ * meets the minimum. The glyphs show only while the pointer is over the group, as on a Mac.
+ */
+.controls[data-controls-style='macos'] {
+	gap: 0;
+}
+
+.controls[data-controls-style='macos'] .button {
+	position: relative;
+	isolation: isolate;
+	width: 28px;
+	height: 28px;
+	color: var(--folio-traffic-glyph);
+}
+
+.controls[data-controls-style='macos'] .button::before {
+	content: '';
+	position: absolute;
+	z-index: -1;
+	inset: 8px;
+	border-radius: 50%;
+	background: var(--folio-control-bg-hover);
+}
+
+.controls[data-controls-style='macos'] .close::before {
+	background: var(--folio-traffic-close);
+}
+
+.controls[data-controls-style='macos'] .minimise::before {
+	background: var(--folio-traffic-minimise);
+}
+
+.controls[data-controls-style='macos'] .maximise::before {
+	background: var(--folio-traffic-maximise);
+}
+
+.controls[data-controls-style='macos'] .button svg {
+	width: 8px;
+	height: 8px;
+	opacity: 0;
+}
+
+.controls[data-controls-style='macos']:hover .button svg,
+.controls[data-controls-style='macos'] .button:focus-visible svg {
+	opacity: 1;
+}
