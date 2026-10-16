@@ -133,4 +133,27 @@ describe('ProofingPanel', () => {
 		);
 		expect(h.onDownload).toHaveBeenCalledWith('en-GB');
 	});
+
+	it('lists the words the book ignores, and checks one again when it is restored', async () => {
+		const onRestore = vi.fn();
+		setup(found([]), { ignored: ['Pip', 'reed'], onRestore });
+		const section = screen.getByRole('region', { name: 'Ignored in this book' });
+		expect(section).toHaveTextContent('Pip');
+		expect(section).toHaveTextContent('reed');
+		await userEvent.click(screen.getByRole('button', { name: 'Stop ignoring reed' }));
+		expect(onRestore).toHaveBeenCalledWith('reed');
+	});
+
+	it('draws no ignored list when nothing is ignored', () => {
+		setup(found([]), { ignored: [], onRestore: vi.fn() });
+		expect(screen.queryByRole('region', { name: 'Ignored in this book' })).toBeNull();
+	});
+
+	it('still lists the ignored words for a book with no dictionary', () => {
+		setup(found([], { supported: false, dictionary: null }), {
+			ignored: ['Pip'],
+			onRestore: vi.fn(),
+		});
+		expect(screen.getByRole('region', { name: 'Ignored in this book' })).toBeInTheDocument();
+	});
 });
