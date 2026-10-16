@@ -1,0 +1,15 @@
+[package]
+name = "folio-spell"
+version = "0.1.0"
+description = "Spell checking for Folio: a small checker trait, a tokeniser that reports UTF-16 ranges, and the bundled English (Canada) dictionary"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+# MPL-2.0, used unmodified: see D-25 for why the licence check allows it for this crate alone.
+spellbook = { version = "=0.4.2", default-features = true }
+thiserror = { workspace = true }

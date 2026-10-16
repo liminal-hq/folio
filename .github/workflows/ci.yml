@@ -42,6 +42,10 @@ jobs:
       # Preferences and window state live in the settings plugin, never in browser storage.
       - name: Check for browser storage
         run: bash scripts/check-browser-storage.sh
+      # Every dependency is under a licence deny.toml allows (D-25).
+      - uses: taiki-e/install-action@cargo-deny
+      - name: Check dependency licences
+        run: bash scripts/check-licences.sh
 
   frontend-tests:
     name: Frontend tests
