@@ -16,7 +16,7 @@ use crate::error::Error;
 use crate::state::Books;
 use crate::wire::{
     BookSnapshot, BookSpelling, BookSummary, DictionaryProgress, DictionaryStatus, ExportReport,
-    ExportTarget, FontChoice, KeepFontsReport, ReaderPreview, Recoverable, SpellCheck,
+    ExportTarget, FontChoice, FontUse, KeepFontsReport, ReaderPreview, Recoverable, SpellCheck,
     SpreadLayoutResult,
 };
 use crate::DICTIONARY_PROGRESS_EVENT;
@@ -357,6 +357,27 @@ pub async fn list_fonts<R: Runtime>(
     id: String,
 ) -> Result<Vec<FontChoice>, Error> {
     books.font_choices(&id)
+}
+
+/// The typefaces a book uses, and where each comes from.
+#[tauri::command]
+pub async fn fonts_in_use<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+) -> Result<Vec<FontUse>, Error> {
+    books.fonts_in_use(&id)
+}
+
+/// Takes fonts out of a book, so it is laid out from the computer's again.
+#[tauri::command]
+pub async fn unkeep_fonts<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+    families: Vec<String>,
+) -> Result<(), Error> {
+    books.unkeep_fonts(&id, &families)
 }
 
 /// Keeps installed fonts inside a book, so it opens the same on a computer without them, and says

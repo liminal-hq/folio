@@ -10,6 +10,7 @@ import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/Dict
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
 import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
+import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
 import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
@@ -25,6 +26,8 @@ import {
 	removeDictionary,
 	onDictionaryProgress,
 	importImage,
+	fontsInUse,
+	unkeepFonts,
 	readerPreview,
 	exportBook,
 	revealPath,
@@ -119,6 +122,10 @@ export interface BooksClient {
 	revealPath(path: string): Promise<void>;
 	/** What preflight finds in the whole book, the issues that wait on the person first. */
 	preflightBook(id: string): Promise<PreflightItem[]>;
+	/** The typefaces the book uses, and where each comes from. */
+	fontsInUse(id: string): Promise<FontUse[]>;
+	/** Takes fonts out of the book, so it is laid out from the computer's again. */
+	unkeepFonts(id: string, families: string[]): Promise<void>;
 	/** Every family the book can draw in, and where each comes from. */
 	listFonts(id: string): Promise<FontChoice[]>;
 	/** Keeps installed fonts inside the book; says which were kept and which could not be. */
@@ -165,6 +172,8 @@ export const tauriBooksClient: BooksClient = {
 	exportBook,
 	revealPath,
 	preflightBook,
+	fontsInUse,
+	unkeepFonts,
 	listFonts,
 	keepFonts,
 	dictionaries,

@@ -136,6 +136,14 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function listFonts(id) {
         return cmd('list_fonts', { id });
     }
+    /** The typefaces the book uses, and where each comes from. */
+    function fontsInUse(id) {
+        return cmd('fonts_in_use', { id });
+    }
+    /** Takes fonts out of the book, so it is laid out from the computer's again. */
+    function unkeepFonts(id, families) {
+        return cmd('unkeep_fonts', { id, families });
+    }
     /** Keeps installed fonts inside the book; says which were kept and which could not be, and why. */
     function keepFonts(id, families) {
         return cmd('keep_fonts', { id, families });
@@ -185,6 +193,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.discardRecovered = discardRecovered;
     exports.downloadDictionary = downloadDictionary;
     exports.exportBook = exportBook;
+    exports.fontsInUse = fontsInUse;
     exports.getStatus = getStatus;
     exports.historyMark = historyMark;
     exports.importImage = importImage;
@@ -214,6 +223,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.spellCheckBook = spellCheckBook;
     exports.spellSuggest = spellSuggest;
     exports.undo = undo;
+    exports.unkeepFonts = unkeepFonts;
 
     return exports;
 

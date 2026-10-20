@@ -31,6 +31,8 @@ permissions = [
   "allow-export-book",
   "allow-reveal-path",
   "allow-preflight-book",
+  "allow-fonts-in-use",
+  "allow-unkeep-fonts",
   "allow-list-fonts",
   "allow-keep-fonts",
   "allow-dictionaries",
