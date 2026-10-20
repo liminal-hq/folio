@@ -25,10 +25,11 @@ use crate::error::Error;
 use crate::recovery::{self, Recovery};
 use crate::spelling::Spelling;
 use crate::wire::{
-    BookSnapshot, BookSpelling, BookSummary, BooksChanged, ExportColour, ExportProgress,
-    ExportReport, ExportTarget, ExportedFile, FontChoice, FontLicence, FontOrigin, FontSkip,
-    FontUse, KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, PreviewChapter, PreviewImage,
-    ProofPage, ReaderPreview, Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult,
+    BookSnapshot, BookSpelling, BookSummary, BooksChanged, CoverSheetPreview, ExportColour,
+    ExportProgress, ExportReport, ExportTarget, ExportedFile, FontChoice, FontLicence, FontOrigin,
+    FontSkip, FontUse, KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, PreviewChapter,
+    PreviewImage, ProofPage, ReaderPreview, Recoverable, SkippedFont, SpellCheck,
+    SpreadLayoutResult,
 };
 use crate::{CHANGED_EVENT, EXPORT_PROGRESS_EVENT, PATCH_EVENT};
 
@@ -1083,7 +1084,7 @@ impl<R: Runtime> Books<R> {
 
     /// The paperback cover sheet as the exporter would make it (back, spine and front), as a
     /// `data:image/png` URI. `None` when the book has no cover.
-    pub fn preview_cover_sheet(&self, id: &str) -> Result<Option<String>, Error> {
+    pub fn preview_cover_sheet(&self, id: &str) -> Result<Option<CoverSheetPreview>, Error> {
         use base64::Engine as _;
         let base = self.fonts.get_or_init(FontBook::with_system_fonts);
         let (book, assets, paper, layered) = {
@@ -1114,10 +1115,20 @@ impl<R: Runtime> Books<R> {
             .ok_or_else(|| Error::Export("the cover sheet has no page".into()))?;
         let png = folio_export::raster::page_to_png(&scene, fonts, &MemoryAssets(assets), 1400)
             .map_err(|e| Error::Export(e.to_string()))?;
-        Ok(Some(format!(
-            "data:image/png;base64,{}",
-            base64::engine::general_purpose::STANDARD.encode(png)
-        )))
+        let maths = folio_model::paperback_cover(book.trim, folio_model::spine_pages(&book), paper);
+        Ok(Some(CoverSheetPreview {
+            image: format!(
+                "data:image/png;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(png)
+            ),
+            width: maths.width.0,
+            height: maths.height.0,
+            edge: maths.edge.0,
+            cover: book.trim.w.0,
+            spine: maths.spine.0,
+            spine_text: maths.spine_text_allowed,
+            barcode: maths.barcode,
+        }))
     }
 
     /// The book as an e-reader would show it, from the same chapters and CSS the EPUB ships.

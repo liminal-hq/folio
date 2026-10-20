@@ -547,7 +547,16 @@ export function createFakeBooksClient(): FakeBooks {
 		async previewCoverSheet(id) {
 			await call('previewCoverSheet', [id]);
 			find(id);
-			return 'data:image/png;base64,AAAA';
+			return {
+				image: 'data:image/png;base64,AAAA',
+				width: 1000,
+				height: 600,
+				edge: 9,
+				cover: 450,
+				spine: 82,
+				spineText: false,
+				barcode: { x: 300, y: 450, w: 144, h: 86 },
+			};
 		},
 		async proofSpread(id, spread, profile) {
 			await call('proofSpread', [id, spread, profile]);

@@ -15,9 +15,9 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow};
 use crate::error::Error;
 use crate::state::Books;
 use crate::wire::{
-    BookSnapshot, BookSpelling, BookSummary, DictionaryProgress, DictionaryStatus, ExportColour,
-    ExportReport, ExportTarget, FontChoice, FontUse, KeepFontsReport, ProofPage, ReaderPreview,
-    Recoverable, SpellCheck, SpreadLayoutResult,
+    BookSnapshot, BookSpelling, BookSummary, CoverSheetPreview, DictionaryProgress,
+    DictionaryStatus, ExportColour, ExportReport, ExportTarget, FontChoice, FontUse,
+    KeepFontsReport, ProofPage, ReaderPreview, Recoverable, SpellCheck, SpreadLayoutResult,
 };
 use crate::DICTIONARY_PROGRESS_EVENT;
 use folio_import::ImportReport;
@@ -351,7 +351,7 @@ pub async fn preview_cover_sheet<R: Runtime>(
     app: AppHandle<R>,
     _window: WebviewWindow<R>,
     id: String,
-) -> Result<Option<String>, Error> {
+) -> Result<Option<CoverSheetPreview>, Error> {
     tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().preview_cover_sheet(&id))
         .await
         .expect("the preview task does not panic")

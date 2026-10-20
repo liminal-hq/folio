@@ -175,6 +175,7 @@ export const messages = {
 	'coverSheet.title': 'Cover sheet',
 	'coverSheet.hint':
 		'The paperback cover as the KDP file will have it: back, spine and front, with the bleed all round. The back carries the description and the barcode.',
+	'coverSheet.guides': 'Show the folds, safe areas and barcode box',
 	'coverSheet.alt': 'The paperback cover sheet',
 	'coverSheet.drawing': 'Drawing the cover sheet…',
 	'coverSheet.failed': 'The cover sheet could not be drawn.',
