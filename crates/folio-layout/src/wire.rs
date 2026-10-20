@@ -30,6 +30,26 @@ pub struct LayoutRun {
     /// The misspelt parts of `text`, each as where it starts and ends in UTF-16 code units.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub miss: Vec<(u32, u32)>,
+    /// The key of the font file the run was shaped with (`Font::face_key`). Not sent to the page:
+    /// the page draws text itself, and only the exporters want this.
+    #[serde(skip)]
+    #[ts(skip)]
+    pub face_key: String,
+    /// The shaped glyphs of the run, in order. Not sent to the page.
+    #[serde(skip)]
+    #[ts(skip)]
+    pub glyphs: Vec<SceneGlyph>,
+}
+
+/// One shaped glyph of a run: which glyph of the font, and how far to move for it, in points.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct SceneGlyph {
+    pub id: u16,
+    /// Byte offset into the run's text of the first character the glyph stands for.
+    pub cluster: u32,
+    pub advance: f64,
+    pub dx: f64,
+    pub dy: f64,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
