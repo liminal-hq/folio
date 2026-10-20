@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { createFakeBooksClient } from '../books/fakeBooksClient';
 import { CoverSheetDialog } from './CoverSheetDialog';
@@ -40,5 +41,22 @@ describe('CoverSheetDialog', () => {
 			/>,
 		);
 		expect(fake.calls.some((c) => c.startsWith('previewCoverSheet'))).toBe(false);
+	});
+
+	it('shows the guides over the sheet, and hides them when asked', async () => {
+		const fake = createFakeBooksClient();
+		const made = await fake.client.newBook({});
+		render(
+			<CoverSheetDialog
+				open
+				onClose={() => undefined}
+				client={fake.client}
+				id={made.summary.id}
+				revision={0}
+			/>,
+		);
+		expect(await screen.findByTestId('cover-guides')).toBeInTheDocument();
+		await userEvent.click(screen.getByRole('checkbox', { name: /Show the folds/ }));
+		expect(screen.queryByTestId('cover-guides')).toBeNull();
 	});
 });
