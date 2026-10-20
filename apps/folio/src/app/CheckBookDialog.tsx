@@ -24,6 +24,8 @@ interface CheckBookDialogProps {
 	labels: string[];
 	/** Goes to the spread and, when the issue is about a frame, selects it. */
 	onShow(spread: number, frame: string | null): void;
+	/** Sets the issues to leave alone, each by its key. */
+	onIgnore(keys: string[]): void;
 }
 
 const GROUPS: ReadonlyArray<{ severity: Severity; heading: MessageKey }> = [
@@ -40,6 +42,7 @@ export function CheckBookDialog({
 	book,
 	labels,
 	onShow,
+	onIgnore,
 }: CheckBookDialogProps) {
 	const [items, setItems] = useState<PreflightItem[] | null>(null);
 	const [failed, setFailed] = useState(false);
@@ -57,6 +60,21 @@ export function CheckBookDialog({
 			live = false;
 		};
 	}, [open, client, id, round]);
+
+	const left = book.preflightIgnore ?? [];
+	const ignore = (row: { items: PreflightItem[] }) => {
+		onIgnore([
+			...new Set([...left, ...row.items.map((i) => i.key).filter((k): k is string => !!k)]),
+		]);
+		setRound((n) => n + 1);
+	};
+	const restore = (row: { items: PreflightItem[] }) => {
+		const gone = new Set(row.items.map((i) => i.key));
+		onIgnore(left.filter((k) => !gone.has(k)));
+		setRound((n) => n + 1);
+	};
+	const active = items?.filter((i) => !i.ignored) ?? null;
+	const quiet = items?.filter((i) => i.ignored) ?? [];
 
 	const where = (item: PreflightItem) => {
 		const at = book.spreads.findIndex((s) => s.id === item.spread);
@@ -88,14 +106,14 @@ export function CheckBookDialog({
 					{t('preflight.checking')}
 				</p>
 			)}
-			{items !== null && items.length === 0 && (
+			{active !== null && active.length === 0 && (
 				<p role="status" className={styles.ok}>
 					{t('preflight.clear')}
 				</p>
 			)}
-			{items !== null &&
+			{active !== null &&
 				GROUPS.map(({ severity, heading }) => {
-					const rows = rowsOf(items.filter((item) => item.severity === severity));
+					const rows = rowsOf(active.filter((item) => item.severity === severity));
 					if (rows.length === 0) return null;
 					return (
 						<section key={severity} aria-labelledby={`preflight-${severity}`}>
@@ -106,7 +124,8 @@ export function CheckBookDialog({
 								</span>
 							</h3>
 							<ul className={styles.list}>
-								{rows.map(({ item, count }, index) => {
+								{rows.map((row, index) => {
+									const { item, count } = row;
 									const place = where(item);
 									const words = describe(item, place.name, count);
 									return (
@@ -116,6 +135,9 @@ export function CheckBookDialog({
 												<span className={styles.problem}>{words.problem}</span>
 												<span className={styles.fix}>{words.fix}</span>
 											</span>
+											<button type="button" className={styles.show} onClick={() => ignore(row)}>
+												{t('preflight.ignore')}
+											</button>
 											{place.at >= 0 && (
 												<button
 													type="button"
@@ -135,6 +157,30 @@ export function CheckBookDialog({
 						</section>
 					);
 				})}
+			{quiet.length > 0 && (
+				<section aria-labelledby="preflight-ignored">
+					<h3 id="preflight-ignored" className={styles.heading}>
+						{t('preflight.group.ignored')} <span className={styles.count}>{quiet.length}</span>
+					</h3>
+					<ul className={styles.list}>
+						{rowsOf(quiet).map((row, index) => {
+							const place = where(row.item);
+							const words = describe(row.item, place.name, row.count);
+							return (
+								<li key={index} className={styles.row} data-severity="note">
+									<span className={styles.dot} aria-hidden="true" />
+									<span className={styles.text}>
+										<span className={styles.problem}>{words.problem}</span>
+									</span>
+									<button type="button" className={styles.show} onClick={() => restore(row)}>
+										{t('preflight.restore')}
+									</button>
+								</li>
+							);
+						})}
+					</ul>
+				</section>
+			)}
 		</Dialog>
 	);
 }

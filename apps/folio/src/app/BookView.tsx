@@ -769,6 +769,7 @@ export function BookView({
 				id={id}
 				book={book}
 				labels={labels}
+				onIgnore={(keys) => void store.apply({ type: 'SetPreflightIgnore', keys })}
 				onShow={(at, frame) => {
 					if (master !== null) setEditing(null);
 					setSpreadIndex(at);

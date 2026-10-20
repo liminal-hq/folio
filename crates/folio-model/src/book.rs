@@ -71,6 +71,9 @@ pub struct Book {
     /// Where the page numbers go, kept so the masters can be made again when pages come and go.
     #[serde(default, skip_serializing_if = "PageNumbers::is_none")]
     pub page_numbers: PageNumbers,
+    /// Preflight issues the person has said to leave alone, each by its key (D-31).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub preflight_ignore: Vec<String>,
     /// Font files kept inside the package, so the book is laid out the same on a machine without
     /// them (D-30). Each names a file under `assets/fonts/`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

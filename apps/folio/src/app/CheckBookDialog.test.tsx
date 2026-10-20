@@ -28,6 +28,7 @@ async function setup(items: PreflightItem[]) {
 	fake.preflightItems.push(...items);
 	const onShow = vi.fn();
 	const onClose = vi.fn();
+	const onIgnore = vi.fn();
 	render(
 		<CheckBookDialog
 			open
@@ -37,9 +38,10 @@ async function setup(items: PreflightItem[]) {
 			book={book}
 			labels={labels}
 			onShow={onShow}
+			onIgnore={onIgnore}
 		/>,
 	);
-	return { fake, onShow, onClose };
+	return { fake, onShow, onClose, onIgnore };
 }
 
 describe('the Check book dialog', () => {
@@ -87,6 +89,23 @@ describe('the Check book dialog', () => {
 		expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(/Waiting on you\s*3/);
 		await userEvent.click(within(row).getByRole('button', { name: 'Show me' }));
 		expect(onShow).toHaveBeenCalledWith(0, 'fr_1');
+	});
+
+	it('leaves an issue alone by its key, and brings an ignored one back', async () => {
+		const { fake, onIgnore } = await setup([
+			item({ kind: 'fontMissing', severity: 'warning', family: 'Zed Sans', key: 'k-font' }),
+			item({ kind: 'oversetText', key: 'k-over', ignored: true }),
+		]);
+		void fake;
+		const row = (
+			await screen.findByText('Zed Sans is not on this computer or in the book')
+		).closest('li')!;
+		await userEvent.click(within(row).getByRole('button', { name: 'Ignore' }));
+		expect(onIgnore).toHaveBeenCalledWith(['k-font']);
+		const quiet = screen.getByText('Some words do not fit on Pages 1–2').closest('li')!;
+		await userEvent.click(within(quiet).getByRole('button', { name: 'Stop ignoring' }));
+		expect(onIgnore).toHaveBeenLastCalledWith([]);
+		expect(screen.getByRole('heading', { name: /Left alone/ })).toBeInTheDocument();
 	});
 
 	it('checks again when asked', async () => {

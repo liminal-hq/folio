@@ -1227,3 +1227,34 @@ fn the_fonts_panel_lists_the_families_a_book_uses_and_a_kept_font_can_be_let_go(
         .unwrap();
     assert_eq!(books(&app).history_mark(&id).unwrap(), depth);
 }
+
+#[test]
+fn an_issue_the_person_leaves_alone_is_marked_so_and_comes_back_when_it_is_let_go() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let all = books(&app).preflight(&id).unwrap();
+    assert!(all.iter().all(|i| !i.ignored && !i.key.is_empty()));
+    let one = all[0].key.clone();
+    books(&app)
+        .apply(
+            &id,
+            Intent::SetPreflightIgnore {
+                keys: vec![one.clone()],
+            },
+        )
+        .unwrap();
+    let after = books(&app).preflight(&id).unwrap();
+    assert_eq!(after.len(), all.len(), "an ignored issue is still listed");
+    assert!(after.iter().find(|i| i.key == one).unwrap().ignored);
+    assert_eq!(after.iter().filter(|i| i.ignored).count(), 1);
+    books(&app).undo(&id).unwrap();
+    assert!(books(&app)
+        .preflight(&id)
+        .unwrap()
+        .iter()
+        .all(|i| !i.ignored));
+}

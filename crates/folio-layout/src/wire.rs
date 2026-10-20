@@ -181,9 +181,37 @@ pub struct PreflightItem {
     /// The typeface at fault, for a missing font.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub family: Option<String>,
+    /// What names this issue (see `compute_key`); set when a whole book is checked.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub key: String,
+    /// The person said to leave this one alone.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub ignored: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 impl PreflightItem {
+    /// What names this issue, so a person can say to leave it alone and it stays left alone: the
+    /// kind, where, and what it is about.
+    pub fn compute_key(&self) -> String {
+        let at = self
+            .frame
+            .as_ref()
+            .map(|f| f.0.as_str())
+            .or(self.page.as_ref().map(|p| p.0.as_str()))
+            .unwrap_or("");
+        format!(
+            "{:?}:{}:{}:{}",
+            self.kind,
+            self.spread.0,
+            at,
+            self.family.as_deref().unwrap_or("")
+        )
+    }
+
     /// A problem with one frame of `spread`.
     pub fn of_frame(kind: PreflightKind, spread: &SpreadId, frame: &FrameId) -> Self {
         Self {
@@ -193,6 +221,8 @@ impl PreflightItem {
             frame: Some(frame.clone()),
             page: None,
             family: None,
+            key: String::new(),
+            ignored: false,
         }
     }
 
@@ -205,6 +235,8 @@ impl PreflightItem {
             frame: None,
             page: Some(page.clone()),
             family: None,
+            key: String::new(),
+            ignored: false,
         }
     }
 
