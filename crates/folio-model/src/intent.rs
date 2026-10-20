@@ -8,9 +8,9 @@ use ts_rs::TS;
 
 use crate::background::Background;
 use crate::book::{BookFont, Details, Grid, PageNumbers};
-use crate::colour::Colour;
+use crate::colour::{BookSwatch, Colour};
 use crate::frame::{Fit, Frame, Shape, StyleOverrides, TableLook};
-use crate::ids::{FrameId, MasterId, PageId, SpreadId, StyleId};
+use crate::ids::{FrameId, MasterId, PageId, SpreadId, StyleId, SwatchId};
 use crate::runs::RunChange;
 use crate::sections::Section;
 use crate::spread::Axis;
@@ -175,6 +175,16 @@ pub enum Intent {
     /// files and sends this; it is one undo step.
     SetFonts {
         fonts: Vec<BookFont>,
+    },
+    /// Adds a swatch to the book, or replaces the one with the same id. A swatch with ink shows as
+    /// that ink on a screen, so its display colour is worked out from it. One undo step.
+    SetSwatch {
+        swatch: BookSwatch,
+    },
+    /// Takes a swatch out of the book. Everything that referred to it keeps the colour it showed
+    /// as, in the same undo step.
+    RemoveSwatch {
+        id: SwatchId,
     },
     /// Sets the title, subtitle, authors, description and ISBNs together. One undo step.
     SetDetails {

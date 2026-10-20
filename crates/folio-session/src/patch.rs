@@ -5,7 +5,7 @@
 
 use folio_model::{
     BookFont, Details, Grid, Margins, Master, MasterId, PageNumbers, Proofing, Pt, Size, Spread,
-    SpreadId,
+    SpreadId, Styles,
 };
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -29,6 +29,8 @@ pub enum PatchOp {
     },
     /// The language the book is written in.
     SetLanguage { language: String },
+    /// The book's styles and swatches, whole.
+    SetStyles { styles: Styles },
     /// The title, authors, description and ISBNs.
     SetDetails { details: Details },
     /// The preflight issues the book leaves alone.
