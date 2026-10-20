@@ -308,10 +308,10 @@ impl<R: Runtime> Books<R> {
             .extension()
             .and_then(|e| e.to_str())
             .map(str::to_ascii_lowercase);
-        if !matches!(known.as_deref(), Some("md" | "markdown" | "txt")) {
+        if !matches!(known.as_deref(), Some("md" | "markdown" | "txt" | "docx")) {
             return Err(Error::Import(
-                "Folio can bring in Markdown (.md) and plain text (.txt) files so far. Word and \
-                 other formats are not supported yet."
+                "Folio can bring in Word (.docx), Markdown (.md) and plain text (.txt) files so \
+                 far. Other formats are not supported yet."
                     .into(),
             ));
         }
@@ -323,12 +323,17 @@ impl<R: Runtime> Books<R> {
                 "That file is too large to bring in (the limit is 8 MB).".into(),
             ));
         }
-        let text = std::fs::read_to_string(file).map_err(|e| {
-            Error::Import(format!(
-                "{path} could not be read as text ({e}). Save it as UTF-8 and try again."
-            ))
-        })?;
-        let imported = folio_import::import_markdown(&text);
+        let imported = if known.as_deref() == Some("docx") {
+            let bytes = std::fs::read(file).map_err(|e| Error::Import(format!("{path}: {e}")))?;
+            folio_import::import_docx(&bytes).map_err(|e| Error::Import(e.to_string()))?
+        } else {
+            let text = std::fs::read_to_string(file).map_err(|e| {
+                Error::Import(format!(
+                    "{path} could not be read as text ({e}). Save it as UTF-8 and try again."
+                ))
+            })?;
+            folio_import::import_markdown(&text)
+        };
         if imported.story.is_empty() {
             return Err(Error::Import("That file has no words to bring in.".into()));
         }

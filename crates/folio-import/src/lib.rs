@@ -6,6 +6,10 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+mod docx;
+
+pub use docx::{import_docx, DocxError};
+
 use folio_model::{join_runs, Run, StoryPara, StyleId};
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use serde::{Deserialize, Serialize};
