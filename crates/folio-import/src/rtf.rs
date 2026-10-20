@@ -62,7 +62,7 @@ pub fn import_rtf(bytes: &[u8]) -> Result<Imported, RtfError> {
     let mut uc = 1u32;
     let mut i = 0;
     let mut pending = String::new();
-    let mut note = |report: &mut ImportReport, text: &str| {
+    let note = |report: &mut ImportReport, text: &str| {
         if !report.notes.iter().any(|n| n == text) {
             report.notes.push(text.to_owned());
         }
