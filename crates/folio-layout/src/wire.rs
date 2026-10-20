@@ -95,6 +95,10 @@ pub struct FrameLayout {
     /// For a shape: how its style sets the words, so an editor sets them the same way.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text_align: Option<folio_model::Align>,
+    /// For a frame in a story: the paragraph its first line is from, so the story editor can open
+    /// where the frame's words are.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_paragraph: Option<u32>,
 }
 
 /// A point on a spread, in points from the top-left of the first page's trim.

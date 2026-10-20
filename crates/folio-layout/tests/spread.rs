@@ -1819,3 +1819,26 @@ fn small_words_in_a_rich_black_are_warned_about_and_large_ones_are_not() {
     assert_eq!(found[0].family.as_deref(), Some("Rich black"));
     assert_eq!(found[0].frame.as_ref().map(|f| f.0.as_str()), Some("small"));
 }
+
+#[test]
+fn a_frame_in_a_story_says_which_paragraph_its_words_begin_with() {
+    let (book, styles) = sample(BookKind::Novel);
+    let mut firsts: Vec<(String, Option<u32>)> = Vec::new();
+    for index in 0..book.spreads.len() {
+        for frame in lay(&book, &styles, index).frames {
+            firsts.push((frame.frame.0.clone(), frame.first_paragraph));
+        }
+    }
+    let flow = &book.flows[0];
+    let first = firsts
+        .iter()
+        .find(|(id, _)| flow.frames.first().is_some_and(|f| f.0 == *id))
+        .expect("the story's first frame is laid out");
+    assert_eq!(first.1, Some(0));
+    // A frame with words of its own is not in a story, so it names no paragraph.
+    let own = firsts
+        .iter()
+        .filter(|(id, _)| !flow.frames.iter().any(|f| f.0 == *id))
+        .all(|(_, p)| p.is_none());
+    assert!(own);
+}

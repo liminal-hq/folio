@@ -47,7 +47,13 @@ const open = (frames: object[], onEditStory = vi.fn(), onEditText = vi.fn()) => 
 		<SpreadCanvas
 			book={book}
 			spread={spread(frames)}
-			layout={{ spread: 's', preflight: [], frames: [] } as unknown as SpreadLayout}
+			layout={
+				{
+					spread: 's',
+					preflight: [],
+					frames: [{ frame: 'f1', overset: false, lines: [], firstParagraph: 3 }],
+				} as unknown as SpreadLayout
+			}
 			zoom={1}
 			label="Page"
 			selection={[]}
@@ -63,7 +69,7 @@ const open = (frames: object[], onEditStory = vi.fn(), onEditText = vi.fn()) => 
 describe('opening a frame of a story', () => {
 	it('opens the story, not a box over the frame', () => {
 		const { onEditStory } = open([frame()]);
-		expect(onEditStory).toHaveBeenCalledWith('fl_1');
+		expect(onEditStory).toHaveBeenCalledWith('fl_1', 3);
 		expect(screen.queryByRole('textbox', { name: 'Edit the words' })).toBeNull();
 	});
 
