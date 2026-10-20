@@ -26826,5 +26826,646 @@
       ],
       "revision": 42
     }
+  },
+  {
+    "after": {
+      "adjustGutterForPageCount": false,
+      "authors": [
+        {
+          "name": "Mom",
+          "role": "author"
+        }
+      ],
+      "backNotes": [
+        {
+          "id": "n1",
+          "rect": {
+            "h": 40.0,
+            "w": 100.0,
+            "x": 20.0,
+            "y": 30.0
+          },
+          "size": 10.0,
+          "text": "A cosy tale"
+        }
+      ],
+      "bleed": 0.0,
+      "flows": [
+        {
+          "autoAddPages": true,
+          "frames": [
+            "fr_flowed"
+          ],
+          "id": "fl_main",
+          "paragraphs": [
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "A chapter"
+                }
+              ]
+            },
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "The otter slept."
+                }
+              ]
+            },
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "Morning came."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "grid": {
+        "baseline": null,
+        "columns": 12,
+        "gutter": 6.0
+      },
+      "id": "bk_t",
+      "kind": "picture",
+      "language": "en-CA",
+      "layout": "fixed",
+      "margins": {
+        "bottom": 36.0,
+        "inside": 36.0,
+        "outside": 36.0,
+        "top": 36.0
+      },
+      "masters": [],
+      "metadata": {
+        "description": "About an otter.",
+        "isbn": {
+          "ebook": null,
+          "hardcover": null,
+          "paperback": null
+        },
+        "keywords": []
+      },
+      "proofing": {
+        "ignore": [
+          "Zorblat"
+        ]
+      },
+      "schema": 1,
+      "spreads": [
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_cover",
+          "kind": "cover",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_c",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_2",
+          "kind": "spread",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_2",
+              "master": null
+            },
+            {
+              "id": "pg_3",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_new1",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_new2",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [
+            {
+              "box": {
+                "h": 100.0,
+                "w": 100.0,
+                "x": 40.0,
+                "y": 0.0
+              },
+              "id": "fr_pic",
+              "image": {
+                "asset": null,
+                "crop": null,
+                "fit": "fill",
+                "focus": [
+                  0.5,
+                  0.5
+                ]
+              },
+              "locked": false,
+              "rotation": 0.0,
+              "type": "image"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 40.0,
+                "w": 200.0,
+                "x": 10.0,
+                "y": 120.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "Hello, "
+                  },
+                  {
+                    "bold": true,
+                    "italic": false,
+                    "style": null,
+                    "text": "brave"
+                  },
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": " world"
+                  }
+                ]
+              },
+              "id": "fr_text",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 0.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 0
+              },
+              "id": "fr_flowed",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
+          "guides": [],
+          "id": "sp_1",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_1",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [
+            {
+              "box": {
+                "h": 100.0,
+                "w": 100.0,
+                "x": 40.0,
+                "y": 0.0
+              },
+              "id": "fr_new5",
+              "image": {
+                "asset": null,
+                "crop": null,
+                "fit": "fill",
+                "focus": [
+                  0.5,
+                  0.5
+                ]
+              },
+              "locked": false,
+              "rotation": 0.0,
+              "type": "image"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 40.0,
+                "w": 200.0,
+                "x": 10.0,
+                "y": 120.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "Once upon a time"
+                  }
+                ]
+              },
+              "id": "fr_new6",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 0.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 0
+              },
+              "id": "fr_new7",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
+          "guides": [],
+          "id": "sp_new3",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_new4",
+              "master": null
+            }
+          ]
+        }
+      ],
+      "title": "Plain",
+      "trim": {
+        "h": 504.0,
+        "w": 504.0
+      }
+    },
+    "before": {
+      "adjustGutterForPageCount": false,
+      "authors": [
+        {
+          "name": "Mom",
+          "role": "author"
+        }
+      ],
+      "bleed": 0.0,
+      "flows": [
+        {
+          "autoAddPages": true,
+          "frames": [
+            "fr_flowed"
+          ],
+          "id": "fl_main",
+          "paragraphs": [
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "A chapter"
+                }
+              ]
+            },
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "The otter slept."
+                }
+              ]
+            },
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "Morning came."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "grid": {
+        "baseline": null,
+        "columns": 12,
+        "gutter": 6.0
+      },
+      "id": "bk_t",
+      "kind": "picture",
+      "language": "en-CA",
+      "layout": "fixed",
+      "margins": {
+        "bottom": 36.0,
+        "inside": 36.0,
+        "outside": 36.0,
+        "top": 36.0
+      },
+      "masters": [],
+      "metadata": {
+        "description": "About an otter.",
+        "isbn": {
+          "ebook": null,
+          "hardcover": null,
+          "paperback": null
+        },
+        "keywords": []
+      },
+      "proofing": {
+        "ignore": [
+          "Zorblat"
+        ]
+      },
+      "schema": 1,
+      "spreads": [
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_cover",
+          "kind": "cover",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_c",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_2",
+          "kind": "spread",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_2",
+              "master": null
+            },
+            {
+              "id": "pg_3",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_new1",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_new2",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [
+            {
+              "box": {
+                "h": 100.0,
+                "w": 100.0,
+                "x": 40.0,
+                "y": 0.0
+              },
+              "id": "fr_pic",
+              "image": {
+                "asset": null,
+                "crop": null,
+                "fit": "fill",
+                "focus": [
+                  0.5,
+                  0.5
+                ]
+              },
+              "locked": false,
+              "rotation": 0.0,
+              "type": "image"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 40.0,
+                "w": 200.0,
+                "x": 10.0,
+                "y": 120.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "Hello, "
+                  },
+                  {
+                    "bold": true,
+                    "italic": false,
+                    "style": null,
+                    "text": "brave"
+                  },
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": " world"
+                  }
+                ]
+              },
+              "id": "fr_text",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 0.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 0
+              },
+              "id": "fr_flowed",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
+          "guides": [],
+          "id": "sp_1",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_1",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [
+            {
+              "box": {
+                "h": 100.0,
+                "w": 100.0,
+                "x": 40.0,
+                "y": 0.0
+              },
+              "id": "fr_new5",
+              "image": {
+                "asset": null,
+                "crop": null,
+                "fit": "fill",
+                "focus": [
+                  0.5,
+                  0.5
+                ]
+              },
+              "locked": false,
+              "rotation": 0.0,
+              "type": "image"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 40.0,
+                "w": 200.0,
+                "x": 10.0,
+                "y": 120.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "Once upon a time"
+                  }
+                ]
+              },
+              "id": "fr_new6",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 0.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 0
+              },
+              "id": "fr_new7",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
+          "guides": [],
+          "id": "sp_new3",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_new4",
+              "master": null
+            }
+          ]
+        }
+      ],
+      "title": "Plain",
+      "trim": {
+        "h": 504.0,
+        "w": 504.0
+      }
+    },
+    "name": "put words on the back cover",
+    "patch": {
+      "ops": [
+        {
+          "notes": [
+            {
+              "id": "n1",
+              "rect": {
+                "h": 40.0,
+                "w": 100.0,
+                "x": 20.0,
+                "y": 30.0
+              },
+              "size": 10.0,
+              "text": "A cosy tale"
+            }
+          ],
+          "op": "setBackNotes"
+        }
+      ],
+      "revision": 43
+    }
   }
 ]

@@ -258,6 +258,11 @@ fn ops_between(before: &Delta, after: &Delta) -> Vec<PatchOp> {
             choice: after.barcode.clone(),
         });
     }
+    if before.back_notes != after.back_notes {
+        ops.push(PatchOp::SetBackNotes {
+            notes: after.back_notes.clone(),
+        });
+    }
     if before.paper != after.paper {
         ops.push(PatchOp::SetPaper { paper: after.paper });
     }

@@ -79,3 +79,31 @@
 	color: inherit;
 	font: inherit;
 }
+
+.noteLayer {
+	position: absolute;
+	inset: 0;
+	inline-size: 100%;
+	block-size: 100%;
+}
+
+.note,
+.noteChosen {
+	fill: transparent;
+	stroke: var(--folio-accent, #e8833a);
+	stroke-width: 1.5;
+	cursor: move;
+	vector-effect: non-scaling-stroke;
+}
+
+.note {
+	stroke-dasharray: 4 3;
+}
+
+.notes {
+	display: grid;
+	grid-template-columns: auto 1fr auto auto;
+	align-items: end;
+	gap: 10px;
+	margin-top: 14px;
+}
