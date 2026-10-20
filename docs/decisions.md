@@ -25,6 +25,7 @@ Product and engineering decisions for Folio. D-01 to D-07 and D-12 are defined w
 | D-29 | Exporters draw from a page scene, not from the canvas                                                                                                |                              |
 | D-34 | PDFs are written with krilla from the page scene, and PDF/X is added to its output                                                                   |                              |
 | D-35 | EPUBs are written by Folio itself, reflowable first, and checked with EPUBCheck                                                                      |                              |
+| D-36 | Textures are shared data: one set of SVG tiles in `folio-presets`, drawn at 300 ppi for print and laid edge to edge from the page corner             | `spec/11-tools.md`           |
 | D-30 | A book can keep its fonts, and its own copy is laid out before an installed one of the same name                                                     |                              |
 
 ## D-08 · Shared chrome and unpublished plugins are copied; published ones are dependencies
