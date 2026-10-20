@@ -100,6 +100,15 @@ export const messages = {
 	'preflight.missingGlyphs': 'No font has {chars} on {where}',
 	'preflight.missingGlyphs.fix':
 		'These are drawn as empty boxes. Use a font that has them, or take them out.',
+	'preflight.inkOver': '{family} lays down too much ink on {where}',
+	'preflight.inkOver.fix':
+		'Its four plates add up to more than a press holds, so it can dry badly or smear. Lower the percentages; around 300% in all is the most printers allow.',
+	'preflight.swatchMissing': 'A colour on {where} refers to {family}, which is not in the book',
+	'preflight.swatchMissing.fix':
+		'It is drawn as grey. Add the swatch again, or choose another colour.',
+	'preflight.richBlack': 'Small words on {where} are set in {family}, a black made of several inks',
+	'preflight.richBlack.fix':
+		'The plates can sit a hair apart and fringe small letters. Use a black that is only the black plate for text under about 12 points.',
 	'preflight.placeholder': 'A picture frame on {where} is still empty',
 	'preflight.placeholder.many': '{count} picture frames are still empty',
 	'preflight.placeholder.fix':

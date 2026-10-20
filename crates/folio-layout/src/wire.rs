@@ -136,6 +136,15 @@ pub enum PreflightKind {
     /// Words use characters no font Folio has covers, so they are drawn as empty boxes. The item's
     /// `chars` names them.
     MissingGlyphs,
+    /// A swatch used on the spread lays down more ink than a press holds, so it dries badly. The
+    /// item's `family` names the swatch.
+    InkOverLimit,
+    /// A colour refers to a swatch the book does not have, so it is drawn as grey. The item's
+    /// `family` names it.
+    SwatchMissing,
+    /// Small words are set in a black made of several inks, so the plates can misregister and
+    /// fringe the letters. The item's `family` names the swatch.
+    RichBlackSmallText,
 }
 
 /// How much an issue matters: an error waits on the person, a warning is worth a look and a note
@@ -158,7 +167,10 @@ impl PreflightKind {
             | Self::VeryLowResolution
             | Self::PicturePlaceholder => Severity::Error,
             Self::AltMissing => Severity::Note,
-            Self::MissingGlyphs => Severity::Warning,
+            Self::MissingGlyphs | Self::InkOverLimit | Self::RichBlackSmallText => {
+                Severity::Warning
+            }
+            Self::SwatchMissing => Severity::Error,
             Self::TextOutsideMargin
             | Self::PictureShortOfBleed
             | Self::PoemLineTooLong
@@ -244,6 +256,21 @@ impl PreflightItem {
             frame: None,
             page: Some(page.clone()),
             family: None,
+            chars: None,
+            key: String::new(),
+            ignored: false,
+        }
+    }
+
+    /// A swatch (named by `swatch`) a colour on `spread` refers to has a problem of `kind`.
+    pub fn of_swatch(kind: PreflightKind, spread: &SpreadId, swatch: &str) -> Self {
+        Self {
+            kind,
+            severity: kind.severity(),
+            spread: spread.clone(),
+            frame: None,
+            page: None,
+            family: Some(swatch.to_owned()),
             chars: None,
             key: String::new(),
             ignored: false,

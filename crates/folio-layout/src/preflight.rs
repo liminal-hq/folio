@@ -270,3 +270,97 @@ pub fn spread_assets(book: &Book, spread: &Spread) -> Vec<String> {
     out.dedup();
     out
 }
+
+/// How much ink, in per cent of all four plates, a press holds before it dries badly. ⚠ Verify
+/// against KDP's help pages: they give 240% for some papers and 300% for others.
+pub const INK_LIMIT_PERCENT: u32 = 300;
+
+/// The checks on the swatches a spread's colours refer to: one that is not in the book, and one that
+/// lays down too much ink. Each swatch is said once for the spread.
+pub fn swatch_checks(book: &Book, spread: &Spread) -> Vec<PreflightItem> {
+    let mut used = std::collections::BTreeSet::new();
+    let mut copy = spread.clone();
+    folio_model::visit_spread(&mut copy, &mut |colour| {
+        if let Some(id) = colour.swatch_id() {
+            used.insert(id.to_owned());
+        }
+    });
+    used.into_iter()
+        .filter_map(
+            |id| match book.styles.swatches.iter().find(|s| s.id.0 == id) {
+                None => Some(PreflightItem::of_swatch(
+                    PreflightKind::SwatchMissing,
+                    &spread.id,
+                    &id,
+                )),
+                Some(swatch)
+                    if swatch
+                        .ink
+                        .is_some_and(|ink| ink.total() > INK_LIMIT_PERCENT) =>
+                {
+                    Some(PreflightItem::of_swatch(
+                        PreflightKind::InkOverLimit,
+                        &spread.id,
+                        &swatch.name,
+                    ))
+                }
+                Some(_) => None,
+            },
+        )
+        .collect()
+}
+
+/// Text under this size, in points, is too fine for a black made of several inks.
+const SMALL_TEXT_PT: f64 = 12.0;
+
+/// A black this heavy on the black plate is meant as black; with colour in it as well, it is "rich".
+const RICH_BLACK_FROM: u8 = 80;
+const RICH_BLACK_COLOUR: u32 = 20;
+
+/// Small text set in a rich black, said once for each swatch on a frame.
+pub fn rich_black_checks(book: &Book, spread: &Spread) -> Vec<PreflightItem> {
+    let mut items = Vec::new();
+    for frame in &spread.frames {
+        let folio_model::Frame::Text(text) = frame else {
+            continue;
+        };
+        let Some(content) = &text.content else {
+            continue;
+        };
+        let mut said = std::collections::BTreeSet::new();
+        for run in &content.inline {
+            let def = |id: &str| book.styles.styles.get(id);
+            let style = run
+                .style
+                .as_ref()
+                .and_then(|s| def(&s.0))
+                .or_else(|| def(&text.style.0));
+            let size = style.and_then(|d| d.size_pt).unwrap_or(12.0);
+            let colour = run
+                .colour
+                .as_ref()
+                .or_else(|| style.and_then(|d| d.colour.as_ref()));
+            let Some(id) = colour.and_then(|c| c.swatch_id()) else {
+                continue;
+            };
+            let Some(swatch) = book.styles.swatches.iter().find(|s| s.id.0 == id) else {
+                continue;
+            };
+            let rich = swatch.ink.is_some_and(|ink| {
+                ink.k >= RICH_BLACK_FROM
+                    && u32::from(ink.c) + u32::from(ink.m) + u32::from(ink.y) >= RICH_BLACK_COLOUR
+            });
+            if size < SMALL_TEXT_PT && rich && said.insert(id.to_owned()) {
+                items.push(PreflightItem {
+                    family: Some(swatch.name.clone()),
+                    ..PreflightItem::of_frame(
+                        PreflightKind::RichBlackSmallText,
+                        &spread.id,
+                        &text.base.id,
+                    )
+                });
+            }
+        }
+    }
+    items
+}
