@@ -14,6 +14,8 @@ pub const ABOUT_LABEL: &str = "about";
 pub const PREFERENCES_LABEL: &str = "preferences";
 /// The label of the Book tools window, the utility window that hosts one workbench at a time.
 pub const BOOK_TOOLS_LABEL: &str = "book-tools";
+/// The label of the New book wizard window.
+pub const WIZARD_NEW_LABEL: &str = "wizard-new";
 
 /// The kind of window a webview label denotes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
@@ -23,6 +25,7 @@ pub enum WindowKind {
     About,
     Preferences,
     BookTools,
+    WizardNew,
 }
 
 impl WindowKind {
@@ -33,6 +36,7 @@ impl WindowKind {
             ABOUT_LABEL => Some(Self::About),
             PREFERENCES_LABEL => Some(Self::Preferences),
             BOOK_TOOLS_LABEL => Some(Self::BookTools),
+            WIZARD_NEW_LABEL => Some(Self::WizardNew),
             _ => None,
         }
     }
@@ -44,6 +48,7 @@ impl WindowKind {
             Self::About => ABOUT_LABEL,
             Self::Preferences => PREFERENCES_LABEL,
             Self::BookTools => BOOK_TOOLS_LABEL,
+            Self::WizardNew => WIZARD_NEW_LABEL,
         }
     }
 }
@@ -59,6 +64,7 @@ mod tests {
             WindowKind::About,
             WindowKind::Preferences,
             WindowKind::BookTools,
+            WindowKind::WizardNew,
         ] {
             assert_eq!(WindowKind::from_label(kind.label()), Some(kind));
         }

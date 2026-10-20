@@ -39,6 +39,14 @@ function applyOp(book: Book, op: PatchOp): Book {
 				...(op.numbers !== 'none' ? { pageNumbers: op.numbers } : {}),
 			};
 		}
+		case 'setFlow': {
+			const flows = book.flows.some((f) => f.id === op.flow.id)
+				? book.flows.map((f) => (f.id === op.flow.id ? op.flow : f))
+				: [...book.flows, op.flow];
+			return { ...book, flows };
+		}
+		case 'removeFlow':
+			return { ...book, flows: book.flows.filter((f) => f.id !== op.id) };
 		case 'setBarcode': {
 			// Rust leaves the automatic barcode out of the book, and so does the copy.
 			const { barcode: _barcode, ...rest } = book;
@@ -48,6 +56,16 @@ function applyOp(book: Book, op: PatchOp): Book {
 			// Rust leaves the default, white paper out of the book, and so does the copy.
 			const { paper: _paper, ...rest } = book;
 			return op.paper !== 'white' ? { ...rest, paper: op.paper } : rest;
+		}
+		case 'setStyles': {
+			// Rust leaves empty styles out of the book, and so does the copy.
+			const { styles: _styles, ...rest } = book;
+			const empty =
+				op.styles.look === '' &&
+				op.styles.fontFamily === '' &&
+				Object.keys(op.styles.styles).length === 0 &&
+				(op.styles.swatches ?? []).length === 0;
+			return empty ? rest : { ...rest, styles: op.styles };
 		}
 		case 'setDetails': {
 			// Rust leaves a missing subtitle out of the book, and so does the copy.

@@ -111,9 +111,39 @@ fn plain(runs: &[Run]) -> String {
         .to_string()
 }
 
+/// The pieces of a flow's story: each paragraph in the style it names, or the first frame's, with
+/// neighbouring paragraphs of one style kept together.
+fn flow_pieces(flow: &folio_model::Flow, frame_style: &str) -> Vec<Piece> {
+    let mut out: Vec<Piece> = Vec::new();
+    for para in &flow.paragraphs {
+        let style = para.style.as_ref().map_or(frame_style, |s| s.0.as_str());
+        let words = InlineContent {
+            inline: para.inline.clone(),
+        };
+        let paras = paragraphs(&words);
+        if paras.is_empty() {
+            continue;
+        }
+        match role_of(style) {
+            Role::Skip => {}
+            Role::Title => out.push(Piece::Title(paras.into_iter().flatten().collect())),
+            role => match out.last_mut() {
+                Some(Piece::Block(last_role, last_style, blocks))
+                    if *last_role == role && last_style == style =>
+                {
+                    blocks.extend(paras);
+                }
+                _ => out.push(Piece::Block(role, style.to_owned(), paras)),
+            },
+        }
+    }
+    out
+}
+
 /// The story of `book` in reading order. The cover (the first spread) is not part of it.
 fn story(book: &Book) -> Vec<Piece> {
     let mut out = Vec::new();
+    let mut poured = std::collections::HashSet::new();
     for spread in book.spreads.iter().skip(1) {
         let page_w = book.trim.w.0;
         let mut frames: Vec<(usize, f64, f64, &Frame)> = spread
@@ -134,6 +164,20 @@ fn story(book: &Book) -> Vec<Piece> {
         });
         for (_, _, _, frame) in frames {
             match frame {
+                // A flowed frame stands for the whole story, told once where it is first met.
+                Frame::Text(t)
+                    if t.flow
+                        .as_ref()
+                        .is_some_and(|s| poured.insert(s.id.0.clone())) =>
+                {
+                    if let Some(flow) = t
+                        .flow
+                        .as_ref()
+                        .and_then(|s| book.flows.iter().find(|f| f.id == s.id))
+                    {
+                        out.extend(flow_pieces(flow, &t.style.0));
+                    }
+                }
                 Frame::Text(t) if t.flow.is_none() => {
                     let Some(content) = &t.content else { continue };
                     let paras = paragraphs(content);
@@ -266,6 +310,7 @@ fn css(book: &Book, families: &BTreeMap<String, Option<(String, bool)>>) -> Stri
             first_indent,
             space_before,
             space_after,
+            start,
             ..
         } = def;
         let mut rules = Vec::new();
@@ -280,6 +325,9 @@ fn css(book: &Book, families: &BTreeMap<String, Option<(String, bool)>>) -> Stri
         }
         if let Some(a) = align {
             rules.push(format!("text-align: {a}"));
+        }
+        if start.is_some() {
+            rules.push("page-break-before: always".into());
         }
         if let Some(indent) = first_indent {
             rules.push(format!("text-indent: {indent}em"));

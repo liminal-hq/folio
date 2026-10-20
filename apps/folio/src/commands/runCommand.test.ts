@@ -14,7 +14,6 @@ const NONE = availableCommands({ hasBook: false, canUndo: false, canRedo: false 
 function context(overrides: Partial<CommandContext['settings']> = {}) {
 	const patches: SettingsPatch[] = [];
 	const books = {
-		newBook: vi.fn(async () => {}),
 		open: vi.fn(async () => {}),
 		save: vi.fn(async () => {}),
 		saveAs: vi.fn(async () => {}),
@@ -22,6 +21,7 @@ function context(overrides: Partial<CommandContext['settings']> = {}) {
 		undo: vi.fn(async () => {}),
 		redo: vi.fn(async () => {}),
 		exportBook: vi.fn(async () => {}),
+		importText: vi.fn(async () => {}),
 	};
 	const closeWindow = vi.fn();
 	const openWindow = vi.fn();
@@ -90,14 +90,20 @@ describe('runCommand', () => {
 		expect(closeWindow).toHaveBeenCalledOnce();
 	});
 
+	it('opens the New book wizard for File → New book…', async () => {
+		const { value, openWindow } = context();
+		await runCommand('file.new', value, NONE);
+		expect(openWindow.mock.calls).toEqual([['WizardNew']]);
+	});
+
 	it('runs the book commands', async () => {
 		const { value, books } = context();
-		await runCommand('file.new', value, OPEN);
 		await runCommand('file.open', value, OPEN);
 		await runCommand('file.save', value, OPEN);
 		await runCommand('file.saveAs', value, OPEN);
 		await runCommand('file.close', value, OPEN);
 		await runCommand('file.export', value, OPEN);
+		await runCommand('file.importText', value, OPEN);
 		await runCommand('edit.undo', value, OPEN);
 		await runCommand('edit.redo', value, OPEN);
 		for (const call of Object.values(books)) expect(call).toHaveBeenCalledOnce();

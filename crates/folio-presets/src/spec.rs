@@ -46,7 +46,7 @@ pub enum Look {
 }
 
 /// Everything the New book wizard asks, and the quick start fills in with defaults.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct NewBookSpec {
@@ -64,6 +64,29 @@ pub struct NewBookSpec {
     /// The cover's colour, `#rrggbb`.
     pub cover_colour: String,
     pub look: Look,
+    /// A size of the author's own, in inches, used instead of the kind's `trim_index`.
+    #[ts(optional)]
+    pub custom_trim: Option<CustomTrim>,
+}
+
+/// A trim size written by the author, in inches.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct CustomTrim {
+    pub width: f64,
+    pub height: f64,
+}
+
+/// The smallest and largest paperback KDP prints, in inches. ⚠ Verify against KDP's trim size page.
+pub const CUSTOM_WIDTH_IN: (f64, f64) = (4.0, 8.5);
+pub const CUSTOM_HEIGHT_IN: (f64, f64) = (6.0, 11.69);
+
+impl CustomTrim {
+    /// Whether KDP can print this size.
+    pub fn is_printable(&self) -> bool {
+        (CUSTOM_WIDTH_IN.0..=CUSTOM_WIDTH_IN.1).contains(&self.width)
+            && (CUSTOM_HEIGHT_IN.0..=CUSTOM_HEIGHT_IN.1).contains(&self.height)
+    }
 }
 
 impl Default for NewBookSpec {
@@ -79,12 +102,13 @@ impl Default for NewBookSpec {
             words: Words::default(),
             cover_colour: "#5b2a4a".into(),
             look: Look::default(),
+            custom_trim: None,
         }
     }
 }
 
 /// A choice that cannot make a book.
-#[derive(Debug, Clone, PartialEq, Eq, Error)]
+#[derive(Debug, Clone, PartialEq, Error)]
 pub enum PresetError {
     #[error("this kind of book has no size number {0}")]
     NoSuchTrim(u32),
@@ -92,6 +116,8 @@ pub enum PresetError {
     BadIsbn(String),
     #[error("`{0}` is not a colour written as #rrggbb")]
     BadColour(String),
+    #[error("{0} × {1} in is not a size KDP prints (4 to 8.5 in wide, 6 to 11.69 in high)")]
+    BadCustomTrim(f64, f64),
 }
 
 impl Serialize for PresetError {
@@ -101,6 +127,7 @@ impl Serialize for PresetError {
             PresetError::NoSuchTrim(_) => "noSuchTrim",
             PresetError::BadIsbn(_) => "badIsbn",
             PresetError::BadColour(_) => "badColour",
+            PresetError::BadCustomTrim(..) => "badCustomTrim",
         };
         let mut map = serializer.serialize_map(Some(2))?;
         map.serialize_entry("kind", kind)?;

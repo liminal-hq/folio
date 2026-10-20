@@ -15,6 +15,7 @@ import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/Dict
 import type { ExportColour } from '@liminal-hq/folio-protocol/generated/ExportColour';
 import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
 import type { CoverSheetPreview } from '@liminal-hq/folio-protocol/generated/CoverSheetPreview';
+import type { ImportReport } from '@liminal-hq/folio-protocol/generated/ImportReport';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
 import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
 import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
@@ -94,6 +95,11 @@ export function defaultSavePath(title: string): Promise<string> {
 /** Starts a new book. Nothing is written until it is saved. */
 export function newBook(spec: Partial<NewBookSpec>): Promise<BookSnapshot> {
 	return cmd<BookSnapshot>('new_book', { spec });
+}
+
+/** The cover of the book `spec` would make, as a `data:image/png` URI. */
+export function previewNewBook(spec: NewBookSpec): Promise<string> {
+	return cmd<string>('preview_new_book', { spec });
 }
 
 /** Opens a `.folio` file, or returns the book if it is already open. */
@@ -249,11 +255,6 @@ export function proofSpread(id: string, spread: string, profile: string): Promis
 	return cmd<ProofPage[]>('proof_spread', { id, spread, profile });
 }
 
-/** The cover of the book `spec` would make, as a `data:image/png` URI. */
-export function previewNewBook(spec: NewBookSpec): Promise<string> {
-	return cmd<string>('preview_new_book', { spec });
-}
-
 /** The paperback cover sheet as the exporter would make it, as a PNG data URI; `null` with no cover. */
 export function previewCoverSheet(id: string): Promise<CoverSheetPreview | null> {
 	return cmd<CoverSheetPreview | null>('preview_cover_sheet', { id });
@@ -266,6 +267,11 @@ export function exportBook(
 	colour?: ExportColour,
 ): Promise<ExportReport> {
 	return cmd<ExportReport>('export_book', { id, targets, colour });
+}
+
+/** Brings the words of a Markdown or plain text file in as the book's story, in one undo step. */
+export function importText(id: string, path: string): Promise<ImportReport> {
+	return cmd<ImportReport>('import_text', { id, path });
 }
 
 /** Shows a file in the system's file manager. */

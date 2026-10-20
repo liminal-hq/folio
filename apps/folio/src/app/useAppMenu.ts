@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { requestExport } from './exportRequest';
+import { requestImportText } from './importRequest';
 import type { MenuItem, SelectableMenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
 import { useWindowControls } from '@liminal-hq/folio-chrome/WindowChromeProvider/WindowChromeProvider';
 import type { BookSummary, Recoverable } from '@liminal-hq/folio-plugin-books';
@@ -66,7 +67,6 @@ export function useAppMenu(
 		/** Closes the book being shown, if there is one; `false` when the person said to keep it. */
 		const makeRoom = async () => !active || (await actions.close(ask)) === 'done';
 		return {
-			newBook: async () => void (await makeRoom()),
 			async open(path) {
 				// Choose first, then close: cancelling the picker must not lose the book being shown.
 				const target = path ?? (await actions.pick());
@@ -79,6 +79,7 @@ export function useAppMenu(
 			undo: () => store.undo(),
 			redo: () => store.redo(),
 			exportBook: async () => requestExport(),
+			importText: async () => requestImportText(),
 		};
 	}, [active, actions, ask, askRecovered, store]);
 

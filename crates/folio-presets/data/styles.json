@@ -42,7 +42,8 @@
 		"name": "Heading",
 		"sizePt": 20,
 		"weight": 600,
-		"lineHeight": 1.15
+		"lineHeight": 1.15,
+		"start": "recto"
 	},
 	"h1big": {
 		"name": "Big heading",

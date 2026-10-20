@@ -98,6 +98,13 @@ export const FAKE_KINDS: KindInfo[] = [
 	trims: (trims as string[]).map((t) => ({ label: t, width: 612, height: 612 })),
 	defaultPages: pages as number,
 	sampleTitle: `Sample ${label as string}`,
+	spines: (
+		[
+			['white', 0.002252],
+			['cream', 0.0025],
+			['colour', 0.002347],
+		] as const
+	).map(([paper, factor]) => ({ paper, inches: (pages as number) * factor })),
 }));
 
 interface Held {
@@ -240,6 +247,10 @@ export function createFakeBooksClient(): FakeBooks {
 		async defaultSavePath(title) {
 			await call('defaultSavePath', [title]);
 			return `/home/mom/Books/${title}/${title}.folio`;
+		},
+		async previewNewBook(spec: NewBookSpec) {
+			await call('previewNewBook', [spec]);
+			return `data:image/png;base64,${btoa(spec.coverColour)}`;
 		},
 		async newBook(spec: Partial<NewBookSpec>) {
 			await call('newBook', [spec]);
@@ -552,6 +563,18 @@ export function createFakeBooksClient(): FakeBooks {
 			find(id);
 			const png = 'data:image/png;base64,AAAA';
 			return [{ original: png, proofed: `${png}B`, outside: 12.5 }];
+		},
+		async importText(id, path) {
+			await call('importText', [id, path]);
+			const held = find(id);
+			if (held.snapshot.book.flows.length === 0) {
+				throw {
+					kind: 'import',
+					message:
+						"This book's pages hold their own words, so there is no story to bring them into.",
+				};
+			}
+			return { paragraphs: 3, headings: 1, sceneBreaks: 0, notes: ['Pictures were left out.'] };
 		},
 		async onExportProgress(listener) {
 			exportListeners.add(listener);

@@ -12,6 +12,7 @@ import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderP
 import type { ExportColour } from '@liminal-hq/folio-protocol/generated/ExportColour';
 import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
 import type { CoverSheetPreview } from '@liminal-hq/folio-protocol/generated/CoverSheetPreview';
+import type { ImportReport } from '@liminal-hq/folio-protocol/generated/ImportReport';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
 import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
 import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
@@ -38,6 +39,7 @@ import {
 	previewCoverSheet,
 	onExportProgress,
 	cancelExport,
+	importText,
 	revealPath,
 	preflightBook,
 	keepFonts,
@@ -46,6 +48,7 @@ import {
 	layoutSpread,
 	listBooks,
 	newBook,
+	previewNewBook,
 	onBooksChanged,
 	onPatch,
 	openBook,
@@ -88,6 +91,8 @@ export interface BooksClient {
 	paintPresets(): Promise<PaintPresets>;
 	defaultSavePath(title: string): Promise<string>;
 	newBook(spec: Partial<NewBookSpec>): Promise<BookSnapshot>;
+	/** The cover of the book `spec` would make, as a `data:image/png` URI. */
+	previewNewBook(spec: NewBookSpec): Promise<string>;
 	openBook(path: string): Promise<BookSnapshot>;
 	saveBook(id: string, path?: string): Promise<BookSummary>;
 	closeBook(id: string): Promise<void>;
@@ -134,6 +139,8 @@ export interface BooksClient {
 	cancelExport(): Promise<void>;
 	/** Makes the files for `targets` and writes them into the book's `exports` folder. */
 	exportBook(id: string, targets: ExportTarget[], colour?: ExportColour): Promise<ExportReport>;
+	/** Brings the words of a Markdown or plain text file in as the book's story. */
+	importText(id: string, path: string): Promise<ImportReport>;
 	/** Shows a file in the system's file manager. */
 	revealPath(path: string): Promise<void>;
 	/** What preflight finds in the whole book, the issues that wait on the person first. */
@@ -163,6 +170,7 @@ export const tauriBooksClient: BooksClient = {
 	paintPresets,
 	defaultSavePath,
 	newBook,
+	previewNewBook,
 	openBook,
 	saveBook,
 	closeBook,
@@ -190,6 +198,7 @@ export const tauriBooksClient: BooksClient = {
 	previewCoverSheet,
 	onExportProgress,
 	cancelExport,
+	importText,
 	revealPath,
 	preflightBook,
 	fontsInUse,

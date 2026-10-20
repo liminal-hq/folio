@@ -37,6 +37,8 @@ export interface EditorInput {
 	cell?: { row: number; col: number } | null;
 	/** Whether `spread` is a master page being edited, not one of the book's spreads. */
 	master?: boolean;
+	/** The swatches of the book, offered after the colours of the Text colour list. */
+	swatches?: { id: string; name: string }[];
 	/** The words selected in the open text editor: bold, italic and the font apply to just those. */
 	selection?: TextSelection | null;
 }
@@ -237,7 +239,10 @@ export function editorState(input: EditorInput): EditorState {
 		available.add('rotR');
 	}
 	const options: Record<string, ReadonlyArray<readonly [string, string]>> = {};
-	options.colour = TEXT_COLOURS.map(([hex, name]) => [hex, t(name)] as const);
+	options.colour = [
+		...TEXT_COLOURS.map(([hex, name]) => [hex, t(name)] as const),
+		...(input.swatches ?? []).map((s) => [`swatch:${s.id}`, s.name] as const),
+	];
 	if (input.fonts) options.font = input.fonts.map((f) => [f.family, f.family] as const);
 	return { available, active, values, texts: shown, options, contextual };
 }

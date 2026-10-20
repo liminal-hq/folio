@@ -25,6 +25,7 @@ export const RIBBON_COMMANDS: Readonly<Record<string, CommandId>> = {
 	redo: 'edit.redo',
 	export: 'file.export',
 	exportBook: 'file.export',
+	importText: 'file.importText',
 	zoomIn: 'view.zoomIn',
 	zoomOut: 'view.zoomOut',
 	menubar: 'view.menuBar',

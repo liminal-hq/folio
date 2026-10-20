@@ -13,7 +13,7 @@ folio/
 │  ├─ folio-layout/            # text shaping + line breaking + flow, snapping maths, preflight geometry (built: D-20) (built: D-20)
 │  ├─ folio-export/            # EPUB 3 / KEPUB writer, PDF writer (PDF/X), cover builder
 │  ├─ folio-import/            # docx, odt, rtf, md, html-paste, sla, idml, epub → model
-│  ├─ folio-color/             # ICC handling (lcms2), RGB→CMYK, output intents
+│  ├─ folio-colour/             # ICC handling (lcms2), RGB→CMYK, output intents
 │  └─ folio-jax/               # help library index + ONNX runtime (ort) inference
 ├─ packages/
 │  ├─ protocol/                # ts-rs generated types (from folio-model)
@@ -36,7 +36,7 @@ folio/
 | `folio-package` | zip container, `mimetype` first + stored, manifest, asset dedupe by SHA-256, a recovery copy of a book beside its file (D-27) | `zip`, `sha2`, `tempfile` |
 | `folio-layout` | font loading, shaping, Knuth–Plass line breaking with a greedy fallback, hyphenation, frame threading, overset detection, snapping maths shared with the UI via WASM (optional) | `rustybuzz`, `ttf-parser`, `fontdb`, `hyphenation`, `unicode-linebreak` |
 | `folio-export` | EPUB 3 (OPF, nav, XHTML, CSS), KEPUB spans, fixed-layout `rendition:layout`, PDF generation, PDF/X output intent, cover PDF | `quick-xml`, `pdf-writer`, `subsetter`, `image` |
-| `folio-color` | sRGB/Display-P3 in, CMYK out (GRACoL 2013, FOGRA39), soft-proof previews | `lcms2` |
+| `folio-colour` | sRGB/Display-P3 in, CMYK out (GRACoL 2013, FOGRA39), soft-proof previews | `lcms2` |
 | `folio-import` | DOCX/ODT (zip + XML), RTF, Markdown (`pulldown-cmark`), HTML paste (`html5ever`), Scribus `.sla` (XML), IDML (zip + XML), EPUB | `quick-xml`, `zip` |
 | `folio-jax` | help corpus (Markdown → chunks), embedding index, optional small generative model, guardrails | `ort` (ONNX Runtime), `tokenizers` |
 
@@ -49,7 +49,7 @@ apply_intent(intent) -> Patch                 undo() / redo() -> Patch
 history_mark() -> usize                       rewind_history(mark)   // undo back to a mark, a patch each
 layout_spread(spread_id) -> SpreadLayout      // shaped lines for the canvas
 layout_master(master_id) -> SpreadLayout      // a master's own text, with {page} etc. as written
-reader_preview(target, scale) -> ReaderPages  // reflow preview for Kindle/Kobo
+reader_preview(target)         // the export's own XHTML and CSS, served to a webview that paginates it
 preflight(targets) -> Vec<Issue>
 export(targets, options) -> JobId             // progress via `export://progress` events
 import_text(path, options) -> ImportReport    import_layout(path) -> ImportReport

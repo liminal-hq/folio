@@ -389,7 +389,7 @@ fn a_book_from_a_newer_schema_is_refused_not_misread() {
         Package::open(&rewritten),
         Err(PackageError::NewerSchema {
             found: 99,
-            supported: 1
+            supported: 2
         })
     ));
 }
@@ -499,7 +499,7 @@ fn the_styles_are_the_books_in_memory_but_their_own_file_in_the_package() {
     with_styles.styles = serde_json::from_value(json!({
         "look": "classic",
         "fontFamily": "Literata",
-        "swatches": [{ "name": "Ink" }],
+        "swatches": [{ "id": "ink", "name": "Ink", "display": "#1c1b20" }],
         "styles": { "body": { "name": "Body", "sizePt": 10.5, "family": "Inter" } }
     }))
     .unwrap();

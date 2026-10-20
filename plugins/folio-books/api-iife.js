@@ -36,6 +36,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function newBook(spec) {
         return cmd('new_book', { spec });
     }
+    /** The cover of the book `spec` would make, as a `data:image/png` URI. */
+    function previewNewBook(spec) {
+        return cmd('preview_new_book', { spec });
+    }
     /** Opens a `.folio` file, or returns the book if it is already open. */
     function openBook(path) {
         return cmd('open_book', { path });
@@ -133,10 +137,6 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function proofSpread(id, spread, profile) {
         return cmd('proof_spread', { id, spread, profile });
     }
-    /** The cover of the book `spec` would make, as a `data:image/png` URI. */
-    function previewNewBook(spec) {
-        return cmd('preview_new_book', { spec });
-    }
     /** The paperback cover sheet as the exporter would make it, as a PNG data URI; `null` with no cover. */
     function previewCoverSheet(id) {
         return cmd('preview_cover_sheet', { id });
@@ -144,6 +144,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     /** Makes the files for `targets` and writes them into the book's `exports` folder. */
     function exportBook(id, targets, colour) {
         return cmd('export_book', { id, targets, colour });
+    }
+    /** Brings the words of a Markdown or plain text file in as the book's story, in one undo step. */
+    function importText(id, path) {
+        return cmd('import_text', { id, path });
     }
     /** Shows a file in the system's file manager. */
     function revealPath(path) {
@@ -220,6 +224,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.getStatus = getStatus;
     exports.historyMark = historyMark;
     exports.importImage = importImage;
+    exports.importText = importText;
     exports.keepFonts = keepFonts;
     exports.layoutMaster = layoutMaster;
     exports.layoutSpread = layoutSpread;

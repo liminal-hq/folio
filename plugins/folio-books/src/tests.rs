@@ -1393,6 +1393,99 @@ fn the_cover_a_new_book_would_have_is_drawn_without_making_the_book() {
 }
 
 #[test]
+fn a_markdown_file_becomes_the_books_story_in_one_undo_step_and_a_book_without_one_says_so() {
+    let app = app();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("story.md");
+    std::fs::write(
+        &file,
+        "# Chapter one\n\nThe otter slept.\n\n***\n\nMorning came.\n",
+    )
+    .unwrap();
+    let path = file.to_string_lossy().into_owned();
+
+    let novel = books(&app)
+        .new_book(&NewBookSpec {
+            kind: folio_model::BookKind::Novel,
+            ..NewBookSpec::default()
+        })
+        .unwrap()
+        .summary
+        .id;
+    let report = books(&app).import_text(&novel, &path).unwrap();
+    assert_eq!(
+        (report.paragraphs, report.headings, report.scene_breaks),
+        (4, 1, 1)
+    );
+    let story = |id: &str| -> Vec<String> {
+        books(&app).snapshot(id).unwrap().book.flows[0]
+            .paragraphs
+            .iter()
+            .map(|p| p.text())
+            .collect()
+    };
+    assert_eq!(story(&novel)[0], "Chapter one");
+    assert_eq!(story(&novel).len(), 4);
+    books(&app).undo(&novel).unwrap();
+    assert!(story(&novel)[0].starts_with("Mara had kept"));
+
+    // A picture book has no flow, and a file that is not text is refused in plain words.
+    let picture = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let refused = books(&app).import_text(&picture, &path).unwrap_err();
+    assert!(refused.to_string().contains("no story"), "{refused}");
+    let doc = dir.path().join("story.docx");
+    std::fs::write(&doc, b"PK").unwrap();
+    assert!(books(&app)
+        .import_text(&novel, &doc.to_string_lossy())
+        .unwrap_err()
+        .to_string()
+        .contains("Markdown"));
+}
+
+#[test]
+fn a_story_that_outgrows_its_frames_gets_pages_and_one_undo_takes_both_back() {
+    let app = app();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("long.md");
+    let para = "The otter counted the stars over the river and then the pebbles under it.\n\n";
+    std::fs::write(&file, para.repeat(60)).unwrap();
+    let id = books(&app)
+        .new_book(&NewBookSpec {
+            kind: folio_model::BookKind::Novel,
+            ..NewBookSpec::default()
+        })
+        .unwrap()
+        .summary
+        .id;
+    let before = books(&app).snapshot(&id).unwrap().book;
+    books(&app)
+        .import_text(&id, &file.to_string_lossy())
+        .unwrap();
+    let after = books(&app).snapshot(&id).unwrap().book;
+    assert!(after.spreads.len() > before.spreads.len());
+    assert!(after.flows[0].frames.len() > before.flows[0].frames.len());
+    // Nothing is left over: every flowed frame is on a spread of the book.
+    let on_spreads: usize = after
+        .spreads
+        .iter()
+        .flat_map(|s| &s.frames)
+        .filter(|f| matches!(f, folio_model::Frame::Text(t) if t.flow.is_some()))
+        .count();
+    assert_eq!(on_spreads, after.flows[0].frames.len());
+    books(&app).undo(&id).unwrap();
+    let undone = books(&app).snapshot(&id).unwrap().book;
+    assert_eq!(undone.spreads.len(), before.spreads.len());
+    assert_eq!(
+        undone.flows[0].paragraphs.len(),
+        before.flows[0].paragraphs.len()
+    );
+}
+
+#[test]
 fn the_cover_sheet_is_drawn_wide_and_changes_with_the_paper() {
     let app = app();
     let id = books(&app)
@@ -1421,4 +1514,113 @@ fn the_cover_sheet_is_drawn_wide_and_changes_with_the_paper() {
         "a thicker spine draws differently"
     );
     assert!(cream.spine > white.spine);
+}
+
+#[test]
+fn a_swatch_is_drawn_as_the_colour_it_shows_as() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let book = books(&app).snapshot(&id).unwrap().book;
+    let (spread, frame) = book
+        .spreads
+        .iter()
+        .find_map(|s| {
+            s.frames.iter().find_map(|f| match f {
+                folio_model::Frame::Text(t) if t.content.is_some() => {
+                    Some((s.id.0.clone(), t.base.id.clone()))
+                }
+                _ => None,
+            })
+        })
+        .expect("a text frame");
+    books(&app)
+        .apply(
+            &id,
+            folio_model::Intent::SetSwatch {
+                swatch: folio_model::BookSwatch {
+                    id: folio_model::SwatchId("brand".into()),
+                    name: "Brand".into(),
+                    display: folio_model::Colour("#000000".into()),
+                    ink: Some(folio_model::Ink {
+                        c: 0,
+                        m: 100,
+                        y: 100,
+                        k: 0,
+                    }),
+                },
+            },
+        )
+        .unwrap();
+    books(&app)
+        .apply(
+            &id,
+            folio_model::Intent::StyleRange {
+                frame,
+                start: 0,
+                end: 3,
+                change: folio_model::RunChange {
+                    colour: Some("swatch:brand".into()),
+                    ..Default::default()
+                },
+            },
+        )
+        .unwrap();
+    let laid = books(&app)
+        .layout_spread(&id, &spread, None)
+        .unwrap()
+        .layout;
+    let colours: Vec<String> = laid
+        .frames
+        .iter()
+        .flat_map(|f| &f.lines)
+        .flat_map(|l| &l.runs)
+        .filter_map(|r| r.colour.as_ref().map(|c| c.0.clone()))
+        .collect();
+    assert!(colours.contains(&"#ff0000".to_string()), "{colours:?}");
+    assert!(!colours.iter().any(|c| c.starts_with("swatch:")));
+}
+
+#[test]
+fn a_story_that_shrinks_gives_back_the_pages_it_no_longer_needs_with_one_undo() {
+    let app = app();
+    let dir = tempfile::tempdir().unwrap();
+    let long = dir.path().join("long.md");
+    let para = "The otter counted the stars over the river and then the pebbles under it.\n\n";
+    std::fs::write(&long, para.repeat(60)).unwrap();
+    let short = dir.path().join("short.md");
+    std::fs::write(&short, "Just one paragraph.\n").unwrap();
+    let id = books(&app)
+        .new_book(&NewBookSpec {
+            kind: folio_model::BookKind::Novel,
+            ..NewBookSpec::default()
+        })
+        .unwrap()
+        .summary
+        .id;
+    let start = books(&app).snapshot(&id).unwrap().book;
+    books(&app)
+        .import_text(&id, &long.to_string_lossy())
+        .unwrap();
+    let grown = books(&app).snapshot(&id).unwrap().book;
+    assert!(grown.spreads.len() > start.spreads.len());
+    // A short story needs no more than the frames the book started with, or fewer.
+    books(&app)
+        .import_text(&id, &short.to_string_lossy())
+        .unwrap();
+    let shrunk = books(&app).snapshot(&id).unwrap().book;
+    assert!(shrunk.spreads.len() < grown.spreads.len());
+    assert!(shrunk.flows[0].frames.len() < grown.flows[0].frames.len());
+    assert!(!shrunk.flows[0].frames.is_empty());
+    // One undo brings the long story and its pages back together.
+    books(&app).undo(&id).unwrap();
+    let back = books(&app).snapshot(&id).unwrap().book;
+    assert_eq!(back.spreads.len(), grown.spreads.len());
+    assert_eq!(
+        back.flows[0].paragraphs.len(),
+        grown.flows[0].paragraphs.len()
+    );
 }

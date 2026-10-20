@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { usePaintPresets } from './usePaintPresets';
 import { useFontChoices } from './useFontChoices';
 import { useFontsInUse } from './useFontsInUse';
+import { resolveSwatches, swatchDisplays } from '../books/swatches';
 import { shelfLabels } from '../books/shelfLabels';
 import type { OpenBookCopy } from '../books/booksStore';
 import { useBooks } from '../books/useBooks';
@@ -26,6 +27,9 @@ import { keepWords } from '../canvas/editCheckpoint';
 import { CheckBookDialog } from './CheckBookDialog';
 import { ExportDialog } from './ExportDialog';
 import { getTextSelection } from '../canvas/textSelection';
+import { IMPORT_TEXT_EVENT, requestImportText } from './importRequest';
+import { ImportReportDialog, type ImportOutcome } from './ImportReportDialog';
+import { StoryEditorDialog } from '../story/StoryEditorDialog';
 import { BookDetailsDialog } from './BookDetailsDialog';
 import { BarcodeDialog } from './BarcodeDialog';
 import { CoverSheetDialog } from './CoverSheetDialog';
@@ -51,7 +55,8 @@ import { PagesPanel } from '../sidebar/PagesPanel';
 import { FontsPanel } from '../sidebar/FontsPanel';
 import { ProofingPanel } from '../sidebar/ProofingPanel';
 import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
-import { Sidebar, type SidebarGroup } from '../sidebar/Sidebar';
+import { EXPERT_GROUPS, Sidebar, type SidebarGroup } from '../sidebar/Sidebar';
+import { SwatchesPanel } from '../sidebar/SwatchesPanel';
 import { t } from '../i18n/messages';
 import {
 	editorAction,
@@ -106,6 +111,13 @@ export function BookView({
 	const master = editing === null ? null : masterSpread(book, editing);
 	const spread = master ?? book.spreads[shown] ?? null;
 	const labels = shelfLabels(book);
+	// What is drawn has each reference to a swatch turned into the colour the swatch shows as.
+	const displays = useMemo(() => swatchDisplays(book), [book.styles]);
+	const drawn = useMemo(() => resolveSwatches(book, displays), [book, displays]);
+	const drawnSpread = useMemo(
+		() => (spread ? resolveSwatches(spread, displays) : spread),
+		[spread, displays],
+	);
 	const layout = useSpreadLayout(
 		client,
 		id,
@@ -170,6 +182,7 @@ export function BookView({
 				preview,
 				master: master !== null,
 				cell: editingCell,
+				swatches: (book.styles?.swatches ?? []).map((s) => ({ id: s.id, name: s.name })),
 			}
 		: null;
 	const editor = useMemo(
@@ -185,6 +198,7 @@ export function BookView({
 			snap,
 			rulers.on,
 			editingCell,
+			book.styles,
 		],
 	);
 
@@ -329,6 +343,41 @@ export function BookView({
 	// The Check book dialog, and the frame to select once "Show me" has gone to its spread.
 	const [checking, setChecking] = useState(false);
 	const [proofOpen, setProofOpen] = useState(false);
+	/** The text frame whose words are to continue in the next frame clicked. */
+	const [linking, setLinking] = useState<string | null>(null);
+	/** What the last text import did, or why it could not. */
+	const [imported, setImported] = useState<ImportOutcome | null>(null);
+	useEffect(() => {
+		const run = () => {
+			void (async () => {
+				const path = await dialogs.pickText();
+				if (path === null) return;
+				try {
+					setImported({ report: await client.importText(id, path) });
+				} catch (reason) {
+					setImported({
+						problem:
+							typeof reason === 'object' && reason !== null && 'message' in reason
+								? String((reason as { message: unknown }).message)
+								: String(reason),
+					});
+				}
+			})();
+		};
+		window.addEventListener(IMPORT_TEXT_EVENT, run);
+		return () => window.removeEventListener(IMPORT_TEXT_EVENT, run);
+	}, [client, dialogs, id]);
+	/** The flow whose story is open in the story editor. */
+	const [storyFlow, setStoryFlow] = useState<string | null>(null);
+	// Escape gives up choosing the frame the words continue in.
+	useEffect(() => {
+		if (linking === null) return;
+		const onKey = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') setLinking(null);
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	}, [linking]);
 	const [sheetOpen, setSheetOpen] = useState(false);
 	/** Jax's panel, open from the start when the person asked to be walked through. */
 	const [jaxOpen, setJaxOpen] = useState(settings.jax === 'guide');
@@ -554,8 +603,8 @@ export function BookView({
 					)}
 					{preview === 'print' ? (
 						<Stage
-							book={book}
-							spread={spread}
+							book={drawn}
+							spread={drawnSpread ?? spread}
 							label={master ? t('master.page', { name: masterName }) : (labels[shown] ?? '')}
 							heading={master ? t('master.editing', { name: masterName }) : undefined}
 							layout={layout}
@@ -577,7 +626,18 @@ export function BookView({
 							zoomApi={zoomApi}
 							images={images}
 							selection={selection}
-							onSelect={select}
+							onSelect={(ids) => {
+								const target = linking !== null && ids.length === 1 ? ids[0] : undefined;
+								const frame = book.spreads.flatMap((s) => s.frames).find((f) => f.id === target);
+								// Choosing the frame the words continue in chains it after the one waiting.
+								if (frame?.type === 'text' && !frame.flow && frame.id !== linking) {
+									apply({ type: 'LinkFrame', frame: frame.id, to: linking! });
+									setLinking(null);
+									select([frame.id]);
+								} else if (linking === null) {
+									select(ids);
+								}
+							}}
 							onMove={(moves) =>
 								store.apply(
 									moves.length === 1
@@ -650,18 +710,19 @@ export function BookView({
 						<ReaderView
 							client={client}
 							id={id}
-							book={book}
+							book={drawn}
 							revision={copy.revision}
 							device={preview}
-							spread={spread}
+							spread={drawnSpread ?? spread}
 							layout={layout}
 							images={images}
 						/>
 					)}
 				</div>
 				<Sidebar
-					group={group}
+					group={group === 'swatches' && settings.mode !== 'expert' ? 'properties' : group}
 					onGroup={setGroup}
+					groups={settings.mode === 'expert' ? EXPERT_GROUPS : undefined}
 					panels={{
 						properties: (
 							<Inspector
@@ -680,6 +741,9 @@ export function BookView({
 								images={images}
 								choosePicture={(frame) => void choosePicture(frame)}
 								languages={languages}
+								linking={linking}
+								onLink={setLinking}
+								onEditStory={setStoryFlow}
 							/>
 						),
 						proofing: (
@@ -741,6 +805,7 @@ export function BookView({
 								}
 							/>
 						),
+						swatches: <SwatchesPanel book={book} apply={apply} />,
 						fonts: (
 							<FontsPanel
 								uses={fontUses}
@@ -768,7 +833,7 @@ export function BookView({
 			<div className={rowStyles.row}>
 				<div className={rowStyles.slot}>
 					<Shelf
-						book={book}
+						book={drawn}
 						images={images}
 						labels={labels}
 						selected={shown}
@@ -830,6 +895,9 @@ export function BookView({
 								case 'details':
 									setDetailsOpen(true);
 									break;
+								case 'import':
+									requestImportText();
+									break;
 								case 'coverSheet':
 									setSheetOpen(true);
 									break;
@@ -847,6 +915,15 @@ export function BookView({
 				id={id}
 				autoStart={exporting?.quick ? ['sharingPdf'] : null}
 				onCheck={() => setChecking(true)}
+			/>
+			<ImportReportDialog outcome={imported} onClose={() => setImported(null)} />
+			<StoryEditorDialog
+				open={storyFlow !== null}
+				onClose={() => setStoryFlow(null)}
+				book={book}
+				flow={storyFlow}
+				choices={choices}
+				apply={apply}
 			/>
 			<BookDetailsDialog
 				open={detailsOpen}

@@ -24,6 +24,7 @@ base64 = "0.22"
 dunce = { workspace = true }
 folio-colour = { path = "../../crates/folio-colour" }
 folio-export = { path = "../../crates/folio-export" }
+folio-import = { path = "../../crates/folio-import" }
 folio-layout = { path = "../../crates/folio-layout" }
 folio-spell = { path = "../../crates/folio-spell" }
 ureq = "3"
