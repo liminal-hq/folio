@@ -208,6 +208,18 @@ pub enum Intent {
         end: u32,
         change: RunChange,
     },
+    /// Chains the text frame `frame` after the text frame `to`, so the words that run out of `to`
+    /// continue in it. `to` starts a flow when it was not in one, taking its words as the story;
+    /// the words `frame` held are added to the end of the story.
+    LinkFrame {
+        frame: FrameId,
+        to: FrameId,
+    },
+    /// Takes a text frame out of its flow. The frames after it stay chained; a frame that was the
+    /// only one takes the story back as its own words.
+    UnlinkFrame {
+        frame: FrameId,
+    },
     /// Sets the title, subtitle, authors, description and ISBNs together. One undo step.
     SetDetails {
         details: Details,

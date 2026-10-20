@@ -37,6 +37,46 @@ impl StoryPara {
         }
     }
 
+    /// Paragraphs from runs, split at every line break. A frame's own words become a story this way.
+    pub fn from_runs(runs: &[Run]) -> Vec<StoryPara> {
+        let mut paragraphs = vec![StoryPara {
+            style: None,
+            inline: Vec::new(),
+        }];
+        for run in runs {
+            let mut parts = run.text.split('\n');
+            if let Some(first) = parts.next() {
+                let mut piece = run.clone();
+                piece.text = first.to_owned();
+                if !piece.text.is_empty() {
+                    paragraphs
+                        .last_mut()
+                        .expect("one is open")
+                        .inline
+                        .push(piece);
+                }
+            }
+            for part in parts {
+                let mut piece = run.clone();
+                piece.text = part.to_owned();
+                paragraphs.push(StoryPara {
+                    style: None,
+                    inline: if piece.text.is_empty() {
+                        Vec::new()
+                    } else {
+                        vec![piece]
+                    },
+                });
+            }
+        }
+        for p in &mut paragraphs {
+            if p.inline.is_empty() {
+                p.inline.push(StoryPara::plain("").inline.remove(0));
+            }
+        }
+        paragraphs
+    }
+
     /// The paragraph's words as one string.
     pub fn text(&self) -> String {
         text_of(&self.inline)
@@ -64,6 +104,18 @@ impl Flow {
             frames,
             auto_add_pages: true,
         }
+    }
+
+    /// The story as runs, a line break between paragraphs, for a frame that comes to hold it alone.
+    pub fn runs(&self) -> Vec<Run> {
+        let mut runs: Vec<Run> = Vec::new();
+        for (i, para) in self.paragraphs.iter().enumerate() {
+            if i > 0 {
+                runs.push(StoryPara::plain("\n").inline.remove(0));
+            }
+            runs.extend(para.inline.iter().cloned());
+        }
+        runs
     }
 
     /// The story as plain text, a line for each paragraph.
