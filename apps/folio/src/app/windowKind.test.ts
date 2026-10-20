@@ -12,6 +12,7 @@ describe('windowKindFromLabel', () => {
 		expect(windowKindFromLabel('about')).toBe('About');
 		expect(windowKindFromLabel('preferences')).toBe('Preferences');
 		expect(windowKindFromLabel('book-tools')).toBe('BookTools');
+		expect(windowKindFromLabel('wizard-new')).toBe('WizardNew');
 	});
 
 	it('rejects unknown labels', () => {

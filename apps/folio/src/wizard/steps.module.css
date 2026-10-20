@@ -1,0 +1,167 @@
+.kinds {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 10px;
+}
+
+.questions {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+.question {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.label {
+	color: var(--folio-text-secondary);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.hint,
+.note {
+	margin: 0;
+	color: var(--folio-text-muted);
+	font-size: 13px;
+}
+
+.input {
+	max-inline-size: 420px;
+	min-block-size: var(--folio-hit-target);
+	padding: 0 12px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 8px;
+	background: var(--folio-bg-raised);
+	color: var(--folio-text-primary);
+	font: inherit;
+}
+
+.input:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: 1px;
+}
+
+.input[aria-invalid='true'] {
+	border-color: var(--folio-danger);
+}
+
+.problem {
+	margin: 0;
+	color: var(--folio-danger);
+	font-size: 13px;
+}
+
+.choices {
+	display: grid;
+	gap: 10px;
+	max-inline-size: 520px;
+}
+
+.choice {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 12px 14px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 10px;
+	background: var(--folio-bg-raised);
+	color: inherit;
+	font: inherit;
+	text-align: start;
+	cursor: default;
+}
+
+.choice:hover:not(:disabled) {
+	background: var(--folio-bg-hover);
+}
+
+.choice:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: 2px;
+}
+
+.choice[aria-checked='true'] {
+	border-color: var(--folio-accent);
+	background: var(--folio-bg-selected);
+	box-shadow: 0 0 0 1px var(--folio-accent);
+}
+
+.choice:disabled {
+	opacity: 0.6;
+}
+
+.choiceTitle {
+	font-weight: 600;
+}
+
+.swatches {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.swatch {
+	inline-size: 32px;
+	block-size: 32px;
+	border: 2px solid var(--folio-border-subtle);
+	border-radius: 50%;
+	cursor: default;
+}
+
+.swatch:hover {
+	border-color: var(--folio-text-muted);
+}
+
+.swatch[aria-checked='true'] {
+	border-color: var(--folio-text-primary);
+	box-shadow: 0 0 0 2px var(--folio-accent);
+}
+
+.swatch:focus-visible,
+.picker:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: 2px;
+}
+
+.picker {
+	inline-size: 40px;
+	block-size: 32px;
+	padding: 0;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: transparent;
+	cursor: default;
+}
+
+.summary {
+	display: grid;
+	gap: 10px;
+	max-inline-size: 520px;
+	margin: 0;
+}
+
+.summaryRow {
+	display: grid;
+	grid-template-columns: 120px 1fr;
+	gap: 12px;
+	align-items: center;
+}
+
+.summaryValue {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+}
+
+.chip {
+	inline-size: 16px;
+	block-size: 16px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 50%;
+}
