@@ -331,12 +331,11 @@ fn a_story_flows_from_a_frame_on_one_spread_into_a_frame_on_the_next() {
     }
     book.spreads[1].frames.push(first);
     book.spreads[2].frames.push(second);
-    book.flows.push(Flow {
-        id: FlowId("story".into()),
-        source: story,
-        frames: vec![FrameId("a".into()), FrameId("b".into())],
-        auto_add_pages: true,
-    });
+    book.flows.push(Flow::from_text(
+        FlowId("story".into()),
+        &story,
+        vec![FrameId("a".into()), FrameId("b".into())],
+    ));
     let fonts = FontBook::bundled();
     let layouter = Layouter::new(&book, &styles, &fonts);
     let one = layouter
@@ -1589,4 +1588,41 @@ fn a_word_in_a_script_the_font_lacks_is_set_in_a_fallback_and_what_nothing_cover
     assert_eq!(flagged.len(), 1);
     assert_eq!(flagged[0].chars.as_deref(), Some("中"));
     assert_eq!(flagged[0].frame.as_ref().map(|f| f.0.as_str()), Some("han"));
+}
+
+#[test]
+fn a_story_keeps_the_emphasis_and_paragraph_style_of_its_paragraphs() {
+    use folio_model::{Flow, FlowId, FlowSlot, StoryPara, StyleId};
+    let (mut book, styles) = sample(BookKind::Novel);
+    let mut frame = text_frame("a", "body", 60.0, 60.0, 300.0, 400.0, "");
+    if let Frame::Text(t) = &mut frame {
+        t.content = None;
+        t.flow = Some(FlowSlot {
+            id: FlowId("story".into()),
+            index: 0,
+        });
+    }
+    book.spreads[1].frames.push(frame);
+    let mut flow = Flow::from_text(
+        FlowId("story".into()),
+        "A chapter\nThe otter slept.",
+        vec![FrameId("a".into())],
+    );
+    flow.paragraphs[0].style = Some(StyleId("h1".into()));
+    let mut second = StoryPara::plain("The otter ");
+    second.inline.push(folio_model::Run {
+        text: "slept".into(),
+        style: None,
+        bold: true,
+        italic: false,
+        font: None,
+        colour: None,
+    });
+    flow.paragraphs[1] = second;
+    book.flows.push(flow);
+    let laid = lay(&book, &styles, 1);
+    let lines = &laid.frames.iter().find(|f| f.frame.0 == "a").unwrap().lines;
+    // The chapter title is set larger than the body, and the bold word is bold.
+    assert!(lines[0].runs[0].size > lines[1].runs[0].size, "{lines:?}");
+    assert!(lines[1].runs.iter().any(|r| r.weight >= 700));
 }
