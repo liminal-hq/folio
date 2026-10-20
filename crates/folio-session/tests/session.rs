@@ -784,6 +784,23 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
         .unwrap()
     });
 
+    record("put words on the back cover", &mut s, &|s| {
+        s.apply(Intent::SetBackNotes {
+            notes: vec![folio_model::BackNote {
+                id: "n1".into(),
+                text: "A cosy tale".into(),
+                rect: folio_model::Rect {
+                    x: folio_model::Pt(20.0),
+                    y: folio_model::Pt(30.0),
+                    w: folio_model::Pt(100.0),
+                    h: folio_model::Pt(40.0),
+                },
+                size: 10.0,
+            }],
+        })
+        .unwrap()
+    });
+
     let text = serde_json::to_string_pretty(&cases).unwrap() + "\n";
     let path = fixture_path();
     if std::env::var_os("UPDATE_FIXTURES").is_some() {
@@ -3924,4 +3941,36 @@ fn a_reference_to_a_swatch_the_book_lacks_and_a_bad_swatch_are_refused() {
         }),
         Err(SessionError::BadSwatch(_))
     ));
+}
+#[test]
+fn the_words_on_the_back_cover_are_one_undo_step() {
+    use folio_model::{BackNote, Pt, Rect};
+    let mut s = Session::new(book());
+    let notes = vec![BackNote {
+        id: "n1".into(),
+        text: "A cosy tale".into(),
+        rect: Rect {
+            x: Pt(20.0),
+            y: Pt(30.0),
+            w: Pt(100.0),
+            h: Pt(40.0),
+        },
+        size: 10.0,
+    }];
+    let patch = s
+        .apply(Intent::SetBackNotes {
+            notes: notes.clone(),
+        })
+        .unwrap();
+    assert_eq!(
+        patch.ops,
+        vec![PatchOp::SetBackNotes {
+            notes: notes.clone()
+        }]
+    );
+    assert_eq!(s.book().back_notes, notes);
+    s.undo().unwrap();
+    assert!(s.book().back_notes.is_empty());
+    s.redo().unwrap();
+    assert_eq!(s.book().back_notes, notes);
 }

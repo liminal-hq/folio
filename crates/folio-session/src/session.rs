@@ -261,6 +261,11 @@ fn ops_between(before: &Delta, after: &Delta) -> Vec<PatchOp> {
             (None, None) => {}
         }
     }
+    if before.back_notes != after.back_notes {
+        ops.push(PatchOp::SetBackNotes {
+            notes: after.back_notes.clone(),
+        });
+    }
     if before.styles != after.styles {
         ops.push(PatchOp::SetStyles {
             styles: after.styles.clone(),

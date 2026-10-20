@@ -231,3 +231,30 @@ fn the_barcode_follows_the_books_choice_and_a_price_addon_adds_bars() {
         .flat_map(|s| &s.frames)
         .any(|f| f.base().id.0 == "cover_addon_digits"));
 }
+
+#[test]
+fn words_put_on_the_back_cover_are_drawn_on_the_sheet() {
+    use folio_model::{BackNote, Pt, Rect};
+    let (mut book, _) = sample(BookKind::Picture);
+    book.back_notes = vec![BackNote {
+        id: "n1".into(),
+        text: "Praise for the otter".into(),
+        rect: Rect {
+            x: Pt(30.0),
+            y: Pt(200.0),
+            w: Pt(120.0),
+            h: Pt(40.0),
+        },
+        size: 11.0,
+    }];
+    let sheet = cover_sheet(&book, Paper::White).unwrap();
+    let found = sheet.spreads[0].frames.iter().any(|f| match f {
+        folio_model::Frame::Text(t) => {
+            t.base.id.0 == "cover_note_n1"
+                && t.base.rect.x.0 == 30.0
+                && t.overrides.as_ref().and_then(|o| o.size) == Some(Pt(11.0))
+        }
+        _ => false,
+    });
+    assert!(found, "the note is a text frame of the sheet");
+}

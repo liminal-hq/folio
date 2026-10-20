@@ -5,7 +5,8 @@
 
 import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
-import { useEffect, useState } from 'react';
+import type { BackNote } from '@liminal-hq/folio-protocol/generated/BackNote';
+import { useEffect, useRef, useState } from 'react';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { CoverSheetPreview } from '@liminal-hq/folio-protocol/generated/CoverSheetPreview';
 import type { Details } from '@liminal-hq/folio-protocol/generated/Details';
@@ -24,6 +25,8 @@ interface CoverSheetDialogProps {
 	book: Book;
 	/** Keeps new words for the sheet as the book's details (one undo step). */
 	onSave(details: Details): void;
+	/** Keeps new words on the back cover, whole (one undo step). */
+	onNotes(notes: BackNote[]): void;
 }
 
 export function CoverSheetDialog({
@@ -34,7 +37,40 @@ export function CoverSheetDialog({
 	revision,
 	book,
 	onSave,
+	onNotes,
 }: CoverSheetDialogProps) {
+	const notes = book.backNotes ?? [];
+	const [chosen, setChosen] = useState<string | null>(null);
+	/** A note being dragged, and where it would land. */
+	const [dragging, setDragging] = useState<{ id: string; x: number; y: number } | null>(null);
+	const current = notes.find((n) => n.id === chosen) ?? null;
+	const [draft, setDraft] = useState('');
+	const [sizeDraft, setSizeDraft] = useState('');
+	useEffect(() => setDraft(current?.text ?? ''), [current?.id, current?.text]);
+	useEffect(() => setSizeDraft(String(current?.size ?? '')), [current?.id, current?.size]);
+	const change = (id: string, patch: Partial<BackNote>) =>
+		onNotes(notes.map((n) => (n.id === id ? { ...n, ...patch } : n)));
+	const addNote = (sheet: CoverSheetPreview) => {
+		const next =
+			notes.reduce((top, n) => Math.max(top, Number(n.id.replace(/\D/g, '')) || 0), 0) + 1;
+		const id = `n${next}`;
+		const trimHeight = sheet.height - 2 * sheet.edge;
+		onNotes([
+			...notes,
+			{
+				id,
+				text: t('coverSheet.newNote'),
+				rect: {
+					x: 36,
+					y: Math.max(36, (trimHeight - 60) / 2),
+					w: Math.max(40, sheet.cover - 72),
+					h: 60,
+				},
+				size: 12,
+			},
+		]);
+		setChosen(id);
+	};
 	const [words, setWords] = useState(() => wordsOf(book));
 	useEffect(() => {
 		if (open) setWords(wordsOf(book));
@@ -110,6 +146,58 @@ export function CoverSheetDialog({
 				<div className={styles.stage}>
 					<img className={styles.sheet} src={picture.image} alt={t('coverSheet.alt')} />
 					{guides && <Guides sheet={picture} />}
+					<NoteBoxes
+						sheet={picture}
+						notes={notes}
+						chosen={chosen}
+						dragging={dragging}
+						onChoose={setChosen}
+						onDrag={setDragging}
+						onMove={(id, x, y) =>
+							change(id, { rect: { ...notes.find((n) => n.id === id)!.rect, x, y } })
+						}
+					/>
+				</div>
+			)}
+			{picture && (
+				<div className={styles.notes}>
+					<DialogButton onClick={() => addNote(picture)}>{t('coverSheet.addNote')}</DialogButton>
+					{current && (
+						<>
+							<label className={styles.field}>
+								<span>{t('coverSheet.noteText')}</span>
+								<textarea
+									rows={2}
+									value={draft}
+									onChange={(event) => setDraft(event.target.value)}
+									onBlur={() => draft !== current.text && change(current.id, { text: draft })}
+								/>
+							</label>
+							<label className={styles.field}>
+								<span>{t('coverSheet.noteSize')}</span>
+								<input
+									type="number"
+									min={6}
+									max={72}
+									value={sizeDraft}
+									onChange={(event) => setSizeDraft(event.target.value)}
+									onBlur={() => {
+										const size = Math.min(72, Math.max(6, Number(sizeDraft) || current.size));
+										setSizeDraft(String(size));
+										if (size !== current.size) change(current.id, { size });
+									}}
+								/>
+							</label>
+							<DialogButton
+								onClick={() => {
+									onNotes(notes.filter((n) => n.id !== current.id));
+									setChosen(null);
+								}}
+							>
+								{t('coverSheet.deleteNote')}
+							</DialogButton>
+						</>
+					)}
 				</div>
 			)}
 			{picture && (
@@ -146,6 +234,80 @@ export function CoverSheetDialog({
 				</div>
 			)}
 		</Dialog>
+	);
+}
+
+/** The notes on the back cover as boxes over the sheet, which can be picked up and moved. */
+function NoteBoxes({
+	sheet,
+	notes,
+	chosen,
+	dragging,
+	onChoose,
+	onDrag,
+	onMove,
+}: {
+	sheet: CoverSheetPreview;
+	notes: BackNote[];
+	chosen: string | null;
+	dragging: { id: string; x: number; y: number } | null;
+	onChoose(id: string): void;
+	onDrag(drag: { id: string; x: number; y: number } | null): void;
+	onMove(id: string, x: number, y: number): void;
+}) {
+	const svg = useRef<SVGSVGElement | null>(null);
+	const grab = useRef<{ x: number; y: number } | null>(null);
+	/** Sheet points for each screen pixel. */
+	const unit = () => sheet.width / (svg.current?.getBoundingClientRect().width || sheet.width);
+	return (
+		<svg
+			ref={svg}
+			className={styles.noteLayer}
+			viewBox={`0 0 ${sheet.width} ${sheet.height}`}
+			preserveAspectRatio="none"
+		>
+			{notes.map((note) => {
+				const at = dragging?.id === note.id ? dragging : note.rect;
+				return (
+					<rect
+						key={note.id}
+						role="button"
+						tabIndex={0}
+						aria-label={t('coverSheet.noteBox', { text: note.text })}
+						data-note={note.id}
+						x={sheet.edge + at.x}
+						y={sheet.edge + at.y}
+						width={note.rect.w}
+						height={note.rect.h}
+						className={note.id === chosen ? styles.noteChosen : styles.note}
+						onPointerDown={(event) => {
+							event.currentTarget.setPointerCapture?.(event.pointerId);
+							onChoose(note.id);
+							grab.current = { x: event.clientX, y: event.clientY };
+							onDrag({ id: note.id, x: note.rect.x, y: note.rect.y });
+						}}
+						onPointerMove={(event) => {
+							if (!grab.current || dragging?.id !== note.id) return;
+							const scale = unit();
+							onDrag({
+								id: note.id,
+								x: Math.round(note.rect.x + (event.clientX - grab.current.x) * scale),
+								y: Math.round(note.rect.y + (event.clientY - grab.current.y) * scale),
+							});
+						}}
+						onPointerUp={() => {
+							if (
+								dragging?.id === note.id &&
+								(dragging.x !== note.rect.x || dragging.y !== note.rect.y)
+							)
+								onMove(note.id, dragging.x, dragging.y);
+							grab.current = null;
+							onDrag(null);
+						}}
+					/>
+				);
+			})}
+		</svg>
 	);
 }
 

@@ -254,6 +254,10 @@ pub enum Intent {
     UnlinkFrame {
         frame: FrameId,
     },
+    /// Sets the words on the back cover, whole. One undo step.
+    SetBackNotes {
+        notes: Vec<crate::BackNote>,
+    },
     /// Adds a swatch to the book, or replaces the one with the same id. A swatch with ink shows as
     /// that ink on a screen, so its display colour is worked out from it. One undo step.
     SetSwatch {

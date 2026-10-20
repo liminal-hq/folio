@@ -955,6 +955,7 @@ export function BookView({
 				revision={copy.revision}
 				book={book}
 				onSave={(details) => apply({ type: 'SetDetails', details })}
+				onNotes={(notes) => apply({ type: 'SetBackNotes', notes })}
 			/>
 			<SoftProofDialog
 				open={proofOpen}

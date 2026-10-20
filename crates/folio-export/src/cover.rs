@@ -210,6 +210,26 @@ pub fn cover_sheet(book: &Book, paper: Paper) -> Option<Book> {
             book.metadata.description.trim(),
         ));
     }
+    // Words the person put on the back, from the back cover's top-left.
+    for note in &book.back_notes {
+        let mut frame = text_frame(
+            &format!("note_{}", note.id),
+            "body",
+            note.rect,
+            0.0,
+            &note.text,
+        );
+        if let Frame::Text(f) = &mut frame {
+            f.overrides = Some(StyleOverrides {
+                size: Some(Pt(note.size)),
+                align: None,
+                bold: None,
+                italic: None,
+                font: None,
+            });
+        }
+        frames.push(frame);
+    }
     // The barcode area, kept clear: KDP adds the barcode there when the book has none of its own.
     frames.push(Frame::Shape(ShapeFrame {
         base: base(

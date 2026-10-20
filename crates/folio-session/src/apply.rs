@@ -816,6 +816,14 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 merge: None,
             })
         }
+        Intent::SetBackNotes { .. } => Ok(Plan {
+            touched: Vec::new(),
+            new_spread: None,
+            flows: Vec::new(),
+            new_flow: None,
+            fresh: Vec::new(),
+            merge: None,
+        }),
         Intent::SetDetails { details } => {
             check_details(details)?;
             Ok(Plan {
@@ -1609,6 +1617,7 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             }
             renumber(book, &flow_id);
         }
+        Intent::SetBackNotes { notes } => book.back_notes = notes,
         Intent::SetSwatch { mut swatch } => {
             if let Some(ink) = swatch.ink {
                 let [r, g, b] = ink.to_rgb();
