@@ -3,13 +3,13 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use folio_model::{
     Background, Book, BookId, BookKind, BookMetadata, Colour, Contributor, ContributorRole, Fit,
     Frame, FrameBase, FrameId, Grid, ImageFrame, ImageRef, InlineContent, Isbns, LayoutMode,
-    Margins, Page, PageId, Pt, Rect, Run, Size, Spread, SpreadId, SpreadKind, StyleId, TextFrame,
-    SCHEMA_VERSION,
+    Margins, Page, PageId, Pt, Rect, Run, Size, Spread, SpreadId, SpreadKind, StyleId, Styles,
+    TextFrame, SCHEMA_VERSION,
 };
 use serde_json::{json, Value};
 
@@ -20,9 +20,8 @@ use crate::spec::{Look, NewBookSpec, Paper, PresetError, Words};
 /// A new book and the files that travel with it.
 #[derive(Debug, Clone)]
 pub struct NewBook {
+    /// The book, with the look and the named styles it uses in `book.styles`.
     pub book: Book,
-    /// `styles.json`: the look and the named styles the book uses.
-    pub styles: Value,
     /// `settings.json`: per-book choices that are not part of the layout, such as the paper.
     pub settings: Value,
 }
@@ -134,6 +133,7 @@ pub fn new_book_with_ids(
         page_numbers: folio_model::PageNumbers::None,
         fonts: Vec::new(),
         proofing: folio_model::Proofing::default(),
+        styles: style_file(spec.look, data, &used),
         metadata: BookMetadata {
             isbn: Isbns {
                 paperback: Some(isbn.to_owned()).filter(|s| !s.is_empty()),
@@ -148,7 +148,6 @@ pub fn new_book_with_ids(
 
     Ok(NewBook {
         book,
-        styles: style_file(spec.look, data, &used),
         settings: json!({
             "paper": paper_name(spec.paper),
             "plannedPages": data.default_pages,
@@ -172,10 +171,10 @@ fn is_sample_cover(spreads: &[SampleSpread]) -> bool {
         .is_some_and(|s| s.single && s.name.as_deref() == Some("Cover"))
 }
 
-/// `styles.json`: the look, and each named style a frame uses or the kind lists.
-fn style_file(look: Look, data: &KindData, used: &BTreeSet<String>) -> Value {
+/// The book's styles: the look, and each named style a frame uses or the kind lists.
+fn style_file(look: Look, data: &KindData, used: &BTreeSet<String>) -> Styles {
     let table = style_table();
-    let mut styles = serde_json::Map::new();
+    let mut styles = BTreeMap::new();
     for id in data.styles.iter().chain(used.iter()) {
         if let Some(style) = table.get(id) {
             styles.insert(id.clone(), style.clone());
@@ -186,7 +185,12 @@ fn style_file(look: Look, data: &KindData, used: &BTreeSet<String>) -> Value {
         Look::Modern => ("modern", "Inter"),
         Look::Classic => ("classic", "Literata"),
     };
-    json!({ "look": name, "fontFamily": family, "styles": styles })
+    Styles {
+        look: name.into(),
+        font_family: family.into(),
+        styles,
+        extra: BTreeMap::new(),
+    }
 }
 
 struct Scale {
@@ -231,6 +235,8 @@ impl Builder<'_> {
                     style: None,
                     bold: false,
                     italic: false,
+                    font: None,
+                    colour: None,
                 }],
             }),
             flow: None,

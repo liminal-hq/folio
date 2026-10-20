@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    page_labels, Book, Flow, Frame, FrameId, InlineContent, MasterId, PageLabel, Pt, ShapeFrame,
-    Spread, SpreadId, StyleId, TableFrame, TextFrame,
+    page_labels, Book, Colour, Flow, Frame, FrameId, InlineContent, MasterId, PageLabel, Pt,
+    ShapeFrame, Spread, SpreadId, StyleId, TableFrame, TextFrame,
 };
 
 use std::ops::Range;
@@ -495,6 +495,12 @@ impl<'a> Layouter<'a> {
             if run.italic {
                 text_style.italic = true;
             }
+            if let Some(font) = &run.font {
+                text_style.family = font.clone();
+            }
+            if let Some(colour) = &run.colour {
+                text_style.colour = Some(colour.clone());
+            }
             spans.push((Span::new(&run.text, text_style), resolved));
         }
         if base.wrap == Wrap::Preserve {
@@ -613,6 +619,7 @@ impl<'a> Layouter<'a> {
                             weight,
                             italic,
                             tracking: s.style.tracking_em,
+                            colour: s.style.colour.clone(),
                         }
                     })
                     .collect()
@@ -661,6 +668,7 @@ struct RunStyle {
     weight: u16,
     italic: bool,
     tracking: f64,
+    colour: Option<Colour>,
 }
 
 fn paragraph_from(spans: Vec<Span>, style: &ResolvedStyle) -> StoryParagraph {
@@ -737,6 +745,7 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo) -> LayoutLine {
                     weight: 400,
                     italic: false,
                     tracking: 0.0,
+                    colour: None,
                 });
             LayoutRun {
                 text: r.text.clone(),
@@ -747,6 +756,7 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo) -> LayoutLine {
                 weight: s.weight,
                 italic: s.italic,
                 tracking: s.tracking,
+                colour: s.colour,
                 hyphen: r.hyphen,
                 miss,
             }

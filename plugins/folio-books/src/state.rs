@@ -162,7 +162,7 @@ impl OpenBook {
             summary: self.summary(),
             revision: self.session.revision(),
             book: self.session.book().clone(),
-            styles: self.package.styles().clone(),
+            styles: serde_json::to_value(&self.session.book().styles).unwrap_or_default(),
             settings: self.package.settings().clone(),
             can_undo: self.session.can_undo(),
             can_redo: self.session.can_redo(),
@@ -292,7 +292,6 @@ impl<R: Runtime> Books<R> {
     pub fn new_book(&self, spec: &NewBookSpec) -> Result<BookSnapshot, Error> {
         let made = new_book(spec)?;
         let mut package = Package::new(made.book.clone());
-        *package.styles_mut() = made.styles;
         *package.settings_mut() = made.settings;
         Ok(self.add(Session::new(made.book), package, None))
     }
@@ -473,7 +472,7 @@ impl<R: Runtime> Books<R> {
             let layered = open.font_book(base);
             (
                 book,
-                style_sheet(open.package.styles()),
+                style_sheet(&open.session.book().styles),
                 open.session.revision(),
                 facts,
                 layered,
@@ -522,7 +521,7 @@ impl<R: Runtime> Books<R> {
             let layered = open.font_book(base);
             (
                 open.session.book().clone(),
-                style_sheet(open.package.styles()),
+                style_sheet(&open.session.book().styles),
                 open.session.revision(),
                 layered,
             )
@@ -866,7 +865,7 @@ impl<R: Runtime> Books<R> {
 }
 
 /// The styles a book has, with Folio's own behind them for any it never used.
-fn style_sheet(styles: &serde_json::Value) -> StyleSheet {
-    StyleSheet::from_value(styles)
-        .with_fallback(&StyleSheet::from_value(&folio_presets::preset_styles()))
+fn style_sheet(styles: &folio_model::Styles) -> StyleSheet {
+    StyleSheet::from_styles(styles)
+        .with_fallback(&StyleSheet::from_styles(&folio_presets::preset_styles()))
 }
