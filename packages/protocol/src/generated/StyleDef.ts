@@ -28,4 +28,9 @@ firstIndent: number | null, spaceBefore: number | null, spaceAfter: number | nul
 /**
  * `"preserve"` keeps every line break (poetry).
  */
-wrap: string | null, hyphenate: boolean | null, };
+wrap: string | null, hyphenate: boolean | null, 
+/**
+ * Where a paragraph in this style begins in a flowing story: `"page"` or `"recto"` (a
+ * right-hand page). A chapter title says `"recto"`.
+ */
+start: string | null, };
