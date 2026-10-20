@@ -30,5 +30,5 @@ pub use fonts::{
     KeepableFace, Metrics, Resolved,
 };
 pub use shape::{feature, shape, Glyph, Run, Shaped};
-pub use spread::Layouter;
+pub use spread::{FlowCache, Layouter};
 pub use styles::StyleSheet;

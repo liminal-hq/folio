@@ -11,7 +11,9 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use folio_layout::assets::sniff;
 use folio_layout::preflight::spread_assets;
 use folio_layout::wire::PreflightItem;
-use folio_layout::{AssetFact, AssetFacts, BookFace, FontBook, FontSource, Layouter, StyleSheet};
+use folio_layout::{
+    AssetFact, AssetFacts, BookFace, FlowCache, FontBook, FontSource, Layouter, StyleSheet,
+};
 use folio_model::{BookFont, Intent, SpreadId};
 use folio_package::{Package, SaveOptions};
 use folio_presets::{kind_infos, new_book, suggest_save_path, KindInfo, NewBookSpec};
@@ -125,6 +127,8 @@ struct OpenBook {
     facts: HashMap<String, AssetFact>,
     /// The fonts the book keeps, laid over the app's, made again only when the list changes.
     fonts: Option<(Vec<BookFont>, Arc<FontBook>)>,
+    /// The flows laid out at one revision of the book, shared by the spreads laid out at it.
+    flow_cache: Option<(u64, Arc<FlowCache>)>,
 }
 
 impl OpenBook {
@@ -144,6 +148,20 @@ impl OpenBook {
             Some("cream") => folio_model::Paper::Cream,
             Some("colour") => folio_model::Paper::Colour,
             _ => folio_model::Paper::White,
+        }
+    }
+
+    /// The cache of laid out flows for the book as it is now: the one kept while the revision stays
+    /// the same, a new one when it has changed.
+    fn flows_laid(&mut self) -> Arc<FlowCache> {
+        let revision = self.session.revision();
+        match &self.flow_cache {
+            Some((at, cache)) if *at == revision => Arc::clone(cache),
+            _ => {
+                let cache = Arc::new(FlowCache::new());
+                self.flow_cache = Some((revision, Arc::clone(&cache)));
+                cache
+            }
         }
     }
 
@@ -450,6 +468,7 @@ impl<R: Runtime> Books<R> {
             autosaved: None,
             facts: HashMap::new(),
             fonts: None,
+            flow_cache: None,
         };
         let snapshot = book.snapshot();
         inner.books.push(book);
@@ -629,7 +648,7 @@ impl<R: Runtime> Books<R> {
         spelling: Option<&[String]>,
     ) -> Result<SpreadLayoutResult, Error> {
         let base = self.fonts.get_or_init(FontBook::with_system_fonts);
-        let (book, styles, revision, facts, layered) = {
+        let (book, styles, revision, facts, layered, flows) = {
             let mut inner = locked(&self.inner);
             let open = inner
                 .books
@@ -645,6 +664,7 @@ impl<R: Runtime> Books<R> {
                 open.session.revision(),
                 facts,
                 layered,
+                open.flows_laid(),
             )
         };
         let fonts = layered.as_deref().unwrap_or(base);
@@ -666,7 +686,17 @@ impl<R: Runtime> Books<R> {
                 })
                 .unwrap_or_default()
         };
-        let mut layouter = Layouter::new(&book, &styles, fonts).with_assets(&facts);
+        // Flows laid out for one set of misspelt words are not shared with another.
+        let variant = {
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            speller.is_some().hash(&mut hasher);
+            ignore.hash(&mut hasher);
+            hasher.finish()
+        };
+        let mut layouter = Layouter::new(&book, &styles, fonts)
+            .with_assets(&facts)
+            .with_flow_cache(&flows, variant);
         if speller.is_some() {
             layouter = layouter.with_proofing(&find);
         }
