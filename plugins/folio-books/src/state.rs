@@ -127,6 +127,14 @@ struct OpenBook {
 }
 
 impl OpenBook {
+    /// The book as it is drawn or written in RGB: with every swatch reference replaced by the colour
+    /// the swatch shows as.
+    fn shown_book(&self) -> folio_model::Book {
+        let mut book = self.session.book().clone();
+        folio_model::resolve_swatches(&mut book);
+        book
+    }
+
     /// The font book to lay this book out with: `base` with the fonts the book keeps added, or
     /// `None` when it keeps none. A file that cannot be read is left out, so the family falls back
     /// as it would if it were missing.
@@ -547,7 +555,7 @@ impl<R: Runtime> Books<R> {
                 .iter_mut()
                 .find(|b| b.id == id)
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
-            let book = open.session.book().clone();
+            let book = open.shown_book();
             let facts = open.facts_for(&book, spread);
             let layered = open.font_book(base);
             (
@@ -600,7 +608,7 @@ impl<R: Runtime> Books<R> {
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
             let layered = open.font_book(base);
             (
-                open.session.book().clone(),
+                open.shown_book(),
                 style_sheet(&open.session.book().styles),
                 open.session.revision(),
                 layered,
@@ -917,7 +925,7 @@ impl<R: Runtime> Books<R> {
                 .iter_mut()
                 .find(|b| b.id == id)
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
-            let book = open.session.book().clone();
+            let book = open.shown_book();
             let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
             for path in used_assets(&book) {
                 if let Ok(bytes) = open.package.asset_bytes(&path) {
@@ -965,7 +973,7 @@ impl<R: Runtime> Books<R> {
                 .iter()
                 .find(|b| b.id == id)
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
-            let book = open.session.book().clone();
+            let book = open.shown_book();
             let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
             for path in used_assets(&book) {
                 if let Ok(bytes) = open.package.asset_bytes(&path) {
@@ -1034,7 +1042,7 @@ impl<R: Runtime> Books<R> {
                 .iter_mut()
                 .find(|b| b.id == id)
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
-            let book = open.session.book().clone();
+            let book = open.shown_book();
             // Pictures are read under the lock and used outside it, so the book stays usable.
             let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
             for path in used_assets(&book) {
