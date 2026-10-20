@@ -270,3 +270,42 @@ pub fn spread_assets(book: &Book, spread: &Spread) -> Vec<String> {
     out.dedup();
     out
 }
+
+/// How much ink, in per cent of all four plates, a press holds before it dries badly. ⚠ Verify
+/// against KDP's help pages: they give 240% for some papers and 300% for others.
+pub const INK_LIMIT_PERCENT: u32 = 300;
+
+/// The checks on the swatches a spread's colours refer to: one that is not in the book, and one that
+/// lays down too much ink. Each swatch is said once for the spread.
+pub fn swatch_checks(book: &Book, spread: &Spread) -> Vec<PreflightItem> {
+    let mut used = std::collections::BTreeSet::new();
+    let mut copy = spread.clone();
+    folio_model::visit_spread(&mut copy, &mut |colour| {
+        if let Some(id) = colour.swatch_id() {
+            used.insert(id.to_owned());
+        }
+    });
+    used.into_iter()
+        .filter_map(
+            |id| match book.styles.swatches.iter().find(|s| s.id.0 == id) {
+                None => Some(PreflightItem::of_swatch(
+                    PreflightKind::SwatchMissing,
+                    &spread.id,
+                    &id,
+                )),
+                Some(swatch)
+                    if swatch
+                        .ink
+                        .is_some_and(|ink| ink.total() > INK_LIMIT_PERCENT) =>
+                {
+                    Some(PreflightItem::of_swatch(
+                        PreflightKind::InkOverLimit,
+                        &spread.id,
+                        &swatch.name,
+                    ))
+                }
+                Some(_) => None,
+            },
+        )
+        .collect()
+}

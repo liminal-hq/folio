@@ -1713,4 +1713,62 @@ fn spreads_laid_out_with_a_shared_flow_cache_are_the_same_as_without_one() {
             serde_json::to_value(&shared).unwrap()
         );
     }
+fn a_swatch_that_is_missing_or_lays_down_too_much_ink_is_reported_once_for_the_spread() {
+    use folio_layout::wire::PreflightKind;
+    use folio_model::{Background, BookSwatch, Colour, Ink, SwatchId};
+    let (mut book, styles) = sample(BookKind::Novel);
+    book.styles.swatches = vec![
+        BookSwatch {
+            id: SwatchId("heavy".into()),
+            name: "Heavy black".into(),
+            display: Colour("#000000".into()),
+            ink: Some(Ink {
+                c: 100,
+                m: 100,
+                y: 100,
+                k: 100,
+            }),
+        },
+        BookSwatch {
+            id: SwatchId("fine".into()),
+            name: "Fine".into(),
+            display: Colour("#336699".into()),
+            ink: Some(Ink {
+                c: 60,
+                m: 40,
+                y: 40,
+                k: 100,
+            }),
+        },
+    ];
+    let reference = |id: &str| Background::Colour {
+        colour: Colour(format!("swatch:{id}")),
+    };
+    book.spreads[1].pages[0].bg = Some(reference("heavy"));
+    book.spreads[1].bg_span = Some(reference("heavy"));
+    book.spreads[2].pages[0].bg = Some(reference("gone"));
+    book.spreads[3].pages[0].bg = Some(reference("fine"));
+    let kinds = |spread: usize| -> Vec<(PreflightKind, Option<String>)> {
+        lay(&book, &styles, spread)
+            .preflight
+            .into_iter()
+            .filter(|i| {
+                matches!(
+                    i.kind,
+                    PreflightKind::InkOverLimit | PreflightKind::SwatchMissing
+                )
+            })
+            .map(|i| (i.kind, i.family))
+            .collect()
+    };
+    assert_eq!(
+        kinds(1),
+        vec![(PreflightKind::InkOverLimit, Some("Heavy black".into()))]
+    );
+    assert_eq!(
+        kinds(2),
+        vec![(PreflightKind::SwatchMissing, Some("gone".into()))]
+    );
+    // 240% in all is within what a press holds.
+    assert!(kinds(3).is_empty());
 }
