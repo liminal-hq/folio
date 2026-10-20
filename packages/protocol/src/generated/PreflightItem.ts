@@ -12,4 +12,8 @@ frame?: FrameId | null,
 /**
  * The page at fault, for a background.
  */
-page?: PageId | null, };
+page?: PageId | null, 
+/**
+ * The typeface at fault, for a missing font.
+ */
+family?: string | null, };

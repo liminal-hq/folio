@@ -1415,3 +1415,86 @@ fn the_families_a_book_asks_for_come_from_its_look_styles_overrides_and_runs() {
     sorted.dedup();
     assert_eq!(after, sorted, "sorted, one of each");
 }
+
+#[test]
+fn a_frame_in_a_font_nobody_has_is_flagged_once_with_the_family_and_one_the_book_keeps_is_not() {
+    use folio_layout::wire::PreflightKind;
+    use folio_layout::{BookFace, FontBook};
+    let (mut book, styles) = sample(BookKind::Picture);
+    let mut frame = text_frame("odd", "body", 60.0, 60.0, 300.0, 80.0, "words");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    text.overrides = Some(folio_model::StyleOverrides {
+        font: Some("Zed Sans".into()),
+        ..Default::default()
+    });
+    book.spreads[1].frames.push(frame);
+    let id = book.spreads[1].id.clone();
+
+    let base = FontBook::bundled();
+    let missing = Layouter::new(&book, &styles, &base)
+        .layout_spread(&id)
+        .unwrap()
+        .unwrap();
+    let flagged: Vec<_> = missing
+        .preflight
+        .iter()
+        .filter(|i| i.kind == PreflightKind::FontMissing)
+        .collect();
+    assert_eq!(flagged.len(), 1);
+    assert_eq!(flagged[0].family.as_deref(), Some("Zed Sans"));
+    assert_eq!(flagged[0].frame.as_ref().map(|f| f.0.as_str()), Some("odd"));
+
+    // The same book with the font kept in it has nothing missing.
+    let inter = base
+        .resolve(&folio_layout::FontRequest::new("Inter", 400, false))
+        .unwrap()
+        .font;
+    let kept = base.layered(vec![BookFace {
+        family: "Zed Sans".into(),
+        weight: 400,
+        italic: false,
+        index: 0,
+        data: std::sync::Arc::clone(inter.data()),
+    }]);
+    let fine = Layouter::new(&book, &styles, &kept)
+        .layout_spread(&id)
+        .unwrap()
+        .unwrap();
+    assert!(fine
+        .preflight
+        .iter()
+        .all(|i| i.kind != PreflightKind::FontMissing));
+}
+
+#[test]
+fn the_look_and_bundled_families_are_never_called_missing() {
+    use folio_layout::wire::PreflightKind;
+    use folio_layout::FontBook;
+    for kind in KINDS {
+        let (book, styles) = sample(kind);
+        let fonts = FontBook::bundled();
+        for layout in layout_all_with(&book, &styles, &fonts) {
+            assert!(
+                layout
+                    .preflight
+                    .iter()
+                    .all(|i| i.kind != PreflightKind::FontMissing),
+                "{kind:?}"
+            );
+        }
+    }
+}
+
+fn layout_all_with(
+    book: &Book,
+    styles: &StyleSheet,
+    fonts: &folio_layout::FontBook,
+) -> Vec<SpreadLayout> {
+    let layouter = Layouter::new(book, styles, fonts);
+    book.spreads
+        .iter()
+        .map(|s| layouter.layout_spread(&s.id).unwrap().unwrap())
+        .collect()
+}

@@ -107,6 +107,7 @@ impl<'a> Layouter<'a> {
     fn spread(&self, spread: &Spread) -> Result<SpreadLayout, LayoutError> {
         let mut frames = Vec::new();
         let mut preflight = geometry_checks(self.book, spread);
+        preflight.extend(self.font_checks(spread));
         if let Some(facts) = self.assets {
             preflight.extend(asset_checks(self.book, spread, facts));
         }
@@ -463,6 +464,63 @@ impl<'a> Layouter<'a> {
             frame_layout(&text.base.id, &laid, 0, &self.runs_info(&story)),
             laid.overlong,
         ))
+    }
+
+    /// A frame set in a font that is neither bundled, kept in the book nor installed, so the layout
+    /// has used a stand-in. One item for each family a frame asks for that is missing.
+    fn font_checks(&self, spread: &Spread) -> Vec<PreflightItem> {
+        let mut items = Vec::new();
+        for frame in &spread.frames {
+            let (style, overrides, runs): (_, _, Vec<&folio_model::Run>) = match frame {
+                Frame::Text(t) => (
+                    Some(&t.style),
+                    t.overrides.as_ref(),
+                    t.content.iter().flat_map(|c| &c.inline).collect(),
+                ),
+                Frame::Shape(s) => (
+                    s.style.as_ref(),
+                    s.overrides.as_ref(),
+                    s.content.iter().flat_map(|c| &c.inline).collect(),
+                ),
+                Frame::Table(t) => (
+                    t.style.as_ref(),
+                    t.overrides.as_ref(),
+                    t.rows
+                        .iter()
+                        .flatten()
+                        .flat_map(|c| c.content.iter().flat_map(|c| &c.inline))
+                        .collect(),
+                ),
+                _ => continue,
+            };
+            let mut asked: Vec<String> = Vec::new();
+            if let Some(style) = style {
+                asked.push(self.styles.resolve(style, overrides).text.family);
+            }
+            for run in runs {
+                if let Some(font) = &run.font {
+                    asked.push(font.clone());
+                } else if let Some(id) = &run.style {
+                    asked.push(self.styles.resolve(id, overrides).text.family);
+                }
+            }
+            asked.sort();
+            asked.dedup();
+            for family in asked {
+                let missing = self
+                    .fonts
+                    .resolve(&FontRequest::new(&family, 400, false))
+                    .is_ok_and(|r| r.family_substituted);
+                if missing {
+                    items.push(PreflightItem::font_missing(
+                        &spread.id,
+                        &frame.base().id,
+                        &family,
+                    ));
+                }
+            }
+        }
+        items
     }
 
     fn poem_item(&self, spread: &Spread, text: &TextFrame) -> PreflightItem {
