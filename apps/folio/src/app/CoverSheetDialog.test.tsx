@@ -5,7 +5,7 @@
 
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createFakeBooksClient } from '../books/fakeBooksClient';
 import { CoverSheetDialog } from './CoverSheetDialog';
 
@@ -20,6 +20,8 @@ describe('CoverSheetDialog', () => {
 				client={fake.client}
 				id={made.summary.id}
 				revision={0}
+				book={made.book}
+				onSave={() => undefined}
 			/>,
 		);
 		expect(
@@ -38,6 +40,8 @@ describe('CoverSheetDialog', () => {
 				client={fake.client}
 				id={made.summary.id}
 				revision={0}
+				book={made.book}
+				onSave={() => undefined}
 			/>,
 		);
 		expect(fake.calls.some((c) => c.startsWith('previewCoverSheet'))).toBe(false);
@@ -53,10 +57,37 @@ describe('CoverSheetDialog', () => {
 				client={fake.client}
 				id={made.summary.id}
 				revision={0}
+				book={made.book}
+				onSave={() => undefined}
 			/>,
 		);
 		expect(await screen.findByTestId('cover-guides')).toBeInTheDocument();
 		await userEvent.click(screen.getByRole('checkbox', { name: /Show the folds/ }));
 		expect(screen.queryByTestId('cover-guides')).toBeNull();
+	});
+
+	it('keeps new words for the back cover, the spine and the front as the book details', async () => {
+		const fake = createFakeBooksClient();
+		const made = await fake.client.newBook({});
+		const onSave = vi.fn();
+		render(
+			<CoverSheetDialog
+				open
+				onClose={() => undefined}
+				client={fake.client}
+				id={made.summary.id}
+				revision={0}
+				book={made.book}
+				onSave={onSave}
+			/>,
+		);
+		const update = await screen.findByRole('button', { name: 'Update the cover' });
+		expect(update).toBeDisabled();
+		const blurb = screen.getByRole('textbox', { name: 'Back cover blurb' });
+		await userEvent.clear(blurb);
+		await userEvent.type(blurb, 'A cosy tale.');
+		await userEvent.click(update);
+		expect(onSave).toHaveBeenCalledTimes(1);
+		expect(onSave.mock.calls[0]![0]).toMatchObject({ description: 'A cosy tale.' });
 	});
 });

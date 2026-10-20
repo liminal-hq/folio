@@ -953,6 +953,8 @@ export function BookView({
 				client={client}
 				id={id}
 				revision={copy.revision}
+				book={book}
+				onSave={(details) => apply({ type: 'SetDetails', details })}
 			/>
 			<SoftProofDialog
 				open={proofOpen}

@@ -58,3 +58,24 @@
 	stroke-dasharray: 5 3;
 	vector-effect: non-scaling-stroke;
 }
+
+.words {
+	display: grid;
+	gap: 10px;
+	margin-top: 14px;
+}
+
+.field {
+	display: grid;
+	gap: 4px;
+}
+
+.field input,
+.field textarea {
+	padding: 6px 8px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-bg-raised);
+	color: inherit;
+	font: inherit;
+}
