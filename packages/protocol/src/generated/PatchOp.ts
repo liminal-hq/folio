@@ -14,4 +14,4 @@ import type { SpreadId } from "./SpreadId";
 /**
  * One change to the UI's copy of the book.
  */
-export type PatchOp = { "op": "setSpread", spread: Spread, } | { "op": "removeSpread", id: SpreadId, } | { "op": "setOrder", order: Array<SpreadId>, } | { "op": "setMasters", masters: Array<Master>, ids: Array<MasterId>, numbers: PageNumbers, } | { "op": "setLanguage", language: string, } | { "op": "setFonts", fonts: Array<BookFont>, } | { "op": "setProofing", proofing: Proofing, } | { "op": "setGeometry", trim: Size, margins: Margins, bleed: Pt, grid: Grid, };
+export type PatchOp = { "op": "setSpread", spread: Spread, } | { "op": "removeSpread", id: SpreadId, } | { "op": "setOrder", order: Array<SpreadId>, } | { "op": "setMasters", masters: Array<Master>, ids: Array<MasterId>, numbers: PageNumbers, } | { "op": "setLanguage", language: string, } | { "op": "setPreflightIgnore", keys: Array<string>, } | { "op": "setFonts", fonts: Array<BookFont>, } | { "op": "setProofing", proofing: Proofing, } | { "op": "setGeometry", trim: Size, margins: Margins, bleed: Pt, grid: Grid, };

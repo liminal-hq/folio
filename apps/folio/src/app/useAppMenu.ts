@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import { requestExport } from './exportRequest';
 import type { MenuItem, SelectableMenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
 import { useWindowControls } from '@liminal-hq/folio-chrome/WindowChromeProvider/WindowChromeProvider';
 import type { BookSummary, Recoverable } from '@liminal-hq/folio-plugin-books';
@@ -76,6 +77,7 @@ export function useAppMenu(
 			close: async () => void (await actions.close(ask)),
 			undo: () => store.undo(),
 			redo: () => store.redo(),
+			exportBook: async () => requestExport(),
 		};
 	}, [active, actions, ask, askRecovered, store]);
 

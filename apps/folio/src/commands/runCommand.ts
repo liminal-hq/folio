@@ -17,6 +17,8 @@ export interface BookCommands {
 	close(): Promise<void>;
 	undo(): Promise<void>;
 	redo(): Promise<void>;
+	/** Shows the Export dialog on the book being shown. */
+	exportBook(): Promise<void>;
 }
 
 /** What a command needs from its window. */
@@ -55,7 +57,9 @@ export interface CommandState {
 export function availableCommands(state: CommandState): ReadonlySet<CommandId> {
 	const available = new Set<CommandId>(ALWAYS_AVAILABLE);
 	if (state.hasBook) {
-		(['file.save', 'file.saveAs', 'file.close'] as const).forEach((id) => available.add(id));
+		(['file.save', 'file.saveAs', 'file.close', 'file.export'] as const).forEach((id) =>
+			available.add(id),
+		);
 	}
 	if (state.canUndo) available.add('edit.undo');
 	if (state.canRedo) available.add('edit.redo');
@@ -105,6 +109,8 @@ export async function runCommand(
 			return books.saveAs();
 		case 'file.close':
 			return books.close();
+		case 'file.export':
+			return books.exportBook();
 		// Words being typed are kept first, and the editing closes, so the undo or redo that follows
 		// acts on the book as it stands and not on the box.
 		case 'edit.undo':

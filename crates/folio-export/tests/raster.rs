@@ -24,6 +24,7 @@ fn cover_jpeg(kind: BookKind, colour: &str) -> image::RgbImage {
         &styles,
         &FontBook::bundled(),
         &NoAssets,
+        None,
     )
     .unwrap();
     assert_eq!(files.len(), 1);

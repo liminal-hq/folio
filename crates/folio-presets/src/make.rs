@@ -132,6 +132,7 @@ pub fn new_book_with_ids(
         master_pages: Vec::new(),
         page_numbers: folio_model::PageNumbers::None,
         fonts: Vec::new(),
+        preflight_ignore: Vec::new(),
         proofing: folio_model::Proofing::default(),
         styles: style_file(spec.look, data, &used),
         metadata: BookMetadata {

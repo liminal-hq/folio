@@ -1,0 +1,7 @@
+{
+	"linen": { "size": 12, "base": "#ece5d3" },
+	"laid-paper": { "size": 36, "base": "#f2eee3" },
+	"kraft": { "size": 120, "base": "#c8a27a" },
+	"watercolour": { "size": 200, "base": "#e3eef2" },
+	"dot-grid": { "size": 14, "base": "none" }
+}

@@ -23,6 +23,7 @@ describe('commandForKey', () => {
 		expect(key('o')).toBe('file.open');
 		expect(key('n')).toBe('file.new');
 		expect(key('w')).toBe('file.close');
+		expect(key('e')).toBe('file.export');
 		expect(key('z')).toBe('edit.undo');
 		expect(key('Z', { shiftKey: true })).toBe('edit.redo');
 		expect(key('y')).toBe('edit.redo');

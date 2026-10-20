@@ -17,6 +17,7 @@ const KEYS: Record<PreflightKind, string> = {
 	veryLowResolution: 'veryLowRes',
 	bleedNeeded: 'bleedNeeded',
 	fontMissing: 'fontMissing',
+	missingGlyphs: 'missingGlyphs',
 	picturePlaceholder: 'placeholder',
 	altMissing: 'altMissing',
 };
@@ -28,6 +29,8 @@ const SAID_ONCE: ReadonlySet<PreflightKind> = new Set(['picturePlaceholder', 'al
 export interface PreflightRow {
 	item: PreflightItem;
 	count: number;
+	/** Every issue the row stands for, so leaving it alone leaves them all alone. */
+	items: PreflightItem[];
 }
 
 /** The issues as rows: a kind that is said once becomes one row, at its first place, with a count. */
@@ -37,8 +40,10 @@ export function rowsOf(items: readonly PreflightItem[]): PreflightRow[] {
 		const same = SAID_ONCE.has(item.kind)
 			? rows.find((row) => row.item.kind === item.kind)
 			: undefined;
-		if (same) same.count += 1;
-		else rows.push({ item, count: 1 });
+		if (same) {
+			same.count += 1;
+			same.items.push(item);
+		} else rows.push({ item, count: 1, items: [item] });
 	}
 	return rows;
 }
@@ -50,7 +55,7 @@ export function describe(
 	count = 1,
 ): { problem: string; fix: string } {
 	const key = KEYS[item.kind];
-	const values = { where, family: item.family ?? '', count };
+	const values = { where, family: item.family ?? '', chars: item.chars ?? '', count };
 	const many = count > 1 && SAID_ONCE.has(item.kind);
 	return {
 		problem: t(`preflight.${key}${many ? '.many' : ''}` as MessageKey, values),

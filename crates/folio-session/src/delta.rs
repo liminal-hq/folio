@@ -88,6 +88,7 @@ pub struct Delta {
     pub proofing: Proofing,
     pub language: String,
     pub fonts: Vec<BookFont>,
+    pub preflight_ignore: Vec<String>,
     pub spreads: Vec<(SpreadId, Option<Spread>)>,
 }
 
@@ -101,6 +102,7 @@ impl Delta {
             proofing: book.proofing.clone(),
             language: book.language.clone(),
             fonts: book.fonts.clone(),
+            preflight_ignore: book.preflight_ignore.clone(),
             spreads: touched
                 .iter()
                 .map(|id| {
@@ -122,6 +124,7 @@ impl Delta {
         let was_proofing = book.proofing.clone();
         let was_language = book.language.clone();
         let was_fonts = book.fonts.clone();
+        let was_ignore = book.preflight_ignore.clone();
 
         for (id, spread) in &self.spreads {
             match spread {
@@ -165,6 +168,12 @@ impl Delta {
             book.language = self.language.clone();
             ops.push(PatchOp::SetLanguage {
                 language: self.language.clone(),
+            });
+        }
+        if was_ignore != self.preflight_ignore {
+            book.preflight_ignore = self.preflight_ignore.clone();
+            ops.push(PatchOp::SetPreflightIgnore {
+                keys: self.preflight_ignore.clone(),
             });
         }
         if was_fonts != self.fonts {

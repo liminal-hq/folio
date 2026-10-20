@@ -50,11 +50,18 @@ export function ExportDialog({
 	const [waiting, setWaiting] = useState<number | null>(null);
 	const started = useRef(false);
 
+	const [cmyk, setCmyk] = useState(false);
+	const [profile, setProfile] = useState('');
+
 	const run = (targets: ExportTarget[]) => {
 		if (targets.length === 0) return;
 		setStage({ kind: 'working' });
 		client
-			.exportBook(id, targets)
+			.exportBook(
+				id,
+				targets,
+				cmyk || profile.trim() ? { cmyk, profile: profile.trim() || undefined } : undefined,
+			)
 			.then((report) => setStage({ kind: 'done', report }))
 			.catch((reason: unknown) =>
 				setStage({
@@ -77,7 +84,10 @@ export function ExportDialog({
 		setWaiting(null);
 		client
 			.preflightBook(id)
-			.then((items) => live && setWaiting(items.filter((i) => i.severity === 'error').length))
+			.then(
+				(items) =>
+					live && setWaiting(items.filter((i) => i.severity === 'error' && !i.ignored).length),
+			)
 			.catch(() => undefined);
 		if (autoStart && !started.current) {
 			started.current = true;
@@ -178,6 +188,27 @@ export function ExportDialog({
 							</span>
 						</label>
 					))}
+				</fieldset>
+			)}
+			{stage.kind !== 'done' && chosen.some((x) => x === 'kdpInterior' || x === 'kdpCover') && (
+				<fieldset className={styles.colour} disabled={stage.kind === 'working'}>
+					<legend className={styles.legend}>{t('export.colour')}</legend>
+					<label className={styles.target}>
+						<input type="checkbox" checked={cmyk} onChange={(e) => setCmyk(e.target.checked)} />
+						<span className={styles.targetText}>
+							<span className={styles.targetName}>{t('export.colour.cmyk')}</span>
+							<span className={styles.targetSub}>{t('export.colour.cmyk.sub')}</span>
+						</span>
+					</label>
+					<label className={styles.profile}>
+						<span className={styles.targetName}>{t('export.colour.profile')}</span>
+						<input
+							type="text"
+							value={profile}
+							placeholder={t('export.colour.profile.hint')}
+							onChange={(e) => setProfile(e.target.value)}
+						/>
+					</label>
 				</fieldset>
 			)}
 		</Dialog>

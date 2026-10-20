@@ -241,6 +241,19 @@ pub struct ExportedFile {
     pub bytes: u32,
 }
 
+/// How print files hold colour: sRGB as drawn, or as ink.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ExportColour {
+    /// Write the KDP interior in CMYK ink rather than sRGB. The KDP cover is always in ink.
+    pub cmyk: bool,
+    /// The path of the press's CMYK ICC profile; without one, ink is a plain separation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub profile: Option<String>,
+}
+
 /// What an export wrote, and where.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

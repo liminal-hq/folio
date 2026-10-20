@@ -17,4 +17,16 @@ page?: PageId | null,
 /**
  * The typeface at fault, for a missing font.
  */
-family?: string | null, };
+family?: string | null, 
+/**
+ * The characters at fault, for words no font covers.
+ */
+chars?: string | null, 
+/**
+ * What names this issue (see `compute_key`); set when a whole book is checked.
+ */
+key?: string, 
+/**
+ * The person said to leave this one alone.
+ */
+ignored?: boolean, };

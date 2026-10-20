@@ -12,6 +12,7 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { DictionaryOffer } from '@liminal-hq/folio-protocol/generated/DictionaryOffer';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { ExportColour } from '@liminal-hq/folio-protocol/generated/ExportColour';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
 import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
 import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
@@ -229,8 +230,12 @@ export function readerPreview(id: string): Promise<ReaderPreview> {
 }
 
 /** Makes the files for `targets` and writes them into the book's `exports` folder. */
-export function exportBook(id: string, targets: ExportTarget[]): Promise<ExportReport> {
-	return cmd<ExportReport>('export_book', { id, targets });
+export function exportBook(
+	id: string,
+	targets: ExportTarget[],
+	colour?: ExportColour,
+): Promise<ExportReport> {
+	return cmd<ExportReport>('export_book', { id, targets, colour });
 }
 
 /** Shows a file in the system's file manager. */

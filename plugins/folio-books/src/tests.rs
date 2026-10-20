@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use crate::wire::{ExportColour, ExportTarget};
 use std::sync::{Arc, Mutex};
 
 use folio_model::{Intent, Pt, Rect, SpreadId};
@@ -1097,7 +1098,6 @@ fn preflight_gathers_the_whole_book_with_what_waits_on_the_person_first() {
 
 #[test]
 fn exporting_writes_each_target_into_an_exports_folder_beside_the_saved_book() {
-    use crate::wire::ExportTarget;
     let app = app();
     let id = books(&app)
         .new_book(&NewBookSpec::default())
@@ -1117,6 +1117,7 @@ fn exporting_writes_each_target_into_an_exports_folder_beside_the_saved_book() {
                 ExportTarget::KdpCover,
                 ExportTarget::EbookCover,
             ],
+            ExportColour::default(),
         )
         .unwrap();
     let folder = dir.path().join("Otter").join("exports");
@@ -1154,7 +1155,46 @@ fn exporting_writes_each_target_into_an_exports_folder_beside_the_saved_book() {
         .to_string_lossy()
         .ends_with(".partial")));
     assert!(books(&app)
-        .export("nope", &[ExportTarget::SharingPdf])
+        .export("nope", &[ExportTarget::SharingPdf], ExportColour::default())
+        .is_err());
+}
+
+#[test]
+fn the_interior_can_be_made_in_ink_and_a_bad_profile_is_refused() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec {
+            title: "Otter".into(),
+            ..NewBookSpec::default()
+        })
+        .unwrap()
+        .summary
+        .id;
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("Otter").join("Otter.folio");
+    books(&app).save(&id, Some(file.as_path())).unwrap();
+    let ink = ExportColour {
+        cmyk: true,
+        profile: None,
+    };
+    let report = books(&app)
+        .export(&id, &[ExportTarget::KdpInterior], ink)
+        .unwrap();
+    let in_ink = std::fs::read(&report.files[0].path).unwrap();
+    let plain = books(&app)
+        .export(&id, &[ExportTarget::KdpInterior], ExportColour::default())
+        .unwrap();
+    // The colour model is in the page content, so the two files differ.
+    assert_ne!(in_ink, std::fs::read(&plain.files[0].path).unwrap());
+
+    let junk = dir.path().join("junk.icc");
+    std::fs::write(&junk, b"not a profile").unwrap();
+    let bad = ExportColour {
+        cmyk: true,
+        profile: Some(junk.to_string_lossy().into_owned()),
+    };
+    assert!(books(&app)
+        .export(&id, &[ExportTarget::KdpInterior], bad)
         .is_err());
 }
 
@@ -1226,4 +1266,35 @@ fn the_fonts_panel_lists_the_families_a_book_uses_and_a_kept_font_can_be_let_go(
         .unkeep_fonts(&id, &["Zed Sans".to_string()])
         .unwrap();
     assert_eq!(books(&app).history_mark(&id).unwrap(), depth);
+}
+
+#[test]
+fn an_issue_the_person_leaves_alone_is_marked_so_and_comes_back_when_it_is_let_go() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let all = books(&app).preflight(&id).unwrap();
+    assert!(all.iter().all(|i| !i.ignored && !i.key.is_empty()));
+    let one = all[0].key.clone();
+    books(&app)
+        .apply(
+            &id,
+            Intent::SetPreflightIgnore {
+                keys: vec![one.clone()],
+            },
+        )
+        .unwrap();
+    let after = books(&app).preflight(&id).unwrap();
+    assert_eq!(after.len(), all.len(), "an ignored issue is still listed");
+    assert!(after.iter().find(|i| i.key == one).unwrap().ignored);
+    assert_eq!(after.iter().filter(|i| i.ignored).count(), 1);
+    books(&app).undo(&id).unwrap();
+    assert!(books(&app)
+        .preflight(&id)
+        .unwrap()
+        .iter()
+        .all(|i| !i.ignored));
 }

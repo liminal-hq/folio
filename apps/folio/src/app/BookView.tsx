@@ -25,6 +25,7 @@ import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../can
 import { keepWords } from '../canvas/editCheckpoint';
 import { CheckBookDialog } from './CheckBookDialog';
 import { ExportDialog } from './ExportDialog';
+import { EXPORT_EVENT } from './exportRequest';
 import { ReaderView } from './ReaderView';
 import { PageBackgroundDialog } from '../canvas/PageBackgroundDialog';
 import { Stage, type ZoomApi } from '../canvas/Stage';
@@ -321,6 +322,11 @@ export function BookView({
 	const [checking, setChecking] = useState(false);
 	// The Export dialog; `quick` makes the Sharing PDF the moment it opens.
 	const [exporting, setExporting] = useState<{ quick: boolean } | null>(null);
+	useEffect(() => {
+		const open = () => setExporting({ quick: false });
+		window.addEventListener(EXPORT_EVENT, open);
+		return () => window.removeEventListener(EXPORT_EVENT, open);
+	}, []);
 	const [reveal, setReveal] = useState<{ spread: string; frame: string } | null>(null);
 	useEffect(() => {
 		if (reveal && spread?.id === reveal.spread) {
@@ -769,6 +775,7 @@ export function BookView({
 				id={id}
 				book={book}
 				labels={labels}
+				onIgnore={(keys) => void store.apply({ type: 'SetPreflightIgnore', keys })}
 				onShow={(at, frame) => {
 					if (master !== null) setEditing(null);
 					setSpreadIndex(at);

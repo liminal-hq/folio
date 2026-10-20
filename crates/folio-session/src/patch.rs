@@ -28,6 +28,8 @@ pub enum PatchOp {
     },
     /// The language the book is written in.
     SetLanguage { language: String },
+    /// The preflight issues the book leaves alone.
+    SetPreflightIgnore { keys: Vec<String> },
     /// The fonts the book keeps.
     SetFonts { fonts: Vec<BookFont> },
     /// The words spelling leaves alone in the book.

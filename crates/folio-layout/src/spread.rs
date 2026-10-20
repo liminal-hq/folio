@@ -504,6 +504,39 @@ impl<'a> Layouter<'a> {
                     asked.push(self.styles.resolve(id, overrides).text.family);
                 }
             }
+            // Characters no font covers, in the frame's own typeface and every bundled fallback.
+            if let Some(first) = asked.first() {
+                let text: String = match frame {
+                    Frame::Text(t) => t
+                        .content
+                        .iter()
+                        .flat_map(|c| &c.inline)
+                        .map(|r| r.text.as_str())
+                        .collect(),
+                    Frame::Shape(s) => s
+                        .content
+                        .iter()
+                        .flat_map(|c| &c.inline)
+                        .map(|r| r.text.as_str())
+                        .collect(),
+                    Frame::Table(t) => t
+                        .rows
+                        .iter()
+                        .flatten()
+                        .flat_map(|c| c.content.iter().flat_map(|c| &c.inline))
+                        .map(|r| r.text.as_str())
+                        .collect(),
+                    _ => String::new(),
+                };
+                let lacking = crate::fallback::uncovered(self.fonts, first, 400, false, &text);
+                if !lacking.is_empty() {
+                    items.push(PreflightItem::missing_glyphs(
+                        &spread.id,
+                        &frame.base().id,
+                        &lacking,
+                    ));
+                }
+            }
             asked.sort();
             asked.dedup();
             for family in asked {
@@ -559,7 +592,12 @@ impl<'a> Layouter<'a> {
             if let Some(colour) = &run.colour {
                 text_style.colour = Some(colour.clone());
             }
-            spans.push((Span::new(&run.text, text_style), resolved));
+            // A character the run's font lacks is set in one that has it.
+            for piece in
+                crate::fallback::split_with_fallback(self.fonts, &Span::new(&run.text, text_style))
+            {
+                spans.push((piece, resolved.clone()));
+            }
         }
         if base.wrap == Wrap::Preserve {
             return vec![paragraph_from(

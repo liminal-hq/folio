@@ -636,6 +636,13 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
         .unwrap()
     });
     record("undo the fonts", &mut s, &|s| s.undo().unwrap());
+    record("leave an issue alone", &mut s, &|s| {
+        s.apply(Intent::SetPreflightIgnore {
+            keys: vec!["AltMissing:sp_1:fr_a:".into()],
+        })
+        .unwrap()
+    });
+    record("undo leaving it alone", &mut s, &|s| s.undo().unwrap());
     record("ignore a word", &mut s, &|s| {
         s.apply(Intent::IgnoreWord {
             word: "Zorblat".into(),
@@ -3013,4 +3020,37 @@ fn a_list_of_fonts_that_cannot_be_kept_is_refused_and_changes_nothing() {
     }
     assert!(s.book().fonts.is_empty());
     assert_eq!(s.revision(), 0);
+}
+
+#[test]
+fn leaving_issues_alone_is_one_undo_step_and_a_list_that_cannot_be_kept_is_refused() {
+    let mut s = Session::new(book());
+    let keys = vec![
+        "AltMissing:sp_1:fr_a:".to_string(),
+        "FontMissing:sp_1:fr_b:Zed".to_string(),
+    ];
+    let patch = s
+        .apply(Intent::SetPreflightIgnore { keys: keys.clone() })
+        .unwrap();
+    assert_eq!(
+        patch.ops,
+        vec![PatchOp::SetPreflightIgnore { keys: keys.clone() }]
+    );
+    assert_eq!(s.book().preflight_ignore, keys);
+    let undone = s.undo().unwrap();
+    assert_eq!(
+        undone.ops,
+        vec![PatchOp::SetPreflightIgnore { keys: Vec::new() }]
+    );
+    assert!(matches!(
+        s.apply(Intent::SetPreflightIgnore {
+            keys: vec![String::new()]
+        }),
+        Err(SessionError::BadIgnore(_))
+    ));
+    let many: Vec<String> = (0..501).map(|i| format!("k{i}")).collect();
+    assert!(matches!(
+        s.apply(Intent::SetPreflightIgnore { keys: many }),
+        Err(SessionError::BadIgnore(_))
+    ));
 }

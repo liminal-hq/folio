@@ -121,8 +121,8 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
         return cmd('reader_preview', { id });
     }
     /** Makes the files for `targets` and writes them into the book's `exports` folder. */
-    function exportBook(id, targets) {
-        return cmd('export_book', { id, targets });
+    function exportBook(id, targets, colour) {
+        return cmd('export_book', { id, targets, colour });
     }
     /** Shows a file in the system's file manager. */
     function revealPath(path) {
