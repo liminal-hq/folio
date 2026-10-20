@@ -32,6 +32,7 @@ const COMMANDS: &[&str] = &[
     "spell_suggest",
     "spell_check_book",
     "reader_preview",
+    "preview_cover_sheet",
     "proof_spread",
     "export_book",
     "cancel_export",

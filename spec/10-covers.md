@@ -22,7 +22,7 @@ Cover frames are stored **relative to their panel** (`panel: 'front' | 'back' | 
 
 ## Live spine
 
-**Built so far:** the paper is part of the book (`Book.paper`, changed with `SetPaper`, one undo step; the Export tab's Book details dialog has a Paper list), so the spine depends on the book and no longer on a setting kept beside it (D-38). Books made earlier fall back to the paper in their settings. The spine maths (`spine_pages`, `paperback_cover`) is in `folio-model` once, and spine text starts at 80 pages everywhere.
+**Cover sheet preview (built):** the Export tab's **Cover sheet** button draws the paperback cover as the exporter will make it (back with the blurb and barcode, spine, front, bleed all round) and draws it again when the book changes, so the spine, the barcode and the paper can be checked before exporting. It is a picture to look at; the back and spine cannot yet be edited on it. **Built so far:** the paper is part of the book (`Book.paper`, changed with `SetPaper`, one undo step; the Export tab's Book details dialog has a Paper list), so the spine depends on the book and no longer on a setting kept beside it (D-38). Books made earlier fall back to the paper in their settings. The spine maths (`spine_pages`, `paperback_cover`) is in `folio-model` once, and spine text starts at 80 pages everywhere.
 
 `spine = pages × paper factor` (white 0.002252 · cream 0.0025 · colour 0.002347 in/page ⚠). The page count is the book's page count: **Add pages** adds 2 and **Remove** subtracts 2, so the spine label, sheet size and cover thumbnail update immediately. The export dialog's page count can override it for "what if" checks. Spine text is allowed at 79 pages or more ⚠. Below that, preflight says the spine will be left blank.
 

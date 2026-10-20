@@ -1391,3 +1391,28 @@ fn the_cover_a_new_book_would_have_is_drawn_without_making_the_book() {
         })
         .is_err());
 }
+
+#[test]
+fn the_cover_sheet_is_drawn_wide_and_changes_with_the_paper() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec {
+            kind: folio_model::BookKind::Novel,
+            ..NewBookSpec::default()
+        })
+        .unwrap()
+        .summary
+        .id;
+    let white = books(&app).preview_cover_sheet(&id).unwrap().unwrap();
+    assert!(white.starts_with("data:image/png;base64,"));
+    books(&app)
+        .apply(
+            &id,
+            folio_model::Intent::SetPaper {
+                paper: folio_model::Paper::Cream,
+            },
+        )
+        .unwrap();
+    let cream = books(&app).preview_cover_sheet(&id).unwrap().unwrap();
+    assert_ne!(white, cream, "a thicker spine draws differently");
+}

@@ -625,6 +625,11 @@ export const RIBBON_LAYOUT: readonly LayoutTab[] = [
 						icon: 'book',
 					},
 					{
+						id: 'coverSheet',
+						large: true,
+						icon: 'book',
+					},
+					{
 						id: 'softProof',
 						large: true,
 						icon: 'eye',

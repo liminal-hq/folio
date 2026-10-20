@@ -27,6 +27,7 @@ import { CheckBookDialog } from './CheckBookDialog';
 import { ExportDialog } from './ExportDialog';
 import { getTextSelection } from '../canvas/textSelection';
 import { BookDetailsDialog } from './BookDetailsDialog';
+import { CoverSheetDialog } from './CoverSheetDialog';
 import { SoftProofDialog } from './SoftProofDialog';
 import { EXPORT_EVENT } from './exportRequest';
 import { ReaderView } from './ReaderView';
@@ -324,6 +325,7 @@ export function BookView({
 	// The Check book dialog, and the frame to select once "Show me" has gone to its spread.
 	const [checking, setChecking] = useState(false);
 	const [proofOpen, setProofOpen] = useState(false);
+	const [sheetOpen, setSheetOpen] = useState(false);
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	// The Export dialog; `quick` makes the Sharing PDF the moment it opens.
 	const [exporting, setExporting] = useState<{ quick: boolean } | null>(null);
@@ -478,6 +480,9 @@ export function BookView({
 				break;
 			case 'softProof':
 				setProofOpen(true);
+				break;
+			case 'coverSheet':
+				setSheetOpen(true);
 				break;
 			case 'bookDetails':
 				setDetailsOpen(true);
@@ -790,6 +795,13 @@ export function BookView({
 				book={book}
 				onSave={(details) => apply({ type: 'SetDetails', details })}
 				onPaper={(paper) => apply({ type: 'SetPaper', paper })}
+			/>
+			<CoverSheetDialog
+				open={sheetOpen}
+				onClose={() => setSheetOpen(false)}
+				client={client}
+				id={id}
+				revision={copy.revision}
 			/>
 			<SoftProofDialog
 				open={proofOpen}
