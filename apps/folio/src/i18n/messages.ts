@@ -187,6 +187,7 @@ export const messages = {
 	'welcome.jax': 'Would you like Jax’s help?',
 	'welcome.start': 'Start {kind}',
 	'welcome.starting': 'Starting…',
+	'welcome.guide': 'Guide me…',
 	'recovery.heading': 'Unsaved work from last time',
 	'recovery.never': 'Never saved',
 	'recovery.saved': 'Kept {when}',
