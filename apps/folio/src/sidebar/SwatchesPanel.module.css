@@ -1,0 +1,116 @@
+.panel {
+	display: grid;
+	gap: 12px;
+}
+
+.hint {
+	margin: 0;
+	color: var(--folio-text-muted);
+	font-size: 13px;
+}
+
+.list {
+	display: grid;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.row {
+	display: grid;
+	grid-template-columns: 24px 1fr auto auto;
+	gap: 8px;
+	align-items: center;
+}
+
+.chip,
+.preview {
+	inline-size: 24px;
+	block-size: 24px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 4px;
+}
+
+.text {
+	display: grid;
+	min-inline-size: 0;
+}
+
+.name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sub {
+	color: var(--folio-text-muted);
+	font-size: 12px;
+}
+
+.form {
+	display: grid;
+	gap: 8px;
+}
+
+.field {
+	display: grid;
+	gap: 4px;
+	font-size: 13px;
+}
+
+.field input {
+	min-inline-size: 0;
+	padding: 4px 6px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-bg-raised);
+	color: inherit;
+	font: inherit;
+}
+
+.field input[aria-invalid='true'] {
+	border-color: var(--folio-danger);
+}
+
+.plates {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr) auto;
+	gap: 6px;
+	align-items: end;
+}
+
+.actions {
+	display: flex;
+	gap: 8px;
+}
+
+.button,
+.primary {
+	padding: 4px 10px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-bg-raised);
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.primary {
+	border-color: var(--folio-accent);
+}
+
+.primary:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.button:hover,
+.primary:hover:not(:disabled) {
+	background: var(--folio-bg-hover);
+}
+
+.button:active,
+.primary:active:not(:disabled) {
+	background: var(--folio-bg-pressed);
+}

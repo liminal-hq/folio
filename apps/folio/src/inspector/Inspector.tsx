@@ -22,6 +22,7 @@ import { spreadGeometry } from '../canvas/geometry';
 import type { Marks } from '../canvas/marksModel';
 import { surfaceOf } from '../canvas/masterView';
 import { FocusPicker } from '../canvas/FocusPicker';
+import { pickerSwatches } from '../books/bookSwatches';
 import { t } from '../i18n/messages';
 import styles from './Inspector.module.css';
 import { ColourPicker } from './ColourPicker';
@@ -460,7 +461,7 @@ function ShapeSection({ frame, props }: { frame: ShapeFrame; props: InspectorPro
 		apply({ type: 'SetShape', frame: frame.id, ...change });
 	const paint = (colour: string | null): Paint =>
 		colour === null ? { type: 'none' } : { type: 'colour', colour };
-	const swatches = paints?.swatches ?? [];
+	const swatches = pickerSwatches(props.book, paints);
 	const isLine = frame.shape === 'line';
 	return (
 		<>
