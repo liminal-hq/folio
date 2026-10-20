@@ -137,6 +137,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function previewNewBook(spec) {
         return cmd('preview_new_book', { spec });
     }
+    /** The paperback cover sheet as the exporter would make it, as a PNG data URI; `null` with no cover. */
+    function previewCoverSheet(id) {
+        return cmd('preview_cover_sheet', { id });
+    }
     /** Makes the files for `targets` and writes them into the book's `exports` folder. */
     function exportBook(id, targets, colour) {
         return cmd('export_book', { id, targets, colour });
@@ -230,6 +234,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.paintPresets = paintPresets;
     exports.preflightBook = preflightBook;
     exports.presets = presets;
+    exports.previewCoverSheet = previewCoverSheet;
     exports.previewNewBook = previewNewBook;
     exports.proofSpread = proofSpread;
     exports.readerPreview = readerPreview;
