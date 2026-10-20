@@ -36,6 +36,7 @@ permissions = [
   "allow-cancel-export",
   "allow-reveal-path",
   "allow-preflight-book",
+  "allow-story-chapters",
   "allow-fonts-in-use",
   "allow-unkeep-fonts",
   "allow-list-fonts",
