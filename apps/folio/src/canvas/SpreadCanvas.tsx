@@ -66,6 +66,8 @@ export interface SpreadCanvasProps {
 	onEditText?(id: string, text: string): void;
 	/** A change to a table, from editing one of its cells. */
 	onEditTable?(id: string, edit: TableEdit): void;
+	/** A frame in a story was opened for editing: the story's words are edited as a whole, apart from the page. */
+	onEditStory?(flow: string): void;
 	/** Underlines misspelt words in the editor, when spelling is on. */
 	speller?: Speller;
 	/** The cell being edited has changed: its row and column, or `null` when none is. */
@@ -248,6 +250,7 @@ export function SpreadCanvas({
 	onGuideMenu,
 	guideDrag = null,
 	onEditText,
+	onEditStory,
 	onEditTable,
 	onEditingCell,
 	speller,
@@ -307,6 +310,10 @@ export function SpreadCanvas({
 			if (!onEditTable || frame.locked || frame.fromMaster) return;
 			const cell = at ? cellAt(frame, at) : { frame: frame.id, row: 0, col: 0 };
 			if (cell && cellText(frame, cell.row, cell.col) !== null) setEditing(cellId(cell));
+			return;
+		}
+		if (frame.type === 'text' && frame.flow && onEditStory && !frame.locked && !frame.fromMaster) {
+			onEditStory(frame.flow.id);
 			return;
 		}
 		if (onEditText && (frame.type === 'text' || frame.type === 'shape') && canEditText(frame))
