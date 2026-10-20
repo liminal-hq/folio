@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createFakeBooksClient } from '../books/fakeBooksClient';
 import { StoryEditorDialog } from './StoryEditorDialog';
 
-async function setup(focusParagraph?: number) {
+async function setup(focusParagraph?: number, chapters = false) {
 	const fake = createFakeBooksClient();
 	const made = await fake.client.newBook({});
 	const book: Book = {
@@ -23,6 +23,14 @@ async function setup(focusParagraph?: number) {
 				paragraphs: [
 					{ style: 'h1', inline: [{ text: 'A chapter', style: null, bold: false, italic: false }] },
 					{ inline: [{ text: 'The otter slept.', style: null, bold: false, italic: false }] },
+					...(chapters
+						? [
+								{
+									style: 'h1',
+									inline: [{ text: 'Second chapter', style: null, bold: false, italic: false }],
+								},
+							]
+						: []),
 				],
 			},
 		],
@@ -49,6 +57,14 @@ describe('the story editor', () => {
 	it('opens with the caret in the paragraph it was asked for', async () => {
 		await setup(1);
 		expect(screen.getByRole('textbox', { name: 'Paragraph 2' })).toHaveFocus();
+	});
+
+	it('lists the chapters and jumps to the one picked', async () => {
+		await setup(undefined, true);
+		const list = screen.getByRole('navigation', { name: 'Chapters:' });
+		expect(list).toBeInTheDocument();
+		await userEvent.click(screen.getByRole('button', { name: 'Second chapter' }));
+		expect(screen.getByRole('textbox', { name: 'Paragraph 3' })).toHaveFocus();
 	});
 
 	it('lists the paragraphs with their styles', async () => {

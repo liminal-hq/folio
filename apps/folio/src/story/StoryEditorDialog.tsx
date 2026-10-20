@@ -145,6 +145,17 @@ export function StoryEditorDialog({
 	const [caret, setCaret] = useState<Caret | null>(null);
 	const paragraphs = story?.paragraphs ?? [];
 	const clear = useRef(() => setCaret(null)).current;
+	/** The chapter titles of the story: its paragraphs in the heading style, in order. */
+	const chapters = paragraphs
+		.map((para, index) => ({
+			index,
+			style: para.style,
+			title: para.inline
+				.map((r) => r.text)
+				.join('')
+				.trim(),
+		}))
+		.filter((p) => p.style === 'h1' && p.title !== '');
 	useEffect(() => {
 		if (open && focusParagraph !== null) setCaret({ para: focusParagraph, at: 0 });
 	}, [open, focusParagraph]);
@@ -164,6 +175,21 @@ export function StoryEditorDialog({
 			}
 		>
 			<p className={styles.hint}>{t('story.hint')}</p>
+			{chapters.length > 1 && (
+				<nav className={styles.chapters} aria-label={t('story.chapters')}>
+					<span>{t('story.chapters')}</span>
+					{chapters.map((chapter) => (
+						<button
+							key={chapter.index}
+							type="button"
+							className={styles.chapter}
+							onClick={() => setCaret({ para: chapter.index, at: 0 })}
+						>
+							{chapter.title}
+						</button>
+					))}
+				</nav>
+			)}
 			<div className={styles.list}>
 				{paragraphs.map((para, i) => (
 					<ParagraphField

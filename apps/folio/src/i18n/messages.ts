@@ -560,6 +560,7 @@ export const messages = {
 	'story.title': 'Story',
 	'story.hint':
 		'Each box is a paragraph. Enter starts a new one, and Backspace at the start joins it to the one before. The paragraph style on the left sets how it looks.',
+	'story.chapters': 'Chapters:',
 	'story.paragraph': 'Paragraph {n}',
 	'story.paragraphStyle': 'Style of paragraph {n}',
 	'story.frameStyle': 'Like the frame',
