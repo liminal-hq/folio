@@ -968,6 +968,7 @@ impl<R: Runtime> Books<R> {
                     ExportTarget::KdpInterior => folio_export::Target::KdpInterior,
                     ExportTarget::PrintShopPdf => folio_export::Target::PrintShopPdf,
                     ExportTarget::KdpCover => folio_export::Target::KdpCover,
+                    ExportTarget::EbookCover => folio_export::Target::EbookCover,
                     ExportTarget::KindleEpub => folio_export::Target::KindleEpub,
                     ExportTarget::KoboEpub => folio_export::Target::KoboEpub,
                 },

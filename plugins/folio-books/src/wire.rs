@@ -196,6 +196,8 @@ pub enum ExportTarget {
     PrintShopPdf,
     /// The paperback cover for KDP: back, spine and front on one sheet.
     KdpCover,
+    /// The cover as a picture for the book's page in a store.
+    EbookCover,
     /// A reflowable EPUB for Kindle Direct Publishing.
     KindleEpub,
     /// A reflowable EPUB for Kobo, and its Kobo flavour (KEPUB).

@@ -1210,11 +1210,14 @@ dependencies = [
  "folio-layout",
  "folio-model",
  "folio-presets",
+ "image",
  "krilla",
  "kurbo 0.11.3",
  "lopdf",
  "quick-xml 0.37.5",
  "thiserror 2.0.21",
+ "tiny-skia",
+ "ttf-parser",
  "unicode-segmentation",
  "zip",
 ]
@@ -2097,6 +2100,9 @@ checksum = "85ab80394333c02fe689eaf900ab500fbd0c2213da414687ebf995a65d5a6104"
 dependencies = [
  "bytemuck",
  "byteorder-lite",
+ "color_quant",
+ "gif",
+ "image-webp",
  "moxcms",
  "num-traits",
  "png 0.18.1",
@@ -5195,6 +5201,21 @@ checksum = "7e689342a48d2ea927c87ea50cabf8594854bf940e9310208848d680d668ed85"
 dependencies = [
  "num-conv",
  "time-core",
+]
+
+[[package]]
+name = "tiny-skia"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47ffee5eaaf5527f630fb0e356b90ebdec84d5d18d937c5e440350f88c5a91ea"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "bytemuck",
+ "cfg-if",
+ "log",
+ "png 0.18.1",
+ "tiny-skia-path",
 ]
 
 [[package]]

@@ -12,6 +12,7 @@ pub mod error;
 pub mod job;
 pub mod pdf;
 pub mod pdfx;
+pub mod raster;
 mod time;
 
 pub use error::ExportError;

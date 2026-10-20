@@ -1115,12 +1115,13 @@ fn exporting_writes_each_target_into_an_exports_folder_beside_the_saved_book() {
                 ExportTarget::SharingPdf,
                 ExportTarget::KdpInterior,
                 ExportTarget::KdpCover,
+                ExportTarget::EbookCover,
             ],
         )
         .unwrap();
     let folder = dir.path().join("Otter").join("exports");
     assert_eq!(std::path::Path::new(&report.folder), folder);
-    assert_eq!(report.files.len(), 3);
+    assert_eq!(report.files.len(), 4);
     let names: Vec<String> = report
         .files
         .iter()
@@ -1137,12 +1138,13 @@ fn exporting_writes_each_target_into_an_exports_folder_beside_the_saved_book() {
         [
             "the-otter-who-couldnt-sleep-share.pdf",
             "the-otter-who-couldnt-sleep-paperback-interior.pdf",
-            "the-otter-who-couldnt-sleep-paperback-cover.pdf"
+            "the-otter-who-couldnt-sleep-paperback-cover.pdf",
+            "the-otter-who-couldnt-sleep-ebook-cover.jpg"
         ]
     );
     for file in &report.files {
         let bytes = std::fs::read(&file.path).unwrap();
-        assert!(bytes.starts_with(b"%PDF-"));
+        assert!(bytes.starts_with(b"%PDF-") || bytes.starts_with(&[0xff, 0xd8]));
         assert_eq!(bytes.len() as u32, file.bytes);
     }
     // No half-written file is left behind.
