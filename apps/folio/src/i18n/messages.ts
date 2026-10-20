@@ -102,6 +102,26 @@ export const messages = {
 	'preflight.altMissing.many': '{count} pictures have no description',
 	'preflight.altMissing.fix': 'Add a short description so screen readers can share it.',
 
+	// Export
+	'export.title': 'Export book',
+	'export.which': 'What would you like to make?',
+	'export.target.sharingPdf': 'Sharing PDF',
+	'export.target.sharingPdf.sub': 'A PDF to read on a screen or send to someone.',
+	'export.target.kdpInterior': 'Paperback interior for Amazon KDP',
+	'export.target.kdpInterior.sub':
+		'Print-ready pages with the fonts inside and nothing KDP asks you to remove.',
+	'export.waiting': '{count} things are waiting on you.',
+	'export.waiting.one': 'One thing is waiting on you.',
+	'export.checkFirst': 'Check the book first',
+	'export.make': 'Make files',
+	'export.working': 'Making your files…',
+	'export.cancel': 'Cancel',
+	'export.done': 'Done',
+	'export.failed': 'The files could not be made: {message}',
+	'export.files': 'The files that were made',
+	'export.made': 'Your files are ready.',
+	'export.show': 'Show in folder',
+
 	// Preferences
 	'preferences.section.interface': 'Interface',
 	'preferences.section.appearance': 'Appearance',

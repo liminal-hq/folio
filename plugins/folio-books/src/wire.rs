@@ -183,6 +183,37 @@ pub struct KeepFontsReport {
     pub skipped: Vec<SkippedFont>,
 }
 
+/// A kind of file to make from a book.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub enum ExportTarget {
+    /// A PDF to read on a screen or send round.
+    SharingPdf,
+    /// The interior of a paperback, as Kindle Direct Publishing asks for it.
+    KdpInterior,
+}
+
+/// A file an export wrote.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ExportedFile {
+    pub target: ExportTarget,
+    pub path: String,
+    pub bytes: u32,
+}
+
+/// What an export wrote, and where.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ExportReport {
+    /// The folder the files are in.
+    pub folder: String,
+    pub files: Vec<ExportedFile>,
+}
+
 /// A book with changes that were never saved, found after Folio stopped without closing it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

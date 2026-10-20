@@ -33,6 +33,9 @@ pub enum Error {
     /// A recovery copy could not be written, read or found.
     #[error("{0}")]
     Recovery(String),
+    /// A book could not be exported, or its file could not be written.
+    #[error("{0}")]
+    Export(String),
     /// A window asked for a spread the book does not have.
     #[error("the book has no spread `{0}`")]
     NoSuchSpread(String),
@@ -58,6 +61,7 @@ impl Error {
             Error::NoSuchSpread(_) => "noSuchSpread",
             Error::NoSuchMaster(_) => "noSuchMaster",
             Error::BadImage(_) => "image",
+            Error::Export(_) => "export",
             Error::Dictionary(_) => "dictionary",
             Error::Recovery(_) => "recovery",
         }

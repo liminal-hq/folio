@@ -22,9 +22,9 @@ use crate::error::Error;
 use crate::recovery::{self, Recovery};
 use crate::spelling::Spelling;
 use crate::wire::{
-    BookSnapshot, BookSpelling, BookSummary, BooksChanged, FontChoice, FontOrigin, FontSkip,
-    KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, Recoverable, SkippedFont, SpellCheck,
-    SpreadLayoutResult,
+    BookSnapshot, BookSpelling, BookSummary, BooksChanged, ExportReport, ExportTarget,
+    ExportedFile, FontChoice, FontOrigin, FontSkip, KeepFontsReport, Misspelling, MisspeltWord,
+    PatchEvent, Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult,
 };
 use crate::{CHANGED_EVENT, PATCH_EVENT};
 
@@ -75,6 +75,37 @@ fn font_extension(data: &[u8]) -> &'static str {
         Some(b"ttcf") => "ttc",
         _ => "ttf",
     }
+}
+
+/// The pictures an export reads, by their path in the package.
+struct MemoryAssets(HashMap<String, Vec<u8>>);
+
+impl folio_export::pdf::Assets for MemoryAssets {
+    fn bytes(&self, path: &str) -> Option<Vec<u8>> {
+        self.0.get(path).cloned()
+    }
+}
+
+/// Every picture the book draws: on its pages, on its master pages and as page backgrounds.
+fn used_assets(book: &folio_model::Book) -> Vec<String> {
+    let mut found: Vec<String> = book
+        .spreads
+        .iter()
+        .flat_map(|s| spread_assets(book, s))
+        .collect();
+    for master in &book.master_pages {
+        for frame in &master.frames {
+            if let folio_model::Frame::Image(image) = frame {
+                found.extend(image.image.asset.clone());
+            }
+        }
+        if let Some(folio_model::Background::Picture { asset, .. }) = &master.bg {
+            found.push(asset.clone());
+        }
+    }
+    found.sort();
+    found.dedup();
+    found
 }
 
 struct OpenBook {
@@ -827,6 +858,74 @@ impl<R: Runtime> Books<R> {
         // A stable sort keeps the pages in order within each severity.
         items.sort_by_key(|item| item.severity);
         Ok(items)
+    }
+
+    /// Makes the files for `targets` from a book and writes them into its `exports` folder: beside
+    /// the book's file when it has been saved, and in its folder under `Books` when it has not.
+    /// Each file is written whole under a temporary name and renamed, so a failed export leaves no
+    /// half-written file.
+    pub fn export(&self, id: &str, targets: &[ExportTarget]) -> Result<ExportReport, Error> {
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, styles, assets, layered, folder) = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let book = open.session.book().clone();
+            // Pictures are read under the lock and used outside it, so the book stays usable.
+            let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
+            for path in used_assets(&book) {
+                if let Ok(bytes) = open.package.asset_bytes(&path) {
+                    assets.insert(path, bytes);
+                }
+            }
+            let folder = match &open.path {
+                Some(path) => path.parent().map(Path::to_path_buf).unwrap_or_default(),
+                None => self
+                    .default_save_path(&book.title)
+                    .parent()
+                    .map(Path::to_path_buf)
+                    .unwrap_or_default(),
+            }
+            .join("exports");
+            let styles = style_sheet(&book.styles);
+            let layered = open.font_book(base);
+            (book, styles, assets, layered, folder)
+        };
+        let fonts = layered.as_deref().unwrap_or(base);
+        std::fs::create_dir_all(&folder)
+            .map_err(|e| Error::Export(format!("{}: {e}", folder.display())))?;
+        let source = MemoryAssets(assets);
+        let mut report = ExportReport {
+            folder: folder.to_string_lossy().into_owned(),
+            files: Vec::new(),
+        };
+        for &target in targets {
+            let made = folio_export::export_target(
+                match target {
+                    ExportTarget::SharingPdf => folio_export::Target::SharingPdf,
+                    ExportTarget::KdpInterior => folio_export::Target::KdpInterior,
+                },
+                &book,
+                &styles,
+                fonts,
+                &source,
+            )
+            .map_err(|e| Error::Export(e.to_string()))?;
+            let path = folder.join(&made.file_name);
+            let partial = folder.join(format!(".{}.partial", made.file_name));
+            std::fs::write(&partial, &made.bytes)
+                .and_then(|()| std::fs::rename(&partial, &path))
+                .map_err(|e| Error::Export(format!("{}: {e}", path.display())))?;
+            report.files.push(ExportedFile {
+                target,
+                path: path.to_string_lossy().into_owned(),
+                bytes: made.bytes.len().try_into().unwrap_or(u32::MAX),
+            });
+        }
+        Ok(report)
     }
 
     /// Every family the book can draw in, bundled first, then the book's own, then the computer's,

@@ -7,6 +7,8 @@
 //! a file holds the very glyphs layout chose.
 
 pub mod error;
+pub mod job;
 pub mod pdf;
 
 pub use error::ExportError;
+pub use job::{export_target, slug, Exported, Target};

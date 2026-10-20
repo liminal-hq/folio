@@ -15,8 +15,8 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow};
 use crate::error::Error;
 use crate::state::Books;
 use crate::wire::{
-    BookSnapshot, BookSpelling, BookSummary, DictionaryProgress, DictionaryStatus, FontChoice,
-    KeepFontsReport, Recoverable, SpellCheck, SpreadLayoutResult,
+    BookSnapshot, BookSpelling, BookSummary, DictionaryProgress, DictionaryStatus, ExportReport,
+    ExportTarget, FontChoice, KeepFontsReport, Recoverable, SpellCheck, SpreadLayoutResult,
 };
 use crate::DICTIONARY_PROGRESS_EVENT;
 
@@ -301,6 +301,26 @@ pub async fn spell_suggest<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().spell_suggest(&id, &word))
         .await
         .expect("the spelling task does not panic")
+}
+
+/// Makes the files for `targets` and writes them into the book's `exports` folder.
+#[tauri::command]
+pub async fn export_book<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    targets: Vec<ExportTarget>,
+) -> Result<ExportReport, Error> {
+    // Laying out and writing a book is work for a blocking thread, not the async runtime.
+    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().export(&id, &targets))
+        .await
+        .expect("the export task does not panic")
+}
+
+/// Shows a file in the system's file manager.
+#[tauri::command]
+pub async fn reveal_path<R: Runtime>(_window: WebviewWindow<R>, path: String) -> Result<(), Error> {
+    crate::reveal::reveal(std::path::Path::new(&path)).map_err(Error::Export)
 }
 
 /// What preflight finds in the whole book, the issues that wait on the person first.
