@@ -605,23 +605,40 @@ impl<'a> Layouter<'a> {
                 &base,
             )];
         }
-        // Split the runs at every line break into paragraphs.
-        let mut paragraphs: Vec<Vec<Span>> = vec![Vec::new()];
-        for (span, _) in spans {
+        // Split the runs at every line break into paragraphs. A paragraph is set as the style of its
+        // first words say, so a heading in the middle of a story has the room a heading has.
+        struct Open {
+            spans: Vec<Span>,
+            style: Option<ResolvedStyle>,
+        }
+        let mut paragraphs = vec![Open {
+            spans: Vec::new(),
+            style: None,
+        }];
+        let note = |open: &mut Open, text: &str, resolved: &ResolvedStyle| {
+            if open.style.is_none() && !text.is_empty() {
+                open.style = Some(resolved.clone());
+            }
+        };
+        for (span, resolved) in spans {
             let mut parts = span.text.split('\n');
             if let Some(first) = parts.next() {
-                paragraphs
-                    .last_mut()
-                    .expect("one is always open")
-                    .push(Span::new(first, span.style.clone()));
+                let open = paragraphs.last_mut().expect("one is always open");
+                note(open, first, &resolved);
+                open.spans.push(Span::new(first, span.style.clone()));
             }
             for part in parts {
-                paragraphs.push(vec![Span::new(part, span.style.clone())]);
+                let mut open = Open {
+                    spans: vec![Span::new(part, span.style.clone())],
+                    style: None,
+                };
+                note(&mut open, part, &resolved);
+                paragraphs.push(open);
             }
         }
         paragraphs
             .into_iter()
-            .map(|spans| paragraph_from(spans, &base))
+            .map(|open| paragraph_from(open.spans, open.style.as_ref().unwrap_or(&base)))
             .collect()
     }
 
@@ -630,15 +647,15 @@ impl<'a> Layouter<'a> {
         let mut boxes = Vec::new();
         let mut order = Vec::new();
         let mut style = StyleId("body".to_string());
-        let mut overrides = None;
         let mut lock = false;
+        let mut first_frame: Option<&TextFrame> = None;
         for id in &chain.frames {
             let Some(text) = self.find_text_frame(id) else {
                 continue;
             };
             if order.is_empty() {
+                first_frame = Some(text);
                 style = text.style.clone();
-                overrides = text.overrides.as_ref();
                 lock = text.baseline_lock;
             }
             let mut b = FrameBox::new(text.base.rect.w.0, text.base.rect.h.0);
@@ -647,19 +664,32 @@ impl<'a> Layouter<'a> {
             boxes.push(b);
             order.push(id.clone());
         }
-        let resolved = self.styles.resolve(&style, overrides);
-        // A style that keeps its breaks (verse) is one paragraph, as in a frame of its own.
-        let story: Vec<StoryParagraph> = if resolved.wrap == Wrap::Preserve {
-            vec![paragraph_from(
-                vec![Span::new(&chain.source, resolved.text.clone())],
-                &resolved,
-            )]
-        } else {
-            chain
-                .source
-                .split('\n')
-                .map(|line| paragraph_from(vec![Span::new(line, resolved.text.clone())], &resolved))
-                .collect()
+        // The story is laid out as the words of a frame are: the paragraphs' runs, a line break
+        // between them, and a paragraph's own style given to its runs that have none.
+        let mut runs: Vec<folio_model::Run> = Vec::new();
+        for (i, para) in chain.paragraphs.iter().enumerate() {
+            if i > 0 {
+                runs.push(break_run());
+            }
+            for run in &para.inline {
+                let mut run = run.clone();
+                if run.style.is_none() {
+                    run.style = para.style.clone();
+                }
+                runs.push(run);
+            }
+            if para.inline.is_empty() {
+                // An empty paragraph is still one, so it keeps its place between the breaks.
+                let mut empty = break_run();
+                empty.text.clear();
+                empty.style = para.style.clone();
+                runs.push(empty);
+            }
+        }
+        let content = InlineContent { inline: runs };
+        let story: Vec<StoryParagraph> = match first_frame {
+            Some(text) => self.story_of(Some(&content), &style, text),
+            None => Vec::new(),
         };
         let mut options = self.options();
         if !lock {
@@ -770,6 +800,18 @@ struct RunStyle {
     tracking: f64,
     colour: Option<Colour>,
     face_key: String,
+}
+
+/// The plain run that stands for a paragraph break between the runs of a story.
+fn break_run() -> folio_model::Run {
+    folio_model::Run {
+        text: "\n".into(),
+        style: None,
+        bold: false,
+        italic: false,
+        font: None,
+        colour: None,
+    }
 }
 
 fn paragraph_from(spans: Vec<Span>, style: &ResolvedStyle) -> StoryParagraph {

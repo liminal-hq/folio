@@ -21,6 +21,7 @@
 - Widows/orphans: default 2/2 for body; poetry uses stanza-keep instead.
 - Poetry style sets `wrap: preserve`. Lines never re-wrap in print; overlong lines hang-indent and raise a preflight item.
 - **Flow:** a flow is an ordered list of frames. When text overflows the last frame, the frame shows the **overset marker** (a small `+` tab at the bottom-right). In flowing books Folio can auto-add pages ("Add pages as I type", on by default in Easy).
+- **A flow's story (D-39):** `Flow.paragraphs` is a list of `StoryPara { style?, inline: Run[] }`, the same runs a text frame holds, so emphasis, font and colour carry. A paragraph's `style` is given to its runs that name none, and a paragraph is set as its first words' style says, so a heading in the middle of a story has the room a heading has. Paragraphs are named by their place in the list. Books written with a `source` string read as one paragraph for each line, and a `source` that is a path to a package text file carries no words. **Not built yet:** intents that edit a story, linking frames into a flow, a story editor and adding pages as it grows.
 - Drop caps, small caps and OpenType features (`liga`, `onum`, `smcp`, `ss01`…) are Expert style properties.
 
 ## Grid and guides
