@@ -11,9 +11,9 @@
 //! own with one page, so the same exporter draws it.
 
 use folio_model::{
-    paperback_cover, Background, Book, Colour, Frame, FrameBase, FrameId, InlineContent, Page,
-    PageId, Paper, Pt, Rect, Run, Shape, ShapeFrame, Size, Spread, SpreadId, SpreadKind, StyleId,
-    TextFrame,
+    paperback_cover, Align, Background, Book, Colour, Frame, FrameBase, FrameId, InlineContent,
+    Page, PageId, Paper, Pt, Rect, Run, Shape, ShapeFrame, Size, Spread, SpreadId, SpreadKind,
+    StyleId, StyleOverrides, TextFrame,
 };
 
 /// KDP puts text on the spine of a book of this many pages or more. Its pages disagree between 79
@@ -69,6 +69,82 @@ fn text_frame(name: &str, style: &str, rect: Rect, rotation: f64, text: &str) ->
         baseline_lock: false,
         overrides: None,
     })
+}
+
+/// The frames that draw an EAN-13 for `isbn` inside the barcode box: the bars at the standard width
+/// of a module, the ISBN above them and its digits below, all on the white of the box. Nothing when
+/// the ISBN is not a good one, which leaves KDP to add its own.
+fn barcode_frames(isbn: &str, maths: &folio_model::CoverMaths) -> Vec<Frame> {
+    let Some(modules) = crate::barcode::ean13(isbn) else {
+        return Vec::new();
+    };
+    // The nominal module is 0.33 mm.
+    let module = 0.33 / 25.4 * 72.0;
+    let box_ = Rect {
+        x: Pt(maths.barcode.x.0 - maths.edge.0),
+        y: Pt(maths.barcode.y.0 - maths.edge.0),
+        w: maths.barcode.w,
+        h: maths.barcode.h,
+    };
+    let left = box_.x.0 + (box_.w.0 - module * 95.0) / 2.0;
+    let (label, bars_top, bars_height) = (10.0, box_.y.0 + 14.0, 50.0);
+    let black = Some(Colour("#000000".into()));
+    let mut frames: Vec<Frame> = crate::barcode::bars(&modules)
+        .into_iter()
+        .map(|(first, run)| {
+            Frame::Shape(ShapeFrame {
+                base: base(
+                    &format!("bar_{first}"),
+                    Rect {
+                        x: Pt(left + first as f64 * module),
+                        y: Pt(bars_top),
+                        w: Pt(run as f64 * module),
+                        h: Pt(bars_height),
+                    },
+                    0.0,
+                ),
+                shape: Shape::Rect,
+                fill: black.clone(),
+                style: None,
+                stroke: None,
+                stroke_width: None,
+                radius: None,
+                flip: false,
+                content: None,
+                overrides: None,
+            })
+        })
+        .collect();
+    let digits: String = isbn.chars().filter(|c| c.is_ascii_digit()).collect();
+    let small = StyleOverrides {
+        size: Some(Pt(7.0)),
+        align: Some(Align::Center),
+        bold: None,
+        italic: None,
+        font: None,
+    };
+    for (name, text, y) in [
+        ("isbn_label", format!("ISBN {isbn}"), box_.y.0 + 2.0),
+        ("isbn_digits", digits, bars_top + bars_height + 2.0),
+    ] {
+        let mut frame = text_frame(
+            name,
+            "body",
+            Rect {
+                x: box_.x,
+                y: Pt(y),
+                w: box_.w,
+                h: Pt(label + 2.0),
+            },
+            0.0,
+            &text,
+        );
+        if let Frame::Text(f) = &mut frame {
+            f.overrides = Some(small.clone());
+        }
+        frames.push(frame);
+    }
+    frames
 }
 
 /// The cover sheet of `book` as a one-page book, or `None` when the book has no cover.
@@ -129,6 +205,10 @@ pub fn cover_sheet(book: &Book, paper: Paper) -> Option<Book> {
         content: None,
         overrides: None,
     }));
+    // The book's own barcode, drawn in the box when its paperback ISBN is a good one.
+    if let Some(isbn) = book.metadata.isbn.paperback.as_deref() {
+        frames.extend(barcode_frames(isbn, &maths));
+    }
     // The front: the cover as it is, moved along past the back and the spine.
     for frame in &cover.frames {
         let mut moved = frame.clone();
