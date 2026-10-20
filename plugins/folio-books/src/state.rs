@@ -1042,7 +1042,7 @@ impl<R: Runtime> Books<R> {
                 .iter_mut()
                 .find(|b| b.id == id)
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
-            let book = open.shown_book();
+            let book = open.session.book().clone();
             // Pictures are read under the lock and used outside it, so the book stays usable.
             let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
             for path in used_assets(&book) {
