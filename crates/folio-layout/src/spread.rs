@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    page_labels, Book, Colour, Flow, Frame, FrameId, InlineContent, MasterId, PageLabel, Pt,
-    ShapeFrame, Spread, SpreadId, StyleId, TableFrame, TextFrame,
+    page_labels, Book, Colour, Flow, FlowId, Frame, FrameId, InlineContent, MasterId, PageLabel,
+    Pt, ShapeFrame, Spread, SpreadId, StyleId, TableFrame, TextFrame,
 };
 
 use std::ops::Range;
@@ -644,6 +644,42 @@ impl<'a> Layouter<'a> {
 
     /// A flow's text poured through its chain of frames, and the order of the frames.
     fn flow_chain(&self, chain: &Flow) -> Result<FlowLayout, LayoutError> {
+        self.flow_chain_with(chain, 0)
+    }
+
+    /// How many more frames, each like the last one of the flow, its story needs to be shown whole:
+    /// none when it already fits. Found by trying more and more frames, then narrowing down.
+    pub fn frames_needed(&self, flow: &FlowId) -> Result<usize, LayoutError> {
+        /// A story that needs more frames than this is not laid out further.
+        const MOST: usize = 1024;
+        let Some(chain) = self.book.flows.iter().find(|f| &f.id == flow) else {
+            return Ok(0);
+        };
+        if chain.frames.is_empty() || !self.flow_chain_with(chain, 0)?.flowed.overset {
+            return Ok(0);
+        }
+        let fits = |extra: usize| -> Result<bool, LayoutError> {
+            Ok(!self.flow_chain_with(chain, extra)?.flowed.overset)
+        };
+        let mut high = 1;
+        while high < MOST && !fits(high)? {
+            high *= 2;
+        }
+        let mut low = high / 2;
+        // `low` does not fit (or is 0 and the story does not fit as it is); `high` fits or is the limit.
+        while high - low > 1 {
+            let mid = (low + high) / 2;
+            if fits(mid)? {
+                high = mid;
+            } else {
+                low = mid;
+            }
+        }
+        Ok(high)
+    }
+
+    /// A flow laid out in its own frames and `extra` more like the last of them.
+    fn flow_chain_with(&self, chain: &Flow, extra: usize) -> Result<FlowLayout, LayoutError> {
         let mut boxes = Vec::new();
         let mut order = Vec::new();
         let mut style = StyleId("body".to_string());
@@ -663,6 +699,9 @@ impl<'a> Layouter<'a> {
             b.gutter = self.book.grid.gutter.0;
             boxes.push(b);
             order.push(id.clone());
+        }
+        if let Some(last) = boxes.last().cloned() {
+            boxes.extend(std::iter::repeat_n(last, extra));
         }
         // The story is laid out as the words of a frame are: the paragraphs' runs, a line break
         // between them, and a paragraph's own style given to its runs that have none.

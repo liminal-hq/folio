@@ -690,6 +690,14 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
         })
         .unwrap()
     });
+    record("add pages for a story that grew", &mut s, &|s| {
+        s.apply(Intent::AddFlowPages {
+            flow: FlowId("fl_main".into()),
+            count: 3,
+        })
+        .unwrap()
+    });
+    record("undo adding the pages", &mut s, &|s| s.undo().unwrap());
     record("chain a frame after the story's", &mut s, &|s| {
         s.apply(Intent::LinkFrame {
             frame: frame("fr_text"),
@@ -3609,4 +3617,90 @@ fn enter_splits_a_paragraph_where_the_caret_is_and_backspace_joins_it_back() {
     s.undo().unwrap();
     s.undo().unwrap();
     assert_eq!(story(&s).len(), 3);
+}
+
+#[test]
+fn steps_joined_together_are_undone_and_redone_together() {
+    let mut s = Session::new(book());
+    s.apply(Intent::SetParagraphText {
+        flow: FlowId("fl_main".into()),
+        para: 1,
+        text: "Changed.".into(),
+    })
+    .unwrap();
+    s.apply(Intent::AddSpread {
+        after: spread("sp_1"),
+        duplicate: false,
+    })
+    .unwrap();
+    s.apply(Intent::LinkFrame {
+        frame: frame("fr_text"),
+        to: frame("fr_flowed"),
+    })
+    .unwrap();
+    let spreads = s.book().spreads.len();
+    s.join_last(3);
+    // One step now takes all three back, the new spread included.
+    s.undo().unwrap();
+    assert_eq!(s.book().spreads.len(), spreads - 1);
+    assert_eq!(story(&s)[1], "The otter slept.");
+    assert_eq!(s.book().flows[0].frames, [frame("fr_flowed")]);
+    assert!(s.undo().is_none());
+    s.redo().unwrap();
+    assert_eq!(s.book().spreads.len(), spreads);
+    assert_eq!(story(&s)[1], "Changed.");
+    assert_eq!(s.book().flows[0].frames.len(), 2);
+    // Fewer steps than asked for is left alone.
+    s.join_last(9);
+    s.undo().unwrap();
+    assert_eq!(s.book().spreads.len(), spreads - 1);
+}
+
+#[test]
+fn pages_are_added_for_a_story_that_has_outgrown_its_frames_in_one_undo_step() {
+    let mut s = Session::new(book());
+    let flow = FlowId("fl_main".into());
+    let spreads = s.book().spreads.len();
+    s.apply(Intent::AddFlowPages {
+        flow: flow.clone(),
+        count: 3,
+    })
+    .unwrap();
+    let frames = s.book().flows[0].frames.clone();
+    assert_eq!(frames.len(), 4);
+    // Every frame is numbered by its place in the chain and sits on a spread of the book.
+    for (i, id) in frames.iter().enumerate() {
+        assert_eq!(
+            slot_of(&s, &id.0),
+            Some(("fl_main".into(), i as u32)),
+            "{id:?}"
+        );
+    }
+    assert!(s.book().spreads.len() > spreads);
+    // New spreads are two pages wide and hold no frame twice.
+    let mut seen = std::collections::HashSet::new();
+    for sp in &s.book().spreads {
+        for f in &sp.frames {
+            assert!(seen.insert(f.base().id.0.clone()), "{:?}", f.base().id);
+        }
+    }
+    s.undo().unwrap();
+    assert_eq!(s.book().spreads.len(), spreads);
+    assert_eq!(s.book().flows[0].frames, [frame("fr_flowed")]);
+    for bad in [0, 5000] {
+        assert!(matches!(
+            s.apply(Intent::AddFlowPages {
+                flow: flow.clone(),
+                count: bad
+            }),
+            Err(SessionError::BadStory(_))
+        ));
+    }
+    assert!(matches!(
+        s.apply(Intent::AddFlowPages {
+            flow: FlowId("nope".into()),
+            count: 1
+        }),
+        Err(SessionError::NoSuchFlow(_))
+    ));
 }
