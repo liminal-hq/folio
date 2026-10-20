@@ -13,6 +13,7 @@ use crate::flow::Flow;
 use crate::frame::Frame;
 use crate::ids::{BookId, MasterId};
 use crate::spread::{Guide, Spread};
+use crate::styles::Styles;
 use crate::units::{Margins, Pt, Size};
 
 /// The `book.json` schema version this build writes (and the newest it reads).
@@ -73,6 +74,9 @@ pub struct Book {
     /// What the person has told the proofing tools to leave alone, kept with the book.
     #[serde(default, skip_serializing_if = "Proofing::is_empty")]
     pub proofing: Proofing,
+    /// The named styles and the typeface body text starts in; `styles.json` in the package.
+    #[serde(default, skip_serializing_if = "Styles::is_empty")]
+    pub styles: Styles,
     pub metadata: BookMetadata,
     /// Keys at the top of `book.json` that this version does not know, from imports or a newer
     /// version of Folio, kept as they were so a save does not lose them. The UI never sees them.

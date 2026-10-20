@@ -27,7 +27,8 @@ fn sample(kind: BookKind) -> (Book, StyleSheet) {
         ..NewBookSpec::default()
     })
     .unwrap();
-    (made.book, StyleSheet::from_value(&made.styles))
+    let styles = StyleSheet::from_styles(&made.book.styles);
+    (made.book, styles)
 }
 
 fn layout_all(book: &Book, styles: &StyleSheet) -> Vec<SpreadLayout> {
@@ -729,7 +730,7 @@ fn laid_with_fallback(frame: Frame) -> SpreadLayout {
     let (mut book, styles) = sample(BookKind::Picture);
     book.spreads[1].frames.push(frame);
     let id = book.spreads[1].id.clone();
-    let styles = styles.with_fallback(&StyleSheet::from_value(&folio_presets::preset_styles()));
+    let styles = styles.with_fallback(&StyleSheet::from_styles(&folio_presets::preset_styles()));
     let fonts = FontBook::bundled();
     Layouter::new(&book, &styles, &fonts)
         .layout_spread(&id)
@@ -765,7 +766,7 @@ fn a_book_without_the_bubble_style_gets_folios_and_a_book_that_has_its_own_keeps
     let own = StyleSheet::from_value(&serde_json::json!({
         "styles": { "bubble": { "sizePt": 20, "align": "right" } }
     }))
-    .with_fallback(&StyleSheet::from_value(&folio_presets::preset_styles()));
+    .with_fallback(&StyleSheet::from_styles(&folio_presets::preset_styles()));
     let resolved = own.resolve(&StyleId("bubble".into()), None);
     assert_eq!(resolved.text.size_pt, 20.0);
 }
