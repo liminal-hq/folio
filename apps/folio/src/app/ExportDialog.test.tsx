@@ -62,6 +62,14 @@ describe('the Export dialog', () => {
 		}
 	});
 
+	it('offers the print shop PDF', async () => {
+		const { fake } = await setup();
+		await userEvent.click(screen.getByRole('checkbox', { name: /Print shop PDF \(PDF\/X-4\)/ }));
+		await userEvent.click(screen.getByRole('button', { name: 'Make files' }));
+		expect(await screen.findByText('pip-print-pdfx4.pdf')).toBeInTheDocument();
+		expect(exported(fake.calls)[0]).toContain('printShopPdf');
+	});
+
 	it('cannot make nothing', async () => {
 		await setup();
 		await userEvent.click(screen.getByRole('checkbox', { name: /Sharing PDF/ }));

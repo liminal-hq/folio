@@ -955,6 +955,7 @@ impl<R: Runtime> Books<R> {
                 match target {
                     ExportTarget::SharingPdf => folio_export::Target::SharingPdf,
                     ExportTarget::KdpInterior => folio_export::Target::KdpInterior,
+                    ExportTarget::PrintShopPdf => folio_export::Target::PrintShopPdf,
                     ExportTarget::KindleEpub => folio_export::Target::KindleEpub,
                     ExportTarget::KoboEpub => folio_export::Target::KoboEpub,
                 },
