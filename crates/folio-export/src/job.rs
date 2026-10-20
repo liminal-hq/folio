@@ -91,8 +91,9 @@ pub fn export_target(
     styles: &StyleSheet,
     fonts: &FontBook,
     assets: &dyn Assets,
+    ink: Option<&InkOptions>,
 ) -> Result<Vec<Exported>, ExportError> {
-    let pdf = |kind| {
+    let pdf = |kind, ink: Option<InkOptions>| {
         export_pdf(
             book,
             styles,
@@ -100,7 +101,7 @@ pub fn export_target(
             assets,
             &PdfOptions {
                 target: kind,
-                ink: None,
+                ink,
                 crop_marks: kind == PdfTarget::PrintShop,
             },
         )
@@ -118,9 +119,9 @@ pub fn export_target(
     };
     let names = target.file_names(&book.title);
     let made: Vec<Vec<u8>> = match target {
-        Target::SharingPdf => vec![pdf(PdfTarget::Sharing)?],
-        Target::KdpInterior => vec![pdf(PdfTarget::Print)?],
-        Target::PrintShopPdf => vec![pdf(PdfTarget::PrintShop)?],
+        Target::SharingPdf => vec![pdf(PdfTarget::Sharing, None)?],
+        Target::KdpInterior => vec![pdf(PdfTarget::Print, ink.cloned())?],
+        Target::PrintShopPdf => vec![pdf(PdfTarget::PrintShop, None)?],
         Target::KdpCover => {
             let sheet = cover_sheet(book, paper).ok_or(ExportError::NoPages)?;
             vec![export_pdf(
@@ -130,8 +131,9 @@ pub fn export_target(
                 assets,
                 &PdfOptions {
                     target: PdfTarget::Cover,
-                    // KDP wants the cover in CMYK, untagged, with no spot colours.
-                    ink: Some(InkOptions::default()),
+                    // KDP wants the cover in CMYK, untagged, with no spot colours: through the
+                    // chosen press profile when there is one, by a plain separation when not.
+                    ink: Some(ink.cloned().unwrap_or_default()),
                     crop_marks: false,
                 },
             )?]

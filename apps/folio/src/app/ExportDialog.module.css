@@ -138,3 +138,25 @@
 	outline: 2px solid var(--folio-focus-ring);
 	outline-offset: 2px;
 }
+
+.colour {
+	display: grid;
+	gap: 8px;
+	margin: 16px 0 0;
+	padding: 0;
+	border: 0;
+}
+
+.profile {
+	display: grid;
+	gap: 4px;
+}
+
+.profile input {
+	padding: 6px 8px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-bg-raised);
+	color: inherit;
+	font: inherit;
+}
