@@ -9,7 +9,7 @@
 .body {
 	flex: 1;
 	display: grid;
-	grid-template-columns: 200px 1fr;
+	grid-template-columns: 260px 1fr;
 	min-height: 0;
 	background: var(--folio-bg-body);
 }
@@ -46,7 +46,21 @@
 	color: var(--folio-text-primary);
 }
 
+.label {
+	display: grid;
+}
+
+/* A hidden bold copy reserves the bold width, so the current step bolding never rewraps it. */
+.label::after {
+	content: attr(data-text);
+	height: 0;
+	overflow: hidden;
+	visibility: hidden;
+	font-weight: 600;
+}
+
 .number {
+	flex: none;
 	display: grid;
 	place-items: center;
 	width: 22px;
