@@ -236,6 +236,9 @@ fn ops_between(before: &Delta, after: &Delta) -> Vec<PatchOp> {
             (None, None) => {}
         }
     }
+    if before.paper != after.paper {
+        ops.push(PatchOp::SetPaper { paper: after.paper });
+    }
     if before.details != after.details {
         ops.push(PatchOp::SetDetails {
             details: after.details.clone(),

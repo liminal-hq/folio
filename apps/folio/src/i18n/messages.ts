@@ -194,6 +194,11 @@ export const messages = {
 	'details.isbn.bad': 'That is not a valid ISBN-13. Check the digits.',
 	'details.isbn.barcodeHint':
 		'With a paperback ISBN the KDP cover draws its barcode; without one KDP adds its own.',
+	'details.paper': 'Paper',
+	'details.paper.white': 'White',
+	'details.paper.cream': 'Cream',
+	'details.paper.colour': 'Colour',
+	'details.paperHint': 'The paper decides how thick the spine is on the paperback cover.',
 	'details.cancel': 'Cancel',
 	'details.save': 'Save',
 	'export.make': 'Make files',

@@ -709,6 +709,13 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
     record("undo the heading", &mut s, &|s| s.undo().unwrap());
     record("undo the split", &mut s, &|s| s.undo().unwrap());
     record("undo the typing", &mut s, &|s| s.undo().unwrap());
+    record("choose cream paper", &mut s, &|s| {
+        s.apply(Intent::SetPaper {
+            paper: folio_model::Paper::Cream,
+        })
+        .unwrap()
+    });
+    record("undo the paper", &mut s, &|s| s.undo().unwrap());
     record("set the details", &mut s, &|s| {
         s.apply(Intent::SetDetails {
             details: details("A New Title", Some("A subtitle"), "9780306406157"),
@@ -3609,4 +3616,28 @@ fn enter_splits_a_paragraph_where_the_caret_is_and_backspace_joins_it_back() {
     s.undo().unwrap();
     s.undo().unwrap();
     assert_eq!(story(&s).len(), 3);
+}
+
+#[test]
+fn the_paper_is_one_undo_step() {
+    let mut s = Session::new(book());
+    let patch = s
+        .apply(Intent::SetPaper {
+            paper: folio_model::Paper::Colour,
+        })
+        .unwrap();
+    assert_eq!(
+        patch.ops,
+        vec![PatchOp::SetPaper {
+            paper: folio_model::Paper::Colour
+        }]
+    );
+    assert_eq!(s.book().paper, folio_model::Paper::Colour);
+    let undone = s.undo().unwrap();
+    assert_eq!(
+        undone.ops,
+        vec![PatchOp::SetPaper {
+            paper: folio_model::Paper::White
+        }]
+    );
 }

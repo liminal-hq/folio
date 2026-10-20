@@ -9,6 +9,7 @@ use ts_rs::TS;
 use crate::background::Background;
 use crate::book::{BookFont, Details, Grid, PageNumbers};
 use crate::colour::Colour;
+use crate::cover::Paper;
 use crate::flow::StoryPara;
 use crate::frame::{Fit, Frame, Shape, StyleOverrides, TableLook};
 use crate::ids::{FlowId, FrameId, MasterId, PageId, SpreadId, StyleId};
@@ -231,6 +232,10 @@ pub enum Intent {
     /// only one takes the story back as its own words.
     UnlinkFrame {
         frame: FrameId,
+    },
+    /// Sets the paper a printed copy is on. One undo step.
+    SetPaper {
+        paper: Paper,
     },
     /// Sets the title, subtitle, authors, description and ISBNs together. One undo step.
     SetDetails {

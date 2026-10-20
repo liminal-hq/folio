@@ -47,6 +47,11 @@ function applyOp(book: Book, op: PatchOp): Book {
 		}
 		case 'removeFlow':
 			return { ...book, flows: book.flows.filter((f) => f.id !== op.id) };
+		case 'setPaper': {
+			// Rust leaves the default, white paper out of the book, and so does the copy.
+			const { paper: _paper, ...rest } = book;
+			return op.paper !== 'white' ? { ...rest, paper: op.paper } : rest;
+		}
 		case 'setDetails': {
 			// Rust leaves a missing subtitle out of the book, and so does the copy.
 			const { subtitle: _subtitle, ...rest } = book;

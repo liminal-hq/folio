@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::background::Background;
+use crate::cover::Paper;
 use crate::flow::Flow;
 use crate::frame::Frame;
 use crate::ids::{BookId, MasterId};
@@ -71,6 +72,9 @@ pub struct Book {
     /// Where the page numbers go, kept so the masters can be made again when pages come and go.
     #[serde(default, skip_serializing_if = "PageNumbers::is_none")]
     pub page_numbers: PageNumbers,
+    /// The paper a printed copy is on, which decides how thick the spine is.
+    #[serde(default, skip_serializing_if = "is_default_paper")]
+    pub paper: Paper,
     /// Preflight issues the person has said to leave alone, each by its key (D-31).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub preflight_ignore: Vec<String>,
@@ -292,6 +296,10 @@ impl Book {
             .map(|s| s.pages.len())
             .sum()
     }
+}
+
+fn is_default_paper(paper: &Paper) -> bool {
+    *paper == Paper::default()
 }
 
 #[cfg(test)]

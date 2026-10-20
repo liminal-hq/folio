@@ -825,6 +825,7 @@ export function BookView({
 				onClose={() => setDetailsOpen(false)}
 				book={book}
 				onSave={(details) => apply({ type: 'SetDetails', details })}
+				onPaper={(paper) => apply({ type: 'SetPaper', paper })}
 			/>
 			<SoftProofDialog
 				open={proofOpen}

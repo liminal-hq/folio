@@ -1042,16 +1042,21 @@ impl<R: Runtime> Books<R> {
                     assets.insert(path, bytes);
                 }
             }
-            // The paper decides how thick the spine is.
-            let paper = match open
-                .package
-                .settings()
-                .get("paper")
-                .and_then(|p| p.as_str())
-            {
-                Some("cream") => folio_model::Paper::Cream,
-                Some("colour") => folio_model::Paper::Colour,
-                _ => folio_model::Paper::White,
+            // The paper decides how thick the spine is: the book's own, and for a book made before
+            // the paper was part of it, the one its settings name.
+            let paper = if book.paper != folio_model::Paper::default() {
+                book.paper
+            } else {
+                match open
+                    .package
+                    .settings()
+                    .get("paper")
+                    .and_then(|p| p.as_str())
+                {
+                    Some("cream") => folio_model::Paper::Cream,
+                    Some("colour") => folio_model::Paper::Colour,
+                    _ => folio_model::Paper::White,
+                }
             };
             let folder = match &open.path {
                 Some(path) => path.parent().map(Path::to_path_buf).unwrap_or_default(),

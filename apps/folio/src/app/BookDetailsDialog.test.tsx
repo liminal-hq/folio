@@ -15,8 +15,11 @@ async function setup() {
 	const made = await fake.client.newBook({});
 	const onSave = vi.fn<(details: Details) => void>();
 	const onClose = vi.fn();
-	render(<BookDetailsDialog open onClose={onClose} book={made.book} onSave={onSave} />);
-	return { onSave, onClose };
+	const onPaper = vi.fn();
+	render(
+		<BookDetailsDialog open onClose={onClose} book={made.book} onSave={onSave} onPaper={onPaper} />,
+	);
+	return { onSave, onClose, onPaper };
 }
 
 describe('BookDetailsDialog', () => {
@@ -44,5 +47,18 @@ describe('BookDetailsDialog', () => {
 		await userEvent.clear(screen.getByLabelText(/^Title/));
 		expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
 		expect(onSave).not.toHaveBeenCalled();
+	});
+
+	it('sets the paper as its own step, and only when it changed', async () => {
+		const { onPaper } = await setup();
+		await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+		expect(onPaper).not.toHaveBeenCalled();
+	});
+
+	it('passes a changed paper on', async () => {
+		const { onPaper } = await setup();
+		await userEvent.selectOptions(screen.getByRole('combobox', { name: /^Paper/ }), 'cream');
+		await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+		expect(onPaper).toHaveBeenCalledWith('cream');
 	});
 });

@@ -8,6 +8,7 @@ import type { Margins } from "./Margins";
 import type { Master } from "./Master";
 import type { MasterId } from "./MasterId";
 import type { PageNumbers } from "./PageNumbers";
+import type { Paper } from "./Paper";
 import type { Proofing } from "./Proofing";
 import type { Pt } from "./Pt";
 import type { Size } from "./Size";
@@ -17,4 +18,4 @@ import type { SpreadId } from "./SpreadId";
 /**
  * One change to the UI's copy of the book.
  */
-export type PatchOp = { "op": "setSpread", spread: Spread, } | { "op": "removeSpread", id: SpreadId, } | { "op": "setOrder", order: Array<SpreadId>, } | { "op": "setMasters", masters: Array<Master>, ids: Array<MasterId>, numbers: PageNumbers, } | { "op": "setLanguage", language: string, } | { "op": "setFlow", flow: Flow, } | { "op": "removeFlow", id: FlowId, } | { "op": "setDetails", details: Details, } | { "op": "setPreflightIgnore", keys: Array<string>, } | { "op": "setFonts", fonts: Array<BookFont>, } | { "op": "setProofing", proofing: Proofing, } | { "op": "setGeometry", trim: Size, margins: Margins, bleed: Pt, grid: Grid, };
+export type PatchOp = { "op": "setSpread", spread: Spread, } | { "op": "removeSpread", id: SpreadId, } | { "op": "setOrder", order: Array<SpreadId>, } | { "op": "setMasters", masters: Array<Master>, ids: Array<MasterId>, numbers: PageNumbers, } | { "op": "setLanguage", language: string, } | { "op": "setFlow", flow: Flow, } | { "op": "removeFlow", id: FlowId, } | { "op": "setPaper", paper: Paper, } | { "op": "setDetails", details: Details, } | { "op": "setPreflightIgnore", keys: Array<string>, } | { "op": "setFonts", fonts: Array<BookFont>, } | { "op": "setProofing", proofing: Proofing, } | { "op": "setGeometry", trim: Size, margins: Margins, bleed: Pt, grid: Grid, };
