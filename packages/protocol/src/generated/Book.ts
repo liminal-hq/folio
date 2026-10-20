@@ -27,6 +27,10 @@ masterPages?: Array<Master>,
  */
 pageNumbers?: PageNumbers, 
 /**
+ * Preflight issues the person has said to leave alone, each by its key (D-31).
+ */
+preflightIgnore?: Array<string>, 
+/**
  * Font files kept inside the package, so the book is laid out the same on a machine without
  * them (D-30). Each names a file under `assets/fonts/`.
  */

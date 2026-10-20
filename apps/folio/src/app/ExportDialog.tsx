@@ -77,7 +77,10 @@ export function ExportDialog({
 		setWaiting(null);
 		client
 			.preflightBook(id)
-			.then((items) => live && setWaiting(items.filter((i) => i.severity === 'error').length))
+			.then(
+				(items) =>
+					live && setWaiting(items.filter((i) => i.severity === 'error' && !i.ignored).length),
+			)
 			.catch(() => undefined);
 		if (autoStart && !started.current) {
 			started.current = true;

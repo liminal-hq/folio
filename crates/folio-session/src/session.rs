@@ -223,6 +223,11 @@ fn ops_between(before: &Delta, after: &Delta) -> Vec<PatchOp> {
             language: after.language.clone(),
         });
     }
+    if before.preflight_ignore != after.preflight_ignore {
+        ops.push(PatchOp::SetPreflightIgnore {
+            keys: after.preflight_ignore.clone(),
+        });
+    }
     if before.fonts != after.fonts {
         ops.push(PatchOp::SetFonts {
             fonts: after.fonts.clone(),

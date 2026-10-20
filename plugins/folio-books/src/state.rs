@@ -852,9 +852,14 @@ impl<R: Runtime> Books<R> {
                 .map(|s| s.id.0.clone())
                 .collect()
         };
+        let ignore = self.book_ignore(id)?;
         let mut items = Vec::new();
         for spread in spreads {
             items.extend(self.layout_spread(id, &spread, None)?.layout.preflight);
+        }
+        for item in &mut items {
+            item.key = item.compute_key();
+            item.ignored = ignore.contains(&item.key);
         }
         // A stable sort keeps the pages in order within each severity.
         items.sort_by_key(|item| item.severity);
@@ -1178,6 +1183,16 @@ impl<R: Runtime> Books<R> {
             self.apply(id, Intent::SetFonts { fonts: list })?;
         }
         Ok(report)
+    }
+
+    fn book_ignore(&self, id: &str) -> Result<Vec<String>, Error> {
+        let inner = locked(&self.inner);
+        inner
+            .books
+            .iter()
+            .find(|b| b.id == id)
+            .map(|open| open.session.book().preflight_ignore.clone())
+            .ok_or_else(|| Error::NoSuchBook(id.into()))
     }
 
     fn book_fonts(&self, id: &str) -> Result<Vec<BookFont>, Error> {

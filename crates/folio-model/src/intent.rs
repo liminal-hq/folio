@@ -175,6 +175,10 @@ pub enum Intent {
     SetFonts {
         fonts: Vec<BookFont>,
     },
+    /// Sets the preflight issues to leave alone, each by its key. One undo step.
+    SetPreflightIgnore {
+        keys: Vec<String>,
+    },
     /// Closes the last undo step, so the next change on the same frame starts a new one instead of
     /// joining it. It changes nothing in the book. Words typed in an editor send it before each pause
     /// or paste is kept, so undo takes back one stretch of typing at a time.
