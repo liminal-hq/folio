@@ -7,9 +7,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use folio_model::{
     Background, Book, BookId, BookKind, BookMetadata, Colour, Contributor, ContributorRole, Fit,
-    Frame, FrameBase, FrameId, Grid, ImageFrame, ImageRef, InlineContent, Isbns, LayoutMode,
-    Margins, Page, PageId, Pt, Rect, Run, Size, Spread, SpreadId, SpreadKind, StyleId, Styles,
-    TextFrame, SCHEMA_VERSION,
+    Flow, FlowId, FlowSlot, Frame, FrameBase, FrameId, Grid, ImageFrame, ImageRef, InlineContent,
+    Isbns, LayoutMode, Margins, Page, PageId, Pt, Rect, Run, Size, Spread, SpreadId, SpreadKind,
+    StoryPara, StyleId, Styles, TextFrame, SCHEMA_VERSION,
 };
 use serde_json::{json, Value};
 
@@ -76,6 +76,7 @@ pub fn new_book_with_ids(
         title: &title,
         author: &author,
         used_styles: BTreeSet::new(),
+        stories: Vec::new(),
     };
 
     let mut spreads = vec![builder.cover(spec, &cover_colour, width, height)];
@@ -88,6 +89,22 @@ pub fn new_book_with_ids(
         spreads.push(builder.empty_spread());
     }
     let used = builder.used_styles;
+    let flows: Vec<Flow> = builder
+        .stories
+        .into_iter()
+        .map(|story| Flow {
+            id: story.id,
+            // A blank line in the sample words is the end of a paragraph.
+            paragraphs: story
+                .text
+                .iter()
+                .flat_map(|t| t.split("\n\n"))
+                .map(StoryPara::plain)
+                .collect(),
+            frames: story.frames,
+            auto_add_pages: true,
+        })
+        .collect();
 
     let book = Book {
         schema: SCHEMA_VERSION,
@@ -127,7 +144,7 @@ pub fn new_book_with_ids(
             baseline: None,
         },
         spreads,
-        flows: Vec::new(),
+        flows,
         masters: Vec::new(),
         master_pages: Vec::new(),
         page_numbers: folio_model::PageNumbers::None,
@@ -206,6 +223,8 @@ struct Builder<'a> {
     title: &'a str,
     author: &'a str,
     used_styles: BTreeSet<String>,
+    /// The stories sample frames pour into, in the order they were met.
+    stories: Vec<Story>,
 }
 
 impl Builder<'_> {
@@ -257,9 +276,33 @@ impl Builder<'_> {
                 h,
                 style,
                 text,
+                flow,
             } => {
                 let text = self.substitute(style, text);
-                self.text(x * sx, y * sy, w * sx, h * sy, style, text)
+                let mut frame = self.text(x * sx, y * sy, w * sx, h * sy, style, text.clone());
+                if let (Some(name), Frame::Text(t)) = (flow, &mut frame) {
+                    // The words join the story, and the frame only shows its part of them.
+                    t.content = None;
+                    let story = match self.stories.iter_mut().find(|s| &s.name == name) {
+                        Some(story) => story,
+                        None => {
+                            self.stories.push(Story {
+                                name: name.clone(),
+                                id: FlowId((self.ids)("fl")),
+                                frames: Vec::new(),
+                                text: Vec::new(),
+                            });
+                            self.stories.last_mut().expect("just pushed")
+                        }
+                    };
+                    t.flow = Some(FlowSlot {
+                        id: story.id.clone(),
+                        index: story.frames.len() as u32,
+                    });
+                    story.frames.push(t.base.id.clone());
+                    story.text.push(text);
+                }
+                frame
             }
             SampleFrame::Image {
                 x, y, w, h, label, ..
@@ -372,4 +415,12 @@ impl Builder<'_> {
         });
         cover
     }
+}
+
+/// A story the sample frames of a kind pour into.
+struct Story {
+    name: String,
+    id: FlowId,
+    frames: Vec<FrameId>,
+    text: Vec<String>,
 }
