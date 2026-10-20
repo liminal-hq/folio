@@ -260,6 +260,9 @@ pub struct BackNote {
     pub rect: crate::Rect,
     /// The size of the words, in points.
     pub size: f64,
+    /// A picture in the box, by its asset path, instead of words.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub picture: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, TS)]

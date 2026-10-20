@@ -108,6 +108,7 @@ fn used_assets(book: &folio_model::Book) -> Vec<String> {
             found.push(asset.clone());
         }
     }
+    found.extend(book.back_notes.iter().filter_map(|n| n.picture.clone()));
     found.sort();
     found.dedup();
     found

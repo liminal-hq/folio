@@ -796,6 +796,7 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
                     h: folio_model::Pt(40.0),
                 },
                 size: 10.0,
+                picture: None,
             }],
         })
         .unwrap()
@@ -3956,6 +3957,7 @@ fn the_words_on_the_back_cover_are_one_undo_step() {
             h: Pt(40.0),
         },
         size: 10.0,
+        picture: None,
     }];
     let patch = s
         .apply(Intent::SetBackNotes {

@@ -9,4 +9,8 @@ export type BackNote = { id: string, text: string, rect: Rect,
 /**
  * The size of the words, in points.
  */
-size: number, };
+size: number, 
+/**
+ * A picture in the box, by its asset path, instead of words.
+ */
+picture?: string | null, };
