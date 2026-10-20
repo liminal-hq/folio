@@ -151,7 +151,7 @@ export function NewBookWizard({ client = tauriBooksClient }: { client?: BooksCli
 						{step === 'title' && <TitleStep draft={draft} onChange={change} />}
 						{step === 'words' && <WordsStep draft={draft} onChange={change} />}
 						{step === 'way' && <WayStep draft={draft} onChange={change} />}
-						{step === 'look' && <LookStep draft={draft} onChange={change} />}
+						{step === 'look' && <LookStep client={client} draft={draft} onChange={change} />}
 						{step === 'review' && (
 							<ReviewStep
 								kind={kinds.find((info) => info.kind === draft.kind)}

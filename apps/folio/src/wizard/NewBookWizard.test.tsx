@@ -143,6 +143,20 @@ describe('the kind and size steps', () => {
 		const made = fake.calls.find((call) => call.startsWith('newBook('));
 		expect(made).toContain('"customTrim":{"width":5.25,"height":8.5}');
 	});
+
+	it('shows the cover the chosen look and colour would give, and draws it again when they change', async () => {
+		const { fake } = mount();
+		await toStep(/The look/);
+		const image = await screen.findByRole('img', { name: 'Your cover, as it will look' });
+		const before = image.getAttribute('src');
+		await userEvent.click(screen.getByRole('radio', { name: 'Forest' }));
+		await waitFor(() =>
+			expect(
+				screen.getByRole('img', { name: 'Your cover, as it will look' }).getAttribute('src'),
+			).not.toBe(before),
+		);
+		expect(fake.calls.filter((c) => c.startsWith('previewNewBook(')).length).toBeGreaterThan(1);
+	});
 });
 
 async function toStep(name: RegExp) {
