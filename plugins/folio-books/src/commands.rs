@@ -15,7 +15,7 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow};
 use crate::error::Error;
 use crate::state::Books;
 use crate::wire::{
-    BookSnapshot, BookSpelling, BookSummary, CoverSheetPreview, DictionaryProgress,
+    BookSnapshot, BookSpelling, BookSummary, CoverCanvas, CoverSheetPreview, DictionaryProgress,
     DictionaryStatus, ExportColour, ExportReport, ExportTarget, FontChoice, FontUse,
     KeepFontsReport, ProofSpread, ReaderPreview, Recoverable, SpellCheck, SpreadLayoutResult,
     StoryChapter,
@@ -343,6 +343,18 @@ pub async fn proof_spread<R: Runtime>(
     })
     .await
     .expect("the proof task does not panic")
+}
+
+/// The cover sheet as a one-spread book with its layout, for the canvas to draw and edit.
+#[tauri::command]
+pub async fn cover_sheet_canvas<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+) -> Result<Option<CoverCanvas>, Error> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().cover_sheet_canvas(&id))
+        .await
+        .expect("the cover task does not panic")
 }
 
 /// The paperback cover sheet (back, spine and front) as the exporter would make it, as a

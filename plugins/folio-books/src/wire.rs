@@ -267,6 +267,19 @@ pub struct ProofPage {
     pub outside: f64,
 }
 
+/// The paperback cover sheet as a page the canvas can draw and edit: the sheet as a book of one
+/// spread, and that spread laid out.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct CoverCanvas {
+    pub book: folio_model::Book,
+    pub layout: SpreadLayout,
+    /// The width of the cover (back or front) in points, and of the spine between them.
+    pub cover: f64,
+    pub spine: f64,
+}
+
 /// A chapter of a story: its title, and the spread its first words are on.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
