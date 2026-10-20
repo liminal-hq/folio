@@ -2,6 +2,7 @@
 
 Product and engineering decisions for Folio. D-01 to D-07 and D-12 are defined where they arise in `spec/` and are listed here so they can be found in one place. New decisions are added here first.
 
+<<<<<<< HEAD
 | ID   | Decision                                                                                                                                                                                                   | Where                                                      |
 | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
 | D-01 | Easy and Expert modes; chosen on the welcome screen, remembered per user, never removes data                                                                                                               | `spec/01-product.md`                                       |
@@ -33,6 +34,7 @@ Product and engineering decisions for Folio. D-01 to D-07 and D-12 are defined w
 | D-40 | Exact ink lives only on named book swatches: a colour field holds `#rrggbb` or `swatch:<id>`, and every swatch stores the sRGB value it shows as (supersedes D-37; schema 2)                               | `spec/05-export.md`                                        |
 | D-41 | A paragraph style can say where its paragraphs begin (`start`: `page` or `recto`); the flow leaves frames empty to reach a right-hand page, and the Heading style opens a chapter on one                   | `spec/04-layout-engine.md`                                 |
 | D-42 | The hardcover cover (needs KDP's cover-calculator numbers), PDF/X-1a (needs a CMYK profile that may be bundled) and Jax's 3D model (needs an asset) are future work, off the plan until their inputs exist | `spec/10-covers.md`, `spec/05-export.md`, `spec/07-jax.md` |
+| D-43 | The export, colour, cover, import and story-editing plan is closed. Left as refinements, not planned: typing across the frames of a story in one box, drawing the fold and safe-area guides on the cover sheet canvas at rest, and any frame kind on the cover sheet beyond words, pictures and shapes | `spec/04-layout-engine.md`, `spec/10-covers.md`            |
 
 ## D-08 · Shared chrome and unpublished plugins are copied; published ones are dependencies
 
