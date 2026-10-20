@@ -7,8 +7,10 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 mod docx;
+mod odt;
 
 pub use docx::{import_docx, DocxError};
+pub use odt::{import_odt, OdtError};
 
 use folio_model::{join_runs, Run, StoryPara, StyleId};
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
