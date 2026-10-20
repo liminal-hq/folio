@@ -17,7 +17,7 @@ use crate::styles::Styles;
 use crate::units::{Margins, Pt, Size};
 
 /// The `book.json` schema version this build writes (and the newest it reads).
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 /// The kind of book, which selects a preset bundle of trim, bleed, grid, styles and export defaults.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]

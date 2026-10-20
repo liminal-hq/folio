@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use ts_rs::TS;
 
-use crate::colour::Colour;
+use crate::colour::{BookSwatch, Colour};
 
 /// One named style as `styles.json` stores it. Every key is optional.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
@@ -71,10 +71,27 @@ pub struct Styles {
     /// The typeface body text is drawn in.
     pub font_family: String,
     pub styles: BTreeMap<String, StyleDef>,
+    /// The colours the book names, which fields can refer to as `swatch:<id>` (D-40).
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "kept_swatches"
+    )]
+    pub swatches: Vec<BookSwatch>,
     /// Keys this version does not know (colour swatches, character styles), kept as they were.
     #[serde(flatten, skip_serializing_if = "BTreeMap::is_empty")]
     #[ts(skip)]
     pub extra: BTreeMap<String, Value>,
+}
+
+/// Reads the swatches that make sense and leaves out any that do not (one written by something else,
+/// or by an older version), so a styles file never fails to open for one.
+fn kept_swatches<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<BookSwatch>, D::Error> {
+    let raw: Vec<Value> = Vec::deserialize(d)?;
+    Ok(raw
+        .into_iter()
+        .filter_map(|v| serde_json::from_value::<BookSwatch>(v).ok())
+        .collect())
 }
 
 impl Styles {
@@ -83,6 +100,7 @@ impl Styles {
         self.look.is_empty()
             && self.font_family.is_empty()
             && self.styles.is_empty()
+            && self.swatches.is_empty()
             && self.extra.is_empty()
     }
 }
@@ -97,7 +115,7 @@ mod tests {
         let file = json!({
             "look": "classic",
             "fontFamily": "Literata",
-            "swatches": [{ "name": "Ink", "rgb": "#1c1b20" }],
+            "swatches": [{ "id": "ink", "name": "Ink", "display": "#1c1b20", "ink": { "c": 0, "m": 0, "y": 0, "k": 100 } }],
             "styles": {
                 "body": { "name": "Body", "sizePt": 10.5, "firstIndent": 1.2, "future": true },
                 "h1": { "name": "Heading", "sizePt": 24.0, "weight": 700, "sans": true }
@@ -108,6 +126,19 @@ mod tests {
         assert_eq!(styles.styles["body"].size_pt, Some(10.5));
         assert_eq!(styles.styles["body"].extra["future"], json!(true));
         assert_eq!(serde_json::to_value(&styles).unwrap(), file);
+    }
+
+    #[test]
+    fn a_swatch_that_does_not_make_sense_is_left_out_and_the_file_still_opens() {
+        let styles: Styles = serde_json::from_value(json!({
+            "swatches": [
+                { "name": "Old", "rgb": "#123456" },
+                { "id": "ok", "name": "Fine", "display": "#abcdef" }
+            ]
+        }))
+        .unwrap();
+        assert_eq!(styles.swatches.len(), 1);
+        assert_eq!(styles.swatches[0].id.0, "ok");
     }
 
     #[test]
