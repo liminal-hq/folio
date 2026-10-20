@@ -8,6 +8,7 @@ import { WindowChromeProvider } from '@liminal-hq/folio-chrome/WindowChromeProvi
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { createFakeBooksClient } from '../books/fakeBooksClient';
 import { createFakeSettingsClient } from '../settings/fakeSettingsClient';
 import { SettingsProvider } from '../settings/SettingsProvider';
 import { NewBookWizard } from './NewBookWizard';
@@ -24,7 +25,7 @@ function mount(close = () => {}) {
 	render(
 		<SettingsProvider client={createFakeSettingsClient()}>
 			<WindowChromeProvider controls={controls}>
-				<NewBookWizard />
+				<NewBookWizard client={createFakeBooksClient().client} />
 			</WindowChromeProvider>
 		</SettingsProvider>,
 	);
@@ -92,5 +93,29 @@ describe('NewBookWizard', () => {
 		mount(close);
 		await userEvent.click(screen.getByRole('button', { name: 'Skip the wizard' }));
 		expect(close).toHaveBeenCalled();
+	});
+});
+
+describe('the kind and size steps', () => {
+	it('offers the six kinds and starts on the picture book', async () => {
+		mount();
+		expect(await screen.findAllByRole('radio')).toHaveLength(6);
+		expect(screen.getByRole('radio', { name: /Picture book/ })).toBeChecked();
+	});
+
+	it('offers the sizes of the chosen kind, starting again from the first when the kind changes', async () => {
+		mount();
+		await userEvent.click(await screen.findByRole('radio', { name: /Novel/ }));
+		await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+		expect(screen.getByRole('radio', { name: '5 × 8 in' })).toBeChecked();
+		await userEvent.click(screen.getByRole('radio', { name: '6 × 9 in' }));
+		expect(screen.getByRole('radio', { name: '6 × 9 in' })).toBeChecked();
+		await userEvent.click(screen.getByRole('radio', { name: 'Cream' }));
+		expect(screen.getByRole('radio', { name: 'Cream' })).toBeChecked();
+		await userEvent.click(screen.getByRole('button', { name: /What are you making\?/ }));
+		await userEvent.click(screen.getByRole('radio', { name: /Poetry/ }));
+		await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+		expect(screen.getByRole('radio', { name: '5.5 × 8.5 in' })).toBeChecked();
+		expect(screen.getByRole('radio', { name: 'Cream' })).toBeChecked();
 	});
 });
