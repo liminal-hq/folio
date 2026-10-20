@@ -77,6 +77,8 @@ pub struct Plan {
     pub new_spread: Option<SpreadId>,
     /// The flows whose story the intent changes.
     pub flows: Vec<FlowId>,
+    /// The id the flow a `LinkFrame` starts will have.
+    pub new_flow: Option<FlowId>,
     /// Intents that repeat on one frame (a drag, a nudge, typing) merge into one undo step.
     pub merge: Option<MergeKey>,
 }
@@ -371,6 +373,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         touched: vec![id],
         new_spread: None,
         flows: Vec::new(),
+        new_flow: None,
         merge,
     };
     // The spreads a change on `on` touches: a master page is captured for every change.
@@ -381,6 +384,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         },
         new_spread: None,
         flows: Vec::new(),
+        new_flow: None,
         merge,
     };
     match intent {
@@ -428,6 +432,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: touched_by(book, frame)?,
                 new_spread: None,
                 flows: Vec::new(),
+                new_flow: None,
                 merge: focus.is_some().then(|| MergeKey::Focus(frame.clone())),
             })
         }
@@ -437,6 +442,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: Vec::new(),
                 new_spread: None,
                 flows: Vec::new(),
+                new_flow: None,
                 merge: None,
             })
         }
@@ -446,6 +452,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: Vec::new(),
                 new_spread: None,
                 flows: Vec::new(),
+                new_flow: None,
                 merge: None,
             })
         }
@@ -461,6 +468,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: Vec::new(),
                 new_spread: None,
                 flows: vec![flow.clone()],
+                new_flow: None,
                 merge: Some(MergeKey::Paragraph(flow.clone(), *para)),
             })
         }
@@ -479,6 +487,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: Vec::new(),
                 new_spread: None,
                 flows: vec![flow.clone()],
+                new_flow: None,
                 merge: None,
             })
         }
@@ -502,6 +511,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: Vec::new(),
                 new_spread: None,
                 flows: vec![flow.clone()],
+                new_flow: None,
                 merge: None,
             })
         }
@@ -538,6 +548,82 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: Vec::new(),
                 new_spread: None,
                 flows: vec![flow.clone()],
+                new_flow: None,
+                merge: None,
+            })
+        }
+        Intent::LinkFrame { frame, to } => {
+            let linkable = |id: &FrameId| -> Result<(), SessionError> {
+                let found =
+                    locate(book, id).ok_or_else(|| SessionError::NoSuchFrame(id.0.clone()))?;
+                match found {
+                    Frame::Text(_) => ensure_free(found),
+                    _ => Err(SessionError::NotText(id.0.clone())),
+                }
+            };
+            linkable(frame)?;
+            linkable(to)?;
+            let slot_of = |id: &FrameId| match locate(book, id) {
+                Some(Frame::Text(t)) => t.flow.clone(),
+                _ => None,
+            };
+            if frame == to || slot_of(frame).is_some() {
+                return Err(SessionError::BadStory(
+                    "that frame is already in a flow, or is the frame it would follow".into(),
+                ));
+            }
+            let (flow, new_flow) = match slot_of(to) {
+                Some(slot) => (slot.id, None),
+                None => {
+                    let id = FlowId(ids("fl"));
+                    (id.clone(), Some(id))
+                }
+            };
+            let mut touched = touched_by(book, frame)?;
+            touched.extend(touched_by(book, to)?);
+            // Every frame already in the flow moves along when the numbering changes.
+            if let Some(f) = book.flows.iter().find(|f| f.id == flow) {
+                for id in &f.frames {
+                    for s in touched_by(book, id)? {
+                        if !touched.contains(&s) {
+                            touched.push(s);
+                        }
+                    }
+                }
+            }
+            touched.sort_by(|a, b| a.0.cmp(&b.0));
+            touched.dedup();
+            Ok(Plan {
+                touched,
+                new_spread: None,
+                flows: vec![flow],
+                new_flow,
+                merge: None,
+            })
+        }
+        Intent::UnlinkFrame { frame } => {
+            let Some(Frame::Text(t)) = locate(book, frame) else {
+                return Err(SessionError::NotText(frame.0.clone()));
+            };
+            let Some(slot) = t.flow.clone() else {
+                return Err(SessionError::BadStory("that frame is not in a flow".into()));
+            };
+            ensure_free(locate(book, frame).expect("found above"))?;
+            let mut touched = touched_by(book, frame)?;
+            if let Some(f) = book.flows.iter().find(|f| f.id == slot.id) {
+                for id in &f.frames {
+                    for s in touched_by(book, id)? {
+                        if !touched.contains(&s) {
+                            touched.push(s);
+                        }
+                    }
+                }
+            }
+            Ok(Plan {
+                touched,
+                new_spread: None,
+                flows: vec![slot.id],
+                new_flow: None,
                 merge: None,
             })
         }
@@ -547,6 +633,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: Vec::new(),
                 new_spread: None,
                 flows: Vec::new(),
+                new_flow: None,
                 merge: None,
             })
         }
@@ -562,6 +649,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: Vec::new(),
                 new_spread: None,
                 flows: Vec::new(),
+                new_flow: None,
                 merge: None,
             })
         }
@@ -569,12 +657,14 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             touched: Vec::new(),
             new_spread: None,
             flows: Vec::new(),
+            new_flow: None,
             merge: None,
         }),
         Intent::EnsureMasters => Ok(Plan {
             touched: book.spreads.iter().map(|s| s.id.clone()).collect(),
             new_spread: None,
             flows: Vec::new(),
+            new_flow: None,
             merge: None,
         }),
         Intent::IgnoreWord { word } => {
@@ -591,6 +681,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: Vec::new(),
                 new_spread: None,
                 flows: Vec::new(),
+                new_flow: None,
                 merge: None,
             })
         }
@@ -602,6 +693,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: Vec::new(),
                 new_spread: None,
                 flows: Vec::new(),
+                new_flow: None,
                 merge: None,
             })
         }
@@ -630,6 +722,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             touched: book.spreads.iter().map(|s| s.id.clone()).collect(),
             new_spread: None,
             flows: Vec::new(),
+            new_flow: None,
             merge: None,
         }),
         Intent::SetBackground { target, bg } => {
@@ -660,6 +753,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                     touched: book.spreads.iter().map(|s| s.id.clone()).collect(),
                     new_spread: None,
                     flows: Vec::new(),
+                    new_flow: None,
                     merge,
                 }),
             }
@@ -742,6 +836,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: touched_by(book, frame)?,
                 new_spread: None,
                 flows: Vec::new(),
+                new_flow: None,
                 merge: trying.then(|| MergeKey::Shape(frame.clone())),
             })
         }
@@ -792,6 +887,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                     touched: book.spreads.iter().map(|sp| sp.id.clone()).collect(),
                     new_spread: None,
                     flows: Vec::new(),
+                    new_flow: None,
                     merge: None,
                 });
             }
@@ -823,6 +919,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                     .collect(),
                 new_spread: None,
                 flows: Vec::new(),
+                new_flow: None,
                 merge: None,
             })
         }
@@ -832,6 +929,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: touched_by(book, frame)?,
                 new_spread: None,
                 flows: Vec::new(),
+                new_flow: None,
                 merge: Some(MergeKey::Text(frame.clone())),
             })
         }
@@ -861,6 +959,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: touched_by(book, frame)?,
                 new_spread: None,
                 flows: Vec::new(),
+                new_flow: None,
                 merge: None,
             })
         }
@@ -894,6 +993,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: touched_by(book, frame)?,
                 new_spread: None,
                 flows: Vec::new(),
+                new_flow: None,
                 merge: match edit {
                     TableEdit::SetCell { row, col, .. } => {
                         Some(MergeKey::Cell(frame.clone(), *row, *col))
@@ -916,6 +1016,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched,
                 new_spread: None,
                 flows: Vec::new(),
+                new_flow: None,
                 merge: None,
             })
         }
@@ -929,6 +1030,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: touched_by(book, frame)?,
                 new_spread: None,
                 flows: Vec::new(),
+                new_flow: None,
                 merge: Some(MergeKey::Style(frame.clone())),
             })
         }
@@ -964,7 +1066,23 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                     .collect();
                 return Ok(plan);
             }
-            Ok(by(on, None))
+            let mut plan = by(on, None);
+            // A frame in a flow leaves its chain, and the frames after it are numbered again.
+            if let Frame::Text(t) = target {
+                if let Some(slot) = &t.flow {
+                    plan.flows.push(slot.id.clone());
+                    if let Some(f) = book.flows.iter().find(|f| f.id == slot.id) {
+                        for id in &f.frames {
+                            for s in touched_by(book, id)? {
+                                if !plan.touched.contains(&s) {
+                                    plan.touched.push(s);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(plan)
         }
         Intent::DuplicateFrame { on, frame } | Intent::LockFrame { on, frame, .. } => {
             let frames = frames_on(book, on)?;
@@ -988,6 +1106,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: vec![id.clone()],
                 new_spread: Some(id),
                 flows: Vec::new(),
+                new_flow: None,
                 merge: None,
             })
         }
@@ -1009,6 +1128,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: Vec::new(),
                 new_spread: None,
                 flows: Vec::new(),
+                new_flow: None,
                 merge: None,
             })
         }
@@ -1023,6 +1143,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: Vec::new(),
                 new_spread: None,
                 flows: Vec::new(),
+                new_flow: None,
                 merge: None,
             })
         }
@@ -1169,6 +1290,66 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 p.inline =
                     folio_model::style_range(&p.inline, start as usize, end as usize, &change);
             }
+        }
+        Intent::LinkFrame { frame, to } => {
+            // The frame's own words go to the end of the story.
+            let own = match locate_mut(book, &frame) {
+                Some(Frame::Text(t)) => t.content.take().map(|c| c.inline).unwrap_or_default(),
+                _ => Vec::new(),
+            };
+            let flow_id = match plan.new_flow.clone() {
+                Some(id) => {
+                    // `to` starts the flow, with its words as the story.
+                    let words = match locate_mut(book, &to) {
+                        Some(Frame::Text(t)) => {
+                            t.content.take().map(|c| c.inline).unwrap_or_default()
+                        }
+                        _ => Vec::new(),
+                    };
+                    book.flows.push(folio_model::Flow {
+                        id: id.clone(),
+                        paragraphs: StoryPara::from_runs(&words),
+                        frames: vec![to.clone()],
+                        auto_add_pages: true,
+                    });
+                    id
+                }
+                None => plan.flows[0].clone(),
+            };
+            if let Some(f) = flow_mut(book, &flow_id) {
+                let at = f
+                    .frames
+                    .iter()
+                    .position(|id| *id == to)
+                    .map_or(f.frames.len(), |i| i + 1);
+                f.frames.insert(at, frame.clone());
+                if own.iter().any(|r| !r.text.is_empty()) {
+                    f.paragraphs.extend(StoryPara::from_runs(&own));
+                }
+            }
+            renumber(book, &flow_id);
+        }
+        Intent::UnlinkFrame { frame } => {
+            let flow_id = plan.flows[0].clone();
+            let alone = flow_mut(book, &flow_id).is_some_and(|f| f.frames.len() <= 1);
+            let story = if alone {
+                book.flows
+                    .iter()
+                    .position(|f| f.id == flow_id)
+                    .map(|i| book.flows.remove(i).runs())
+            } else {
+                if let Some(f) = flow_mut(book, &flow_id) {
+                    f.frames.retain(|id| *id != frame);
+                }
+                None
+            };
+            if let Some(Frame::Text(t)) = locate_mut(book, &frame) {
+                t.flow = None;
+                if let Some(runs) = story {
+                    t.content = Some(InlineContent { inline: runs });
+                }
+            }
+            renumber(book, &flow_id);
         }
         Intent::SetDetails { details } => details.apply(book),
         Intent::SetPreflightIgnore { keys } => book.preflight_ignore = keys,
@@ -1420,8 +1601,20 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             }
         }
         Intent::DeleteFrame { on, frame } => {
+            let flow = match locate(book, &frame) {
+                Some(Frame::Text(t)) => t.flow.as_ref().map(|s| s.id.clone()),
+                _ => None,
+            };
             if let Some(frames) = frames_on_mut(book, &on) {
                 remove(frames, &frame);
+            }
+            if let Some(flow) = flow {
+                if let Some(f) = flow_mut(book, &flow) {
+                    f.frames.retain(|id| *id != frame);
+                }
+                // A flow with no frame left has nowhere to be shown.
+                book.flows.retain(|f| f.id != flow || !f.frames.is_empty());
+                renumber(book, &flow);
             }
             if matches!(on, Surface::Master(_)) {
                 for spread in &mut book.spreads {
@@ -1707,4 +1900,24 @@ fn story_of<'a>(book: &'a Book, flow: &FlowId) -> Result<&'a [StoryPara], Sessio
 
 fn flow_mut<'a>(book: &'a mut Book, flow: &FlowId) -> Option<&'a mut folio_model::Flow> {
     book.flows.iter_mut().find(|f| &f.id == flow)
+}
+
+/// Numbers the frames of a flow by their place in its chain.
+fn renumber(book: &mut Book, flow: &FlowId) {
+    let Some(frames) = book
+        .flows
+        .iter()
+        .find(|f| &f.id == flow)
+        .map(|f| f.frames.clone())
+    else {
+        return;
+    };
+    for (index, id) in frames.iter().enumerate() {
+        if let Some(Frame::Text(t)) = locate_mut(book, id) {
+            t.flow = Some(folio_model::FlowSlot {
+                id: flow.clone(),
+                index: index as u32,
+            });
+        }
+    }
 }
