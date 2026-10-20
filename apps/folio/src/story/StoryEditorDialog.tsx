@@ -19,6 +19,8 @@ interface StoryEditorDialogProps {
 	book: Book;
 	/** The flow being edited. */
 	flow: string | null;
+	/** The paragraph to put the caret in when the editor opens. */
+	focusParagraph?: number | null;
 	choices: StyleChoice[];
 	apply(intent: Intent): void;
 }
@@ -135,6 +137,7 @@ export function StoryEditorDialog({
 	onClose,
 	book,
 	flow,
+	focusParagraph = null,
 	choices,
 	apply,
 }: StoryEditorDialogProps) {
@@ -142,6 +145,9 @@ export function StoryEditorDialog({
 	const [caret, setCaret] = useState<Caret | null>(null);
 	const paragraphs = story?.paragraphs ?? [];
 	const clear = useRef(() => setCaret(null)).current;
+	useEffect(() => {
+		if (open && focusParagraph !== null) setCaret({ para: focusParagraph, at: 0 });
+	}, [open, focusParagraph]);
 
 	return (
 		<Dialog

@@ -369,6 +369,8 @@ export function BookView({
 	}, [client, dialogs, id]);
 	/** The flow whose story is open in the story editor. */
 	const [storyFlow, setStoryFlow] = useState<string | null>(null);
+	/** The paragraph the story editor opens at, when it was opened from a frame of the story. */
+	const [storyPara, setStoryPara] = useState<number | null>(null);
 	// Escape gives up choosing the frame the words continue in.
 	useEffect(() => {
 		if (linking === null) return;
@@ -659,7 +661,10 @@ export function BookView({
 							}
 							onEditText={(frame, text) => keepAsStep({ type: 'SetText', frame, text })}
 							onEditTable={(frame, edit) => keepAsStep({ type: 'EditTable', frame, edit })}
-							onEditStory={setStoryFlow}
+							onEditStory={(flow, paragraph) => {
+								setStoryPara(paragraph ?? null);
+								setStoryFlow(flow);
+							}}
 							speller={speller}
 							onEditingCell={(cell) => cell && setEditingCell(cell)}
 							editableMasters={settings.mode === 'expert'}
@@ -744,7 +749,10 @@ export function BookView({
 								languages={languages}
 								linking={linking}
 								onLink={setLinking}
-								onEditStory={setStoryFlow}
+								onEditStory={(flow) => {
+									setStoryPara(null);
+									setStoryFlow(flow);
+								}}
 							/>
 						),
 						proofing: (
@@ -923,6 +931,7 @@ export function BookView({
 				onClose={() => setStoryFlow(null)}
 				book={book}
 				flow={storyFlow}
+				focusParagraph={storyPara}
 				choices={choices}
 				apply={apply}
 			/>

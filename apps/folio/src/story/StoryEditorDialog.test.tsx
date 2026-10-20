@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createFakeBooksClient } from '../books/fakeBooksClient';
 import { StoryEditorDialog } from './StoryEditorDialog';
 
-async function setup() {
+async function setup(focusParagraph?: number) {
 	const fake = createFakeBooksClient();
 	const made = await fake.client.newBook({});
 	const book: Book = {
@@ -34,6 +34,7 @@ async function setup() {
 			onClose={() => undefined}
 			book={book}
 			flow="fl"
+			focusParagraph={focusParagraph}
 			choices={[
 				{ id: 'h1', name: 'Heading', size: 20 },
 				{ id: 'body', name: 'Body', size: 12 },
@@ -45,6 +46,11 @@ async function setup() {
 }
 
 describe('the story editor', () => {
+	it('opens with the caret in the paragraph it was asked for', async () => {
+		await setup(1);
+		expect(screen.getByRole('textbox', { name: 'Paragraph 2' })).toHaveFocus();
+	});
+
 	it('lists the paragraphs with their styles', async () => {
 		await setup();
 		expect(screen.getByRole('textbox', { name: 'Paragraph 1' })).toHaveValue('A chapter');

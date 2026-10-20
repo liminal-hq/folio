@@ -1080,6 +1080,7 @@ fn frame_layout(id: &FrameId, flowed: &Flowed, frame: usize, info: &StoryInfo) -
         origin: None,
         text_box: None,
         text_align: None,
+        first_paragraph: None,
     }
 }
 
@@ -1093,6 +1094,7 @@ fn flow_frame(id: &FrameId, laid: &Flowed, index: Option<usize>, info: &StoryInf
             origin: None,
             text_box: None,
             text_align: None,
+            first_paragraph: None,
         };
     };
     FrameLayout {
@@ -1107,5 +1109,10 @@ fn flow_frame(id: &FrameId, laid: &Flowed, index: Option<usize>, info: &StoryInf
         origin: None,
         text_box: None,
         text_align: None,
+        first_paragraph: laid
+            .lines
+            .iter()
+            .find(|l| l.frame == index)
+            .map(|l| l.paragraph as u32),
     }
 }

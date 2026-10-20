@@ -24,4 +24,9 @@ textBox?: LayoutRect | null,
 /**
  * For a shape: how its style sets the words, so an editor sets them the same way.
  */
-textAlign?: Align | null, };
+textAlign?: Align | null, 
+/**
+ * For a frame in a story: the paragraph its first line is from, so the story editor can open
+ * where the frame's words are.
+ */
+firstParagraph?: number | null, };

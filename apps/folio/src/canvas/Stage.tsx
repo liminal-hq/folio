@@ -75,7 +75,7 @@ export interface StageProps {
 	onCommand?(command: FrameCommand, ids: string[]): void;
 	onEditText?(id: string, text: string): void;
 	onEditTable?(id: string, edit: TableEdit): void;
-	onEditStory?(flow: string): void;
+	onEditStory?(flow: string, paragraph?: number): void;
 	speller?: Speller;
 	onEditingCell?(cell: { row: number; col: number } | null): void;
 	/** A choice from the page menu; `point` is where it was asked for, in points on the spread. */

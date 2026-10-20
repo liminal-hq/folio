@@ -67,7 +67,7 @@ export interface SpreadCanvasProps {
 	/** A change to a table, from editing one of its cells. */
 	onEditTable?(id: string, edit: TableEdit): void;
 	/** A frame in a story was opened for editing: the story's words are edited as a whole, apart from the page. */
-	onEditStory?(flow: string): void;
+	onEditStory?(flow: string, paragraph?: number): void;
 	/** Underlines misspelt words in the editor, when spelling is on. */
 	speller?: Speller;
 	/** The cell being edited has changed: its row and column, or `null` when none is. */
@@ -313,7 +313,7 @@ export function SpreadCanvas({
 			return;
 		}
 		if (frame.type === 'text' && frame.flow && onEditStory && !frame.locked && !frame.fromMaster) {
-			onEditStory(frame.flow.id);
+			onEditStory(frame.flow.id, byFrame.get(frame.id)?.firstParagraph ?? undefined);
 			return;
 		}
 		if (onEditText && (frame.type === 'text' || frame.type === 'shape') && canEditText(frame))
