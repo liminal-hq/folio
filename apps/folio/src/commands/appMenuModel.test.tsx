@@ -69,10 +69,11 @@ describe('the app menu', () => {
 		expect(find(open, 'file.close')).toMatchObject({ disabled: false });
 		expect(find(open, 'edit.undo')).toMatchObject({ disabled: false });
 		expect(find(open, 'edit.redo')).toMatchObject({ disabled: true });
-		// New and Open work whatever is open; Export has no behaviour yet.
+		// New and Open work whatever is open; Export needs a book.
 		expect(find(closed, 'file.new')).toMatchObject({ disabled: false });
 		expect(find(closed, 'file.open')).toMatchObject({ disabled: false });
-		expect(find(open, 'file.export')).toMatchObject({ disabled: true });
+		expect(find(open, 'file.export')).toMatchObject({ disabled: false });
+		expect(find(closed, 'file.export')).toMatchObject({ disabled: true });
 	});
 
 	it('names recent books, or says there are none', () => {
