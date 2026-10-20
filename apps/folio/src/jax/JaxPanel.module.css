@@ -2,6 +2,9 @@
 	display: grid;
 	grid-template-rows: auto 1fr;
 	flex: 0 0 470px;
+	min-block-size: 168px;
+	max-block-size: 40vh;
+	overflow-y: auto;
 	min-inline-size: 0;
 	border-inline-start: 1px solid var(--folio-border-subtle);
 	background: var(--folio-bg-raised);
