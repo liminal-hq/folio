@@ -567,8 +567,8 @@ export function createFakeBooksClient(): FakeBooks {
 				colours: [{ name: 'Moss', display: '#336633', proofed: '#406040', outside: false }],
 			};
 		},
-		async importText(id, path) {
-			await call('importText', [id, path]);
+		async importText(id, path, mapping) {
+			await call('importText', mapping ? [id, path, mapping] : [id, path]);
 			const held = find(id);
 			if (held.snapshot.book.flows.length === 0) {
 				throw {
@@ -577,7 +577,21 @@ export function createFakeBooksClient(): FakeBooks {
 						"This book's pages hold their own words, so there is no story to bring them into.",
 				};
 			}
-			return { paragraphs: 3, headings: 1, sceneBreaks: 0, notes: ['Pictures were left out.'] };
+			return {
+				paragraphs: 3,
+				headings: 1,
+				sceneBreaks: 0,
+				notes: ['Pictures were left out.'],
+				styles: [
+					{
+						name: 'Heading 1',
+						count: 1,
+						sample: 'The kettle',
+						folio: mapping?.['Heading 1'] ?? 'h1',
+					},
+					{ name: 'Normal', count: 2, sample: 'She sang.', folio: mapping?.['Normal'] || null },
+				],
+			};
 		},
 		async onExportProgress(listener) {
 			exportListeners.add(listener);

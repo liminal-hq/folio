@@ -14,7 +14,7 @@ use folio_model::{join_runs, Run, StoryPara, StyleId};
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::Reader;
 
-use crate::{ImportReport, Imported};
+use crate::{ImportReport, Imported, StyleMap, Tally};
 
 /// Why a Word file could not be read.
 #[derive(Debug, thiserror::Error)]
@@ -47,6 +47,8 @@ fn style_for(word: &str) -> Option<&'static str> {
 
 #[derive(Default)]
 struct Paragraph {
+    /// The style's name in the document, and the Folio style Folio would give it unasked.
+    source: Option<String>,
     style: Option<&'static str>,
     list: bool,
     runs: Vec<Run>,
@@ -54,6 +56,11 @@ struct Paragraph {
 
 /// Reads a `.docx` held in `bytes` into a story.
 pub fn import_docx(bytes: &[u8]) -> Result<Imported, DocxError> {
+    import_docx_with(bytes, &StyleMap::new())
+}
+
+/// Reads a `.docx` with the person's choices of Folio style for the document's styles.
+pub fn import_docx_with(bytes: &[u8], map: &StyleMap) -> Result<Imported, DocxError> {
     let mut zip = zip::ZipArchive::new(Cursor::new(bytes)).map_err(|_| DocxError::NotDocx)?;
     let mut xml = String::new();
     zip.by_name("word/document.xml")
@@ -61,10 +68,11 @@ pub fn import_docx(bytes: &[u8]) -> Result<Imported, DocxError> {
         .read_to_string(&mut xml)
         .map_err(|_| DocxError::NotDocx)?;
     let has_comments = zip.by_name("word/comments.xml").is_ok();
-    Ok(read_document(&xml, has_comments))
+    Ok(read_document(&xml, has_comments, map))
 }
 
-fn read_document(xml: &str, has_comments: bool) -> Imported {
+fn read_document(xml: &str, has_comments: bool, map: &StyleMap) -> Imported {
+    let mut tally = Tally::default();
     let mut reader = Reader::from_str(xml);
     let mut report = ImportReport::default();
     let mut note = |report: &mut ImportReport, text: &str| {
@@ -148,6 +156,7 @@ fn read_document(xml: &str, has_comments: bool) -> Imported {
                 b"pStyle" => {
                     if let (Some(p), Some(v)) = (para.as_mut(), attr(&e, b"val")) {
                         p.style = style_for(&v);
+                        p.source = Some(v);
                     }
                 }
                 b"numId" if attr(&e, b"val").is_some_and(|v| v != "0") => {
@@ -180,7 +189,7 @@ fn read_document(xml: &str, has_comments: bool) -> Imported {
                 b"tbl" => in_table = in_table.saturating_sub(1),
                 b"p" => {
                     if let Some(p) = para.take() {
-                        finish(p, &mut story, &mut report, &mut note);
+                        finish(p, &mut story, &mut report, &mut note, &mut tally, map);
                     }
                 }
                 _ => {}
@@ -189,6 +198,7 @@ fn read_document(xml: &str, has_comments: bool) -> Imported {
         }
     }
     report.paragraphs = story.len() as u32;
+    report.styles = tally.into_styles();
     Imported { story, report }
 }
 
@@ -208,10 +218,15 @@ fn finish(
     story: &mut Vec<StoryPara>,
     report: &mut ImportReport,
     note: &mut impl FnMut(&mut ImportReport, &str),
+    tally: &mut Tally,
+    map: &StyleMap,
 ) {
     if !para.runs.iter().any(|r| !r.text.trim().is_empty()) {
         return;
     }
+    let words: String = para.runs.iter().map(|r| r.text.as_str()).collect();
+    let name = para.source.as_deref().unwrap_or("Normal");
+    let style = tally.see(name, para.style, map, words.trim());
     let mut runs = para.runs;
     if para.list {
         runs.insert(0, run("\u{2013} ", false, false));
@@ -220,11 +235,11 @@ fn finish(
             "List items became paragraphs that start with a dash.",
         );
     }
-    if para.style == Some("h1") || para.style == Some("h2") {
+    if matches!(style.as_deref(), Some("h1" | "h2")) {
         report.headings += 1;
     }
     story.push(StoryPara {
-        style: para.style.map(|s| StyleId(s.to_owned())),
+        style: style.map(StyleId),
         inline: runs,
     });
 }
