@@ -2,31 +2,32 @@
 
 Product and engineering decisions for Folio. D-01 to D-07 and D-12 are defined where they arise in `spec/` and are listed here so they can be found in one place. New decisions are added here first.
 
-| ID   | Decision                                                                                                                                             | Where                        |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| D-01 | Easy and Expert modes; chosen on the welcome screen, remembered per user, never removes data                                                         | `spec/01-product.md`         |
-| D-02 | The document model lives in Rust and is the source of truth; the UI sends intents and receives patches                                               | `spec/02-architecture.md`    |
-| D-03 | Window chrome comes from the shared Liminal chrome package (title bar, app menu button, window menu, context menu)                                   | `spec/02-architecture.md`    |
-| D-04 | Theming follows the system colour scheme and accent; book pages are never themed. Tokens are Folio's own (`--folio-*`, `data-folio-theme`), see D-09 | `spec/02-architecture.md`    |
-| D-05 | `.folio` schema is an integer with migrations on open; files are never rewritten silently                                                            | `spec/03-project-format.md`  |
-| D-06 | App menu in the title bar's start slot; menu bar hidden by default                                                                                   | `spec/06-ui.md`              |
-| D-07 | Ribbon and classic toolbar both ship; the user picks                                                                                                 | `spec/06-ui.md`              |
-| D-12 | Grouped sidebar, tear-off panels, document tabs as windows                                                                                           | `spec/12-sidebar-windows.md` |
-| D-20 | Layout is Rust-owned and drawn by the UI from lines Rust positions                                                                                   | `docs/decisions.md`          |
-| D-19 | The ribbon is its own package, depending one-way on the chrome                                                                                       | `docs/decisions.md`          |
-| D-21 | Ruler guides belong to a spread, are stored in points, and are named by their place in its list                                                      | `docs/decisions.md`          |
-| D-22 | Masters belong to the person, and frames and guides are addressed by a surface                                                                       | `docs/decisions.md`          |
-| D-23 | A page's background is a field on the page, its spread or its master, and the nearest wins                                                           | `docs/decisions.md`          |
-| D-24 | Shapes are frames with their own look, and the schema stays additive until the first release                                                         | `docs/decisions.md`          |
-| D-25 | Spelling is Folio's own, from a pure-Rust checker and bundled dictionaries, on by default                                                            | `docs/decisions.md`          |
-| D-26 | A section is a field on the spread that starts it, and page labels are counted from the sections                                                     | `docs/decisions.md`          |
-| D-27 | Autosave writes a recovery copy of the book beside the real file, and a crash is recovered from it                                                   | `docs/decisions.md`          |
-| D-28 | The styles are part of the book in memory and their own file in the package                                                                          |
-| D-29 | Exporters draw from a page scene, not from the canvas                                                                                                |                              |
-| D-34 | PDFs are written with krilla from the page scene, and PDF/X is added to its output                                                                   |                              |
-| D-35 | EPUBs are written by Folio itself, reflowable first, and checked with EPUBCheck                                                                      |                              |
-| D-36 | Textures are shared data: one set of SVG tiles in `folio-presets`, drawn at 300 ppi for print and laid edge to edge from the page corner             | `spec/11-tools.md`           |
-| D-30 | A book can keep its fonts, and its own copy is laid out before an installed one of the same name                                                     |                              |
+| ID   | Decision                                                                                                                                                           | Where                        |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------- |
+| D-01 | Easy and Expert modes; chosen on the welcome screen, remembered per user, never removes data                                                                       | `spec/01-product.md`         |
+| D-02 | The document model lives in Rust and is the source of truth; the UI sends intents and receives patches                                                             | `spec/02-architecture.md`    |
+| D-03 | Window chrome comes from the shared Liminal chrome package (title bar, app menu button, window menu, context menu)                                                 | `spec/02-architecture.md`    |
+| D-04 | Theming follows the system colour scheme and accent; book pages are never themed. Tokens are Folio's own (`--folio-*`, `data-folio-theme`), see D-09               | `spec/02-architecture.md`    |
+| D-05 | `.folio` schema is an integer with migrations on open; files are never rewritten silently                                                                          | `spec/03-project-format.md`  |
+| D-06 | App menu in the title bar's start slot; menu bar hidden by default                                                                                                 | `spec/06-ui.md`              |
+| D-07 | Ribbon and classic toolbar both ship; the user picks                                                                                                               | `spec/06-ui.md`              |
+| D-12 | Grouped sidebar, tear-off panels, document tabs as windows                                                                                                         | `spec/12-sidebar-windows.md` |
+| D-20 | Layout is Rust-owned and drawn by the UI from lines Rust positions                                                                                                 | `docs/decisions.md`          |
+| D-19 | The ribbon is its own package, depending one-way on the chrome                                                                                                     | `docs/decisions.md`          |
+| D-21 | Ruler guides belong to a spread, are stored in points, and are named by their place in its list                                                                    | `docs/decisions.md`          |
+| D-22 | Masters belong to the person, and frames and guides are addressed by a surface                                                                                     | `docs/decisions.md`          |
+| D-23 | A page's background is a field on the page, its spread or its master, and the nearest wins                                                                         | `docs/decisions.md`          |
+| D-24 | Shapes are frames with their own look, and the schema stays additive until the first release                                                                       | `docs/decisions.md`          |
+| D-25 | Spelling is Folio's own, from a pure-Rust checker and bundled dictionaries, on by default                                                                          | `docs/decisions.md`          |
+| D-26 | A section is a field on the spread that starts it, and page labels are counted from the sections                                                                   | `docs/decisions.md`          |
+| D-27 | Autosave writes a recovery copy of the book beside the real file, and a crash is recovered from it                                                                 | `docs/decisions.md`          |
+| D-28 | The styles are part of the book in memory and their own file in the package                                                                                        |
+| D-29 | Exporters draw from a page scene, not from the canvas                                                                                                              |                              |
+| D-34 | PDFs are written with krilla from the page scene, and PDF/X is added to its output                                                                                 |                              |
+| D-35 | EPUBs are written by Folio itself, reflowable first, and checked with EPUBCheck                                                                                    |                              |
+| D-36 | Textures are shared data: one set of SVG tiles in `folio-presets`, drawn at 300 ppi for print and laid edge to edge from the page corner                           | `spec/11-tools.md`           |
+| D-37 | Colours stay `#rrggbb` in the book; ink (CMYK) is made at export through the chosen press profile, so there are no `cmyk(...)` colour strings or CMYK swatches yet | `spec/05-export.md`          |
+| D-30 | A book can keep its fonts, and its own copy is laid out before an installed one of the same name                                                                   |                              |
 
 ## D-08 · Shared chrome and unpublished plugins are copied; published ones are dependencies
 
