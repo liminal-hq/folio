@@ -338,6 +338,17 @@ export function BookView({
 		return () => window.removeEventListener(JAX_TOGGLE_EVENT, toggle);
 	}, []);
 	const [barcodeOpen, setBarcodeOpen] = useState(false);
+	/** The text frame whose words are to continue in the next frame clicked. */
+	const [linking, setLinking] = useState<string | null>(null);
+	// Escape gives up choosing the frame the words continue in.
+	useEffect(() => {
+		if (linking === null) return;
+		const onKey = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') setLinking(null);
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	}, [linking]);
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	// The Export dialog; `quick` makes the Sharing PDF the moment it opens.
 	const [exporting, setExporting] = useState<{ quick: boolean } | null>(null);
@@ -577,7 +588,18 @@ export function BookView({
 							zoomApi={zoomApi}
 							images={images}
 							selection={selection}
-							onSelect={select}
+							onSelect={(ids) => {
+								const target = linking !== null && ids.length === 1 ? ids[0] : undefined;
+								const frame = book.spreads.flatMap((s) => s.frames).find((f) => f.id === target);
+								// Choosing the frame the words continue in chains it after the one waiting.
+								if (frame?.type === 'text' && !frame.flow && frame.id !== linking) {
+									apply({ type: 'LinkFrame', frame: frame.id, to: linking! });
+									setLinking(null);
+									select([frame.id]);
+								} else if (linking === null) {
+									select(ids);
+								}
+							}}
 							onMove={(moves) =>
 								store.apply(
 									moves.length === 1
@@ -680,6 +702,8 @@ export function BookView({
 								images={images}
 								choosePicture={(frame) => void choosePicture(frame)}
 								languages={languages}
+								linking={linking}
+								onLink={setLinking}
 							/>
 						),
 						proofing: (

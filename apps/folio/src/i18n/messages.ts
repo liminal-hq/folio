@@ -520,6 +520,10 @@ export const messages = {
 	'inspector.words': 'Words',
 	'inspector.words.flow':
 		'These words flow from one frame to the next. Edit the story to change them.',
+	'inspector.flow.link': 'Continue in another frame',
+	'inspector.flow.choose': 'Click the empty text frame the words should continue in.',
+	'inspector.flow.cancel': 'Cancel',
+	'inspector.flow.unlink': 'Take out of the story',
 	'inspector.style': 'Style',
 	'inspector.size': 'Size',
 	'inspector.size.smaller': 'Smaller',

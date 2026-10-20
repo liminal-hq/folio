@@ -704,6 +704,21 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
         })
         .unwrap()
     });
+    record("chain a frame after the story's", &mut s, &|s| {
+        s.apply(Intent::LinkFrame {
+            frame: frame("fr_text"),
+            to: frame("fr_flowed"),
+        })
+        .unwrap()
+    });
+    record("take it out of the chain", &mut s, &|s| {
+        s.apply(Intent::UnlinkFrame {
+            frame: frame("fr_text"),
+        })
+        .unwrap()
+    });
+    record("undo unlinking", &mut s, &|s| s.undo().unwrap());
+    record("undo linking", &mut s, &|s| s.undo().unwrap());
     record("undo the bold", &mut s, &|s| s.undo().unwrap());
     record("undo the heading", &mut s, &|s| s.undo().unwrap());
     record("undo the split", &mut s, &|s| s.undo().unwrap());
@@ -3506,4 +3521,92 @@ fn a_story_edit_that_is_not_there_is_refused() {
         }),
         Err(SessionError::BadRange(_))
     ));
+}
+
+fn slot_of(s: &Session, id: &str) -> Option<(String, u32)> {
+    s.book()
+        .spreads
+        .iter()
+        .flat_map(|sp| &sp.frames)
+        .find_map(|f| match f {
+            Frame::Text(t) if t.base.id.0 == id => {
+                t.flow.as_ref().map(|f| (f.id.0.clone(), f.index))
+            }
+            _ => None,
+        })
+}
+
+#[test]
+fn frames_are_chained_into_a_flow_and_taken_out_again() {
+    let mut s = Session::new(book());
+    // The frame's own words join the end of the story, and it follows the flowed frame.
+    s.apply(Intent::LinkFrame {
+        frame: frame("fr_text"),
+        to: frame("fr_flowed"),
+    })
+    .unwrap();
+    assert_eq!(
+        s.book().flows[0].frames,
+        [frame("fr_flowed"), frame("fr_text")]
+    );
+    assert_eq!(slot_of(&s, "fr_flowed"), Some(("fl_main".into(), 0)));
+    assert_eq!(slot_of(&s, "fr_text"), Some(("fl_main".into(), 1)));
+    assert_eq!(story(&s).last().unwrap(), "Once upon a time");
+    // Taking it out leaves the story with the rest.
+    s.apply(Intent::UnlinkFrame {
+        frame: frame("fr_text"),
+    })
+    .unwrap();
+    assert_eq!(s.book().flows[0].frames, [frame("fr_flowed")]);
+    assert_eq!(slot_of(&s, "fr_text"), None);
+    // A frame that is the only one takes the story back as its own words.
+    s.apply(Intent::UnlinkFrame {
+        frame: frame("fr_flowed"),
+    })
+    .unwrap();
+    assert!(s.book().flows.is_empty());
+    assert_eq!(slot_of(&s, "fr_flowed"), None);
+    s.undo().unwrap();
+    s.undo().unwrap();
+    s.undo().unwrap();
+    assert_eq!(s.book().flows[0].frames, [frame("fr_flowed")]);
+    assert_eq!(story(&s).len(), 3);
+}
+
+#[test]
+fn a_frame_that_cannot_be_chained_is_refused_and_deleting_one_leaves_its_flow() {
+    let mut s = Session::new(book());
+    for (frame_id, to) in [
+        ("fr_pic", "fr_flowed"),
+        ("fr_flowed", "fr_flowed"),
+        ("fr_text", "fr_pic"),
+    ] {
+        assert!(s
+            .apply(Intent::LinkFrame {
+                frame: frame(frame_id),
+                to: frame(to)
+            })
+            .is_err());
+    }
+    s.apply(Intent::LinkFrame {
+        frame: frame("fr_text"),
+        to: frame("fr_flowed"),
+    })
+    .unwrap();
+    // A frame already in a flow cannot be chained again.
+    assert!(s
+        .apply(Intent::LinkFrame {
+            frame: frame("fr_text"),
+            to: frame("fr_flowed")
+        })
+        .is_err());
+    s.apply(Intent::DeleteFrame {
+        on: folio_model::Surface::Spread(spread("sp_1")),
+        frame: frame("fr_text"),
+    })
+    .unwrap();
+    assert_eq!(s.book().flows[0].frames, [frame("fr_flowed")]);
+    s.undo().unwrap();
+    assert_eq!(s.book().flows[0].frames.len(), 2);
+    assert_eq!(slot_of(&s, "fr_text"), Some(("fl_main".into(), 1)));
 }
