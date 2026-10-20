@@ -47,6 +47,7 @@ export const messages = {
 	'window.about.title': 'About Folio',
 	'window.preferences.title': 'Preferences',
 	'window.bookTools.title': 'Book Tools',
+	'window.wizardNew.title': 'New book',
 
 	// About
 	'about.tagline': 'Books, laid out by hand, without the hard parts.',
@@ -62,6 +63,21 @@ export const messages = {
 	'bookTools.heading': 'Book tools',
 	'bookTools.empty':
 		'The workbenches for structure, typesetting, pictures and publishing will open here.',
+
+	// New book wizard
+	'wizard.steps': 'Steps',
+	'wizard.step.kind': 'What are you making?',
+	'wizard.step.size': 'Size and paper',
+	'wizard.step.title': 'Title and you',
+	'wizard.step.words': 'Bring your words',
+	'wizard.step.way': 'How you like to work',
+	'wizard.step.look': 'The look',
+	'wizard.step.review': 'Review',
+	'wizard.comingSoon': 'This step is coming soon.',
+	'wizard.visited': '(visited)',
+	'wizard.skip': 'Skip the wizard',
+	'wizard.back': 'Back',
+	'wizard.next': 'Next',
 
 	// Preferences
 	'preferences.section.interface': 'Interface',

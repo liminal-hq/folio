@@ -62,6 +62,14 @@ pub fn spec_for(kind: WindowKind) -> WindowSpec {
             skip_taskbar: false,
             child_of_main: true,
         },
+        WindowKind::WizardNew => WindowSpec {
+            title: "New book",
+            size: (880.0, 640.0),
+            min_size: None,
+            resizable: false,
+            skip_taskbar: true,
+            child_of_main: true,
+        },
     }
 }
 
@@ -151,12 +159,20 @@ mod tests {
     }
 
     #[test]
+    fn the_new_book_wizard_is_a_fixed_child_of_the_main_window() {
+        let spec = spec_for(WindowKind::WizardNew);
+        assert_eq!(spec.size, (880.0, 640.0));
+        assert!(!spec.resizable && spec.skip_taskbar && spec.child_of_main);
+    }
+
+    #[test]
     fn every_kind_opens_a_window_with_its_own_label_and_reopening_makes_no_second() {
         let app = tauri::test::mock_app();
         // Book tools come before the main window: the mock runtime cannot parent a window to
         // another, which a real Book tools window does when the main window is open.
         for kind in [
             WindowKind::BookTools,
+            WindowKind::WizardNew,
             WindowKind::About,
             WindowKind::Preferences,
             WindowKind::Main,
@@ -166,7 +182,7 @@ mod tests {
                 .expect("focuses");
             assert!(app.get_webview_window(kind.label()).is_some());
         }
-        assert_eq!(app.webview_windows().len(), 4);
+        assert_eq!(app.webview_windows().len(), 5);
     }
 
     #[test]
