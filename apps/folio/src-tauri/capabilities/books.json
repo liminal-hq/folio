@@ -2,6 +2,6 @@
 	"$schema": "../gen/schemas/desktop-schema.json",
 	"identifier": "books",
 	"description": "The main window shows and changes the open books, and asks the system for the open and save pickers.",
-	"windows": ["main"],
+	"windows": ["main", "wizard-new"],
 	"permissions": ["folio-books:default", "dialog:default"]
 }

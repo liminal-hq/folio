@@ -3,4 +3,4 @@
 /**
  * The kind of window a webview label denotes.
  */
-export type WindowKind = "Main" | "About" | "Preferences" | "BookTools";
+export type WindowKind = "Main" | "About" | "Preferences" | "BookTools" | "WizardNew";

@@ -2,7 +2,7 @@
 	"$schema": "../gen/schemas/desktop-schema.json",
 	"identifier": "window-chrome",
 	"description": "Every window draws the shared title bar, so every window may control itself, read the OS titlebar preferences, and reach the window manager's own menu.",
-	"windows": ["main", "about", "preferences", "book-tools"],
+	"windows": ["main", "about", "preferences", "book-tools", "wizard-new"],
 	"permissions": [
 		"core:default",
 		"core:window:allow-start-dragging",
