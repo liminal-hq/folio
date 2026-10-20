@@ -5,6 +5,7 @@
 
 use std::path::PathBuf;
 
+use folio_layout::wire::PreflightItem;
 use folio_model::Intent;
 use folio_presets::{KindInfo, NewBookSpec, PaintPresets};
 use folio_protocol::PluginStatus;
@@ -300,6 +301,19 @@ pub async fn spell_suggest<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().spell_suggest(&id, &word))
         .await
         .expect("the spelling task does not panic")
+}
+
+/// What preflight finds in the whole book, the issues that wait on the person first.
+#[tauri::command]
+pub async fn preflight_book<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+) -> Result<Vec<PreflightItem>, Error> {
+    // Laying out every spread is work for a blocking thread, not the async runtime.
+    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().preflight(&id))
+        .await
+        .expect("the preflight task does not panic")
 }
 
 /// Every family a book can draw in, and where each comes from.

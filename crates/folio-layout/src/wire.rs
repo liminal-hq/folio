@@ -109,6 +109,40 @@ pub enum PreflightKind {
     /// in a stand-in and its lines will break differently from where the book was made. The item's
     /// `family` names it.
     FontMissing,
+    /// A picture frame has no picture yet.
+    PicturePlaceholder,
+    /// A picture has no description for screen readers.
+    AltMissing,
+}
+
+/// How much an issue matters: an error waits on the person, a warning is worth a look and a note
+/// is only for information.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(rename_all = "camelCase")]
+pub enum Severity {
+    Error,
+    Warning,
+    Note,
+}
+
+impl PreflightKind {
+    /// How much an issue of this kind matters.
+    pub fn severity(self) -> Severity {
+        match self {
+            Self::OversetText
+            | Self::PictureMissing
+            | Self::VeryLowResolution
+            | Self::PicturePlaceholder => Severity::Error,
+            Self::AltMissing => Severity::Note,
+            Self::TextOutsideMargin
+            | Self::PictureShortOfBleed
+            | Self::PoemLineTooLong
+            | Self::LowResolution
+            | Self::BleedNeeded
+            | Self::FontMissing => Severity::Warning,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
@@ -116,6 +150,7 @@ pub enum PreflightKind {
 #[serde(rename_all = "camelCase")]
 pub struct PreflightItem {
     pub kind: PreflightKind,
+    pub severity: Severity,
     pub spread: SpreadId,
     /// The frame at fault; none when it is a page's background.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -133,6 +168,7 @@ impl PreflightItem {
     pub fn of_frame(kind: PreflightKind, spread: &SpreadId, frame: &FrameId) -> Self {
         Self {
             kind,
+            severity: kind.severity(),
             spread: spread.clone(),
             frame: Some(frame.clone()),
             page: None,
@@ -144,6 +180,7 @@ impl PreflightItem {
     pub fn of_page(kind: PreflightKind, spread: &SpreadId, page: &folio_model::PageId) -> Self {
         Self {
             kind,
+            severity: kind.severity(),
             spread: spread.clone(),
             frame: None,
             page: Some(page.clone()),

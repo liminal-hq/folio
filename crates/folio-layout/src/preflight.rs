@@ -106,7 +106,16 @@ pub fn geometry_checks(book: &Book, spread: &Spread) -> Vec<PreflightItem> {
                     out.push(item(PreflightKind::TextOutsideMargin, spread, frame));
                 }
             }
-            Frame::Image(_) => {
+            Frame::Image(image) => {
+                if image.image.asset.is_none() {
+                    out.push(item(PreflightKind::PicturePlaceholder, spread, frame));
+                } else if base
+                    .description
+                    .as_deref()
+                    .is_none_or(|d| d.trim().is_empty())
+                {
+                    out.push(item(PreflightKind::AltMissing, spread, frame));
+                }
                 // Each outer edge that touches the trim must run on to the bleed line.
                 // The gutter side of an opener or a closer is the fold, not a trim edge.
                 let (left_is_trim, right_is_trim) = match spread.kind {

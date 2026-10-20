@@ -14,6 +14,7 @@ import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/Di
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
+import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
 import type { Misspelling } from '@liminal-hq/folio-protocol/generated/Misspelling';
 import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
@@ -200,6 +201,7 @@ export type {
 	FontChoice,
 	KeepFontsReport,
 	Misspelling,
+	PreflightItem,
 	SpellCheck,
 	BookSummary,
 	BooksChanged,
@@ -212,6 +214,11 @@ export type {
 	PluginStatus,
 	Recoverable,
 };
+
+/** What preflight finds in the whole book, the issues that wait on the person first. */
+export function preflightBook(id: string): Promise<PreflightItem[]> {
+	return cmd<PreflightItem[]>('preflight_book', { id });
+}
 
 /** Every family a book can draw in, and where each comes from (bundled, kept in the book or installed). */
 export function listFonts(id: string): Promise<FontChoice[]> {

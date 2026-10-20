@@ -18,6 +18,7 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
 import { applyPatch } from './applyPatch';
 import type { BooksClient, BooksListener } from './booksClient';
@@ -117,6 +118,8 @@ export interface FakeBooks {
 	misspelt: string[];
 	/** The families installed on the fake computer; a test puts some here. */
 	installedFonts: string[];
+	/** What the fake preflight finds; a test puts items here. */
+	preflightItems: PreflightItem[];
 }
 
 export function createFakeBooksClient(): FakeBooks {
@@ -127,6 +130,7 @@ export function createFakeBooksClient(): FakeBooks {
 	let counter = 0;
 	const misspelt: string[] = [];
 	const installedFonts: string[] = [];
+	const preflightItems: PreflightItem[] = [];
 	const downloaded = new Set<string>();
 	/** Books a crash left changes in; a test puts some here. */
 	const recoveries: Recoverable[] = [];
@@ -493,6 +497,11 @@ export function createFakeBooksClient(): FakeBooks {
 			downloaded.delete(id);
 			return listing();
 		},
+		async preflightBook(id) {
+			await call('preflightBook', [id]);
+			find(id);
+			return [...preflightItems];
+		},
 		async listFonts(id) {
 			await call('listFonts', [id]);
 			const kept = new Set(find(id).snapshot.book.fonts?.map((f) => f.family) ?? []);
@@ -562,6 +571,7 @@ export function createFakeBooksClient(): FakeBooks {
 		refuseNext: (name, kind, message) => refusals.set(name, { kind, message }),
 		misspelt,
 		installedFonts,
+		preflightItems,
 		recoveries,
 	};
 }
