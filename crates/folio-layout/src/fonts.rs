@@ -263,8 +263,21 @@ type CacheKey = (String, bool, u16);
 pub enum FontSource {
     /// Ships with Folio, so every machine has it.
     Bundled,
+    /// Kept inside the book, so it travels with the file.
+    Book,
     /// Installed on this computer.
     System,
+}
+
+/// A font file a book keeps with it: what it is called and where its bytes are.
+#[derive(Debug, Clone)]
+pub struct BookFace {
+    pub family: String,
+    pub weight: u16,
+    pub italic: bool,
+    /// Which face of a collection file; 0 for an ordinary font.
+    pub index: u32,
+    pub data: Arc<[u8]>,
 }
 
 /// One face a book could be drawn in, without loading its file.
@@ -279,7 +292,9 @@ pub struct FaceInfo {
 /// The bundled families, plus the system's once asked for. Cheap to share: a font is loaded the
 /// first time it is asked for and kept.
 pub struct FontBook {
-    system: Option<fontdb::Database>,
+    system: Option<Arc<fontdb::Database>>,
+    /// Fonts the book carries, looked at after the bundled ones and before the system's.
+    book: Vec<BookFace>,
     cache: Mutex<HashMap<CacheKey, Arc<Font>>>,
 }
 
@@ -294,6 +309,7 @@ impl FontBook {
     pub fn bundled() -> Self {
         Self {
             system: None,
+            book: Vec::new(),
             cache: Mutex::new(HashMap::new()),
         }
     }
@@ -303,7 +319,20 @@ impl FontBook {
         let mut db = fontdb::Database::new();
         db.load_system_fonts();
         Self {
-            system: Some(db),
+            system: Some(Arc::new(db)),
+            book: Vec::new(),
+            cache: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// This book of fonts with a book's own fonts added. The system's fonts are shared, not read
+    /// again, so making one per book is cheap. A font in the book wins over an installed one of the
+    /// same family, so the book is laid out the same on a machine that has the font and on one
+    /// that does not.
+    pub fn layered(&self, faces: Vec<BookFace>) -> Self {
+        Self {
+            system: self.system.clone(),
+            book: faces,
             cache: Mutex::new(HashMap::new()),
         }
     }
@@ -321,7 +350,7 @@ impl FontBook {
         if self.system.is_some() {
             let mut db = fontdb::Database::new();
             db.load_system_fonts();
-            self.system = Some(db);
+            self.system = Some(Arc::new(db));
         }
         self.cache.lock().expect("the font cache lock").clear();
     }
@@ -337,6 +366,12 @@ impl FontBook {
                 source: FontSource::Bundled,
             })
             .collect();
+        faces.extend(self.book.iter().map(|b| FaceInfo {
+            family: b.family.clone(),
+            weight: b.weight,
+            italic: b.italic,
+            source: FontSource::Book,
+        }));
         if let Some(db) = &self.system {
             let mut system: Vec<FaceInfo> = db
                 .faces()
@@ -353,6 +388,10 @@ impl FontBook {
                     !BUNDLED
                         .iter()
                         .any(|b| b.family.eq_ignore_ascii_case(&f.family))
+                        && !self
+                            .book
+                            .iter()
+                            .any(|b| b.family.eq_ignore_ascii_case(&f.family))
                 })
                 .collect();
             system.sort_by(|a, b| {
@@ -374,6 +413,11 @@ impl FontBook {
             .into_iter()
             .map(String::from)
             .collect();
+        for face in &self.book {
+            if !names.iter().any(|n| n.eq_ignore_ascii_case(&face.family)) {
+                names.push(face.family.clone());
+            }
+        }
         if let Some(db) = &self.system {
             let mut system: Vec<String> = db
                 .faces()
@@ -411,6 +455,9 @@ impl FontBook {
         if let Some(found) = self.find_bundled(request)? {
             return Ok(Some(found));
         }
+        if let Some(found) = self.find_book(request)? {
+            return Ok(Some(found));
+        }
         self.find_system(request)
     }
 
@@ -435,6 +482,41 @@ impl FontBook {
                 pick.family,
                 Arc::from(pick.data),
                 0,
+                pick.italic,
+                pick.weight,
+            )
+        })?;
+        Ok(Some(Resolved {
+            font,
+            family_substituted: false,
+            italic_missing: request.italic && !italic_exists,
+        }))
+    }
+
+    fn find_book(&self, request: &FontRequest<'_>) -> Result<Option<Resolved>, LayoutError> {
+        let of_family: Vec<&BookFace> = self
+            .book
+            .iter()
+            .filter(|b| b.family.eq_ignore_ascii_case(request.family))
+            .collect();
+        if of_family.is_empty() {
+            return Ok(None);
+        }
+        let italic_exists = of_family.iter().any(|b| b.italic);
+        let want_italic = request.italic && italic_exists;
+        let Some(pick) = of_family
+            .iter()
+            .filter(|b| b.italic == want_italic)
+            .min_by_key(|b| (i32::from(b.weight) - i32::from(request.weight)).abs())
+        else {
+            return Ok(None);
+        };
+        let key = (pick.family.clone(), pick.italic, pick.weight);
+        let font = self.cached(key, || {
+            Font::parse(
+                &pick.family,
+                Arc::clone(&pick.data),
+                pick.index,
                 pick.italic,
                 pick.weight,
             )
@@ -634,6 +716,39 @@ mod tests {
         assert!(faces.iter().all(|f| f.source == FontSource::Bundled));
         assert!(faces.iter().any(|f| f.family == FALLBACK_SERIF));
         assert!(faces.iter().any(|f| f.family == FALLBACK_SANS));
+    }
+
+    #[test]
+    fn a_font_the_book_keeps_is_found_by_its_family_and_not_called_a_substitute() {
+        let base = FontBook::bundled();
+        let inter = base
+            .resolve(&FontRequest::new(FALLBACK_SANS, 400, false))
+            .unwrap()
+            .font;
+        let book = base.layered(vec![BookFace {
+            family: "Zed Sans".into(),
+            weight: 400,
+            italic: false,
+            index: 0,
+            data: Arc::clone(inter.data()),
+        }]);
+        let found = book
+            .resolve(&FontRequest::new("zed sans", 400, false))
+            .unwrap();
+        assert!(!found.family_substituted);
+        assert_eq!(found.font.family(), "Zed Sans");
+        assert_eq!(found.font.face_key(), inter.face_key());
+        // The same family asked of a book without it falls back, as before.
+        assert!(
+            base.resolve(&FontRequest::new("Zed Sans", 400, false))
+                .unwrap()
+                .family_substituted
+        );
+        assert!(book.families().iter().any(|f| f == "Zed Sans"));
+        assert!(book
+            .faces()
+            .iter()
+            .any(|f| f.family == "Zed Sans" && f.source == FontSource::Book));
     }
 
     #[test]

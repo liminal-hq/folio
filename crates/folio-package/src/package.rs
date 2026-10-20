@@ -212,6 +212,29 @@ impl Package {
         path
     }
 
+    /// Adds a font file, named by its hash so the same file is kept once, and returns its path.
+    /// `extension` is `ttf`, `otf`, `ttc` or `otc`; anything else is called `ttf`.
+    pub fn add_font(&mut self, bytes: Vec<u8>, extension: &str) -> String {
+        let extension = extension.trim_start_matches('.').to_ascii_lowercase();
+        let extension = match extension.as_str() {
+            "otf" | "ttc" | "otc" => extension.as_str(),
+            _ => "ttf",
+        };
+        let path = format!("assets/fonts/{}.{extension}", sha256(&bytes));
+        self.assets
+            .entry(path.clone())
+            .or_insert(Blob::Memory(bytes));
+        self.hashes.remove(&path);
+        path
+    }
+
+    /// Takes an asset out of the package, such as a font the book no longer keeps. It is gone from
+    /// the file at the next save.
+    pub fn remove_asset(&mut self, path: &str) -> bool {
+        self.hashes.remove(path);
+        self.assets.remove(path).is_some()
+    }
+
     /// The paths of every picture, font, colour profile and thumbnail.
     pub fn asset_paths(&self) -> impl Iterator<Item = &str> {
         self.assets.keys().map(String::as_str)

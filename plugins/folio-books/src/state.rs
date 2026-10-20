@@ -9,8 +9,8 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use folio_layout::assets::sniff;
 use folio_layout::preflight::spread_assets;
-use folio_layout::{AssetFact, AssetFacts, FontBook, Layouter, StyleSheet};
-use folio_model::{Intent, SpreadId};
+use folio_layout::{AssetFact, AssetFacts, BookFace, FontBook, Layouter, StyleSheet};
+use folio_model::{BookFont, Intent, SpreadId};
 use folio_package::{Package, SaveOptions};
 use folio_presets::{kind_infos, new_book, suggest_save_path, KindInfo, NewBookSpec};
 use folio_session::{Patch, Session};
@@ -75,9 +75,44 @@ struct OpenBook {
     /// What is known of each picture, read from its header the first time layout needs it. A
     /// picture's path is its content hash, so what is known of it never goes stale.
     facts: HashMap<String, AssetFact>,
+    /// The fonts the book keeps, laid over the app's, made again only when the list changes.
+    fonts: Option<(Vec<BookFont>, Arc<FontBook>)>,
 }
 
 impl OpenBook {
+    /// The font book to lay this book out with: `base` with the fonts the book keeps added, or
+    /// `None` when it keeps none. A file that cannot be read is left out, so the family falls back
+    /// as it would if it were missing.
+    fn font_book(&mut self, base: &FontBook) -> Option<Arc<FontBook>> {
+        let kept = &self.session.book().fonts;
+        if kept.is_empty() {
+            self.fonts = None;
+            return None;
+        }
+        if let Some((list, book)) = &self.fonts {
+            if list == kept {
+                return Some(Arc::clone(book));
+            }
+        }
+        let list = kept.clone();
+        let faces: Vec<BookFace> = list
+            .iter()
+            .filter_map(|font| {
+                let data = self.package.asset_bytes(&font.path).ok()?;
+                Some(BookFace {
+                    family: font.family.clone(),
+                    weight: font.weight,
+                    italic: font.italic,
+                    index: font.index,
+                    data: Arc::from(data),
+                })
+            })
+            .collect();
+        let book = Arc::new(base.layered(faces));
+        self.fonts = Some((list, Arc::clone(&book)));
+        Some(book)
+    }
+
     /// What is known of the pictures spread `spread` uses. A picture that is not in the package is
     /// left out, which is how layout knows it is missing; one that cannot be read is unreadable.
     fn facts_for(&mut self, book: &folio_model::Book, spread: &str) -> AssetFacts {
@@ -245,6 +280,7 @@ impl<R: Runtime> Books<R> {
             recovery_id: recovery_id.unwrap_or_else(|| recovery::new_id(inner.next)),
             autosaved: None,
             facts: HashMap::new(),
+            fonts: None,
         };
         let snapshot = book.snapshot();
         inner.books.push(book);
@@ -424,7 +460,8 @@ impl<R: Runtime> Books<R> {
         spread: &str,
         spelling: Option<&[String]>,
     ) -> Result<SpreadLayoutResult, Error> {
-        let (book, styles, revision, facts) = {
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, styles, revision, facts, layered) = {
             let mut inner = locked(&self.inner);
             let open = inner
                 .books
@@ -433,14 +470,16 @@ impl<R: Runtime> Books<R> {
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
             let book = open.session.book().clone();
             let facts = open.facts_for(&book, spread);
+            let layered = open.font_book(base);
             (
                 book,
                 style_sheet(open.package.styles()),
                 open.session.revision(),
                 facts,
+                layered,
             )
         };
-        let fonts = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let fonts = layered.as_deref().unwrap_or(base);
         // Words are checked as the book's dictionary says, leaving alone those the book ignores and
         // those added for every book.
         let mut ignore = book.proofing.ignore.clone();
@@ -472,20 +511,23 @@ impl<R: Runtime> Books<R> {
     /// Lays out the text of one master page of a book, with its tokens as written, at the revision
     /// the book is at now.
     pub fn layout_master(&self, id: &str, master: &str) -> Result<SpreadLayoutResult, Error> {
-        let (book, styles, revision) = {
-            let inner = locked(&self.inner);
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, styles, revision, layered) = {
+            let mut inner = locked(&self.inner);
             let open = inner
                 .books
-                .iter()
+                .iter_mut()
                 .find(|b| b.id == id)
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let layered = open.font_book(base);
             (
                 open.session.book().clone(),
                 style_sheet(open.package.styles()),
                 open.session.revision(),
+                layered,
             )
         };
-        let fonts = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let fonts = layered.as_deref().unwrap_or(base);
         let layouter = Layouter::new(&book, &styles, fonts);
         let layout = layouter
             .layout_master(&folio_model::MasterId(master.to_string()))?

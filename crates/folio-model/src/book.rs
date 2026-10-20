@@ -70,6 +70,10 @@ pub struct Book {
     /// Where the page numbers go, kept so the masters can be made again when pages come and go.
     #[serde(default, skip_serializing_if = "PageNumbers::is_none")]
     pub page_numbers: PageNumbers,
+    /// Font files kept inside the package, so the book is laid out the same on a machine without
+    /// them (D-30). Each names a file under `assets/fonts/`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fonts: Vec<BookFont>,
     /// What the person has told the proofing tools to leave alone, kept with the book.
     #[serde(default, skip_serializing_if = "Proofing::is_empty")]
     pub proofing: Proofing,
@@ -112,6 +116,27 @@ impl Proofing {
         }
         Ok(word.to_owned())
     }
+}
+
+/// A font file the book keeps with it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct BookFont {
+    /// The family name styles and runs ask for.
+    pub family: String,
+    /// CSS weight: 400 regular, 700 bold.
+    pub weight: u16,
+    pub italic: bool,
+    /// The file in the package, such as `assets/fonts/9f2c…c1.ttf`.
+    pub path: String,
+    /// Which face of a collection file; 0 for an ordinary font.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub index: u32,
+}
+
+fn is_zero(value: &u32) -> bool {
+    *value == 0
 }
 
 /// A language tag as it would be kept (a BCP 47 code such as `en-CA` or `fr`): trimmed, a two or
