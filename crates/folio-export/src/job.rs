@@ -93,9 +93,15 @@ pub fn export_target(
     assets: &dyn Assets,
     ink: Option<&InkOptions>,
 ) -> Result<Vec<Exported>, ExportError> {
+    // Everything but a file in ink draws a swatch as the colour it shows as; a file in ink keeps the
+    // references, so each swatch can print as its exact ink.
+    let mut shown = book.clone();
+    folio_model::resolve_swatches(&mut shown);
+    let (resolved, book_in_ink) = (&shown, book);
+    let book = resolved;
     let pdf = |kind, ink: Option<InkOptions>| {
         export_pdf(
-            book,
+            if ink.is_some() { book_in_ink } else { book },
             styles,
             fonts,
             assets,
@@ -123,7 +129,7 @@ pub fn export_target(
         Target::KdpInterior => vec![pdf(PdfTarget::Print, ink.cloned())?],
         Target::PrintShopPdf => vec![pdf(PdfTarget::PrintShop, None)?],
         Target::KdpCover => {
-            let sheet = cover_sheet(book, paper).ok_or(ExportError::NoPages)?;
+            let sheet = cover_sheet(book_in_ink, paper).ok_or(ExportError::NoPages)?;
             vec![export_pdf(
                 &sheet,
                 styles,
