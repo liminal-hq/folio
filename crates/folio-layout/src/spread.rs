@@ -678,6 +678,26 @@ impl<'a> Layouter<'a> {
         Ok(high)
     }
 
+    /// How many of the flow's own frames its story reaches: at least one, and the story's frames
+    /// after those hold nothing. `None` when there is no such flow.
+    pub fn frames_used(&self, flow: &FlowId) -> Result<Option<usize>, LayoutError> {
+        let Some(chain) = self.book.flows.iter().find(|f| &f.id == flow) else {
+            return Ok(None);
+        };
+        if chain.frames.is_empty() {
+            return Ok(None);
+        }
+        let laid = self.flow_chain_with(chain, 0)?;
+        let reached = laid
+            .flowed
+            .lines
+            .iter()
+            .map(|l| l.frame + 1)
+            .max()
+            .unwrap_or(0);
+        Ok(Some(reached.max(1)))
+    }
+
     /// A flow laid out in its own frames and `extra` more like the last of them.
     fn flow_chain_with(&self, chain: &Flow, extra: usize) -> Result<FlowLayout, LayoutError> {
         let mut boxes = Vec::new();
