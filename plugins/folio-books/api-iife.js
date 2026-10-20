@@ -112,6 +112,15 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function onBooksChanged(listener) {
         return event.listen(CHANGED_EVENT, (e) => listener(e.payload));
     }
+    const EXPORT_PROGRESS_EVENT = 'folio-books://export-progress';
+    /** Hears which file an export has reached. */
+    function onExportProgress(listener) {
+        return event.listen(EXPORT_PROGRESS_EVENT, (e) => listener(e.payload));
+    }
+    /** Stops the export in progress after the file it is making; what was made is kept. */
+    function cancelExport() {
+        return cmd('cancel_export');
+    }
     /** Hears how far a dictionary download has got. */
     function onDictionaryProgress(listener) {
         return event.listen(DICTIONARY_PROGRESS_EVENT, (e) => listener(e.payload));
@@ -119,6 +128,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     /** The book as an e-reader would show it, from the same chapters and CSS the EPUB ships. */
     function readerPreview(id) {
         return cmd('reader_preview', { id });
+    }
+    /** A spread as a press would print it, through the CMYK ICC profile at `profile`. */
+    function proofSpread(id, spread, profile) {
+        return cmd('proof_spread', { id, spread, profile });
     }
     /** Makes the files for `targets` and writes them into the book's `exports` folder. */
     function exportBook(id, targets, colour) {
@@ -183,10 +196,12 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
 
     exports.CHANGED_EVENT = CHANGED_EVENT;
     exports.DICTIONARY_PROGRESS_EVENT = DICTIONARY_PROGRESS_EVENT;
+    exports.EXPORT_PROGRESS_EVENT = EXPORT_PROGRESS_EVENT;
     exports.PATCH_EVENT = PATCH_EVENT;
     exports.applyIntent = applyIntent;
     exports.assetData = assetData;
     exports.autosaveBooks = autosaveBooks;
+    exports.cancelExport = cancelExport;
     exports.closeBook = closeBook;
     exports.defaultSavePath = defaultSavePath;
     exports.dictionaries = dictionaries;
@@ -205,11 +220,13 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.newBook = newBook;
     exports.onBooksChanged = onBooksChanged;
     exports.onDictionaryProgress = onDictionaryProgress;
+    exports.onExportProgress = onExportProgress;
     exports.onPatch = onPatch;
     exports.openBook = openBook;
     exports.paintPresets = paintPresets;
     exports.preflightBook = preflightBook;
     exports.presets = presets;
+    exports.proofSpread = proofSpread;
     exports.readerPreview = readerPreview;
     exports.recoverableBooks = recoverableBooks;
     exports.redo = redo;

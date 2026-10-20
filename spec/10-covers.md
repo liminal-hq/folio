@@ -12,6 +12,8 @@ Printed covers are **one sheet**: back · spine · front, joined for printing. F
 | Inside covers | inside front · inside back | none | Hardcover endpapers / inside covers. Separate frame list |
 | eBook | front only, with a 1600 × 2560 px crop window (1 : 1.6) | — | Exports the eBook cover image from the front panel. Everything outside the crop is dimmed |
 
+**Hardcover, as KDP's Create a Hardcover Cover page says (read 2026-10-20, ⚠ re-verify):** one PDF with back, spine and front as one image; art extends 0.51 in (15 mm) past the front cover's edge to wrap the case board; 0.4 in (10 mm) hinge space between the spine and the safe area of each cover; text and images 0.635 in (16 mm) from the book's edge; the barcode box is 2 × 1.2 in at the lower right of the back cover, and a barcode of one's own sits at least 0.76 in from the bottom and 0.25 in from the hinge; a flat spine, with a headband above 120 pages; at least 300 dpi, flattened, fonts embedded, no crop marks. The page gives **no** sheet-size formula, spine factor, spine-text minimum or page limits: those come from KDP's cover calculator, so the hardcover cover is not built until those numbers are taken from it and recorded here.
+
 Geometry comes from `FOLIO_LIB.coverGeo(K, pages, paper, mode, perPage)` and mirrors `paperback_cover()` in `crates/folio-model`.
 
 ## Panel-relative frames (D-11)
@@ -56,3 +58,4 @@ The cover background runs edge to edge into the bleed or wrap on all sides (Page
 - **Price add-on (EAN-5):** No price `90000` (the self-publishing default) · US $ `5xxxx` · Canadian $ `6xxxx` · or no add-on.
 - **Output:** a `barcode` frame on the back panel at the barcode area, in 100% K vector bars with OCR-B human-readable digits. It is also exported as SVG/PDF. The ISBN is saved into Book details.
 - **Encoding:** `FOLIO_LIB.isbnInfo / ean13 / ean5 / barcodeGeo` (L/G/R tables, first-digit parity, 11-module quiet zone, guard bars extended). The Rust equivalent lives in `folio-export::barcode`.
+- **Built so far:** `folio-export::barcode` encodes an EAN-13 (L/G/R tables, first-digit parity) and the KDP cover export draws it in the barcode box when the book's paperback ISBN is valid, at the nominal 0.33 mm module, with the ISBN above and its digits below in the body face. A missing or invalid ISBN leaves the box clear for KDP to fill. **Not built:** the creator dialog, extended guard bars, OCR-B digits, the 5-digit price add-on, and putting the bars through the K-only separation as a distinct object.

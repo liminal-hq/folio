@@ -7,8 +7,10 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { ProofPage } from '@liminal-hq/folio-protocol/generated/ProofPage';
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
 import type { ExportColour } from '@liminal-hq/folio-protocol/generated/ExportColour';
+import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
 import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
 import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
@@ -31,6 +33,9 @@ import {
 	unkeepFonts,
 	readerPreview,
 	exportBook,
+	proofSpread,
+	onExportProgress,
+	cancelExport,
 	revealPath,
 	preflightBook,
 	keepFonts,
@@ -117,6 +122,12 @@ export interface BooksClient {
 	spellSuggest(id: string, word: string): Promise<string[]>;
 	/** The book as an e-reader would show it, from the same chapters and CSS the EPUB ships. */
 	readerPreview(id: string): Promise<ReaderPreview>;
+	/** A spread as a press would print it, through the CMYK ICC profile at `profile`. */
+	proofSpread(id: string, spread: string, profile: string): Promise<ProofPage[]>;
+	/** Hears which file an export has reached. */
+	onExportProgress(listener: (progress: ExportProgress) => void): Promise<() => void>;
+	/** Stops the export in progress after the file it is making; what was made is kept. */
+	cancelExport(): Promise<void>;
 	/** Makes the files for `targets` and writes them into the book's `exports` folder. */
 	exportBook(id: string, targets: ExportTarget[], colour?: ExportColour): Promise<ExportReport>;
 	/** Shows a file in the system's file manager. */
@@ -171,6 +182,9 @@ export const tauriBooksClient: BooksClient = {
 	spellSuggest,
 	readerPreview,
 	exportBook,
+	proofSpread,
+	onExportProgress,
+	cancelExport,
 	revealPath,
 	preflightBook,
 	fontsInUse,

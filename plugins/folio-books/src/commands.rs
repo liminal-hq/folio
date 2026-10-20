@@ -16,8 +16,8 @@ use crate::error::Error;
 use crate::state::Books;
 use crate::wire::{
     BookSnapshot, BookSpelling, BookSummary, DictionaryProgress, DictionaryStatus, ExportColour,
-    ExportReport, ExportTarget, FontChoice, FontUse, KeepFontsReport, ReaderPreview, Recoverable,
-    SpellCheck, SpreadLayoutResult,
+    ExportReport, ExportTarget, FontChoice, FontUse, KeepFontsReport, ProofPage, ReaderPreview,
+    Recoverable, SpellCheck, SpreadLayoutResult,
 };
 use crate::DICTIONARY_PROGRESS_EVENT;
 
@@ -316,6 +316,23 @@ pub async fn reader_preview<R: Runtime>(
         .expect("the preview task does not panic")
 }
 
+/// A spread as a press would print it, through the CMYK ICC profile at `profile`.
+#[tauri::command]
+pub async fn proof_spread<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    spread: String,
+    profile: String,
+) -> Result<Vec<ProofPage>, Error> {
+    // Drawing and converting every pixel is work for a blocking thread, not the async runtime.
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Books<R>>().proof_spread(&id, &spread, &profile)
+    })
+    .await
+    .expect("the proof task does not panic")
+}
+
 /// Makes the files for `targets` and writes them into the book's `exports` folder.
 #[tauri::command]
 pub async fn export_book<R: Runtime>(
@@ -332,6 +349,16 @@ pub async fn export_book<R: Runtime>(
     })
     .await
     .expect("the export task does not panic")
+}
+
+/// Stops the export in progress after the file it is making; what was made is kept.
+#[tauri::command]
+pub async fn cancel_export<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+) -> Result<(), Error> {
+    books.cancel_export();
+    Ok(())
 }
 
 /// Shows a file in the system's file manager.

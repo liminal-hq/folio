@@ -1,0 +1,56 @@
+.intro {
+	margin: 0 0 12px;
+	color: var(--folio-text-muted);
+	font-size: 13px;
+}
+
+.field {
+	display: grid;
+	gap: 4px;
+	margin-bottom: 12px;
+}
+
+.field input {
+	padding: 6px 8px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-bg-raised);
+	color: inherit;
+	font: inherit;
+}
+
+.error {
+	margin: 0 0 12px;
+	color: var(--folio-danger);
+}
+
+.toggle {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.pages {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+}
+
+.page {
+	flex: 1 1 200px;
+	margin: 0;
+}
+
+.page img {
+	display: block;
+	max-inline-size: 100%;
+	block-size: auto;
+	border: 1px solid var(--folio-border-subtle);
+}
+
+.page figcaption {
+	margin-top: 4px;
+	color: var(--folio-text-muted);
+	font-size: 13px;
+}

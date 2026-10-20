@@ -5,6 +5,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use folio_layout::assets::sniff;
@@ -22,12 +23,12 @@ use crate::error::Error;
 use crate::recovery::{self, Recovery};
 use crate::spelling::Spelling;
 use crate::wire::{
-    BookSnapshot, BookSpelling, BookSummary, BooksChanged, ExportColour, ExportReport,
-    ExportTarget, ExportedFile, FontChoice, FontLicence, FontOrigin, FontSkip, FontUse,
-    KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, PreviewChapter, PreviewImage,
-    ReaderPreview, Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult,
+    BookSnapshot, BookSpelling, BookSummary, BooksChanged, ExportColour, ExportProgress,
+    ExportReport, ExportTarget, ExportedFile, FontChoice, FontLicence, FontOrigin, FontSkip,
+    FontUse, KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, PreviewChapter, PreviewImage,
+    ProofPage, ReaderPreview, Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult,
 };
-use crate::{CHANGED_EVENT, PATCH_EVENT};
+use crate::{CHANGED_EVENT, EXPORT_PROGRESS_EVENT, PATCH_EVENT};
 
 /// What happened to the open books, for the app to react to (the recents list, for one).
 #[derive(Debug, Clone)]
@@ -240,6 +241,8 @@ pub struct Books<R: Runtime> {
     pub(crate) spelling: Spelling,
     /// Copies of books with changes, for coming back after a crash.
     pub(crate) recovery: Recovery,
+    /// Set to stop the export in progress before its next file.
+    cancel_export: AtomicBool,
 }
 
 impl<R: Runtime> Books<R> {
@@ -253,7 +256,13 @@ impl<R: Runtime> Books<R> {
             fonts: OnceLock::new(),
             spelling: Spelling::default(),
             recovery: Recovery::default(),
+            cancel_export: AtomicBool::new(false),
         }
+    }
+
+    /// Stops the export in progress after the file it is making.
+    pub fn cancel_export(&self) {
+        self.cancel_export.store(true, Ordering::SeqCst);
     }
 
     /// Runs `hook` after a book opens, saves or closes.
@@ -866,6 +875,61 @@ impl<R: Runtime> Books<R> {
         Ok(items)
     }
 
+    /// A spread as a press would print it, through the CMYK ICC profile at `profile`.
+    pub fn proof_spread(
+        &self,
+        id: &str,
+        spread: &str,
+        profile: &str,
+    ) -> Result<Vec<ProofPage>, Error> {
+        use base64::Engine as _;
+        let press = std::fs::read(profile).map_err(|e| Error::Export(format!("{profile}: {e}")))?;
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, styles, assets, layered) = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let book = open.session.book().clone();
+            let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
+            for path in used_assets(&book) {
+                if let Ok(bytes) = open.package.asset_bytes(&path) {
+                    assets.insert(path, bytes);
+                }
+            }
+            let styles = style_sheet(&book.styles);
+            (book, styles, assets, open.font_book(base))
+        };
+        let fonts = layered.as_deref().unwrap_or(base);
+        let pages = folio_export::proof::proof_spread(
+            &book,
+            &styles,
+            fonts,
+            &MemoryAssets(assets),
+            &SpreadId(spread.to_owned()),
+            &press,
+            720,
+        )
+        .map_err(|e| Error::Export(format!("{profile}: {e}")))?
+        .ok_or_else(|| Error::Export(format!("no spread {spread}")))?;
+        let uri = |png: Vec<u8>| {
+            format!(
+                "data:image/png;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(png)
+            )
+        };
+        Ok(pages
+            .into_iter()
+            .map(|p| ProofPage {
+                original: uri(p.original),
+                proofed: uri(p.proofed),
+                outside: p.outside,
+            })
+            .collect())
+    }
+
     /// The book as an e-reader would show it, from the same chapters and CSS the EPUB ships.
     pub fn reader_preview(&self, id: &str) -> Result<ReaderPreview, Error> {
         use base64::Engine as _;
@@ -984,8 +1048,23 @@ impl<R: Runtime> Books<R> {
         let mut report = ExportReport {
             folder: folder.to_string_lossy().into_owned(),
             files: Vec::new(),
+            cancelled: false,
         };
-        for &target in targets {
+        self.cancel_export.store(false, Ordering::SeqCst);
+        for (done, &target) in targets.iter().enumerate() {
+            let progress = ExportProgress {
+                id: id.to_owned(),
+                target,
+                done: done as u32,
+                total: targets.len() as u32,
+            };
+            if let Err(e) = self.app.emit(EXPORT_PROGRESS_EVENT, progress) {
+                log::warn!("could not send the export's progress: {e}");
+            }
+            if self.cancel_export.swap(false, Ordering::SeqCst) {
+                report.cancelled = true;
+                break;
+            }
             let made = folio_export::export_target(
                 match target {
                     ExportTarget::SharingPdf => folio_export::Target::SharingPdf,

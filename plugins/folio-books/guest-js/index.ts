@@ -13,11 +13,13 @@ import type { DictionaryOffer } from '@liminal-hq/folio-protocol/generated/Dicti
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import type { ExportColour } from '@liminal-hq/folio-protocol/generated/ExportColour';
+import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
 import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
 import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
 import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
+import type { ProofPage } from '@liminal-hq/folio-protocol/generated/ProofPage';
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
 import type { Misspelling } from '@liminal-hq/folio-protocol/generated/Misspelling';
@@ -191,6 +193,18 @@ export function onBooksChanged(listener: (event: BooksChanged) => void): Promise
 	return listen<BooksChanged>(CHANGED_EVENT, (e) => listener(e.payload));
 }
 
+export const EXPORT_PROGRESS_EVENT = 'folio-books://export-progress';
+
+/** Hears which file an export has reached. */
+export function onExportProgress(listener: (event: ExportProgress) => void): Promise<UnlistenFn> {
+	return listen<ExportProgress>(EXPORT_PROGRESS_EVENT, (e) => listener(e.payload));
+}
+
+/** Stops the export in progress after the file it is making; what was made is kept. */
+export function cancelExport(): Promise<void> {
+	return cmd<void>('cancel_export');
+}
+
 /** Hears how far a dictionary download has got. */
 export function onDictionaryProgress(
 	listener: (event: DictionaryProgress) => void,
@@ -227,6 +241,11 @@ export type {
 /** The book as an e-reader would show it, from the same chapters and CSS the EPUB ships. */
 export function readerPreview(id: string): Promise<ReaderPreview> {
 	return cmd<ReaderPreview>('reader_preview', { id });
+}
+
+/** A spread as a press would print it, through the CMYK ICC profile at `profile`. */
+export function proofSpread(id: string, spread: string, profile: string): Promise<ProofPage[]> {
+	return cmd<ProofPage[]>('proof_spread', { id, spread, profile });
 }
 
 /** Makes the files for `targets` and writes them into the book's `exports` folder. */

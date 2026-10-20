@@ -25,6 +25,7 @@ import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../can
 import { keepWords } from '../canvas/editCheckpoint';
 import { CheckBookDialog } from './CheckBookDialog';
 import { ExportDialog } from './ExportDialog';
+import { SoftProofDialog } from './SoftProofDialog';
 import { EXPORT_EVENT } from './exportRequest';
 import { ReaderView } from './ReaderView';
 import { PageBackgroundDialog } from '../canvas/PageBackgroundDialog';
@@ -320,6 +321,7 @@ export function BookView({
 
 	// The Check book dialog, and the frame to select once "Show me" has gone to its spread.
 	const [checking, setChecking] = useState(false);
+	const [proofOpen, setProofOpen] = useState(false);
 	// The Export dialog; `quick` makes the Sharing PDF the moment it opens.
 	const [exporting, setExporting] = useState<{ quick: boolean } | null>(null);
 	useEffect(() => {
@@ -470,6 +472,9 @@ export function BookView({
 				break;
 			case 'checkBook':
 				setChecking(true);
+				break;
+			case 'softProof':
+				setProofOpen(true);
 				break;
 			case 'exportBook':
 				setExporting({ quick: action.quick });
@@ -767,6 +772,13 @@ export function BookView({
 				id={id}
 				autoStart={exporting?.quick ? ['sharingPdf'] : null}
 				onCheck={() => setChecking(true)}
+			/>
+			<SoftProofDialog
+				open={proofOpen}
+				onClose={() => setProofOpen(false)}
+				client={client}
+				id={id}
+				spread={spread.id}
 			/>
 			<CheckBookDialog
 				open={checking}
