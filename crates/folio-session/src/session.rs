@@ -123,9 +123,9 @@ impl Session {
             });
         }
         let plan = plan(&self.book, &intent, &mut self.ids)?;
-        let before = Delta::capture(&self.book, &plan.touched);
+        let before = Delta::capture(&self.book, &plan.touched, &plan.flows);
         run(&mut self.book, intent, &plan, &mut self.ids);
-        let after = Delta::capture(&self.book, &plan.touched);
+        let after = Delta::capture(&self.book, &plan.touched, &plan.flows);
 
         let ops = ops_between(&before, &after);
         if ops.is_empty() {
@@ -222,6 +222,19 @@ fn ops_between(before: &Delta, after: &Delta) -> Vec<PatchOp> {
         ops.push(PatchOp::SetLanguage {
             language: after.language.clone(),
         });
+    }
+    for (id, now) in &after.flows {
+        let was = before
+            .flows
+            .iter()
+            .find(|(b, _)| b == id)
+            .and_then(|(_, f)| f.as_ref());
+        match (was, now) {
+            (Some(was), Some(now)) if was == now => {}
+            (_, Some(now)) => ops.push(PatchOp::SetFlow { flow: now.clone() }),
+            (Some(_), None) => ops.push(PatchOp::RemoveFlow { id: id.clone() }),
+            (None, None) => {}
+        }
     }
     if before.details != after.details {
         ops.push(PatchOp::SetDetails {

@@ -6,7 +6,7 @@
 use std::time::{Duration, Instant};
 
 use folio_model::{
-    Axis, Book, BookFont, Frame, FrameId, Grid, Intent, Margins, Pt, Rect, ReorderTo, Size,
+    Axis, Book, BookFont, FlowId, Frame, FrameId, Grid, Intent, Margins, Pt, Rect, ReorderTo, Size,
     SpreadId, SpreadKind, StyleId, StyleOverrides, Surface,
 };
 use folio_session::{PatchOp, Session, SessionError, COALESCE_WINDOW, UNDO_DEPTH};
@@ -31,6 +31,11 @@ fn book() -> Book {
             ] },
             { "id": "sp_2", "kind": "spread", "pages": [{ "id": "pg_2", "master": null }, { "id": "pg_3", "master": null }], "frames": [] }
         ],
+        "flows": [{ "id": "fl_main", "frames": ["fr_flowed"], "paragraphs": [
+            { "inline": [{ "text": "A chapter" }] },
+            { "inline": [{ "text": "The otter slept." }] },
+            { "inline": [{ "text": "Morning came." }] }
+        ] }],
         "metadata": { "isbn": { "paperback": null, "hardcover": null, "ebook": null }, "description": "" }
     }))
     .unwrap()
@@ -643,6 +648,52 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
         .unwrap()
     });
     record("undo leaving it alone", &mut s, &|s| s.undo().unwrap());
+    record("type in a paragraph of the story", &mut s, &|s| {
+        s.apply(Intent::SetParagraphText {
+            flow: FlowId("fl_main".into()),
+            para: 1,
+            text: "The otter slept well.".into(),
+        })
+        .unwrap()
+    });
+    record("split a paragraph with Enter", &mut s, &|s| {
+        s.apply(Intent::SpliceStory {
+            flow: FlowId("fl_main".into()),
+            at: 1,
+            remove: 1,
+            insert: vec![
+                folio_model::StoryPara::plain("The otter"),
+                folio_model::StoryPara::plain(" slept well."),
+            ],
+        })
+        .unwrap()
+    });
+    record("make a paragraph a heading", &mut s, &|s| {
+        s.apply(Intent::StyleParagraphs {
+            flow: FlowId("fl_main".into()),
+            from: 0,
+            to: 0,
+            style: Some(folio_model::StyleId("h1".into())),
+        })
+        .unwrap()
+    });
+    record("make a word in the story bold", &mut s, &|s| {
+        s.apply(Intent::StyleStoryRange {
+            flow: FlowId("fl_main".into()),
+            para: 3,
+            start: 1,
+            end: 6,
+            change: folio_model::RunChange {
+                bold: Some(true),
+                ..Default::default()
+            },
+        })
+        .unwrap()
+    });
+    record("undo the bold", &mut s, &|s| s.undo().unwrap());
+    record("undo the heading", &mut s, &|s| s.undo().unwrap());
+    record("undo the split", &mut s, &|s| s.undo().unwrap());
+    record("undo the typing", &mut s, &|s| s.undo().unwrap());
     record("set the details", &mut s, &|s| {
         s.apply(Intent::SetDetails {
             details: details("A New Title", Some("A subtitle"), "9780306406157"),
@@ -3244,4 +3295,144 @@ fn a_stretch_is_styled_in_one_undo_step_and_survives_edits_around_it() {
             Err(SessionError::BadRange(_))
         ));
     }
+}
+
+fn story(s: &Session) -> Vec<String> {
+    s.book().flows[0]
+        .paragraphs
+        .iter()
+        .map(|p| p.text())
+        .collect()
+}
+
+#[test]
+fn the_story_is_edited_a_paragraph_at_a_time_and_every_edit_undoes() {
+    let mut s = Session::new(book());
+    let flow = FlowId("fl_main".into());
+    // Typing in one paragraph merges into one step; the words not touched keep their look.
+    s.apply(Intent::SetParagraphText {
+        flow: flow.clone(),
+        para: 1,
+        text: "The otter slept w".into(),
+    })
+    .unwrap();
+    s.apply(Intent::SetParagraphText {
+        flow: flow.clone(),
+        para: 1,
+        text: "The otter slept well.".into(),
+    })
+    .unwrap();
+    assert_eq!(story(&s)[1], "The otter slept well.");
+    s.undo().unwrap();
+    assert_eq!(story(&s)[1], "The otter slept.");
+    // Enter splits, Backspace joins; both are splices.
+    s.apply(Intent::SpliceStory {
+        flow: flow.clone(),
+        at: 1,
+        remove: 1,
+        insert: vec![
+            folio_model::StoryPara::plain("The otter"),
+            folio_model::StoryPara::plain(" slept."),
+        ],
+    })
+    .unwrap();
+    assert_eq!(
+        story(&s),
+        ["A chapter", "The otter", " slept.", "Morning came."]
+    );
+    s.apply(Intent::SpliceStory {
+        flow: flow.clone(),
+        at: 1,
+        remove: 2,
+        insert: vec![folio_model::StoryPara::plain("The otter slept.")],
+    })
+    .unwrap();
+    assert_eq!(
+        story(&s),
+        ["A chapter", "The otter slept.", "Morning came."]
+    );
+    // A paragraph style and a bold stretch.
+    s.apply(Intent::StyleParagraphs {
+        flow: flow.clone(),
+        from: 0,
+        to: 0,
+        style: Some(StyleId("h1".into())),
+    })
+    .unwrap();
+    s.apply(Intent::StyleStoryRange {
+        flow: flow.clone(),
+        para: 1,
+        start: 4,
+        end: 9,
+        change: folio_model::RunChange {
+            bold: Some(true),
+            ..Default::default()
+        },
+    })
+    .unwrap();
+    let paragraphs = &s.book().flows[0].paragraphs;
+    assert_eq!(
+        paragraphs[0].style.as_ref().map(|s| s.0.as_str()),
+        Some("h1")
+    );
+    assert!(paragraphs[1]
+        .inline
+        .iter()
+        .any(|r| r.bold && r.text == "otter"));
+    // Undo takes each back.
+    while s.undo().is_some() {}
+    assert_eq!(
+        story(&s),
+        ["A chapter", "The otter slept.", "Morning came."]
+    );
+    assert!(s.book().flows[0].paragraphs[0].style.is_none());
+}
+
+#[test]
+fn a_story_edit_that_is_not_there_is_refused() {
+    let mut s = Session::new(book());
+    let flow = FlowId("fl_main".into());
+    let gone = FlowId("nope".into());
+    for bad in [
+        Intent::SetParagraphText {
+            flow: flow.clone(),
+            para: 9,
+            text: "x".into(),
+        },
+        Intent::SpliceStory {
+            flow: flow.clone(),
+            at: 2,
+            remove: 5,
+            insert: Vec::new(),
+        },
+        Intent::StyleParagraphs {
+            flow: flow.clone(),
+            from: 2,
+            to: 1,
+            style: None,
+        },
+    ] {
+        assert!(matches!(s.apply(bad), Err(SessionError::BadStory(_))));
+    }
+    assert!(matches!(
+        s.apply(Intent::SetParagraphText {
+            flow: gone,
+            para: 0,
+            text: "x".into()
+        }),
+        Err(SessionError::NoSuchFlow(_))
+    ));
+    assert!(matches!(
+        s.apply(Intent::StyleStoryRange {
+            flow,
+            para: 0,
+            start: 0,
+            end: 99,
+            change: folio_model::RunChange {
+                bold: Some(true),
+                ..Default::default()
+            }
+        }),
+        Err(SessionError::BadRange(_))
+    ));
 }
