@@ -19,7 +19,7 @@ use crate::preflight::{asset_checks, geometry_checks};
 use crate::styles::{ResolvedStyle, StyleSheet};
 use crate::wire::{
     FrameLayout, LayoutLine, LayoutRect, LayoutRun, Origin, PreflightItem, PreflightKind,
-    SpreadLayout,
+    SceneGlyph, SpreadLayout,
 };
 
 /// Finds the misspelt words of some text, as ranges of its bytes.
@@ -678,6 +678,10 @@ impl<'a> Layouter<'a> {
                             italic,
                             tracking: s.style.tracking_em,
                             colour: s.style.colour.clone(),
+                            face_key: found
+                                .as_ref()
+                                .map(|r| r.font.face_key().to_string())
+                                .unwrap_or_default(),
                         }
                     })
                     .collect()
@@ -727,6 +731,7 @@ struct RunStyle {
     italic: bool,
     tracking: f64,
     colour: Option<Colour>,
+    face_key: String,
 }
 
 fn paragraph_from(spans: Vec<Span>, style: &ResolvedStyle) -> StoryParagraph {
@@ -804,6 +809,7 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo) -> LayoutLine {
                     italic: false,
                     tracking: 0.0,
                     colour: None,
+                    face_key: String::new(),
                 });
             LayoutRun {
                 text: r.text.clone(),
@@ -817,6 +823,18 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo) -> LayoutLine {
                 colour: s.colour,
                 hyphen: r.hyphen,
                 miss,
+                face_key: s.face_key,
+                glyphs: r
+                    .glyphs
+                    .iter()
+                    .map(|g| SceneGlyph {
+                        id: g.id,
+                        cluster: g.cluster,
+                        advance: g.advance,
+                        dx: g.dx,
+                        dy: g.dy,
+                    })
+                    .collect(),
             }
         })
         .collect();

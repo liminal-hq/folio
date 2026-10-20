@@ -16,6 +16,7 @@ pub mod fonts;
 pub mod hyphenate;
 pub mod paragraph;
 pub mod preflight;
+pub mod scene;
 pub mod shape;
 pub mod spread;
 pub mod styles;
