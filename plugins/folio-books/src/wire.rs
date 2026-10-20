@@ -254,6 +254,19 @@ pub struct ExportColour {
     pub profile: Option<String>,
 }
 
+/// One page of a spread as drawn and as a press would print it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ProofPage {
+    /// The page as drawn, a `data:image/png` URI.
+    pub original: String,
+    /// The page through the press's profile, a `data:image/png` URI.
+    pub proofed: String,
+    /// How much of the page, in per cent, is a colour the press cannot reproduce.
+    pub outside: f64,
+}
+
 /// What an export wrote, and where.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

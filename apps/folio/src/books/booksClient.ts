@@ -7,6 +7,7 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { ProofPage } from '@liminal-hq/folio-protocol/generated/ProofPage';
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
 import type { ExportColour } from '@liminal-hq/folio-protocol/generated/ExportColour';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
@@ -31,6 +32,7 @@ import {
 	unkeepFonts,
 	readerPreview,
 	exportBook,
+	proofSpread,
 	revealPath,
 	preflightBook,
 	keepFonts,
@@ -118,6 +120,8 @@ export interface BooksClient {
 	/** The book as an e-reader would show it, from the same chapters and CSS the EPUB ships. */
 	readerPreview(id: string): Promise<ReaderPreview>;
 	/** Makes the files for `targets` and writes them into the book's `exports` folder. */
+	/** A spread as a press would print it, through the CMYK ICC profile at `profile`. */
+	proofSpread(id: string, spread: string, profile: string): Promise<ProofPage[]>;
 	exportBook(id: string, targets: ExportTarget[], colour?: ExportColour): Promise<ExportReport>;
 	/** Shows a file in the system's file manager. */
 	revealPath(path: string): Promise<void>;
@@ -171,6 +175,7 @@ export const tauriBooksClient: BooksClient = {
 	spellSuggest,
 	readerPreview,
 	exportBook,
+	proofSpread,
 	revealPath,
 	preflightBook,
 	fontsInUse,

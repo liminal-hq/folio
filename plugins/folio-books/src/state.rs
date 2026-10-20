@@ -25,7 +25,7 @@ use crate::wire::{
     BookSnapshot, BookSpelling, BookSummary, BooksChanged, ExportColour, ExportReport,
     ExportTarget, ExportedFile, FontChoice, FontLicence, FontOrigin, FontSkip, FontUse,
     KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, PreviewChapter, PreviewImage,
-    ReaderPreview, Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult,
+    ProofPage, ReaderPreview, Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult,
 };
 use crate::{CHANGED_EVENT, PATCH_EVENT};
 
@@ -864,6 +864,61 @@ impl<R: Runtime> Books<R> {
         // A stable sort keeps the pages in order within each severity.
         items.sort_by_key(|item| item.severity);
         Ok(items)
+    }
+
+    /// A spread as a press would print it, through the CMYK ICC profile at `profile`.
+    pub fn proof_spread(
+        &self,
+        id: &str,
+        spread: &str,
+        profile: &str,
+    ) -> Result<Vec<ProofPage>, Error> {
+        use base64::Engine as _;
+        let press = std::fs::read(profile).map_err(|e| Error::Export(format!("{profile}: {e}")))?;
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, styles, assets, layered) = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let book = open.session.book().clone();
+            let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
+            for path in used_assets(&book) {
+                if let Ok(bytes) = open.package.asset_bytes(&path) {
+                    assets.insert(path, bytes);
+                }
+            }
+            let styles = style_sheet(&book.styles);
+            (book, styles, assets, open.font_book(base))
+        };
+        let fonts = layered.as_deref().unwrap_or(base);
+        let pages = folio_export::proof::proof_spread(
+            &book,
+            &styles,
+            fonts,
+            &MemoryAssets(assets),
+            &SpreadId(spread.to_owned()),
+            &press,
+            720,
+        )
+        .map_err(|e| Error::Export(format!("{profile}: {e}")))?
+        .ok_or_else(|| Error::Export(format!("no spread {spread}")))?;
+        let uri = |png: Vec<u8>| {
+            format!(
+                "data:image/png;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(png)
+            )
+        };
+        Ok(pages
+            .into_iter()
+            .map(|p| ProofPage {
+                original: uri(p.original),
+                proofed: uri(p.proofed),
+                outside: p.outside,
+            })
+            .collect())
     }
 
     /// The book as an e-reader would show it, from the same chapters and CSS the EPUB ships.
