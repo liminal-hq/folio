@@ -151,6 +151,31 @@ pub struct FontChoice {
     pub origin: FontOrigin,
 }
 
+/// What a font's licence lets Folio do with its file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub enum FontLicence {
+    /// The file may be kept in a book, put in an EPUB and embedded in a PDF.
+    Free,
+    /// It may be embedded in a PDF but its file may not be kept in a book or an EPUB.
+    PrintOnly,
+    /// It may not be embedded anywhere.
+    Restricted,
+}
+
+/// A typeface a book uses, and what is known of it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct FontUse {
+    pub family: String,
+    pub origin: FontOrigin,
+    /// No font of that name is bundled, kept or installed, so a stand-in is used.
+    pub missing: bool,
+    pub licence: FontLicence,
+}
+
 /// Why a font was not kept with a book.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

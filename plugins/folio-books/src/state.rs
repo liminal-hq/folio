@@ -23,9 +23,9 @@ use crate::recovery::{self, Recovery};
 use crate::spelling::Spelling;
 use crate::wire::{
     BookSnapshot, BookSpelling, BookSummary, BooksChanged, ExportReport, ExportTarget,
-    ExportedFile, FontChoice, FontOrigin, FontSkip, KeepFontsReport, Misspelling, MisspeltWord,
-    PatchEvent, PreviewChapter, PreviewImage, ReaderPreview, Recoverable, SkippedFont, SpellCheck,
-    SpreadLayoutResult,
+    ExportedFile, FontChoice, FontLicence, FontOrigin, FontSkip, FontUse, KeepFontsReport,
+    Misspelling, MisspeltWord, PatchEvent, PreviewChapter, PreviewImage, ReaderPreview,
+    Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult,
 };
 use crate::{CHANGED_EVENT, PATCH_EVENT};
 
@@ -1028,6 +1028,87 @@ impl<R: Runtime> Books<R> {
             });
         }
         Ok(seen)
+    }
+
+    /// The typefaces the book uses and where each comes from, for the Fonts panel.
+    pub fn fonts_in_use(&self, id: &str) -> Result<Vec<FontUse>, Error> {
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, layered) = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            (open.session.book().clone(), open.font_book(base))
+        };
+        let fonts = layered.as_deref().unwrap_or(base);
+        let choices = self.font_choices(id)?;
+        Ok(folio_layout::families::families_used(&book)
+            .into_iter()
+            .map(|family| {
+                let found = fonts.resolve(&folio_layout::FontRequest::new(&family, 400, false));
+                let (missing, licence) = match &found {
+                    Ok(r) => {
+                        let rights = r.font.embedding_rights();
+                        let licence = if rights.may_keep_with_book() {
+                            FontLicence::Free
+                        } else if rights.may_embed_in_pdf() {
+                            FontLicence::PrintOnly
+                        } else {
+                            FontLicence::Restricted
+                        };
+                        (r.family_substituted, licence)
+                    }
+                    Err(_) => (true, FontLicence::Restricted),
+                };
+                let origin = choices
+                    .iter()
+                    .find(|c| c.family.eq_ignore_ascii_case(&family))
+                    .map_or(FontOrigin::System, |c| c.origin);
+                FontUse {
+                    family,
+                    origin,
+                    missing,
+                    licence,
+                }
+            })
+            .collect())
+    }
+
+    /// Takes the fonts of `families` out of the book, so it is laid out from the computer's again,
+    /// in one undo step. The files leave the package at the next save.
+    pub fn unkeep_fonts(&self, id: &str, families: &[String]) -> Result<(), Error> {
+        let kept = self.book_fonts(id)?;
+        let left: Vec<BookFont> = kept
+            .iter()
+            .filter(|f| !families.iter().any(|x| x.eq_ignore_ascii_case(&f.family)))
+            .cloned()
+            .collect();
+        if left.len() == kept.len() {
+            return Ok(());
+        }
+        let gone: Vec<String> = kept
+            .iter()
+            .filter(|f| !left.contains(f))
+            .map(|f| f.path.clone())
+            .collect();
+        self.apply(
+            id,
+            Intent::SetFonts {
+                fonts: left.clone(),
+            },
+        )?;
+        // A file another kept font still names stays; the rest are not wanted.
+        let mut inner = locked(&self.inner);
+        if let Some(open) = inner.books.iter_mut().find(|b| b.id == id) {
+            for path in gone {
+                if !left.iter().any(|f| f.path == path) {
+                    open.package.remove_asset(&path);
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Keeps the installed fonts of `families` inside the book, so it lays out the same on a

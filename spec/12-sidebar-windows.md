@@ -56,3 +56,5 @@ The **menu bar** stays hidden by default in every layout except "Menu bar + comp
 ## Accessibility
 
 Tabs are `role="tablist"`. Rails have tooltips and accessible names. Floating windows are reachable with F6 (cycle panes) and Ctrl+F6 (cycle windows). The command search is also the keyboard-first path to every tool.
+
+**Fonts (built):** the sidebar has a **Fonts** tab beside Properties, Pages and Proofing. It lists the typefaces the book uses, where each comes from (comes with Folio, kept in this book, on this computer), flags one that is missing (a stand-in is used) or whose licence does not let it be kept, and offers **Keep in the book** and **Stop keeping**. Choosing an installed font in the ribbon keeps it automatically when its licence allows (D-30).

@@ -7,6 +7,7 @@ import type { RibbonCommand } from '@liminal-hq/folio-ribbon/types';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { usePaintPresets } from './usePaintPresets';
 import { useFontChoices } from './useFontChoices';
+import { useFontsInUse } from './useFontsInUse';
 import { shelfLabels } from '../books/shelfLabels';
 import type { OpenBookCopy } from '../books/booksStore';
 import { useBooks } from '../books/useBooks';
@@ -38,6 +39,7 @@ import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/Dict
 import { Inspector } from '../inspector/Inspector';
 import { languageChoices } from '../inspector/languageChoices';
 import { PagesPanel } from '../sidebar/PagesPanel';
+import { FontsPanel } from '../sidebar/FontsPanel';
 import { ProofingPanel } from '../sidebar/ProofingPanel';
 import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
 import { Sidebar, type SidebarGroup } from '../sidebar/Sidebar';
@@ -353,6 +355,7 @@ export function BookView({
 	};
 	// The sidebar's open group. Selecting something on the page brings the Properties forward.
 	const [group, setGroup] = useState<SidebarGroup>('properties');
+	const fontUses = useFontsInUse(client, id, copy.revision, group === 'fonts');
 	useEffect(() => {
 		// The Proofing list is a task: showing a word selects it, and the list stays.
 		if (selection.length > 0) setGroup((open) => (open === 'proofing' ? open : 'properties'));
@@ -694,6 +697,13 @@ export function BookView({
 										.downloadDictionary(dictionary)
 										.then(() => setDictionaryTick((n) => n + 1))
 								}
+							/>
+						),
+						fonts: (
+							<FontsPanel
+								uses={fontUses}
+								onKeep={(family) => void client.keepFonts(id, [family]).catch(() => undefined)}
+								onLetGo={(family) => void client.unkeepFonts(id, [family]).catch(() => undefined)}
 							/>
 						),
 						pages: (
