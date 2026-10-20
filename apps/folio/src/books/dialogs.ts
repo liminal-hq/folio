@@ -22,7 +22,9 @@ const IMAGE_FILTERS = [
 	{ name: 'Pictures', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] },
 ];
 
-const TEXT_FILTERS = [{ name: 'Markdown and text', extensions: ['md', 'markdown', 'txt'] }];
+const TEXT_FILTERS = [
+	{ name: 'Word, Markdown and text', extensions: ['docx', 'md', 'markdown', 'txt'] },
+];
 
 export const tauriFileDialogs: FileDialogs = {
 	async pickBook() {

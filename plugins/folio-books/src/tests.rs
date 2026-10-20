@@ -1437,7 +1437,7 @@ fn a_markdown_file_becomes_the_books_story_in_one_undo_step_and_a_book_without_o
         .id;
     let refused = books(&app).import_text(&picture, &path).unwrap_err();
     assert!(refused.to_string().contains("no story"), "{refused}");
-    let doc = dir.path().join("story.docx");
+    let doc = dir.path().join("story.rtf");
     std::fs::write(&doc, b"PK").unwrap();
     assert!(books(&app)
         .import_text(&novel, &doc.to_string_lossy())
