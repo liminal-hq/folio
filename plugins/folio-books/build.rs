@@ -6,6 +6,7 @@
 const COMMANDS: &[&str] = &[
     "get_status",
     "presets",
+    "preview_new_book",
     "paint_presets",
     "default_save_path",
     "new_book",

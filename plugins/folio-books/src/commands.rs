@@ -36,6 +36,16 @@ pub async fn presets<R: Runtime>(
     Ok(books.presets())
 }
 
+/// The cover of the book `spec` would make, as a `data:image/png` URI.
+#[tauri::command]
+pub async fn preview_new_book<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    spec: NewBookSpec,
+) -> Result<String, Error> {
+    books.preview_new_book(&spec)
+}
+
 /// The colours and gradients the pickers offer.
 #[tauri::command]
 pub async fn paint_presets<R: Runtime>(_window: WebviewWindow<R>) -> Result<PaintPresets, Error> {

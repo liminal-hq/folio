@@ -40,6 +40,21 @@ pub fn page_to_jpeg(
     Ok(out)
 }
 
+/// A PNG of `page` `width` pixels wide, as it is drawn.
+pub fn page_to_png(
+    page: &PageScene,
+    fonts: &FontBook,
+    assets: &dyn Assets,
+    width: u32,
+) -> Result<Vec<u8>, ExportError> {
+    let height = (f64::from(width) * page.height / page.width)
+        .round()
+        .max(1.0) as u32;
+    render_page(page, fonts, assets, width, height)?
+        .encode_png()
+        .map_err(|e| ExportError::Pdf(e.to_string()))
+}
+
 /// Stores show a cover on a white page, so a light one gets a thin mid-grey border (3 to 4 pixels
 /// at the size they ask for) that keeps its edge visible.
 fn border_if_light(pixmap: &mut Pixmap) {
