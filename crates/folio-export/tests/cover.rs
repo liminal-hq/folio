@@ -49,7 +49,16 @@ fn thick(mut book: Book, pages: u32) -> Book {
 
 fn cover_pdf(book: &Book, styles: &StyleSheet, paper: Paper) -> Vec<u8> {
     let fonts = FontBook::bundled();
-    let made = export_target(Target::KdpCover, paper, book, styles, &fonts, &NoAssets).unwrap();
+    let made = export_target(
+        Target::KdpCover,
+        paper,
+        book,
+        styles,
+        &fonts,
+        &NoAssets,
+        None,
+    )
+    .unwrap();
     assert_eq!(made.len(), 1);
     assert_eq!(
         made[0].file_name,

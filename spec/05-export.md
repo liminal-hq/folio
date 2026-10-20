@@ -37,6 +37,7 @@ KEPUB is EPUB plus `<span class="koboSpan" id="kobo.N.M">` around sentences, plu
 
 - `pdf-writer` + `subsetter` for font subsetting, with the full glyph set for PDF/X.
 - **PDF/X-4** (default for print-shop): live transparency, ICC-based output intent (GRACoL 2013 / FOGRA39 / user ICC), RGB images converted at export with `lcms2` (perceptual) or kept with an output intent (Expert choice).
+- **Print colour (built):** when a paperback file is ticked the Export dialog offers *Make the paperback interior in ink (CMYK)* and an optional path to the press's CMYK ICC profile. Ink is separated through that profile, or by a plain separation without one, and text stays black ink alone; the output is untagged DeviceCMYK as KDP wants. The paperback cover is always in ink. The print-shop PDF/X-4 stays sRGB with an sRGB output intent until PDF/X-1a lands. No press profile ships with Folio.
 - **PDF/X-1a:2001**: flattened transparency and CMYK-only. Offered for printers that ask for it.
 - TrimBox, BleedBox and MediaBox are set correctly. Crop marks and slug are only drawn when asked for (KDP must have **no** marks).
 - Interior: single pages (not spreads) for KDP, page 1 on a recto, blank versos inserted where a chapter must open on the right.

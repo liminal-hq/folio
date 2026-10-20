@@ -22,10 +22,10 @@ use crate::error::Error;
 use crate::recovery::{self, Recovery};
 use crate::spelling::Spelling;
 use crate::wire::{
-    BookSnapshot, BookSpelling, BookSummary, BooksChanged, ExportReport, ExportTarget,
-    ExportedFile, FontChoice, FontLicence, FontOrigin, FontSkip, FontUse, KeepFontsReport,
-    Misspelling, MisspeltWord, PatchEvent, PreviewChapter, PreviewImage, ReaderPreview,
-    Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult,
+    BookSnapshot, BookSpelling, BookSummary, BooksChanged, ExportColour, ExportReport,
+    ExportTarget, ExportedFile, FontChoice, FontLicence, FontOrigin, FontSkip, FontUse,
+    KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, PreviewChapter, PreviewImage,
+    ReaderPreview, Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult,
 };
 use crate::{CHANGED_EVENT, PATCH_EVENT};
 
@@ -917,7 +917,26 @@ impl<R: Runtime> Books<R> {
     /// the book's file when it has been saved, and in its folder under `Books` when it has not.
     /// Each file is written whole under a temporary name and renamed, so a failed export leaves no
     /// half-written file.
-    pub fn export(&self, id: &str, targets: &[ExportTarget]) -> Result<ExportReport, Error> {
+    pub fn export(
+        &self,
+        id: &str,
+        targets: &[ExportTarget],
+        colour: ExportColour,
+    ) -> Result<ExportReport, Error> {
+        // The press's profile is read once; a file that is not a CMYK profile is refused up front.
+        let ink = match (&colour.profile, colour.cmyk) {
+            (Some(path), _) => {
+                let bytes =
+                    std::fs::read(path).map_err(|e| Error::Export(format!("{path}: {e}")))?;
+                folio_colour::Profile::from_icc(&bytes)
+                    .map_err(|e| Error::Export(format!("{path}: {e}")))?;
+                Some(folio_export::pdf::InkOptions {
+                    profile: Some(bytes),
+                })
+            }
+            (None, true) => Some(folio_export::pdf::InkOptions::default()),
+            (None, false) => None,
+        };
         let base = self.fonts.get_or_init(FontBook::with_system_fonts);
         let (book, styles, assets, layered, folder, paper) = {
             let mut inner = locked(&self.inner);
@@ -983,6 +1002,7 @@ impl<R: Runtime> Books<R> {
                 &styles,
                 fonts,
                 &source,
+                ink.as_ref(),
             )
             .map_err(|e| Error::Export(e.to_string()))?;
             for file in made {

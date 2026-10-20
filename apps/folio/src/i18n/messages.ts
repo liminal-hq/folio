@@ -159,6 +159,12 @@ export const messages = {
 	'export.waiting': '{count} things are waiting on you.',
 	'export.waiting.one': 'One thing is waiting on you.',
 	'export.checkFirst': 'Check the book first',
+	'export.colour': 'Print colour',
+	'export.colour.cmyk': 'Make the paperback interior in ink (CMYK)',
+	'export.colour.cmyk.sub':
+		'Colours are separated into cyan, magenta, yellow and black; text stays black ink alone. The paperback cover is always in ink.',
+	'export.colour.profile': "The press's CMYK profile (optional)",
+	'export.colour.profile.hint': 'Path to an ICC file, such as the one your printer sends',
 	'export.make': 'Make files',
 	'export.working': 'Making your files…',
 	'export.cancel': 'Cancel',
