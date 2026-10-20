@@ -1366,3 +1366,28 @@ fn an_export_says_which_file_it_has_reached_and_stops_when_asked() {
     assert!(stopped.cancelled);
     assert_eq!(stopped.files.len(), 1);
 }
+
+#[test]
+fn the_cover_a_new_book_would_have_is_drawn_without_making_the_book() {
+    let app = app();
+    let spec = NewBookSpec {
+        cover_colour: "#1f4e5f".into(),
+        ..NewBookSpec::default()
+    };
+    let uri = books(&app).preview_new_book(&spec).unwrap();
+    assert!(uri.starts_with("data:image/png;base64,"));
+    assert!(books(&app).list().is_empty());
+    let other = books(&app)
+        .preview_new_book(&NewBookSpec {
+            cover_colour: "#a23b2a".into(),
+            ..spec
+        })
+        .unwrap();
+    assert_ne!(uri, other);
+    assert!(books(&app)
+        .preview_new_book(&NewBookSpec {
+            cover_colour: "teal".into(),
+            ..NewBookSpec::default()
+        })
+        .is_err());
+}

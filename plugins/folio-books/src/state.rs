@@ -296,6 +296,31 @@ impl<R: Runtime> Books<R> {
         }
     }
 
+    /// The cover of the book `spec` would make, as a `data:image/png` URI.
+    pub fn preview_new_book(&self, spec: &NewBookSpec) -> Result<String, Error> {
+        use base64::Engine as _;
+        let made = new_book(spec)?;
+        let styles = style_sheet(&made.book.styles);
+        let fonts = FontBook::bundled();
+        let cover = made
+            .book
+            .spreads
+            .first()
+            .ok_or_else(|| Error::Export("the book has no cover".into()))?;
+        let scene = Layouter::new(&made.book, &styles, &fonts)
+            .scene_spread(&cover.id)
+            .map_err(|e| Error::Export(e.to_string()))?
+            .and_then(|s| s.pages.into_iter().next())
+            .ok_or_else(|| Error::Export("the cover has no page".into()))?;
+        let png =
+            folio_export::raster::page_to_png(&scene, &fonts, &MemoryAssets(HashMap::new()), 360)
+                .map_err(|e| Error::Export(e.to_string()))?;
+        Ok(format!(
+            "data:image/png;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(png)
+        ))
+    }
+
     pub fn presets(&self) -> Vec<KindInfo> {
         kind_infos()
     }

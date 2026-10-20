@@ -248,6 +248,11 @@ export function proofSpread(id: string, spread: string, profile: string): Promis
 	return cmd<ProofPage[]>('proof_spread', { id, spread, profile });
 }
 
+/** The cover of the book `spec` would make, as a `data:image/png` URI. */
+export function previewNewBook(spec: NewBookSpec): Promise<string> {
+	return cmd<string>('preview_new_book', { spec });
+}
+
 /** Makes the files for `targets` and writes them into the book's `exports` folder. */
 export function exportBook(
 	id: string,

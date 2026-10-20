@@ -133,6 +133,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function proofSpread(id, spread, profile) {
         return cmd('proof_spread', { id, spread, profile });
     }
+    /** The cover of the book `spec` would make, as a `data:image/png` URI. */
+    function previewNewBook(spec) {
+        return cmd('preview_new_book', { spec });
+    }
     /** Makes the files for `targets` and writes them into the book's `exports` folder. */
     function exportBook(id, targets, colour) {
         return cmd('export_book', { id, targets, colour });
@@ -226,6 +230,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.paintPresets = paintPresets;
     exports.preflightBook = preflightBook;
     exports.presets = presets;
+    exports.previewNewBook = previewNewBook;
     exports.proofSpread = proofSpread;
     exports.readerPreview = readerPreview;
     exports.recoverableBooks = recoverableBooks;
