@@ -5,4 +5,8 @@ export type LayoutLine = {
 /**
  * Left edge of the line and the top of its box, from the frame's top-left, in points.
  */
-x: number, top: number, baseline: number, width: number, height: number, runs: Array<LayoutRun>, };
+x: number, top: number, baseline: number, width: number, height: number, runs: Array<LayoutRun>, 
+/**
+ * For a line of a story: the paragraph it is from, so a click on it finds its words.
+ */
+paragraph?: number | null, };

@@ -68,6 +68,8 @@ export interface SpreadCanvasProps {
 	onEditTable?(id: string, edit: TableEdit): void;
 	/** A frame in a story was opened for editing: the story's words are edited as a whole, apart from the page. */
 	onEditStory?(flow: string, paragraph?: number): void;
+	/** New words for one paragraph of a story, after it was edited in place. */
+	onEditParagraph?(flow: string, paragraph: number, text: string): void;
 	/** Underlines misspelt words in the editor, when spelling is on. */
 	speller?: Speller;
 	/** The cell being edited has changed: its row and column, or `null` when none is. */
@@ -251,6 +253,7 @@ export function SpreadCanvas({
 	guideDrag = null,
 	onEditText,
 	onEditStory,
+	onEditParagraph,
 	onEditTable,
 	onEditingCell,
 	speller,
@@ -305,6 +308,10 @@ export function SpreadCanvas({
 			y: bounds.y + (event.clientY - (box?.top ?? 0)) / scale,
 		};
 	};
+	/** A paragraph of a story being edited over the frame it is in. */
+	const [storyEdit, setStoryEdit] = useState<{ frame: string; flow: string; para: number } | null>(
+		null,
+	);
 	const startEditing = (frame: Frame, at?: { x: number; y: number }) => {
 		if (frame.type === 'table') {
 			if (!onEditTable || frame.locked || frame.fromMaster) return;
@@ -312,8 +319,23 @@ export function SpreadCanvas({
 			if (cell && cellText(frame, cell.row, cell.col) !== null) setEditing(cellId(cell));
 			return;
 		}
-		if (frame.type === 'text' && frame.flow && onEditStory && !frame.locked && !frame.fromMaster) {
-			onEditStory(frame.flow.id, byFrame.get(frame.id)?.firstParagraph ?? undefined);
+		if (frame.type === 'text' && frame.flow && !frame.locked && !frame.fromMaster) {
+			const laid = byFrame.get(frame.id);
+			// The paragraph under the click: the line it fell on, else the nearest one, else the first
+			// the frame shows.
+			const y = at ? at.y - frame.box.y : 0;
+			const near = at
+				? laid?.lines.reduce<(typeof laid.lines)[number] | undefined>((best, line) => {
+						const gap = (l: typeof line) => Math.abs(y - (l.top + l.height / 2));
+						return best === undefined || gap(line) < gap(best) ? line : best;
+					}, undefined)
+				: undefined;
+			const para = near?.paragraph ?? laid?.firstParagraph ?? undefined;
+			if (onEditParagraph && para !== undefined && para !== null) {
+				setStoryEdit({ frame: frame.id, flow: frame.flow.id, para });
+				return;
+			}
+			if (onEditStory) onEditStory(frame.flow.id, para ?? undefined);
 			return;
 		}
 		if (onEditText && (frame.type === 'text' || frame.type === 'shape') && canEditText(frame))
@@ -736,6 +758,41 @@ export function SpreadCanvas({
 					}}
 				/>
 			)}
+			{storyEdit &&
+				(() => {
+					const host = spread.frames.find((f) => f.id === storyEdit.frame);
+					const words = book.flows
+						.find((f) => f.id === storyEdit.flow)
+						?.paragraphs[storyEdit.para]?.inline.map((r) => r.text)
+						.join('');
+					if (host?.type !== 'text' || words === undefined) return null;
+					const keep = (text: string) =>
+						onEditParagraph?.(storyEdit.flow, storyEdit.para, text.replace(/\s*\n\s*/g, ' '));
+					return (
+						<TextEditor
+							key={`${storyEdit.flow}:${storyEdit.para}`}
+							speller={speller}
+							frame={{
+								type: 'text',
+								box: host.box,
+								content: { inline: [{ text: words, style: null, bold: false, italic: false }] },
+							}}
+							layout={byFrame.get(host.id)}
+							scale={scale}
+							rotation={host.rotation}
+							at={{
+								x: (host.box.x - bounds.x) * scale,
+								y: (host.box.y - bounds.y) * scale,
+							}}
+							onCheckpoint={keep}
+							onCommit={(text) => {
+								setStoryEdit(null);
+								if (text !== null) keep(text);
+								svg.current?.focus();
+							}}
+						/>
+					);
+				})()}
 			{editedFrame?.type === 'table' &&
 				editingCell &&
 				editingCell.row < editedFrame.rows.length &&
