@@ -188,3 +188,27 @@ describe('selecting words in the editor', () => {
 		expect(getTextSelection()).toBeNull();
 	});
 });
+
+describe('a ribbon list taking the focus', () => {
+	it('does not end the editing, so the selected words can be styled by it', () => {
+		const onEditText = vi.fn();
+		render(
+			<>
+				<div data-ribbon="">
+					<select aria-label="Colour" />
+				</div>
+				<Harness frames={[text('b', [{ text: 'Hello brave world' }])]} onEditText={onEditText} />
+			</>,
+		);
+		fireEvent.doubleClick(hit('b'));
+		const box = screen.getByRole('textbox') as HTMLTextAreaElement;
+		box.setSelectionRange(6, 11);
+		fireEvent.select(box);
+		fireEvent.blur(box, { relatedTarget: screen.getByRole('combobox') });
+		expect(screen.getByRole('textbox')).toBeInTheDocument();
+		expect(getTextSelection()).toEqual({ frame: 'b', start: 6, end: 11 });
+		// Leaving for somewhere else still ends it.
+		fireEvent.blur(box, { relatedTarget: document.body });
+		expect(screen.queryByRole('textbox')).toBeNull();
+	});
+});
