@@ -95,6 +95,11 @@ export function newBook(spec: Partial<NewBookSpec>): Promise<BookSnapshot> {
 	return cmd<BookSnapshot>('new_book', { spec });
 }
 
+/** The cover of the book `spec` would make, as a `data:image/png` URI. */
+export function previewNewBook(spec: NewBookSpec): Promise<string> {
+	return cmd<string>('preview_new_book', { spec });
+}
+
 /** Opens a `.folio` file, or returns the book if it is already open. */
 export function openBook(path: string): Promise<BookSnapshot> {
 	return cmd<BookSnapshot>('open_book', { path });
@@ -246,11 +251,6 @@ export function readerPreview(id: string): Promise<ReaderPreview> {
 /** A spread as a press would print it, through the CMYK ICC profile at `profile`. */
 export function proofSpread(id: string, spread: string, profile: string): Promise<ProofPage[]> {
 	return cmd<ProofPage[]>('proof_spread', { id, spread, profile });
-}
-
-/** The cover of the book `spec` would make, as a `data:image/png` URI. */
-export function previewNewBook(spec: NewBookSpec): Promise<string> {
-	return cmd<string>('preview_new_book', { spec });
 }
 
 /** Makes the files for `targets` and writes them into the book's `exports` folder. */

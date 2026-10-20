@@ -36,6 +36,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function newBook(spec) {
         return cmd('new_book', { spec });
     }
+    /** The cover of the book `spec` would make, as a `data:image/png` URI. */
+    function previewNewBook(spec) {
+        return cmd('preview_new_book', { spec });
+    }
     /** Opens a `.folio` file, or returns the book if it is already open. */
     function openBook(path) {
         return cmd('open_book', { path });
@@ -132,10 +136,6 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     /** A spread as a press would print it, through the CMYK ICC profile at `profile`. */
     function proofSpread(id, spread, profile) {
         return cmd('proof_spread', { id, spread, profile });
-    }
-    /** The cover of the book `spec` would make, as a `data:image/png` URI. */
-    function previewNewBook(spec) {
-        return cmd('preview_new_book', { spec });
     }
     /** Makes the files for `targets` and writes them into the book's `exports` folder. */
     function exportBook(id, targets, colour) {

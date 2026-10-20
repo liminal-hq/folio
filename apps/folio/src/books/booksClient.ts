@@ -44,6 +44,7 @@ import {
 	layoutSpread,
 	listBooks,
 	newBook,
+	previewNewBook,
 	onBooksChanged,
 	onPatch,
 	openBook,
@@ -86,6 +87,8 @@ export interface BooksClient {
 	paintPresets(): Promise<PaintPresets>;
 	defaultSavePath(title: string): Promise<string>;
 	newBook(spec: Partial<NewBookSpec>): Promise<BookSnapshot>;
+	/** The cover of the book `spec` would make, as a `data:image/png` URI. */
+	previewNewBook(spec: NewBookSpec): Promise<string>;
 	openBook(path: string): Promise<BookSnapshot>;
 	saveBook(id: string, path?: string): Promise<BookSummary>;
 	closeBook(id: string): Promise<void>;
@@ -159,6 +162,7 @@ export const tauriBooksClient: BooksClient = {
 	paintPresets,
 	defaultSavePath,
 	newBook,
+	previewNewBook,
 	openBook,
 	saveBook,
 	closeBook,
