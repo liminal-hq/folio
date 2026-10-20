@@ -254,9 +254,43 @@ impl Raster<'_> {
         };
         match bg {
             Background::Colour { colour: c } => self.fill(&whole, c),
-            Background::Texture { tint, .. } => {
-                let c = tint.clone().unwrap_or_else(|| Colour("#ebe5d6".into()));
-                self.fill(&whole, &c);
+            Background::Texture { id, tint } => {
+                let tile = crate::texture::tile_png(id, tint.as_ref().map(|c| c.0.as_str()))
+                    .and_then(|(png, size)| {
+                        let img = image::load_from_memory(&png).ok()?.to_rgba8();
+                        let (w, h) = (img.width(), img.height());
+                        let mut bytes = img.into_raw();
+                        for px in bytes.as_chunks_mut::<4>().0 {
+                            let a = u16::from(px[3]);
+                            for c in &mut px[..3] {
+                                *c = ((u16::from(*c) * a + 127) / 255) as u8;
+                            }
+                        }
+                        let pixmap = Pixmap::from_vec(bytes, tiny_skia::IntSize::from_wh(w, h)?)?;
+                        Some((pixmap, size, w))
+                    });
+                match (tile, rect_path(&whole)) {
+                    (Some((pixmap, size, px)), Some(path)) => {
+                        let scale = (size / f64::from(px)) as f32;
+                        let paint = Paint {
+                            shader: tiny_skia::Pattern::new(
+                                pixmap.as_ref(),
+                                SpreadMode::Repeat,
+                                tiny_skia::FilterQuality::Bilinear,
+                                1.0,
+                                Transform::from_scale(scale, scale),
+                            ),
+                            anti_alias: false,
+                            ..Paint::default()
+                        };
+                        self.pixmap
+                            .fill_path(&path, &paint, FillRule::Winding, self.to_page, None);
+                    }
+                    _ => {
+                        let c = tint.clone().unwrap_or_else(|| Colour("#ebe5d6".into()));
+                        self.fill(&whole, &c);
+                    }
+                }
             }
             Background::Gradient { angle, stops } => {
                 let page = SceneRect {

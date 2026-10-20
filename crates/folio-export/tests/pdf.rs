@@ -336,3 +336,38 @@ fn a_file_of_ink_uses_cmyk_and_black_alone_for_the_text() {
     assert!(cmyk_fills > 0, "colours are ink");
     assert_eq!(rgb_fills, 0, "none is left in RGB");
 }
+
+#[test]
+fn a_textured_page_is_tiled_with_one_shared_picture() {
+    let (mut book, styles) = sample(BookKind::Novel);
+    book.spreads[0].pages[0].bg = Some(folio_model::Background::Texture {
+        id: "linen".into(),
+        tint: None,
+    });
+    let bytes = export_pdf(
+        &book,
+        &styles,
+        &FontBook::bundled(),
+        &NoAssets,
+        &PdfOptions {
+            target: PdfTarget::Sharing,
+            ink: None,
+            crop_marks: false,
+        },
+    )
+    .unwrap();
+    let doc = Document::load_mem(&bytes).unwrap();
+    let images = doc
+        .objects
+        .values()
+        .filter(|o| {
+            o.as_stream()
+                .ok()
+                .and_then(|s| s.dict.get(b"Subtype").ok())
+                .and_then(|s| s.as_name().ok())
+                == Some(b"Image".as_slice())
+        })
+        .count();
+    // Twelve-point tiles across a page are drawn many times but stored once (plus its mask).
+    assert!((1..=2).contains(&images), "{images}");
+}
