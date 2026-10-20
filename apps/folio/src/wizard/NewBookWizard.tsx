@@ -21,6 +21,21 @@ const LABELS: Record<WizardStep, string> = {
 	review: t('wizard.step.review'),
 };
 
+function Tick() {
+	return (
+		<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+			<path
+				d="M2.5 6.5l2.3 2.3L9.5 3.7"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.8"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			/>
+		</svg>
+	);
+}
+
 export function NewBookWizard() {
 	const controls = useWindowControls();
 	const [index, setIndex] = useState(0);
@@ -39,26 +54,33 @@ export function NewBookWizard() {
 				<div className={styles.body}>
 					<nav aria-label={t('wizard.steps')} className={styles.steps}>
 						<ol className={styles.list}>
-							{WIZARD_STEPS.map((id, at) => (
-								<li
-									key={id}
-									className={styles.item}
-									aria-current={at === index ? 'step' : undefined}
-									data-done={at < index || undefined}
-								>
-									<button
-										type="button"
-										className={styles.step}
-										disabled={at > reached}
-										onClick={() => go(at)}
+							{WIZARD_STEPS.map((id, at) => {
+								// A step met stays marked, wherever the person goes back to.
+								const visited = at <= reached && at !== index;
+								return (
+									<li
+										key={id}
+										className={styles.item}
+										aria-current={at === index ? 'step' : undefined}
+										data-visited={visited || undefined}
 									>
-										<span className={styles.number}>{at + 1}</span>
-										<span className={styles.label} data-text={LABELS[id]}>
-											{LABELS[id]}
-										</span>
-									</button>
-								</li>
-							))}
+										<button
+											type="button"
+											className={styles.step}
+											disabled={at > reached}
+											onClick={() => go(at)}
+										>
+											<span className={styles.number} aria-hidden="true">
+												{visited ? <Tick /> : at + 1}
+											</span>
+											<span className={styles.label} data-text={LABELS[id]}>
+												{LABELS[id]}
+											</span>
+											{visited && <span className={styles.hidden}>{t('wizard.visited')}</span>}
+										</button>
+									</li>
+								);
+							})}
 						</ol>
 					</nav>
 					<main className={styles.page}>

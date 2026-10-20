@@ -52,7 +52,7 @@
 	font-weight: 600;
 }
 
-.item[data-done] .step {
+.item[data-visited] .step {
 	color: var(--folio-text-primary);
 }
 
@@ -179,4 +179,18 @@
 .step:focus-visible {
 	outline: 2px solid var(--folio-accent);
 	outline-offset: 2px;
+}
+
+.item[data-visited] .number {
+	border-color: var(--folio-accent);
+	color: var(--folio-accent);
+}
+
+.hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
 }

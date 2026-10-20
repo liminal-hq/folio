@@ -74,6 +74,7 @@ export const messages = {
 	'wizard.step.look': 'The look',
 	'wizard.step.review': 'Review',
 	'wizard.comingSoon': 'This step is coming soon.',
+	'wizard.visited': '(visited)',
 	'wizard.skip': 'Skip the wizard',
 	'wizard.back': 'Back',
 	'wizard.next': 'Next',
