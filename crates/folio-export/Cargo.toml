@@ -17,6 +17,9 @@ krilla = "0.8"
 thiserror = { workspace = true }
 kurbo = "0.11"
 lopdf = "0.34"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
+tiny-skia = "0.12"
+ttf-parser = "0.25"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 unicode-segmentation = "1"
 

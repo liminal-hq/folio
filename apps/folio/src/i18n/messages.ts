@@ -138,6 +138,9 @@ export const messages = {
 	'export.target.printShopPdf': 'Print shop PDF (PDF/X-4)',
 	'export.target.printShopPdf.sub':
 		'Every page with the bleed all round and crop marks, for a printer who asks for PDF/X.',
+	'export.target.ebookCover': 'Cover picture for a store',
+	'export.target.ebookCover.sub':
+		'The front cover as a 1600 × 2560 picture for the book’s page on Amazon or Kobo.',
 	'export.target.kindleEpub': 'Kindle (EPUB)',
 	'export.target.kindleEpub.sub':
 		'A reflowable book for Amazon KDP, which makes the Kindle edition from it.',

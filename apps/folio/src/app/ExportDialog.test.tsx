@@ -77,6 +77,13 @@ describe('the Export dialog', () => {
 		expect(await screen.findByText('pip-paperback-cover.pdf')).toBeInTheDocument();
 	});
 
+	it('offers the cover picture for a store', async () => {
+		await setup();
+		await userEvent.click(screen.getByRole('checkbox', { name: /Cover picture for a store/ }));
+		await userEvent.click(screen.getByRole('button', { name: 'Make files' }));
+		expect(await screen.findByText('pip-ebook-cover.jpg')).toBeInTheDocument();
+	});
+
 	it('cannot make nothing', async () => {
 		await setup();
 		await userEvent.click(screen.getByRole('checkbox', { name: /Sharing PDF/ }));

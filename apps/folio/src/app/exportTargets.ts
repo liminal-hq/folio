@@ -19,6 +19,11 @@ export const EXPORT_TARGETS: readonly TargetInfo[] = [
 		description: 'export.target.sharingPdf.sub',
 	},
 	{
+		id: 'ebookCover',
+		name: 'export.target.ebookCover',
+		description: 'export.target.ebookCover.sub',
+	},
+	{
 		id: 'kindleEpub',
 		name: 'export.target.kindleEpub',
 		description: 'export.target.kindleEpub.sub',

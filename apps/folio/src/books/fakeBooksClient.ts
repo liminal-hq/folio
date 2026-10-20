@@ -519,6 +519,7 @@ export function createFakeBooksClient(): FakeBooks {
 				kdpInterior: ['pip-paperback-interior.pdf'],
 				kdpCover: ['pip-paperback-cover.pdf'],
 				printShopPdf: ['pip-print-pdfx4.pdf'],
+				ebookCover: ['pip-ebook-cover.jpg'],
 				kindleEpub: ['pip-kindle.epub'],
 				koboEpub: ['pip.epub', 'pip.kepub.epub'],
 			};

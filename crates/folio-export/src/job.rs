@@ -10,6 +10,7 @@ use crate::cover::cover_sheet;
 use crate::epub::{export_epub, EpubFlavour, EpubOptions};
 use crate::error::ExportError;
 use crate::pdf::{export_pdf, Assets, InkOptions, PdfOptions, PdfTarget};
+use crate::raster::page_to_jpeg;
 
 /// A kind of file to make from a book.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -22,6 +23,8 @@ pub enum Target {
     PrintShopPdf,
     /// The paperback cover for Kindle Direct Publishing: back, spine and front on one sheet.
     KdpCover,
+    /// The cover as a picture for the book's page in a store: 1600 × 2560 pixels.
+    EbookCover,
     /// A reflowable EPUB for Kindle Direct Publishing, which converts it for Kindle.
     KindleEpub,
     /// A reflowable EPUB for Kobo Writing Life, and the Kobo flavour of it beside it.
@@ -69,6 +72,7 @@ impl Target {
             Self::KdpInterior => vec![format!("{slug}-paperback-interior.pdf")],
             Self::PrintShopPdf => vec![format!("{slug}-print-pdfx4.pdf")],
             Self::KdpCover => vec![format!("{slug}-paperback-cover.pdf")],
+            Self::EbookCover => vec![format!("{slug}-ebook-cover.jpg")],
             Self::KindleEpub => vec![format!("{slug}-kindle.epub")],
             Self::KoboEpub => vec![format!("{slug}.epub"), format!("{slug}.kepub.epub")],
         }
@@ -127,6 +131,15 @@ pub fn export_target(
                     crop_marks: false,
                 },
             )?]
+        }
+        Target::EbookCover => {
+            let cover = book.spreads.first().ok_or(ExportError::NoPages)?;
+            let layouter = folio_layout::Layouter::new(book, styles, fonts);
+            let scene = layouter
+                .scene_spread(&cover.id)?
+                .and_then(|s| s.pages.into_iter().next())
+                .ok_or(ExportError::NoPages)?;
+            vec![page_to_jpeg(&scene, fonts, assets, 1600, 2560)?]
         }
         Target::KindleEpub => vec![epub(EpubFlavour::Standard)?],
         Target::KoboEpub => vec![epub(EpubFlavour::Standard)?, epub(EpubFlavour::Kobo)?],
