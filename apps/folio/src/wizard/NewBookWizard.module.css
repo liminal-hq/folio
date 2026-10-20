@@ -27,7 +27,17 @@
 	list-style: none;
 }
 
+.item {
+	display: block;
+}
+
 .step {
+	width: 100%;
+	border: 0;
+	background: transparent;
+	font: inherit;
+	text-align: left;
+	cursor: default;
 	display: flex;
 	align-items: center;
 	gap: 10px;
@@ -36,13 +46,13 @@
 	color: var(--folio-text-muted);
 }
 
-.step[aria-current='step'] {
+.item[aria-current='step'] .step {
 	background: var(--folio-bg-raised);
 	color: var(--folio-text-primary);
 	font-weight: 600;
 }
 
-.step[data-done] {
+.item[data-done] .step {
 	color: var(--folio-text-primary);
 }
 
@@ -153,6 +163,20 @@
 .button:focus-visible,
 .primary:focus-visible,
 .skip:focus-visible {
+	outline: 2px solid var(--folio-accent);
+	outline-offset: 2px;
+}
+
+.step:hover:not(:disabled) {
+	background: var(--folio-control-bg-hover);
+	color: var(--folio-text-primary);
+}
+
+.step:active:not(:disabled) {
+	background: var(--folio-border-subtle);
+}
+
+.step:focus-visible {
 	outline: 2px solid var(--folio-accent);
 	outline-offset: 2px;
 }

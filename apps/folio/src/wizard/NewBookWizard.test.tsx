@@ -58,6 +58,18 @@ describe('NewBookWizard', () => {
 		expect(screen.getByRole('heading', { name: 'The look' })).toBeInTheDocument();
 	});
 
+	it('returns to a step already met when it is clicked, and not to one ahead', async () => {
+		mount();
+		expect(screen.getByRole('button', { name: /Size and paper/ })).toBeDisabled();
+		await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+		await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+		await userEvent.click(screen.getByRole('button', { name: /What are you making\?/ }));
+		expect(screen.getByRole('heading', { name: 'What are you making?' })).toBeInTheDocument();
+		await userEvent.click(screen.getByRole('button', { name: /Title and you/ }));
+		expect(screen.getByRole('heading', { name: 'Title and you' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /Bring your words/ })).toBeDisabled();
+	});
+
 	it('closes the window from Skip the wizard', async () => {
 		const close = vi.fn();
 		mount(close);
