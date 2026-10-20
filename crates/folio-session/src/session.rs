@@ -223,6 +223,11 @@ fn ops_between(before: &Delta, after: &Delta) -> Vec<PatchOp> {
             language: after.language.clone(),
         });
     }
+    if before.details != after.details {
+        ops.push(PatchOp::SetDetails {
+            details: after.details.clone(),
+        });
+    }
     if before.preflight_ignore != after.preflight_ignore {
         ops.push(PatchOp::SetPreflightIgnore {
             keys: after.preflight_ignore.clone(),
