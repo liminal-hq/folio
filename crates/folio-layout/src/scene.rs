@@ -139,6 +139,8 @@ pub struct PageScene {
     pub index: usize,
     pub width: f64,
     pub height: f64,
+    /// Facing the gutter on the right, so its outer edge is on the right and the fold on the left.
+    pub recto: bool,
     pub items: Vec<SceneItem>,
 }
 
@@ -355,6 +357,7 @@ impl Layouter<'_> {
                 index,
                 width: w,
                 height: h,
+                recto: pages[index].recto,
                 items: Vec::new(),
             })
             .collect();
