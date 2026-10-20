@@ -18,6 +18,8 @@ const KEYS: Record<PreflightKind, string> = {
 	bleedNeeded: 'bleedNeeded',
 	fontMissing: 'fontMissing',
 	missingGlyphs: 'missingGlyphs',
+	inkOverLimit: 'inkOver',
+	swatchMissing: 'swatchMissing',
 	picturePlaceholder: 'placeholder',
 	altMissing: 'altMissing',
 };
