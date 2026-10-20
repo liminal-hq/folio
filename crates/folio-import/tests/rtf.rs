@@ -22,7 +22,11 @@ fn paragraphs_emphasis_and_escapes_come_across() {
     assert!(s[0].inline.iter().any(|r| r.bold && r.text == "bold"));
     assert!(s[0].inline.iter().any(|r| r.italic && r.text == "slanted"));
     assert_eq!(text(&s[1]), "Café \u{2014} dash and {braces}.");
-    assert!(imported.report.notes.iter().any(|n| n.contains("body text")));
+    assert!(imported
+        .report
+        .notes
+        .iter()
+        .any(|n| n.contains("body text")));
 }
 
 #[test]
