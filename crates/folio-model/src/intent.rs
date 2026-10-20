@@ -11,6 +11,7 @@ use crate::book::{BookFont, Details, Grid, PageNumbers};
 use crate::colour::Colour;
 use crate::frame::{Fit, Frame, Shape, StyleOverrides, TableLook};
 use crate::ids::{FrameId, MasterId, PageId, SpreadId, StyleId};
+use crate::runs::RunChange;
 use crate::sections::Section;
 use crate::spread::Axis;
 use crate::units::{Margins, Pt, Rect, Size};
@@ -271,6 +272,14 @@ pub enum Intent {
     SetText {
         frame: FrameId,
         text: String,
+    },
+    /// Changes the look of the characters `start..end` of a frame's words (counted in characters),
+    /// splitting the words into runs where it begins and ends. One undo step.
+    StyleRange {
+        frame: FrameId,
+        start: u32,
+        end: u32,
+        change: RunChange,
     },
     /// Changes a table: a cell's words, its rows and columns, header rows or look. Typing in one
     /// cell is one undo step.

@@ -417,3 +417,60 @@ describe('the preview buttons', () => {
 		expect(editorAction('print', undefined, input())).toEqual({ kind: 'preview', mode: 'print' });
 	});
 });
+
+describe('words selected in the open editor', () => {
+	const words = (inline: { text: string; bold?: boolean }[]) =>
+		({
+			type: 'text',
+			id: 't',
+			box: {},
+			locked: false,
+			rotation: 0,
+			style: 'body',
+			content: { inline: inline.map((r) => ({ bold: false, italic: false, ...r })) },
+		}) as unknown as Frame;
+
+	it('are what bold, italic and the font apply to, and not the whole frame', () => {
+		const frame = words([{ text: 'Hello brave world' }]);
+		const selection = { frame: 't', start: 6, end: 11 };
+		expect(editorAction('bold', undefined, input([frame], { selection }))).toEqual({
+			kind: 'intents',
+			intents: [{ type: 'StyleRange', frame: 't', start: 6, end: 11, change: { bold: true } }],
+		});
+		expect(editorAction('font', 'Zed Sans', input([frame], { selection }))).toMatchObject({
+			kind: 'font',
+			intents: [
+				{ type: 'StyleRange', frame: 't', start: 6, end: 11, change: { font: 'Zed Sans' } },
+			],
+		});
+	});
+
+	it('turn bold off when the whole stretch is already bold', () => {
+		const frame = words([{ text: 'Hello ' }, { text: 'brave', bold: true }, { text: ' world' }]);
+		const selection = { frame: 't', start: 6, end: 11 };
+		expect(editorAction('bold', undefined, input([frame], { selection }))).toMatchObject({
+			intents: [{ change: { bold: false } }],
+		});
+		// A stretch that is only partly bold is made bold.
+		expect(
+			editorAction(
+				'bold',
+				undefined,
+				input([frame], { selection: { frame: 't', start: 3, end: 8 } }),
+			),
+		).toMatchObject({ intents: [{ change: { bold: true } }] });
+	});
+
+	it('are ignored when nothing is selected or the frame is not the one selected', () => {
+		const frame = words([{ text: 'Hello' }]);
+		for (const selection of [
+			null,
+			{ frame: 't', start: 2, end: 2 },
+			{ frame: 'other', start: 0, end: 3 },
+		]) {
+			expect(editorAction('bold', undefined, input([frame], { selection }))).toMatchObject({
+				intents: [{ type: 'OverrideStyle' }],
+			});
+		}
+	});
+});

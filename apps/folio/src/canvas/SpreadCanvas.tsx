@@ -713,6 +713,7 @@ export function SpreadCanvas({
 					key={editing}
 					speller={speller}
 					frame={editedFrame}
+					frameId={editedFrame.id}
 					layout={byFrame.get(editedFrame.id)}
 					scale={scale}
 					rotation={editedFrame.rotation}
