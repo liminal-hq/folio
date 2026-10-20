@@ -149,6 +149,45 @@ pub struct SpreadScene {
     pub pages: Vec<PageScene>,
 }
 
+/// The rectangle to draw a picture of `natural` pixels in, inside `rect`: the twin of `focusedRect`
+/// in `focusedRect.ts`. Fill covers the box and crops the rest, sliding so the `focus` point (0 to
+/// 1 across and down the picture) is as near the middle of the box as the picture allows. Fit shows
+/// the whole picture, centred, and Stretch pulls it to the box. A manual crop is drawn as a fill.
+pub fn focused_rect(
+    rect: SceneRect,
+    natural: (f64, f64),
+    fit: Fit,
+    focus: (f64, f64),
+) -> SceneRect {
+    if fit == Fit::Stretch || natural.0 <= 0.0 || natural.1 <= 0.0 {
+        return rect;
+    }
+    let (sx, sy) = (rect.w / natural.0, rect.h / natural.1);
+    let scale = if fit == Fit::Fit {
+        sx.min(sy)
+    } else {
+        sx.max(sy)
+    };
+    let (w, h) = (natural.0 * scale, natural.1 * scale);
+    if fit == Fit::Fit {
+        return SceneRect {
+            x: rect.x + (rect.w - w) / 2.0,
+            y: rect.y + (rect.h - h) / 2.0,
+            w,
+            h,
+        };
+    }
+    let (fx, fy) = (focus.0.clamp(0.0, 1.0), focus.1.clamp(0.0, 1.0));
+    let slide =
+        |room: f64, size: f64, f: f64| (room / 2.0 - f * size).clamp((room - size).min(0.0), 0.0);
+    SceneRect {
+        x: rect.x + slide(rect.w, w, fx),
+        y: rect.y + slide(rect.h, h, fy),
+        w,
+        h,
+    }
+}
+
 /// What a bubble is drawn with, as paths in the unit square: the twin of `SHAPE_PATHS` in
 /// `shapePaths.ts`, tested against one fixture.
 pub fn shape_paths(shape: Shape) -> Vec<String> {
