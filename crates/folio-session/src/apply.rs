@@ -4,9 +4,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    clean_language, BackgroundTarget, Book, BookFont, Colour, Frame, FrameId, Guide, InlineContent,
-    Intent, Master, MasterId, Page, Paint, Proofing, Pt, ReorderTo, Run, Spread, SpreadId,
-    SpreadKind, Surface, TableCell, TableEdit, TableFrame, MAX_IGNORED_WORDS,
+    clean_language, BackgroundTarget, BarcodeChoice, Book, BookFont, Colour, Frame, FrameId, Guide,
+    InlineContent, Intent, Master, MasterId, Page, Paint, Proofing, Pt, ReorderTo, Run, Spread,
+    SpreadId, SpreadKind, Surface, TableCell, TableEdit, TableFrame, MAX_IGNORED_WORDS,
 };
 
 /// The most preflight issues a book can leave alone.
@@ -435,6 +435,20 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         }
         Intent::SetFonts { fonts } => {
             check_fonts(fonts)?;
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                merge: None,
+            })
+        }
+        Intent::SetBarcode { choice } => {
+            if let BarcodeChoice::Own { addon: Some(addon) } = choice {
+                if !BarcodeChoice::addon_is_valid(addon) {
+                    return Err(SessionError::BadBarcode(
+                        "a price add-on is five digits".into(),
+                    ));
+                }
+            }
             Ok(Plan {
                 touched: Vec::new(),
                 new_spread: None,
@@ -1017,6 +1031,7 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             }
         }
         Intent::SetFonts { fonts } => book.fonts = fonts,
+        Intent::SetBarcode { choice } => book.barcode = choice,
         Intent::SetPaper { paper } => book.paper = paper,
         Intent::SetDetails { details } => details.apply(book),
         Intent::SetPreflightIgnore { keys } => book.preflight_ignore = keys,

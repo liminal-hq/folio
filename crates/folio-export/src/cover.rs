@@ -11,9 +11,9 @@
 //! own with one page, so the same exporter draws it.
 
 use folio_model::{
-    paperback_cover, Align, Background, Book, Colour, Frame, FrameBase, FrameId, InlineContent,
-    Page, PageId, Paper, Pt, Rect, Run, Shape, ShapeFrame, Size, Spread, SpreadId, SpreadKind,
-    StyleId, StyleOverrides, TextFrame,
+    paperback_cover, Align, Background, BarcodeChoice, Book, Colour, Frame, FrameBase, FrameId,
+    InlineContent, Page, PageId, Paper, Pt, Rect, Run, Shape, ShapeFrame, Size, Spread, SpreadId,
+    SpreadKind, StyleId, StyleOverrides, TextFrame,
 };
 
 pub use folio_model::{spine_pages, SPINE_TEXT_FROM};
@@ -58,13 +58,46 @@ fn text_frame(name: &str, style: &str, rect: Rect, rotation: f64, text: &str) ->
     })
 }
 
+/// A bar of the barcode as a black rectangle frame.
+fn bar(name: &str, rect: Rect) -> Frame {
+    Frame::Shape(ShapeFrame {
+        base: base(name, rect, 0.0),
+        shape: Shape::Rect,
+        fill: Some(Colour("#000000".into())),
+        style: None,
+        stroke: None,
+        stroke_width: None,
+        radius: None,
+        flip: false,
+        content: None,
+        overrides: None,
+    })
+}
+
+/// A line of small centred words in the body face.
+fn small_text(name: &str, rect: Rect, text: &str) -> Frame {
+    let mut frame = text_frame(name, "body", rect, 0.0, text);
+    if let Frame::Text(f) = &mut frame {
+        f.overrides = Some(StyleOverrides {
+            size: Some(Pt(7.0)),
+            align: Some(Align::Center),
+            bold: None,
+            italic: None,
+            font: None,
+        });
+    }
+    frame
+}
+
 /// The frames that draw an EAN-13 for `isbn` inside the barcode box: the bars at the standard width
-/// of a module, the ISBN above them and its digits below, all on the white of the box. Nothing when
-/// the ISBN is not a good one, which leaves KDP to add its own.
-fn barcode_frames(isbn: &str, maths: &folio_model::CoverMaths) -> Vec<Frame> {
+/// of a module, the ISBN above them and its digits below, all on the white of the box, and the five
+/// digit price `addon` beside them when there is one. Nothing when the ISBN is not a good one, which
+/// leaves KDP to add its own.
+fn barcode_frames(isbn: &str, addon: Option<&str>, maths: &folio_model::CoverMaths) -> Vec<Frame> {
     let Some(modules) = crate::barcode::ean13(isbn) else {
         return Vec::new();
     };
+    let addon_modules = addon.and_then(crate::barcode::ean5);
     // The nominal module is 0.33 mm.
     let module = 0.33 / 25.4 * 72.0;
     let box_ = Rect {
@@ -73,63 +106,70 @@ fn barcode_frames(isbn: &str, maths: &folio_model::CoverMaths) -> Vec<Frame> {
         w: maths.barcode.w,
         h: maths.barcode.h,
     };
-    let left = box_.x.0 + (box_.w.0 - module * 95.0) / 2.0;
+    // The add-on stands nine modules clear of the barcode; together they are centred in the box.
+    let across = module
+        * if addon_modules.is_some() {
+            95.0 + 9.0 + 47.0
+        } else {
+            95.0
+        };
+    let left = box_.x.0 + (box_.w.0 - across) / 2.0;
     let (label, bars_top, bars_height) = (10.0, box_.y.0 + 14.0, 50.0);
-    let black = Some(Colour("#000000".into()));
     let mut frames: Vec<Frame> = crate::barcode::bars(&modules)
         .into_iter()
         .map(|(first, run)| {
-            Frame::Shape(ShapeFrame {
-                base: base(
-                    &format!("bar_{first}"),
-                    Rect {
-                        x: Pt(left + first as f64 * module),
-                        y: Pt(bars_top),
-                        w: Pt(run as f64 * module),
-                        h: Pt(bars_height),
-                    },
-                    0.0,
-                ),
-                shape: Shape::Rect,
-                fill: black.clone(),
-                style: None,
-                stroke: None,
-                stroke_width: None,
-                radius: None,
-                flip: false,
-                content: None,
-                overrides: None,
-            })
+            bar(
+                &format!("bar_{first}"),
+                Rect {
+                    x: Pt(left + first as f64 * module),
+                    y: Pt(bars_top),
+                    w: Pt(run as f64 * module),
+                    h: Pt(bars_height),
+                },
+            )
         })
         .collect();
     let digits: String = isbn.chars().filter(|c| c.is_ascii_digit()).collect();
-    let small = StyleOverrides {
-        size: Some(Pt(7.0)),
-        align: Some(Align::Center),
-        bold: None,
-        italic: None,
-        font: None,
-    };
+    let main_width = Pt(95.0 * module);
     for (name, text, y) in [
         ("isbn_label", format!("ISBN {isbn}"), box_.y.0 + 2.0),
         ("isbn_digits", digits, bars_top + bars_height + 2.0),
     ] {
-        let mut frame = text_frame(
+        frames.push(small_text(
             name,
-            "body",
             Rect {
-                x: box_.x,
+                x: Pt(left),
                 y: Pt(y),
-                w: box_.w,
+                w: main_width,
                 h: Pt(label + 2.0),
             },
-            0.0,
             &text,
-        );
-        if let Frame::Text(f) = &mut frame {
-            f.overrides = Some(small.clone());
+        ));
+    }
+    if let (Some(add), Some(digits)) = (addon_modules, addon) {
+        let add_left = left + (95.0 + 9.0) * module;
+        // The add-on's bars are shorter, and its digits stand over them.
+        for (first, run) in crate::barcode::bars(&add) {
+            frames.push(bar(
+                &format!("addon_{first}"),
+                Rect {
+                    x: Pt(add_left + first as f64 * module),
+                    y: Pt(bars_top + 8.0),
+                    w: Pt(run as f64 * module),
+                    h: Pt(bars_height - 8.0),
+                },
+            ));
         }
-        frames.push(frame);
+        frames.push(small_text(
+            "addon_digits",
+            Rect {
+                x: Pt(add_left),
+                y: Pt(bars_top - 2.0),
+                w: Pt(47.0 * module),
+                h: Pt(label),
+            },
+            digits,
+        ));
     }
     frames
 }
@@ -192,9 +232,17 @@ pub fn cover_sheet(book: &Book, paper: Paper) -> Option<Book> {
         content: None,
         overrides: None,
     }));
-    // The book's own barcode, drawn in the box when its paperback ISBN is a good one.
+    // The book's own barcode, drawn in the box when its paperback ISBN is a good one and the book
+    // does not leave it to KDP.
     if let Some(isbn) = book.metadata.isbn.paperback.as_deref() {
-        frames.extend(barcode_frames(isbn, &maths));
+        let addon = match &book.barcode {
+            BarcodeChoice::Kdp => None,
+            BarcodeChoice::Auto => Some(None),
+            BarcodeChoice::Own { addon } => Some(addon.as_deref()),
+        };
+        if let Some(addon) = addon {
+            frames.extend(barcode_frames(isbn, addon, &maths));
+        }
     }
     // The front: the cover as it is, moved along past the back and the spine.
     for frame in &cover.frames {

@@ -200,3 +200,34 @@ fn a_good_paperback_isbn_is_drawn_as_a_barcode_and_a_bad_one_leaves_the_box_clea
         bar_count(&book)
     );
 }
+
+#[test]
+fn the_barcode_follows_the_books_choice_and_a_price_addon_adds_bars() {
+    use folio_model::BarcodeChoice;
+    let (mut book, _) = sample(BookKind::Novel);
+    book.metadata.isbn.paperback = Some("978-0-306-40615-7".into());
+    let auto = bar_count(&book);
+    assert!((25..=35).contains(&auto), "{auto}");
+    book.barcode = BarcodeChoice::Kdp;
+    assert_eq!(bar_count(&book), 0, "KDP adds its own");
+    book.barcode = BarcodeChoice::Own { addon: None };
+    assert_eq!(bar_count(&book), auto);
+    book.barcode = BarcodeChoice::Own {
+        addon: Some("90000".into()),
+    };
+    let sheet = cover_sheet(&book, Paper::White).unwrap();
+    let addon_bars = sheet
+        .spreads
+        .iter()
+        .flat_map(|s| &s.frames)
+        .filter(|f| {
+            f.base().id.0.starts_with("cover_addon_") && f.base().id.0 != "cover_addon_digits"
+        })
+        .count();
+    assert!(addon_bars >= 8, "{addon_bars}");
+    assert!(sheet
+        .spreads
+        .iter()
+        .flat_map(|s| &s.frames)
+        .any(|f| f.base().id.0 == "cover_addon_digits"));
+}
