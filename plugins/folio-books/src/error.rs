@@ -36,6 +36,9 @@ pub enum Error {
     /// A book could not be exported, or its file could not be written.
     #[error("{0}")]
     Export(String),
+    /// A document could not be brought in, with the reason in plain words.
+    #[error("{0}")]
+    Import(String),
     /// A window asked for a spread the book does not have.
     #[error("the book has no spread `{0}`")]
     NoSuchSpread(String),
@@ -62,6 +65,7 @@ impl Error {
             Error::NoSuchMaster(_) => "noSuchMaster",
             Error::BadImage(_) => "image",
             Error::Export(_) => "export",
+            Error::Import(_) => "import",
             Error::Dictionary(_) => "dictionary",
             Error::Recovery(_) => "recovery",
         }
