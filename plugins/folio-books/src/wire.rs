@@ -194,6 +194,8 @@ pub enum ExportTarget {
     KdpInterior,
     /// Every page for a print shop: bleed all round, crop marks, PDF/X-4.
     PrintShopPdf,
+    /// The paperback cover for KDP: back, spine and front on one sheet.
+    KdpCover,
     /// A reflowable EPUB for Kindle Direct Publishing.
     KindleEpub,
     /// A reflowable EPUB for Kobo, and its Kobo flavour (KEPUB).

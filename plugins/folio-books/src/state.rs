@@ -914,7 +914,7 @@ impl<R: Runtime> Books<R> {
     /// half-written file.
     pub fn export(&self, id: &str, targets: &[ExportTarget]) -> Result<ExportReport, Error> {
         let base = self.fonts.get_or_init(FontBook::with_system_fonts);
-        let (book, styles, assets, layered, folder) = {
+        let (book, styles, assets, layered, folder, paper) = {
             let mut inner = locked(&self.inner);
             let open = inner
                 .books
@@ -929,6 +929,17 @@ impl<R: Runtime> Books<R> {
                     assets.insert(path, bytes);
                 }
             }
+            // The paper decides how thick the spine is.
+            let paper = match open
+                .package
+                .settings()
+                .get("paper")
+                .and_then(|p| p.as_str())
+            {
+                Some("cream") => folio_model::Paper::Cream,
+                Some("colour") => folio_model::Paper::Colour,
+                _ => folio_model::Paper::White,
+            };
             let folder = match &open.path {
                 Some(path) => path.parent().map(Path::to_path_buf).unwrap_or_default(),
                 None => self
@@ -940,7 +951,7 @@ impl<R: Runtime> Books<R> {
             .join("exports");
             let styles = style_sheet(&book.styles);
             let layered = open.font_book(base);
-            (book, styles, assets, layered, folder)
+            (book, styles, assets, layered, folder, paper)
         };
         let fonts = layered.as_deref().unwrap_or(base);
         std::fs::create_dir_all(&folder)
@@ -956,9 +967,11 @@ impl<R: Runtime> Books<R> {
                     ExportTarget::SharingPdf => folio_export::Target::SharingPdf,
                     ExportTarget::KdpInterior => folio_export::Target::KdpInterior,
                     ExportTarget::PrintShopPdf => folio_export::Target::PrintShopPdf,
+                    ExportTarget::KdpCover => folio_export::Target::KdpCover,
                     ExportTarget::KindleEpub => folio_export::Target::KindleEpub,
                     ExportTarget::KoboEpub => folio_export::Target::KoboEpub,
                 },
+                paper,
                 &book,
                 &styles,
                 fonts,

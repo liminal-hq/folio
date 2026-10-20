@@ -51,6 +51,9 @@ pub enum PdfTarget {
     /// For a print shop: every page, with the bleed all round, the trim marked, optional crop marks
     /// and the file made PDF/X-4 with an output intent.
     PrintShop,
+    /// The paperback cover sheet for KDP: one page with the bleed all round, in ink, with nothing
+    /// but the title and author in the file.
+    Cover,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -118,9 +121,10 @@ pub fn export_pdf(
     }
     let print = options.target == PdfTarget::Print;
     let shop = options.target == PdfTarget::PrintShop;
+    let sheet = options.target == PdfTarget::Cover;
     // Bleed is for a print file. A print shop wants it all round whenever the book has one; KDP
     // wants it only when something bleeds, and then on the outer edge of each page.
-    let bleed = if (print && scenes.iter().any(spills)) || shop {
+    let bleed = if (print && scenes.iter().any(spills)) || shop || sheet {
         book.bleed.0.max(0.0)
     } else {
         0.0
@@ -139,7 +143,7 @@ pub fn export_pdf(
         let (width, height) = page.map_or((book.trim.w.0, book.trim.h.0), |p| (p.width, p.height));
         let recto = page.map_or(number % 2 == 0, |p| p.recto);
         // KDP's bleed is on the outer edge, away from the fold; a print shop's is on every side.
-        let (left, right) = match (shop, recto) {
+        let (left, right) = match (shop || sheet, recto) {
             (true, _) => (bleed, bleed),
             (false, true) => (0.0, bleed),
             (false, false) => (bleed, 0.0),
@@ -155,7 +159,7 @@ pub fn export_pdf(
             .ok_or_else(|| ExportError::Pdf("a page has no size".into()))?;
         let mut settings = PageSettings::new(size);
         let (origin_x, origin_y) = (left + slug, bleed + slug);
-        if bleed > 0.0 || shop {
+        if bleed > 0.0 || shop || sheet {
             settings = settings
                 .with_trim_box(KRect::from_xywh(
                     origin_x as f32,

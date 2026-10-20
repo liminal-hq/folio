@@ -6,6 +6,7 @@
 //! Everything here draws from the page scene (`folio_layout::scene`), never from the canvas, so
 //! a file holds the very glyphs layout chose.
 
+pub mod cover;
 pub mod epub;
 pub mod error;
 pub mod job;
