@@ -1320,3 +1320,49 @@ fn a_spread_is_proofed_through_a_press_profile_and_a_bad_path_is_refused() {
         assert_ne!(pages[0].original, pages[0].proofed);
     }
 }
+
+#[test]
+fn an_export_says_which_file_it_has_reached_and_stops_when_asked() {
+    use crate::wire::{ExportProgress, ExportReport};
+    use crate::EXPORT_PROGRESS_EVENT;
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec {
+            title: "Otter".into(),
+            ..NewBookSpec::default()
+        })
+        .unwrap()
+        .summary
+        .id;
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("Otter").join("Otter.folio");
+    books(&app).save(&id, Some(file.as_path())).unwrap();
+    let targets = [ExportTarget::SharingPdf, ExportTarget::EbookCover];
+
+    let heard = hear::<ExportProgress>(&app, "main", EXPORT_PROGRESS_EVENT);
+    let report: ExportReport = books(&app)
+        .export(&id, &targets, ExportColour::default())
+        .unwrap();
+    assert!(!report.cancelled);
+    let seen: Vec<(u32, u32)> = heard
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|p| (p.done, p.total))
+        .collect();
+    assert_eq!(seen, vec![(0, 2), (1, 2)]);
+
+    // Asking to stop when the first file is reached keeps that file and makes no more.
+    let handle = app.handle().clone();
+    app.listen(EXPORT_PROGRESS_EVENT, move |e| {
+        let p: ExportProgress = serde_json::from_str(e.payload()).unwrap();
+        if p.done == 1 {
+            handle.state::<Books<MockRuntime>>().cancel_export();
+        }
+    });
+    let stopped = books(&app)
+        .export(&id, &targets, ExportColour::default())
+        .unwrap();
+    assert!(stopped.cancelled);
+    assert_eq!(stopped.files.len(), 1);
+}

@@ -351,6 +351,16 @@ pub async fn export_book<R: Runtime>(
     .expect("the export task does not panic")
 }
 
+/// Stops the export in progress after the file it is making; what was made is kept.
+#[tauri::command]
+pub async fn cancel_export<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+) -> Result<(), Error> {
+    books.cancel_export();
+    Ok(())
+}
+
 /// Shows a file in the system's file manager.
 #[tauri::command]
 pub async fn reveal_path<R: Runtime>(_window: WebviewWindow<R>, path: String) -> Result<(), Error> {

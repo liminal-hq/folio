@@ -30,6 +30,7 @@ permissions = [
   "allow-reader-preview",
   "allow-proof-spread",
   "allow-export-book",
+  "allow-cancel-export",
   "allow-reveal-path",
   "allow-preflight-book",
   "allow-fonts-in-use",

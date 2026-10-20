@@ -275,6 +275,9 @@ pub struct ExportReport {
     /// The folder the files are in.
     pub folder: String,
     pub files: Vec<ExportedFile>,
+    /// Set when the person stopped the export, so the files are those made before that.
+    #[serde(default)]
+    pub cancelled: bool,
 }
 
 /// A chapter of the book as a reader shows it.
@@ -330,6 +333,19 @@ pub struct DictionaryProgress {
     /// Bytes that have arrived, over every file of the dictionary.
     pub received: u32,
     /// Bytes expected in all: the sizes the catalogue pins.
+    pub total: u32,
+}
+
+/// How far an export has got, sent to every window as it goes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ExportProgress {
+    /// The book being exported.
+    pub id: String,
+    /// The target about to be made, and how many are done before it.
+    pub target: ExportTarget,
+    pub done: u32,
     pub total: u32,
 }
 

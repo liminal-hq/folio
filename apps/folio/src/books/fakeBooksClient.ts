@@ -16,6 +16,7 @@ import type {
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
+import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
@@ -115,6 +116,8 @@ export interface FakeBooks {
 	emit: { patch(event: PatchEvent): void; changed(): void };
 	/** Makes the next call named `name` fail with a refusal. */
 	refuseNext(name: string, kind: string, message: string): void;
+	/** Holds each export at the file it has reached until the returned function is called. */
+	holdExport(): () => void;
 	/** Books a crash left changes in, which a test puts here for the client to offer. */
 	recoveries: Recoverable[];
 	/** The words the fake speller flags, whatever the case; none to begin with. */
@@ -143,6 +146,9 @@ export function createFakeBooksClient(): FakeBooks {
 	/** The revision each book was last copied at, as the plugin keeps it. */
 	const copied = new Map<string, number>();
 	const progress = new Set<(event: DictionaryProgress) => void>();
+	const exportListeners = new Set<(event: ExportProgress) => void>();
+	let exportStopped = false;
+	let exportGate: Promise<void> = Promise.resolve();
 	const listing = (): DictionaryStatus[] => [
 		{
 			id: 'en-CA',
@@ -533,6 +539,14 @@ export function createFakeBooksClient(): FakeBooks {
 			const png = 'data:image/png;base64,AAAA';
 			return [{ original: png, proofed: `${png}B`, outside: 12.5 }];
 		},
+		async onExportProgress(listener) {
+			exportListeners.add(listener);
+			return () => exportListeners.delete(listener);
+		},
+		async cancelExport() {
+			await call('cancelExport', []);
+			exportStopped = true;
+		},
 		async exportBook(id, targets, colour) {
 			await call('exportBook', colour ? [id, targets, colour] : [id, targets]);
 			find(id);
@@ -546,16 +560,29 @@ export function createFakeBooksClient(): FakeBooks {
 				fixedEpub: ['pip-fixed.epub'],
 				koboEpub: ['pip.epub', 'pip.kepub.epub'],
 			};
+			exportStopped = false;
 			const report: ExportReport = {
 				folder: '/home/mom/Books/Pip/exports',
-				files: targets.flatMap((target) =>
-					(names[target] ?? []).map((name) => ({
+				files: [],
+				cancelled: false,
+			};
+			for (const [done, target] of targets.entries()) {
+				for (const listener of exportListeners)
+					listener({ id, target, done, total: targets.length });
+				// A test can hold the export here to look at the dialog while it works.
+				await exportGate;
+				if (exportStopped) {
+					report.cancelled = true;
+					break;
+				}
+				report.files.push(
+					...(names[target] ?? []).map((name) => ({
 						target,
 						path: `/home/mom/Books/Pip/exports/${name}`,
 						bytes: 123456,
 					})),
-				),
-			};
+				);
+			}
 			return report;
 		},
 		async revealPath(path) {
@@ -633,6 +660,16 @@ export function createFakeBooksClient(): FakeBooks {
 			changed,
 		},
 		refuseNext: (name, kind, message) => refusals.set(name, { kind, message }),
+		holdExport: () => {
+			let release = () => {};
+			exportGate = new Promise<void>((resolve) => {
+				release = () => {
+					exportGate = Promise.resolve();
+					resolve();
+				};
+			});
+			return release;
+		},
 		misspelt,
 		installedFonts,
 		preflightItems,
