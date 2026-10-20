@@ -120,6 +120,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function readerPreview(id) {
         return cmd('reader_preview', { id });
     }
+    /** A spread as a press would print it, through the CMYK ICC profile at `profile`. */
+    function proofSpread(id, spread, profile) {
+        return cmd('proof_spread', { id, spread, profile });
+    }
     /** Makes the files for `targets` and writes them into the book's `exports` folder. */
     function exportBook(id, targets, colour) {
         return cmd('export_book', { id, targets, colour });
@@ -210,6 +214,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.paintPresets = paintPresets;
     exports.preflightBook = preflightBook;
     exports.presets = presets;
+    exports.proofSpread = proofSpread;
     exports.readerPreview = readerPreview;
     exports.recoverableBooks = recoverableBooks;
     exports.redo = redo;
