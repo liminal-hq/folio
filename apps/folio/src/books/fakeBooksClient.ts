@@ -501,13 +501,21 @@ export function createFakeBooksClient(): FakeBooks {
 		async exportBook(id, targets) {
 			await call('exportBook', [id, targets]);
 			find(id);
+			const names: Record<string, string[]> = {
+				sharingPdf: ['pip-share.pdf'],
+				kdpInterior: ['pip-paperback-interior.pdf'],
+				kindleEpub: ['pip-kindle.epub'],
+				koboEpub: ['pip.epub', 'pip.kepub.epub'],
+			};
 			const report: ExportReport = {
 				folder: '/home/mom/Books/Pip/exports',
-				files: targets.map((target) => ({
-					target,
-					path: `/home/mom/Books/Pip/exports/pip-${target === 'sharingPdf' ? 'share' : 'paperback-interior'}.pdf`,
-					bytes: 123456,
-				})),
+				files: targets.flatMap((target) =>
+					(names[target] ?? []).map((name) => ({
+						target,
+						path: `/home/mom/Books/Pip/exports/${name}`,
+						bytes: 123456,
+					})),
+				),
 			};
 			return report;
 		},
