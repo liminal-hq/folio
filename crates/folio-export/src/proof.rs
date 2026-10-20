@@ -59,3 +59,36 @@ pub fn proof_spread(
     }
     Ok(Some(pages))
 }
+
+/// One of the book's swatches, as it is drawn and as the press would print it.
+pub struct ProofColour {
+    pub name: String,
+    /// The colour drawn, `#rrggbb`.
+    pub display: String,
+    /// The colour through the press's profile, `#rrggbb`.
+    pub proofed: String,
+    /// Whether the press cannot reproduce it.
+    pub outside: bool,
+}
+
+/// The book's swatches through the press whose ICC profile is `press`.
+pub fn proof_colours(book: &Book, press: &[u8]) -> Result<Vec<ProofColour>, ExportError> {
+    let profile = Profile::from_icc(press).map_err(|e| ExportError::Pdf(e.to_string()))?;
+    let proof =
+        Proof::new(&profile, Intent::Perceptual).map_err(|e| ExportError::Pdf(e.to_string()))?;
+    Ok(book
+        .styles
+        .swatches
+        .iter()
+        .filter_map(|swatch| {
+            let (r, g, b) = swatch.display.rgb().map(|[r, g, b]| (r, g, b))?;
+            let shown = proof.colour((r, g, b));
+            Some(ProofColour {
+                name: swatch.name.clone(),
+                display: format!("#{r:02x}{g:02x}{b:02x}"),
+                proofed: format!("#{:02x}{:02x}{:02x}", shown.rgb.0, shown.rgb.1, shown.rgb.2),
+                outside: shown.out_of_gamut,
+            })
+        })
+        .collect())
+}

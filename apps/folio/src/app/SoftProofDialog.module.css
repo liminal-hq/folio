@@ -54,3 +54,32 @@
 	color: var(--folio-text-muted);
 	font-size: 13px;
 }
+
+.colours {
+	width: 100%;
+	margin-top: 12px;
+	border-collapse: collapse;
+	text-align: start;
+}
+
+.colours caption {
+	text-align: start;
+	font-weight: 600;
+	padding-block-end: 6px;
+}
+
+.colours th,
+.colours td {
+	padding: 4px 8px 4px 0;
+	font-weight: 400;
+}
+
+.chip {
+	display: inline-block;
+	inline-size: 28px;
+	block-size: 18px;
+	margin-inline-end: 4px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 3px;
+	vertical-align: middle;
+}

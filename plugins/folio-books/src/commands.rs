@@ -17,7 +17,7 @@ use crate::state::Books;
 use crate::wire::{
     BookSnapshot, BookSpelling, BookSummary, CoverSheetPreview, DictionaryProgress,
     DictionaryStatus, ExportColour, ExportReport, ExportTarget, FontChoice, FontUse,
-    KeepFontsReport, ProofPage, ReaderPreview, Recoverable, SpellCheck, SpreadLayoutResult,
+    KeepFontsReport, ProofSpread, ReaderPreview, Recoverable, SpellCheck, SpreadLayoutResult,
 };
 use crate::DICTIONARY_PROGRESS_EVENT;
 use folio_import::ImportReport;
@@ -335,7 +335,7 @@ pub async fn proof_spread<R: Runtime>(
     id: String,
     spread: String,
     profile: String,
-) -> Result<Vec<ProofPage>, Error> {
+) -> Result<ProofSpread, Error> {
     // Drawing and converting every pixel is work for a blocking thread, not the async runtime.
     tauri::async_runtime::spawn_blocking(move || {
         app.state::<Books<R>>().proof_spread(&id, &spread, &profile)
