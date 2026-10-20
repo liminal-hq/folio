@@ -18,6 +18,7 @@ fn main() {
         ..NewBookSpec::default()
     })
     .expect("a sample book");
+    made.book.metadata.isbn.paperback = Some("978-0-306-40615-7".into());
     made.book.metadata.description =
         "Mara has kept the light at Gannet Point for eleven winters. When a letter arrives with no stamp, the light is not all she keeps.".into();
     // Copies of the last spread until the book is as long as asked.

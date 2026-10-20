@@ -175,3 +175,28 @@ fn a_book_with_no_cover_makes_no_sheet() {
     book.spreads.remove(0);
     assert!(cover_sheet(&book, Paper::White).is_none());
 }
+
+fn bar_count(book: &Book) -> usize {
+    let sheet = cover_sheet(book, Paper::White).unwrap();
+    sheet
+        .spreads
+        .iter()
+        .flat_map(|s| &s.frames)
+        .filter(|f| f.base().id.0.starts_with("cover_bar_"))
+        .count()
+}
+
+#[test]
+fn a_good_paperback_isbn_is_drawn_as_a_barcode_and_a_bad_one_leaves_the_box_clear() {
+    let (mut book, _) = sample(BookKind::Novel);
+    assert_eq!(bar_count(&book), 0);
+    book.metadata.isbn.paperback = Some("978-0-306-40615-8".into());
+    assert_eq!(bar_count(&book), 0);
+    book.metadata.isbn.paperback = Some("978-0-306-40615-7".into());
+    // An EAN-13 has 30 bars: the guards and the digits.
+    assert!(
+        (25..=35).contains(&bar_count(&book)),
+        "{}",
+        bar_count(&book)
+    );
+}
