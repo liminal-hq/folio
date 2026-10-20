@@ -406,3 +406,14 @@ describe('the Export buttons', () => {
 		});
 	});
 });
+
+describe('the preview buttons', () => {
+	it('are always available, show print as chosen to begin with and ask to switch', () => {
+		const state = editorState(input());
+		expect(['print', 'kindle', 'kobo'].every((id) => state.available.has(id))).toBe(true);
+		expect(state.active.print).toBe(true);
+		expect(editorState(input([], { preview: 'kobo' })).active).toMatchObject({ kobo: true });
+		expect(editorAction('kindle', undefined, input())).toEqual({ kind: 'preview', mode: 'kindle' });
+		expect(editorAction('print', undefined, input())).toEqual({ kind: 'preview', mode: 'print' });
+	});
+});

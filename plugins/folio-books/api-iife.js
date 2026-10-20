@@ -116,6 +116,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function onDictionaryProgress(listener) {
         return event.listen(DICTIONARY_PROGRESS_EVENT, (e) => listener(e.payload));
     }
+    /** The book as an e-reader would show it, from the same chapters and CSS the EPUB ships. */
+    function readerPreview(id) {
+        return cmd('reader_preview', { id });
+    }
     /** Makes the files for `targets` and writes them into the book's `exports` folder. */
     function exportBook(id, targets) {
         return cmd('export_book', { id, targets });
@@ -197,6 +201,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.paintPresets = paintPresets;
     exports.preflightBook = preflightBook;
     exports.presets = presets;
+    exports.readerPreview = readerPreview;
     exports.recoverableBooks = recoverableBooks;
     exports.redo = redo;
     exports.removeDictionary = removeDictionary;

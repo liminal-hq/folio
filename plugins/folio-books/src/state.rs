@@ -24,7 +24,8 @@ use crate::spelling::Spelling;
 use crate::wire::{
     BookSnapshot, BookSpelling, BookSummary, BooksChanged, ExportReport, ExportTarget,
     ExportedFile, FontChoice, FontOrigin, FontSkip, KeepFontsReport, Misspelling, MisspeltWord,
-    PatchEvent, Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult,
+    PatchEvent, PreviewChapter, PreviewImage, ReaderPreview, Recoverable, SkippedFont, SpellCheck,
+    SpreadLayoutResult,
 };
 use crate::{CHANGED_EVENT, PATCH_EVENT};
 
@@ -858,6 +859,53 @@ impl<R: Runtime> Books<R> {
         // A stable sort keeps the pages in order within each severity.
         items.sort_by_key(|item| item.severity);
         Ok(items)
+    }
+
+    /// The book as an e-reader would show it, from the same chapters and CSS the EPUB ships.
+    pub fn reader_preview(&self, id: &str) -> Result<ReaderPreview, Error> {
+        use base64::Engine as _;
+        let (book, assets) = {
+            let inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let book = open.session.book().clone();
+            let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
+            for path in used_assets(&book) {
+                if let Ok(bytes) = open.package.asset_bytes(&path) {
+                    assets.insert(path, bytes);
+                }
+            }
+            (book, assets)
+        };
+        let made = folio_export::epub::reader_preview(&book, &MemoryAssets(assets))
+            .map_err(|e| Error::Export(e.to_string()))?;
+        Ok(ReaderPreview {
+            title: made.title,
+            language: made.language,
+            css: made.css,
+            chapters: made
+                .chapters
+                .into_iter()
+                .map(|c| PreviewChapter {
+                    title: c.title,
+                    body: c.body,
+                })
+                .collect(),
+            images: made
+                .images
+                .into_iter()
+                .map(|(name, media, bytes)| PreviewImage {
+                    data_uri: format!(
+                        "data:{media};base64,{}",
+                        base64::engine::general_purpose::STANDARD.encode(bytes)
+                    ),
+                    name,
+                })
+                .collect(),
+        })
     }
 
     /// Makes the files for `targets` from a book and writes them into its `exports` folder: beside

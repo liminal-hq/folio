@@ -29,6 +29,8 @@ export interface EditorInput {
 	snap: boolean;
 	/** Whether the rulers show. */
 	rulers: boolean;
+	/** What the stage shows: the pages as printed, or as a Kindle or Kobo shows them. */
+	preview?: 'print' | 'kindle' | 'kobo';
 	/** The cell being edited in the selected table, which says where a row or column goes. */
 	cell?: { row: number; col: number } | null;
 	/** Whether `spread` is a master page being edited, not one of the book's spreads. */
@@ -61,6 +63,7 @@ export type EditorAction =
 	| { kind: 'choosePicture'; frame: string }
 	| { kind: 'stretch'; frame: string }
 	| { kind: 'fit'; frame: string; fit: 'fill' | 'fit' }
+	| { kind: 'preview'; mode: 'print' | 'kindle' | 'kobo' }
 	| { kind: 'checkBook' }
 	| { kind: 'exportBook'; quick: boolean }
 	| { kind: 'editMaster' }
@@ -129,6 +132,8 @@ export function editorState(input: EditorInput): EditorState {
 	if (input.master) active.master = true;
 	available.add('master');
 	available.add('preflight');
+	for (const id of ['print', 'kindle', 'kobo']) available.add(id);
+	active[input.preview ?? 'print'] = true;
 	available.add('export');
 	available.add('quickPdf');
 	// A master page has no spread to paint; its background is set from the pages that use it.
@@ -192,6 +197,10 @@ export function editorAction(
 	const { spread, selected } = input;
 	const on = { on: surfaceOf(spread) };
 	switch (id) {
+		case 'print':
+		case 'kindle':
+		case 'kobo':
+			return { kind: 'preview', mode: id };
 		case 'preflight':
 			return { kind: 'checkBook' };
 		case 'export':

@@ -325,29 +325,40 @@ fn media_type(path: &str) -> &'static str {
     }
 }
 
-/// The book as an EPUB 3 file.
-pub fn export_epub(
+/// A chapter of the story: its title and its body as XHTML.
+#[derive(Debug, Clone)]
+pub struct ReflowChapter {
+    pub title: String,
+    pub body: String,
+}
+
+/// The book's story as chapters, and the pictures they use.
+#[derive(Debug, Clone)]
+pub struct Reflow {
+    pub chapters: Vec<ReflowChapter>,
+    /// Each picture as its path in the package and its name in the chapters (`../images/<name>`).
+    pub images: Vec<(String, String)>,
+}
+
+/// The story of `book` as chapters of XHTML. The EPUB and the reader preview both draw from this,
+/// so what a person previews is what ships.
+pub fn reflow(
     book: &Book,
-    fonts: &FontBook,
     assets: &dyn Assets,
-    options: &EpubOptions,
-) -> Result<Vec<u8>, ExportError> {
+    flavour: EpubFlavour,
+) -> Result<Reflow, ExportError> {
     let pieces = story(book);
     if pieces.is_empty() {
         return Err(ExportError::NoPages);
     }
-    let kobo = options.flavour == EpubFlavour::Kobo;
+    let kobo = flavour == EpubFlavour::Kobo;
     let mut writer = Writer {
         kobo,
         spans: 0,
         chapter: 1,
     };
     // Chapters: each title starts a file, and what comes before the first title is the first.
-    struct Chapter {
-        title: String,
-        body: String,
-    }
-    let mut chapters: Vec<Chapter> = vec![Chapter {
+    let mut chapters: Vec<ReflowChapter> = vec![ReflowChapter {
         title: book.title.clone(),
         body: String::new(),
     }];
@@ -369,7 +380,7 @@ pub fn export_epub(
                 let text = plain(runs);
                 if chapters.len() > 1 || !chapters[0].body.is_empty() {
                     writer.chapter += 1;
-                    chapters.push(Chapter {
+                    chapters.push(ReflowChapter {
                         title: text.clone(),
                         body: String::new(),
                     });
@@ -431,6 +442,18 @@ pub fn export_epub(
             }
         }
     }
+
+    Ok(Reflow { chapters, images })
+}
+
+/// The book as an EPUB 3 file.
+pub fn export_epub(
+    book: &Book,
+    fonts: &FontBook,
+    assets: &dyn Assets,
+    options: &EpubOptions,
+) -> Result<Vec<u8>, ExportError> {
+    let Reflow { chapters, images } = reflow(book, assets, options.flavour)?;
 
     // Fonts the book names that may travel with it.
     let mut families: BTreeMap<String, Option<(String, bool)>> = BTreeMap::new();
@@ -597,4 +620,36 @@ fn utc_now() -> String {
         rest % 3_600 / 60,
         rest % 60
     )
+}
+
+/// What the reader preview shows: the same chapters and CSS the EPUB ships, and the pictures.
+#[derive(Debug, Clone)]
+pub struct ReaderPreview {
+    pub title: String,
+    pub language: String,
+    pub css: String,
+    pub chapters: Vec<ReflowChapter>,
+    /// Each picture by its name in the chapters, with its media type and bytes.
+    pub images: Vec<(String, &'static str, Vec<u8>)>,
+}
+
+/// The reader preview of `book`: its story as the EPUB tells it, in the EPUB's own CSS. The fonts
+/// are the page's to supply, since the preview is shown inside it.
+pub fn reader_preview(book: &Book, assets: &dyn Assets) -> Result<ReaderPreview, ExportError> {
+    let Reflow { chapters, images } = reflow(book, assets, EpubFlavour::Standard)?;
+    let images = images
+        .into_iter()
+        .filter_map(|(path, name)| {
+            assets
+                .bytes(&path)
+                .map(|bytes| (name.clone(), media_type(&name), bytes))
+        })
+        .collect();
+    Ok(ReaderPreview {
+        title: book.title.clone(),
+        language: book.language.clone(),
+        css: css(book, &BTreeMap::new()),
+        chapters,
+        images,
+    })
 }
