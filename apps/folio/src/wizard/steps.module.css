@@ -165,3 +165,14 @@
 	border: 1px solid var(--folio-border-subtle);
 	border-radius: 50%;
 }
+
+.pair {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px;
+}
+
+.inline {
+	display: grid;
+	gap: 6px;
+}
