@@ -1298,3 +1298,25 @@ fn an_issue_the_person_leaves_alone_is_marked_so_and_comes_back_when_it_is_let_g
         .iter()
         .all(|i| !i.ignored));
 }
+
+#[test]
+fn a_spread_is_proofed_through_a_press_profile_and_a_bad_path_is_refused() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let spread = books(&app).snapshot(&id).unwrap().book.spreads[1]
+        .id
+        .0
+        .clone();
+    assert!(books(&app).proof_spread(&id, &spread, "/nope.icc").is_err());
+    let press = "/usr/share/ghostscript/iccprofiles/default_cmyk.icc";
+    if std::path::Path::new(press).exists() {
+        let pages = books(&app).proof_spread(&id, &spread, press).unwrap();
+        assert!(!pages.is_empty());
+        assert!(pages[0].proofed.starts_with("data:image/png;base64,"));
+        assert_ne!(pages[0].original, pages[0].proofed);
+    }
+}

@@ -261,6 +261,30 @@ impl Proof {
         Ok(Self { transform })
     }
 
+    /// Proofs a run of RGBA pixels in place, leaving alpha alone, and says how many of the opaque
+    /// ones were outside what the press can reproduce.
+    pub fn pixels(&self, rgba: &mut [u8]) -> usize {
+        let mut outside = 0;
+        let mut cache: Option<([u8; 3], Proofed)> = None;
+        for px in rgba.as_chunks_mut::<4>().0 {
+            let rgb = [px[0], px[1], px[2]];
+            // Flat areas repeat the same colour, so the last answer is often the next one too.
+            let proofed = match cache {
+                Some((seen, proofed)) if seen == rgb => proofed,
+                _ => {
+                    let proofed = self.colour((rgb[0], rgb[1], rgb[2]));
+                    cache = Some((rgb, proofed));
+                    proofed
+                }
+            };
+            if px[3] > 0 && proofed.out_of_gamut {
+                outside += 1;
+            }
+            px[..3].copy_from_slice(&[proofed.rgb.0, proofed.rgb.1, proofed.rgb.2]);
+        }
+        outside
+    }
+
     pub fn colour(&self, rgb: (u8, u8, u8)) -> Proofed {
         let mut out = [[0u8; 3]];
         self.transform

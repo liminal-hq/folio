@@ -65,6 +65,7 @@ export type EditorAction =
 	| { kind: 'fit'; frame: string; fit: 'fill' | 'fit' }
 	| { kind: 'preview'; mode: 'print' | 'kindle' | 'kobo' }
 	| { kind: 'checkBook' }
+	| { kind: 'softProof' }
 	| { kind: 'exportBook'; quick: boolean }
 	| { kind: 'editMaster' }
 	| { kind: 'pageBackground' };
@@ -132,6 +133,7 @@ export function editorState(input: EditorInput): EditorState {
 	if (input.master) active.master = true;
 	available.add('master');
 	available.add('preflight');
+	available.add('softProof');
 	for (const id of ['print', 'kindle', 'kobo']) available.add(id);
 	active[input.preview ?? 'print'] = true;
 	available.add('export');
@@ -203,6 +205,8 @@ export function editorAction(
 			return { kind: 'preview', mode: id };
 		case 'preflight':
 			return { kind: 'checkBook' };
+		case 'softProof':
+			return { kind: 'softProof' };
 		case 'export':
 			return { kind: 'exportBook', quick: false };
 		case 'quickPdf':

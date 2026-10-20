@@ -527,6 +527,12 @@ export function createFakeBooksClient(): FakeBooks {
 			};
 			return preview;
 		},
+		async proofSpread(id, spread, profile) {
+			await call('proofSpread', [id, spread, profile]);
+			find(id);
+			const png = 'data:image/png;base64,AAAA';
+			return [{ original: png, proofed: `${png}B`, outside: 12.5 }];
+		},
 		async exportBook(id, targets, colour) {
 			await call('exportBook', colour ? [id, targets, colour] : [id, targets]);
 			find(id);

@@ -14,6 +14,7 @@ pub mod fixed;
 pub mod job;
 pub mod pdf;
 pub mod pdfx;
+pub mod proof;
 pub mod raster;
 mod texture;
 mod time;

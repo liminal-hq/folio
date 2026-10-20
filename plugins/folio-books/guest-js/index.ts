@@ -18,6 +18,7 @@ import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTa
 import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
 import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
+import type { ProofPage } from '@liminal-hq/folio-protocol/generated/ProofPage';
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
 import type { Misspelling } from '@liminal-hq/folio-protocol/generated/Misspelling';
@@ -227,6 +228,11 @@ export type {
 /** The book as an e-reader would show it, from the same chapters and CSS the EPUB ships. */
 export function readerPreview(id: string): Promise<ReaderPreview> {
 	return cmd<ReaderPreview>('reader_preview', { id });
+}
+
+/** A spread as a press would print it, through the CMYK ICC profile at `profile`. */
+export function proofSpread(id: string, spread: string, profile: string): Promise<ProofPage[]> {
+	return cmd<ProofPage[]>('proof_spread', { id, spread, profile });
 }
 
 /** Makes the files for `targets` and writes them into the book's `exports` folder. */
