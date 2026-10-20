@@ -472,6 +472,46 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 merge: Some(MergeKey::Paragraph(flow.clone(), *para)),
             })
         }
+        Intent::SplitParagraph { flow, para, at } => {
+            let story = story_of(book, flow)?;
+            let length = story
+                .get(*para)
+                .map(|p| p.text().chars().count())
+                .ok_or_else(|| {
+                    SessionError::BadStory(format!(
+                        "no paragraph {para} in a story of {}",
+                        story.len()
+                    ))
+                })?;
+            if *at > length {
+                return Err(SessionError::BadStory(format!(
+                    "character {at} in a paragraph of {length}"
+                )));
+            }
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                flows: vec![flow.clone()],
+                new_flow: None,
+                merge: None,
+            })
+        }
+        Intent::JoinParagraphs { flow, para } => {
+            let story = story_of(book, flow)?;
+            if para + 1 >= story.len() {
+                return Err(SessionError::BadStory(format!(
+                    "no paragraph after {para} in a story of {}",
+                    story.len()
+                )));
+            }
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                flows: vec![flow.clone()],
+                new_flow: None,
+                merge: None,
+            })
+        }
         Intent::SpliceStory {
             flow, at, remove, ..
         } => {
@@ -1255,6 +1295,31 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
         Intent::SetParagraphText { flow, para, text } => {
             if let Some(p) = flow_mut(book, &flow).and_then(|f| f.paragraphs.get_mut(para)) {
                 p.inline = folio_model::retext(&p.inline, &text);
+            }
+        }
+        Intent::SplitParagraph { flow, para, at } => {
+            if let Some(f) = flow_mut(book, &flow) {
+                if let Some(p) = f.paragraphs.get(para) {
+                    let (before, after) = folio_model::split_runs(&p.inline, at);
+                    let style = p.style.clone();
+                    f.paragraphs[para].inline = before;
+                    f.paragraphs.insert(
+                        para + 1,
+                        StoryPara {
+                            style,
+                            inline: after,
+                        },
+                    );
+                }
+            }
+        }
+        Intent::JoinParagraphs { flow, para } => {
+            if let Some(f) = flow_mut(book, &flow) {
+                if para + 1 < f.paragraphs.len() {
+                    let next = f.paragraphs.remove(para + 1);
+                    f.paragraphs[para].inline =
+                        folio_model::join_runs(&f.paragraphs[para].inline, &next.inline);
+                }
             }
         }
         Intent::SpliceStory {
