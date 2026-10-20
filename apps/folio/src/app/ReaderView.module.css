@@ -1,0 +1,112 @@
+.view {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+	min-block-size: 0;
+	padding: 16px;
+	overflow: auto;
+	background: var(--folio-bg-stage);
+}
+
+.bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+	color: var(--folio-text-primary);
+}
+
+.bar button,
+.bar select {
+	padding: 6px 12px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-bg-raised);
+	color: inherit;
+	font: inherit;
+	cursor: default;
+}
+
+.bar button:hover:not(:disabled) {
+	background: var(--folio-bg-hover);
+}
+
+.bar button:active:not(:disabled) {
+	background: var(--folio-border-subtle);
+}
+
+.bar button:disabled {
+	opacity: 0.5;
+}
+
+.bar button:focus-visible,
+.bar select:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: 2px;
+}
+
+.where {
+	min-inline-size: 90px;
+	text-align: center;
+	color: var(--folio-text-secondary);
+}
+
+.gap {
+	inline-size: 16px;
+}
+
+.check {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--folio-text-secondary);
+}
+
+.device {
+	display: grid;
+	place-items: center;
+	flex: none;
+	border-radius: 28px;
+	background: #26262b;
+	box-shadow: 0 8px 28px rgb(0 0 0 / 35%);
+}
+
+.screen,
+.fixed {
+	border: 0;
+	background: #ffffff;
+}
+
+.fixed {
+	display: grid;
+	place-items: center;
+	overflow: hidden;
+}
+
+.note,
+.problem {
+	max-inline-size: 520px;
+	margin: 0;
+	color: var(--folio-text-secondary);
+	font-size: 13px;
+	text-align: center;
+}
+
+.problem {
+	color: var(--folio-danger);
+}
+
+/* The device is drawn at its real size and scaled down as a whole, so the page inside it measures
+   itself as a real screen would. */
+.fitter {
+	flex: none;
+	inline-size: calc(var(--folio-fit-w) * var(--folio-reader-scale, 1));
+	block-size: calc(var(--folio-fit-h) * var(--folio-reader-scale, 1));
+}
+
+.fitter > .device {
+	transform: scale(var(--folio-reader-scale, 1));
+	transform-origin: 0 0;
+}

@@ -16,7 +16,8 @@ use crate::error::Error;
 use crate::state::Books;
 use crate::wire::{
     BookSnapshot, BookSpelling, BookSummary, DictionaryProgress, DictionaryStatus, ExportReport,
-    ExportTarget, FontChoice, KeepFontsReport, Recoverable, SpellCheck, SpreadLayoutResult,
+    ExportTarget, FontChoice, KeepFontsReport, ReaderPreview, Recoverable, SpellCheck,
+    SpreadLayoutResult,
 };
 use crate::DICTIONARY_PROGRESS_EVENT;
 
@@ -301,6 +302,18 @@ pub async fn spell_suggest<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().spell_suggest(&id, &word))
         .await
         .expect("the spelling task does not panic")
+}
+
+/// The book as an e-reader would show it, from the same chapters and CSS the EPUB ships.
+#[tauri::command]
+pub async fn reader_preview<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+) -> Result<ReaderPreview, Error> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().reader_preview(&id))
+        .await
+        .expect("the preview task does not panic")
 }
 
 /// Makes the files for `targets` and writes them into the book's `exports` folder.

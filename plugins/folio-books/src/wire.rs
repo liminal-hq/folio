@@ -218,6 +218,37 @@ pub struct ExportReport {
     pub files: Vec<ExportedFile>,
 }
 
+/// A chapter of the book as a reader shows it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct PreviewChapter {
+    pub title: String,
+    /// The chapter's XHTML body. Pictures are `../images/<name>`.
+    pub body: String,
+}
+
+/// A picture of the book, ready to put in a page as an address.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct PreviewImage {
+    pub name: String,
+    pub data_uri: String,
+}
+
+/// The book as an e-reader would show it: the EPUB's own chapters and CSS (D-35).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ReaderPreview {
+    pub title: String,
+    pub language: String,
+    pub css: String,
+    pub chapters: Vec<PreviewChapter>,
+    pub images: Vec<PreviewImage>,
+}
+
 /// A book with changes that were never saved, found after Folio stopped without closing it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

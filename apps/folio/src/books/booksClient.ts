@@ -7,6 +7,7 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
 import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
 import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
@@ -24,6 +25,7 @@ import {
 	removeDictionary,
 	onDictionaryProgress,
 	importImage,
+	readerPreview,
 	exportBook,
 	revealPath,
 	preflightBook,
@@ -109,6 +111,8 @@ export interface BooksClient {
 	spellCheckBook(id: string, personal?: string[]): Promise<BookSpelling>;
 	/** Corrections for a word, best first. */
 	spellSuggest(id: string, word: string): Promise<string[]>;
+	/** The book as an e-reader would show it, from the same chapters and CSS the EPUB ships. */
+	readerPreview(id: string): Promise<ReaderPreview>;
 	/** Makes the files for `targets` and writes them into the book's `exports` folder. */
 	exportBook(id: string, targets: ExportTarget[]): Promise<ExportReport>;
 	/** Shows a file in the system's file manager. */
@@ -157,6 +161,7 @@ export const tauriBooksClient: BooksClient = {
 	spellCheck,
 	spellCheckBook,
 	spellSuggest,
+	readerPreview,
 	exportBook,
 	revealPath,
 	preflightBook,

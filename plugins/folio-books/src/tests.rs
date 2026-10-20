@@ -1147,3 +1147,22 @@ fn exporting_writes_each_target_into_an_exports_folder_beside_the_saved_book() {
         .export("nope", &[ExportTarget::SharingPdf])
         .is_err());
 }
+
+#[test]
+fn the_reader_preview_is_the_chapters_and_css_the_epub_ships() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec {
+            kind: folio_model::BookKind::Novel,
+            ..NewBookSpec::default()
+        })
+        .unwrap()
+        .summary
+        .id;
+    let preview = books(&app).reader_preview(&id).unwrap();
+    assert_eq!(preview.language, "en-CA");
+    assert!(!preview.chapters.is_empty());
+    assert!(preview.chapters.iter().any(|c| c.body.contains("<p")));
+    assert!(preview.css.contains("font-family"));
+    assert!(books(&app).reader_preview("nope").is_err());
+}
