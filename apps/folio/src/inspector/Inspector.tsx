@@ -394,11 +394,10 @@ function TextSection({ frame, props }: { frame: TextFrame; props: InspectorProps
 					key={`${frame.id}:${words}`}
 					frame={frame.id}
 					words={words}
-					disabled={words === null || frame.flow != null || frame.locked}
+					disabled={frame.flow != null || frame.locked}
 					apply={apply}
 				/>
 			</label>
-			{words === null && <p className={styles.note}>{t('inspector.words.rich')}</p>}
 			{frame.flow != null && <p className={styles.note}>{t('inspector.words.flow')}</p>}
 			{choices.length > 0 && (
 				<div className={styles.field} role="group" aria-label={t('inspector.style')}>

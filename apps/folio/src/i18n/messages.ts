@@ -548,8 +548,6 @@ export const messages = {
 	'inspector.helpers.baseline': 'Baseline grid',
 	'inspector.helpers.frameEdges': 'Frame edges',
 	'inspector.words': 'Words',
-	'inspector.words.rich':
-		'These words have bold or italic in them, so they are edited on the page once rich text arrives.',
 	'inspector.words.flow':
 		'These words flow from one frame to the next. Edit the story to change them.',
 	'inspector.style': 'Style',

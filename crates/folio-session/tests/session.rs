@@ -656,6 +656,32 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
         })
         .unwrap()
     });
+    record("set words", &mut s, &|s| {
+        s.apply(Intent::SetText {
+            frame: frame("fr_text"),
+            text: "Hello brave world".into(),
+        })
+        .unwrap()
+    });
+    record("make a stretch bold", &mut s, &|s| {
+        s.apply(Intent::StyleRange {
+            frame: frame("fr_text"),
+            start: 6,
+            end: 11,
+            change: folio_model::RunChange {
+                bold: Some(true),
+                ..Default::default()
+            },
+        })
+        .unwrap()
+    });
+    record("edit the words around it", &mut s, &|s| {
+        s.apply(Intent::SetText {
+            frame: frame("fr_text"),
+            text: "Hello, brave world".into(),
+        })
+        .unwrap()
+    });
     record("ignore a word", &mut s, &|s| {
         s.apply(Intent::IgnoreWord {
             word: "Zorblat".into(),
@@ -3131,4 +3157,91 @@ fn the_details_are_one_undo_step_and_details_a_book_cannot_have_are_refused() {
         s.apply(Intent::SetDetails { details: nameless }),
         Err(SessionError::BadDetails(_))
     ));
+}
+
+#[test]
+fn a_stretch_is_styled_in_one_undo_step_and_survives_edits_around_it() {
+    let mut s = session();
+    s.apply(Intent::SetText {
+        frame: frame("fr_text"),
+        text: "Hello brave world".into(),
+    })
+    .unwrap();
+    s.apply(Intent::EndUndoStep).unwrap();
+    s.apply(Intent::StyleRange {
+        frame: frame("fr_text"),
+        start: 6,
+        end: 11,
+        change: folio_model::RunChange {
+            bold: Some(true),
+            font: Some("Zed Sans".into()),
+            ..Default::default()
+        },
+    })
+    .unwrap();
+    let runs = |s: &Session| {
+        s.book().spreads[1]
+            .frames
+            .iter()
+            .find_map(|f| match f {
+                Frame::Text(t) if t.base.id.0 == "fr_text" => {
+                    Some(t.content.clone().unwrap().inline)
+                }
+                _ => None,
+            })
+            .unwrap()
+    };
+    let styled = runs(&s);
+    assert_eq!(styled.len(), 3);
+    assert!(styled[1].bold && styled[1].font.as_deref() == Some("Zed Sans"));
+    // Typing around the stretch leaves it as it was.
+    s.apply(Intent::EndUndoStep).unwrap();
+    s.apply(Intent::SetText {
+        frame: frame("fr_text"),
+        text: "Well, hello brave world".into(),
+    })
+    .unwrap();
+    let edited = runs(&s);
+    assert!(edited.iter().any(|r| r.bold && r.text == "brave"));
+    s.undo().unwrap();
+    s.undo().unwrap();
+    assert_eq!(runs(&s).len(), 1);
+    // A stretch that is not there, or a change that changes nothing, is refused.
+    for (start, end, change) in [
+        (
+            5,
+            5,
+            folio_model::RunChange {
+                bold: Some(true),
+                ..Default::default()
+            },
+        ),
+        (
+            0,
+            99,
+            folio_model::RunChange {
+                bold: Some(true),
+                ..Default::default()
+            },
+        ),
+        (0, 3, folio_model::RunChange::default()),
+        (
+            0,
+            3,
+            folio_model::RunChange {
+                colour: Some("red".into()),
+                ..Default::default()
+            },
+        ),
+    ] {
+        assert!(matches!(
+            s.apply(Intent::StyleRange {
+                frame: frame("fr_text"),
+                start,
+                end,
+                change
+            }),
+            Err(SessionError::BadRange(_))
+        ));
+    }
 }
