@@ -11,6 +11,8 @@ pub enum ExportError {
     Layout(#[from] folio_layout::error::LayoutError),
     #[error("the PDF could not be written: {0}")]
     Pdf(String),
+    #[error("the EPUB could not be written: {0}")]
+    Epub(String),
     #[error("the book has no pages to export")]
     NoPages,
 }

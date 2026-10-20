@@ -110,6 +110,12 @@ export const messages = {
 	'export.target.kdpInterior': 'Paperback interior for Amazon KDP',
 	'export.target.kdpInterior.sub':
 		'Print-ready pages with the fonts inside and nothing KDP asks you to remove.',
+	'export.target.kindleEpub': 'Kindle (EPUB)',
+	'export.target.kindleEpub.sub':
+		'A reflowable book for Amazon KDP, which makes the Kindle edition from it.',
+	'export.target.koboEpub': 'Kobo (EPUB and KEPUB)',
+	'export.target.koboEpub.sub':
+		'A reflowable book for Kobo Writing Life, and the Kobo flavour with faster page turns.',
 	'export.waiting': '{count} things are waiting on you.',
 	'export.waiting.one': 'One thing is waiting on you.',
 	'export.checkFirst': 'Check the book first',
