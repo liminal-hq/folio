@@ -5,7 +5,7 @@
 
 use folio_model::{
     Book, BookFont, Details, Flow, FlowId, Grid, Margins, Master, MasterId, PageNumbers, Paper,
-    Proofing, Pt, Size, Spread, SpreadId,
+    Proofing, Pt, Size, Spread, SpreadId, Styles,
 };
 
 use crate::patch::PatchOp;
@@ -89,6 +89,7 @@ pub struct Delta {
     pub language: String,
     pub details: Details,
     pub paper: Paper,
+    pub styles: Styles,
     pub fonts: Vec<BookFont>,
     pub preflight_ignore: Vec<String>,
     /// The flows a step touched, each as it was (or `None` where it did not exist).
@@ -107,6 +108,7 @@ impl Delta {
             language: book.language.clone(),
             details: Details::of(book),
             paper: book.paper,
+            styles: book.styles.clone(),
             fonts: book.fonts.clone(),
             preflight_ignore: book.preflight_ignore.clone(),
             flows: flows
@@ -170,6 +172,7 @@ impl Delta {
         let was_language = book.language.clone();
         let was_details = Details::of(book);
         let was_paper = book.paper;
+        let was_styles = book.styles.clone();
         let was_fonts = book.fonts.clone();
         let was_ignore = book.preflight_ignore.clone();
 
@@ -220,6 +223,12 @@ impl Delta {
         if was_paper != self.paper {
             book.paper = self.paper;
             ops.push(PatchOp::SetPaper { paper: self.paper });
+        }
+        if was_styles != self.styles {
+            book.styles = self.styles.clone();
+            ops.push(PatchOp::SetStyles {
+                styles: self.styles.clone(),
+            });
         }
         if was_details != self.details {
             self.details.apply(book);

@@ -7,15 +7,19 @@ import { useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { t } from '../i18n/messages';
 import styles from './Sidebar.module.css';
 
-export type SidebarGroup = 'properties' | 'pages' | 'proofing' | 'fonts';
+export type SidebarGroup = 'properties' | 'pages' | 'proofing' | 'fonts' | 'swatches';
 
 const GROUPS: readonly SidebarGroup[] = ['properties', 'pages', 'proofing', 'fonts'];
+/** The groups of Expert mode: the same, and the book's swatches. */
+export const EXPERT_GROUPS: readonly SidebarGroup[] = [...GROUPS, 'swatches'];
 
 export interface SidebarProps {
 	group: SidebarGroup;
 	onGroup(group: SidebarGroup): void;
 	/** The panel of each group; only the open group's is drawn. */
-	panels: Record<SidebarGroup, ReactNode>;
+	panels: Partial<Record<SidebarGroup, ReactNode>>;
+	/** The groups to offer, in order; the four of Easy mode by default. */
+	groups?: readonly SidebarGroup[];
 }
 
 /**
@@ -23,19 +27,19 @@ export interface SidebarProps {
  * End move between them, and the open one is the one tab stop); each panel is the `tabpanel` they
  * label.
  */
-export function Sidebar({ group, onGroup, panels }: SidebarProps) {
+export function Sidebar({ group, onGroup, panels, groups = GROUPS }: SidebarProps) {
 	const tabs = useRef<Array<HTMLButtonElement | null>>([]);
 
 	const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-		const at = GROUPS.indexOf(group);
+		const at = groups.indexOf(group);
 		let next = at;
-		if (event.key === 'ArrowRight') next = (at + 1) % GROUPS.length;
-		else if (event.key === 'ArrowLeft') next = (at - 1 + GROUPS.length) % GROUPS.length;
+		if (event.key === 'ArrowRight') next = (at + 1) % groups.length;
+		else if (event.key === 'ArrowLeft') next = (at - 1 + GROUPS.length) % groups.length;
 		else if (event.key === 'Home') next = 0;
-		else if (event.key === 'End') next = GROUPS.length - 1;
+		else if (event.key === 'End') next = groups.length - 1;
 		else return;
 		event.preventDefault();
-		onGroup(GROUPS[next]!);
+		onGroup(groups[next]!);
 		tabs.current[next]?.focus();
 	};
 
@@ -47,7 +51,7 @@ export function Sidebar({ group, onGroup, panels }: SidebarProps) {
 				className={styles.tabs}
 				onKeyDown={onKeyDown}
 			>
-				{GROUPS.map((id, index) => (
+				{groups.map((id, index) => (
 					<button
 						key={id}
 						ref={(element) => {

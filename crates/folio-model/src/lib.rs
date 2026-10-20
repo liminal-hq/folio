@@ -10,6 +10,7 @@
 mod background;
 mod book;
 mod colour;
+mod colour_walk;
 mod cover;
 mod flow;
 mod frame;
@@ -26,6 +27,7 @@ mod units;
 pub use background::*;
 pub use book::*;
 pub use colour::*;
+pub use colour_walk::{colours_of, resolve_swatches, visit_colours, visit_spread};
 pub use cover::*;
 pub use flow::*;
 pub use frame::*;

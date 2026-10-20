@@ -217,6 +217,7 @@ fn style_file(look: Look, data: &KindData, used: &BTreeSet<String>) -> Styles {
         font_family: family.into(),
         styles,
         extra: BTreeMap::new(),
+        swatches: Vec::new(),
     }
 }
 

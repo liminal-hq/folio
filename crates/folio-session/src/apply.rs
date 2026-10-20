@@ -725,6 +725,46 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 merge: None,
             })
         }
+        Intent::SetSwatch { swatch } => {
+            check_swatch(book, swatch)?;
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                flows: Vec::new(),
+                new_flow: None,
+                fresh: Vec::new(),
+                merge: None,
+            })
+        }
+        Intent::RemoveSwatch { id } => {
+            if !book.styles.swatches.iter().any(|s| s.id == *id) {
+                return Err(SessionError::BadSwatch(format!(
+                    "there is no swatch {}",
+                    id.0
+                )));
+            }
+            // The spreads that refer to it are the ones that change.
+            let reference = format!("swatch:{}", id.0);
+            let mut touched = Vec::new();
+            for spread in &book.spreads {
+                let mut copy = spread.clone();
+                let mut uses = false;
+                folio_model::visit_spread(&mut copy, &mut |c| uses |= c.0 == reference);
+                if uses {
+                    touched.push(spread.id.clone());
+                }
+            }
+            // The words of a flow may hold the colour too: every flow is part of the change.
+            let flows = book.flows.iter().map(|f| f.id.clone()).collect();
+            Ok(Plan {
+                touched,
+                new_spread: None,
+                flows,
+                new_flow: None,
+                fresh: Vec::new(),
+                merge: None,
+            })
+        }
         Intent::SetPaper { .. } => Ok(Plan {
             touched: Vec::new(),
             new_spread: None,
@@ -842,6 +882,14 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             if let Some(bg) = bg {
                 bg.checked(is_asset_path)
                     .map_err(SessionError::BadBackground)?;
+                if !folio_model::colours_of(bg)
+                    .iter()
+                    .all(|c| swatch_is_there(book, c))
+                {
+                    return Err(SessionError::BadBackground(
+                        "that swatch is not in the book".into(),
+                    ));
+                }
             }
             // Trying colours on one page is one undo step; taking the background off is its own.
             let merge = bg.is_some().then(|| MergeKey::Background(target.clone()));
@@ -926,6 +974,11 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             for paint in [fill, stroke].into_iter().flatten() {
                 if let Paint::Colour { colour } = paint {
                     Colour::parse(&colour.0).map_err(|e| SessionError::BadShape(e.to_string()))?;
+                    if !swatch_is_there(book, colour) {
+                        return Err(SessionError::BadShape(
+                            "that swatch is not in the book".into(),
+                        ));
+                    }
                 }
             }
             for (name, length, most) in [
@@ -1066,12 +1119,14 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                     "{start}..{end} in words of {length} characters"
                 )));
             }
-            if change
-                .colour
-                .as_deref()
-                .is_some_and(|c| !c.is_empty() && folio_model::Colour::parse(c).is_err())
-            {
-                return Err(SessionError::BadRange("that colour is not #rrggbb".into()));
+            if change.colour.as_deref().is_some_and(|c| {
+                !c.is_empty()
+                    && folio_model::Colour::parse(c)
+                        .map_or(true, |colour| !swatch_is_there(book, &colour))
+            }) {
+                return Err(SessionError::BadRange(
+                    "that colour is not #rrggbb or a swatch of the book".into(),
+                ));
             }
             Ok(Plan {
                 touched: touched_by(book, frame)?,
@@ -1508,6 +1563,27 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             renumber(book, &flow_id);
         }
         Intent::SetPaper { paper } => book.paper = paper,
+        Intent::SetSwatch { mut swatch } => {
+            if let Some(ink) = swatch.ink {
+                let [r, g, b] = ink.to_rgb();
+                swatch.display = Colour(format!("#{r:02x}{g:02x}{b:02x}"));
+            }
+            match book.styles.swatches.iter_mut().find(|s| s.id == swatch.id) {
+                Some(slot) => *slot = swatch,
+                None => book.styles.swatches.push(swatch),
+            }
+        }
+        Intent::RemoveSwatch { id } => {
+            if let Some(at) = book.styles.swatches.iter().position(|s| s.id == id) {
+                let gone = book.styles.swatches.remove(at);
+                let reference = format!("swatch:{}", id.0);
+                folio_model::visit_colours(book, &mut |c| {
+                    if c.0 == reference {
+                        *c = gone.display.clone();
+                    }
+                });
+            }
+        }
         Intent::SetDetails { details } => details.apply(book),
         Intent::SetPreflightIgnore { keys } => book.preflight_ignore = keys,
         Intent::EndUndoStep => {}
@@ -2164,4 +2240,44 @@ fn add_flow_pages(book: &mut Book, flow: &FlowId, count: usize, fresh: &[String]
         }
         renumber(book, flow);
     }
+}
+
+/// Whether a colour is a hex colour or refers to a swatch the book has.
+fn swatch_is_there(book: &Book, colour: &Colour) -> bool {
+    colour
+        .swatch_id()
+        .is_none_or(|id| book.styles.swatches.iter().any(|s| s.id.0 == id))
+}
+
+/// The most swatches a book can keep.
+const MAX_SWATCHES: usize = 200;
+
+/// Refuses a swatch with no usable id or name, a display colour that is not hex, or ink that is not
+/// percents; and a new one when the book has too many.
+fn check_swatch(book: &Book, swatch: &folio_model::BookSwatch) -> Result<(), SessionError> {
+    let bad = |what: &str| Err(SessionError::BadSwatch(what.to_owned()));
+    let id_ok = !swatch.id.0.is_empty()
+        && swatch.id.0.len() <= 64
+        && swatch
+            .id
+            .0
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+    if !id_ok {
+        return bad("a swatch id is lower case letters, digits and dashes");
+    }
+    if swatch.name.trim().is_empty() || swatch.name.chars().count() > 64 {
+        return bad("a swatch needs a name of at most 64 characters");
+    }
+    if swatch.display.rgb().is_none() {
+        return bad("a swatch shows as a #rrggbb colour");
+    }
+    if swatch.ink.is_some_and(|ink| !ink.is_valid()) {
+        return bad("ink is a percent of each plate, 0 to 100");
+    }
+    let new = !book.styles.swatches.iter().any(|s| s.id == swatch.id);
+    if new && book.styles.swatches.len() >= MAX_SWATCHES {
+        return bad("a book keeps at most 200 swatches");
+    }
+    Ok(())
 }

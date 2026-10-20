@@ -12,6 +12,7 @@ import type { PaintPresets } from '@liminal-hq/folio-protocol/generated/PaintPre
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import { useEffect, useId, useState } from 'react';
 import { Segmented } from '../app/Segmented';
+import { pickerSwatches } from '../books/bookSwatches';
 import { t } from '../i18n/messages';
 import { ColourPicker } from '../inspector/ColourPicker';
 import { FocusPicker } from './FocusPicker';
@@ -147,7 +148,7 @@ export function PageBackgroundDialog({
 					<ColourPicker
 						label={t('background.colour')}
 						value={now?.type === 'colour' ? now.colour : null}
-						swatches={presets?.swatches ?? []}
+						swatches={pickerSwatches(book, presets)}
 						allowNone
 						onPick={(colour) => set(colour === null ? null : { type: 'colour', colour })}
 					/>
@@ -219,7 +220,7 @@ export function PageBackgroundDialog({
 							<ColourPicker
 								label={t('background.tint')}
 								value={now.tint ?? null}
-								swatches={presets?.swatches ?? []}
+								swatches={pickerSwatches(book, presets)}
 								allowNone
 								onPick={(tint) => set({ type: 'texture', id: now.id, tint })}
 							/>
