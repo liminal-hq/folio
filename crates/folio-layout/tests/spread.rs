@@ -1498,3 +1498,46 @@ fn layout_all_with(
         .map(|s| layouter.layout_spread(&s.id).unwrap().unwrap())
         .collect()
 }
+
+#[test]
+fn a_picture_frame_with_no_picture_is_a_placeholder_and_one_without_a_description_is_noted() {
+    let (mut book, styles) = sample(BookKind::Picture);
+    let mut empty = picture_frame("empty", "x", 100.0, 100.0, Fit::Fill);
+    let mut described = picture_frame("described", "a.png", 100.0, 100.0, Fit::Fill);
+    let bare = picture_frame("bare", "b.png", 100.0, 100.0, Fit::Fill);
+    if let Frame::Image(i) = &mut empty {
+        i.image.asset = None;
+    }
+    if let Frame::Image(i) = &mut described {
+        i.base.description = Some("An otter on a lily pad".into());
+    }
+    book.spreads[2].frames.clear();
+    book.spreads[2].frames.extend([empty, described, bare]);
+    let layouts = layout_all(&book, &styles);
+    let found: Vec<(PreflightKind, &str)> = layouts[2]
+        .preflight
+        .iter()
+        .filter(|i| {
+            matches!(
+                i.kind,
+                PreflightKind::PicturePlaceholder | PreflightKind::AltMissing
+            )
+        })
+        .map(|i| (i.kind, i.frame.as_ref().unwrap().0.as_str()))
+        .collect();
+    assert!(found.contains(&(PreflightKind::PicturePlaceholder, "empty")));
+    assert!(found.contains(&(PreflightKind::AltMissing, "bare")));
+    assert!(!found.iter().any(|(_, frame)| *frame == "described"));
+    assert_eq!(
+        PreflightKind::PicturePlaceholder.severity(),
+        folio_layout::wire::Severity::Error
+    );
+    assert_eq!(
+        PreflightKind::AltMissing.severity(),
+        folio_layout::wire::Severity::Note
+    );
+    assert!(layouts[2]
+        .preflight
+        .iter()
+        .all(|i| i.severity == i.kind.severity()));
+}

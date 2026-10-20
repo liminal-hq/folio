@@ -2,9 +2,10 @@
 import type { FrameId } from "./FrameId";
 import type { PageId } from "./PageId";
 import type { PreflightKind } from "./PreflightKind";
+import type { Severity } from "./Severity";
 import type { SpreadId } from "./SpreadId";
 
-export type PreflightItem = { kind: PreflightKind, spread: SpreadId, 
+export type PreflightItem = { kind: PreflightKind, severity: Severity, spread: SpreadId, 
 /**
  * The frame at fault; none when it is a page's background.
  */

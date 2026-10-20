@@ -8,6 +8,7 @@ import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverab
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
+import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
 import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck';
 import type { SpreadLayoutResult } from '@liminal-hq/folio-protocol/generated/SpreadLayoutResult';
@@ -21,6 +22,7 @@ import {
 	removeDictionary,
 	onDictionaryProgress,
 	importImage,
+	preflightBook,
 	keepFonts,
 	listFonts,
 	layoutMaster,
@@ -103,6 +105,8 @@ export interface BooksClient {
 	spellCheckBook(id: string, personal?: string[]): Promise<BookSpelling>;
 	/** Corrections for a word, best first. */
 	spellSuggest(id: string, word: string): Promise<string[]>;
+	/** What preflight finds in the whole book, the issues that wait on the person first. */
+	preflightBook(id: string): Promise<PreflightItem[]>;
 	/** Every family the book can draw in, and where each comes from. */
 	listFonts(id: string): Promise<FontChoice[]>;
 	/** Keeps installed fonts inside the book; says which were kept and which could not be. */
@@ -145,6 +149,7 @@ export const tauriBooksClient: BooksClient = {
 	spellCheck,
 	spellCheckBook,
 	spellSuggest,
+	preflightBook,
 	listFonts,
 	keepFonts,
 	dictionaries,

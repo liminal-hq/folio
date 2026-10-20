@@ -116,6 +116,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function onDictionaryProgress(listener) {
         return event.listen(DICTIONARY_PROGRESS_EVENT, (e) => listener(e.payload));
     }
+    /** What preflight finds in the whole book, the issues that wait on the person first. */
+    function preflightBook(id) {
+        return cmd('preflight_book', { id });
+    }
     /** Every family a book can draw in, and where each comes from (bundled, kept in the book or installed). */
     function listFonts(id) {
         return cmd('list_fonts', { id });
@@ -182,6 +186,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.onPatch = onPatch;
     exports.openBook = openBook;
     exports.paintPresets = paintPresets;
+    exports.preflightBook = preflightBook;
     exports.presets = presets;
     exports.recoverableBooks = recoverableBooks;
     exports.redo = redo;
