@@ -6,6 +6,7 @@
 import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
+import type { Paper } from '@liminal-hq/folio-protocol/generated/Paper';
 import type { Details } from '@liminal-hq/folio-protocol/generated/Details';
 import { useEffect, useState } from 'react';
 import { t } from '../i18n/messages';
@@ -18,6 +19,8 @@ interface BookDetailsDialogProps {
 	book: Book;
 	/** Sets the details, as one step of undo. */
 	onSave(details: Details): void;
+	/** Sets the paper, as its own undo step, when it was changed. */
+	onPaper(paper: Paper): void;
 }
 
 type IsbnKind = 'paperback' | 'hardcover' | 'ebook';
@@ -38,10 +41,20 @@ function formOf(book: Book) {
 	};
 }
 
-export function BookDetailsDialog({ open, onClose, book, onSave }: BookDetailsDialogProps) {
+export function BookDetailsDialog({
+	open,
+	onClose,
+	book,
+	onSave,
+	onPaper,
+}: BookDetailsDialogProps) {
 	const [form, setForm] = useState(() => formOf(book));
+	const [paper, setPaper] = useState<Paper>(book.paper ?? 'white');
 	useEffect(() => {
-		if (open) setForm(formOf(book));
+		if (open) {
+			setForm(formOf(book));
+			setPaper(book.paper ?? 'white');
+		}
 		// The form starts from the book each time the dialog opens, not as the book changes under it.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [open]);
@@ -51,6 +64,7 @@ export function BookDetailsDialog({ open, onClose, book, onSave }: BookDetailsDi
 	const valid = form.title.trim() !== '' && !ISBNS.some(badIsbn);
 
 	const save = () => {
+		if (paper !== (book.paper ?? 'white')) onPaper(paper);
 		const [first, ...others] = book.authors;
 		const name = form.author.trim();
 		const authors = name ? [{ name, role: first?.role ?? ('author' as const) }, ...others] : others;
@@ -114,6 +128,15 @@ export function BookDetailsDialog({ open, onClose, book, onSave }: BookDetailsDi
 						onChange={(e) => setForm({ ...form, description: e.target.value })}
 					/>
 					<span className={styles.hint}>{t('details.descriptionHint')}</span>
+				</label>
+				<label className={styles.field}>
+					<span>{t('details.paper')}</span>
+					<select value={paper} onChange={(e) => setPaper(e.target.value as Paper)}>
+						<option value="white">{t('details.paper.white')}</option>
+						<option value="cream">{t('details.paper.cream')}</option>
+						<option value="colour">{t('details.paper.colour')}</option>
+					</select>
+					<span className={styles.hint}>{t('details.paperHint')}</span>
 				</label>
 				{ISBNS.map((kind) => (
 					<label key={kind} className={styles.field}>

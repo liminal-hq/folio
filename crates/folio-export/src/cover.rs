@@ -16,20 +16,7 @@ use folio_model::{
     StyleId, StyleOverrides, TextFrame,
 };
 
-/// KDP puts text on the spine of a book of this many pages or more. Its pages disagree between 79
-/// and 80, so Folio takes the stricter (D-34).
-pub const SPINE_TEXT_FROM: u32 = 80;
-
-/// How many pages KDP counts for the spine: the interior, in twos, and at least 24.
-pub fn spine_pages(book: &Book) -> u32 {
-    let interior: u32 = book
-        .spreads
-        .iter()
-        .skip(1)
-        .map(|s| s.pages.len() as u32)
-        .sum();
-    (interior + interior % 2).max(24)
-}
+pub use folio_model::{spine_pages, SPINE_TEXT_FROM};
 
 fn id(prefix: &str) -> FrameId {
     FrameId(format!("cover_{prefix}"))

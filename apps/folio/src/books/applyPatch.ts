@@ -39,6 +39,11 @@ function applyOp(book: Book, op: PatchOp): Book {
 				...(op.numbers !== 'none' ? { pageNumbers: op.numbers } : {}),
 			};
 		}
+		case 'setPaper': {
+			// Rust leaves the default, white paper out of the book, and so does the copy.
+			const { paper: _paper, ...rest } = book;
+			return op.paper !== 'white' ? { ...rest, paper: op.paper } : rest;
+		}
 		case 'setDetails': {
 			// Rust leaves a missing subtitle out of the book, and so does the copy.
 			const { subtitle: _subtitle, ...rest } = book;

@@ -9,6 +9,7 @@ use ts_rs::TS;
 use crate::background::Background;
 use crate::book::{BookFont, Details, Grid, PageNumbers};
 use crate::colour::Colour;
+use crate::cover::Paper;
 use crate::frame::{Fit, Frame, Shape, StyleOverrides, TableLook};
 use crate::ids::{FrameId, MasterId, PageId, SpreadId, StyleId};
 use crate::runs::RunChange;
@@ -175,6 +176,10 @@ pub enum Intent {
     /// files and sends this; it is one undo step.
     SetFonts {
         fonts: Vec<BookFont>,
+    },
+    /// Sets the paper a printed copy is on. One undo step.
+    SetPaper {
+        paper: Paper,
     },
     /// Sets the title, subtitle, authors, description and ISBNs together. One undo step.
     SetDetails {
