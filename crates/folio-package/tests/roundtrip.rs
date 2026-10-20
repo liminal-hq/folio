@@ -389,7 +389,7 @@ fn a_book_from_a_newer_schema_is_refused_not_misread() {
         Package::open(&rewritten),
         Err(PackageError::NewerSchema {
             found: 99,
-            supported: 1
+            supported: 2
         })
     ));
 }
@@ -489,4 +489,39 @@ fn a_font_the_book_keeps_is_stored_once_by_its_hash_and_listed_with_its_media_ty
     assert!(reopened.remove_asset(&one));
     assert!(!reopened.remove_asset(&one));
     assert!(reopened.asset_bytes(&one).is_err());
+}
+
+#[test]
+fn the_styles_are_the_books_in_memory_but_their_own_file_in_the_package() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("otter.folio");
+    let mut with_styles = book();
+    with_styles.styles = serde_json::from_value(json!({
+        "look": "classic",
+        "fontFamily": "Literata",
+        "swatches": [{ "id": "ink", "name": "Ink", "display": "#1c1b20" }],
+        "styles": { "body": { "name": "Body", "sizePt": 10.5, "family": "Inter" } }
+    }))
+    .unwrap();
+    Package::new(with_styles.clone())
+        .save(&file, &SaveOptions::default())
+        .unwrap();
+
+    let mut archive = ZipArchive::new(fs::File::open(&file).unwrap()).unwrap();
+    let mut read = |name: &str| {
+        let mut text = String::new();
+        archive
+            .by_name(name)
+            .unwrap()
+            .read_to_string(&mut text)
+            .unwrap();
+        serde_json::from_str::<serde_json::Value>(&text).unwrap()
+    };
+    assert!(read("book.json").get("styles").is_none());
+    let file_styles = read("styles.json");
+    assert_eq!(file_styles["fontFamily"], "Literata");
+    assert_eq!(file_styles["styles"]["body"]["family"], "Inter");
+    assert_eq!(file_styles["swatches"][0]["name"], "Ink");
+
+    assert_eq!(Package::open(&file).unwrap().book(), &with_styles);
 }

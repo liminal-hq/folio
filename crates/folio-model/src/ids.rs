@@ -28,6 +28,8 @@ id!(
     FlowId,
     /// A paragraph or character style.
     StyleId,
+    /// A named colour a book keeps, which fields can refer to as `swatch:<id>`.
+    SwatchId,
     /// A master page.
     MasterId,
 );
