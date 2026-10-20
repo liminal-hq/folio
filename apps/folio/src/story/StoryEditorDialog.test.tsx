@@ -8,9 +8,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeBooksClient } from '../books/fakeBooksClient';
+import type { Speller } from '../canvas/TextEditor';
 import { StoryEditorDialog } from './StoryEditorDialog';
 
-async function setup(focusParagraph?: number, chapters = false) {
+async function setup(focusParagraph?: number, chapters = false, speller?: Speller) {
 	const fake = createFakeBooksClient();
 	const made = await fake.client.newBook({});
 	const book: Book = {
@@ -43,6 +44,7 @@ async function setup(focusParagraph?: number, chapters = false) {
 			book={book}
 			flow="fl"
 			focusParagraph={focusParagraph}
+			speller={speller}
 			choices={[
 				{ id: 'h1', name: 'Heading', size: 20 },
 				{ id: 'body', name: 'Body', size: 12 },
@@ -65,6 +67,19 @@ describe('the story editor', () => {
 		expect(list).toBeInTheDocument();
 		await userEvent.click(screen.getByRole('button', { name: 'Second chapter' }));
 		expect(screen.getByRole('textbox', { name: 'Paragraph 3' })).toHaveFocus();
+	});
+
+	it('underlines the misspelt words of a paragraph when spelling is on', async () => {
+		const speller: Speller = {
+			check: async (text) =>
+				text === 'The otter slept.' ? [{ start: 4, end: 9, word: 'otter' }] : [],
+			suggest: async () => [],
+			ignore: () => undefined,
+			addToDictionary: () => undefined,
+		};
+		await setup(undefined, false, speller);
+		const miss = await screen.findByText('otter', { selector: 'span' });
+		expect(miss.className).toMatch(/miss/);
 	});
 
 	it('lists the paragraphs with their styles', async () => {

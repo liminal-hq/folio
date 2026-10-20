@@ -950,6 +950,7 @@ export function BookView({
 				book={book}
 				flow={storyFlow}
 				focusParagraph={storyPara}
+				speller={speller}
 				choices={choices}
 				apply={apply}
 			/>

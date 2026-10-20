@@ -8,6 +8,7 @@ import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/Dia
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import { useEffect, useRef, useState } from 'react';
+import type { Speller } from '../canvas/TextEditor';
 import { charsBefore } from '../canvas/textSelection';
 import { t } from '../i18n/messages';
 import type { StyleChoice } from '../inspector/styleChoices';
@@ -21,6 +22,8 @@ interface StoryEditorDialogProps {
 	flow: string | null;
 	/** The paragraph to put the caret in when the editor opens. */
 	focusParagraph?: number | null;
+	/** Underlines misspelt words in the paragraphs, when spelling is on. */
+	speller?: Speller;
 	choices: StyleChoice[];
 	apply(intent: Intent): void;
 }
@@ -34,7 +37,23 @@ interface Caret {
 /** The UTF-16 position of character `chars` of `text`. */
 const unitsOf = (text: string, chars: number) => [...text].slice(0, chars).join('').length;
 
+/** `text` cut into the stretches that are misspelt and the ones that are not. */
+function parts(text: string, misses: { start: number; end: number }[]) {
+	const out: { text: string; miss: boolean; start: number }[] = [];
+	let at = 0;
+	for (const m of [...misses].sort((a, b) => a.start - b.start)) {
+		if (m.start < at || m.end > text.length) continue;
+		if (m.start > at) out.push({ text: text.slice(at, m.start), miss: false, start: at });
+		out.push({ text: text.slice(m.start, m.end), miss: true, start: m.start });
+		at = m.end;
+	}
+	if (at < text.length) out.push({ text: text.slice(at), miss: false, start: at });
+	return out;
+}
+
 interface ParagraphFieldProps {
+	/** Underlines misspelt words, when spelling is on. */
+	speller?: Speller;
 	index: number;
 	text: string;
 	style: string | undefined;
@@ -48,6 +67,7 @@ interface ParagraphFieldProps {
 }
 
 function ParagraphField({
+	speller,
 	index,
 	text,
 	style,
@@ -61,6 +81,22 @@ function ParagraphField({
 }: ParagraphFieldProps) {
 	const area = useRef<HTMLTextAreaElement | null>(null);
 	const [value, setValue] = useState(text);
+	/** The misspelt words of the box, by UTF-16 range. */
+	const [misses, setMisses] = useState<{ start: number; end: number }[]>([]);
+	useEffect(() => {
+		if (!speller) return;
+		let live = true;
+		const wait = setTimeout(() => {
+			speller
+				.check(value)
+				.then((found) => live && setMisses(found))
+				.catch(() => live && setMisses([]));
+		}, 200);
+		return () => {
+			live = false;
+			clearTimeout(wait);
+		};
+	}, [value, speller]);
 	/** What the book was last told, so an undo (a different text) is told apart from typing. */
 	const sent = useRef(text);
 	useEffect(() => {
@@ -101,33 +137,49 @@ function ParagraphField({
 					</option>
 				))}
 			</select>
-			<textarea
-				ref={area}
-				className={styles.words}
-				aria-label={t('story.paragraph', { n: index + 1 })}
-				rows={1}
-				value={value}
-				onChange={(e) => {
-					setValue(e.target.value);
-					sent.current = e.target.value;
-					onText(e.target.value);
-				}}
-				onKeyDown={(e) => {
-					const el = e.currentTarget;
-					if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
-						e.preventDefault();
-						onSplit(charsBefore(el.value, el.selectionStart));
-					} else if (
-						e.key === 'Backspace' &&
-						el.selectionStart === 0 &&
-						el.selectionEnd === 0 &&
-						index > 0
-					) {
-						e.preventDefault();
-						onJoin();
-					}
-				}}
-			/>
+			<div className={styles.field}>
+				{speller && (
+					<div className={styles.mirror} aria-hidden="true">
+						{parts(value, misses).map((part) =>
+							part.miss ? (
+								<span key={part.start} className={styles.miss}>
+									{part.text}
+								</span>
+							) : (
+								<span key={part.start}>{part.text}</span>
+							),
+						)}
+						{'\u200b'}
+					</div>
+				)}
+				<textarea
+					ref={area}
+					className={speller ? `${styles.words} ${styles.clear}` : styles.words}
+					aria-label={t('story.paragraph', { n: index + 1 })}
+					rows={1}
+					value={value}
+					onChange={(e) => {
+						setValue(e.target.value);
+						sent.current = e.target.value;
+						onText(e.target.value);
+					}}
+					onKeyDown={(e) => {
+						const el = e.currentTarget;
+						if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+							e.preventDefault();
+							onSplit(charsBefore(el.value, el.selectionStart));
+						} else if (
+							e.key === 'Backspace' &&
+							el.selectionStart === 0 &&
+							el.selectionEnd === 0 &&
+							index > 0
+						) {
+							e.preventDefault();
+							onJoin();
+						}
+					}}
+				/>
+			</div>
 		</div>
 	);
 }
@@ -138,6 +190,7 @@ export function StoryEditorDialog({
 	book,
 	flow,
 	focusParagraph = null,
+	speller,
 	choices,
 	apply,
 }: StoryEditorDialogProps) {
@@ -193,6 +246,7 @@ export function StoryEditorDialog({
 			<div className={styles.list}>
 				{paragraphs.map((para, i) => (
 					<ParagraphField
+						speller={speller}
 						key={i}
 						index={i}
 						text={para.inline.map((r) => r.text).join('')}
