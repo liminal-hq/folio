@@ -20,7 +20,7 @@ Cover frames are stored **relative to their panel** (`panel: 'front' | 'back' | 
 
 ## Live spine
 
-`spine = pages × paper factor` (white 0.002252 · cream 0.0025 · colour 0.002347 in/page ⚠). The page count is the book's page count: **Add pages** adds 2 and **Remove** subtracts 2, so the spine label, sheet size and cover thumbnail update immediately. The export dialog's page count can override it for "what if" checks. Spine text is allowed at 79 pages or more ⚠. Below that, preflight says the spine will be left blank.
+`spine = pages × paper factor` (white 0.002252 · cream 0.0025 · groundwood 0.00235 · premium colour 0.002347 · standard colour 0.002252 in/page ⚠). The page count is the book's page count: **Add pages** adds 2 and **Remove** subtracts 2, so the spine label, sheet size and cover thumbnail update immediately. The export dialog's page count can override it for "what if" checks. Spine text is allowed at 80 pages or more (KDP's pages disagree between 79 and 80; Folio takes the stricter) ⚠. Below that, preflight says the spine will be left blank.
 
 ## Guards
 
