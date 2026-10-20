@@ -15,6 +15,7 @@ import type { Proofing } from "./Proofing";
 import type { Pt } from "./Pt";
 import type { Size } from "./Size";
 import type { Spread } from "./Spread";
+import type { Styles } from "./Styles";
 
 export type Book = { schema: number, id: BookId, title: string, subtitle?: string | null, authors: Array<Contributor>, language: string, kind: BookKind, layout: LayoutMode, trim: Size, bleed: Pt, margins: Margins, adjustGutterForPageCount: boolean, grid: Grid, spreads: Array<Spread>, flows: Array<Flow>, masters: Array<MasterId>, 
 /**
@@ -33,4 +34,8 @@ fonts?: Array<BookFont>,
 /**
  * What the person has told the proofing tools to leave alone, kept with the book.
  */
-proofing?: Proofing, metadata: BookMetadata, };
+proofing?: Proofing, 
+/**
+ * The named styles and the typeface body text starts in; `styles.json` in the package.
+ */
+styles?: Styles, metadata: BookMetadata, };

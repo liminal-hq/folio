@@ -9,7 +9,7 @@ mimetype                         # first entry, STORED (no compression), no extr
                                  # contents: application/vnd.liminal.folio+zip
 META-INF/manifest.json           # every file, its media type, sha256, role
 book.json                        # the document model (see types/), pretty-printed, stable key order
-styles.json                      # paragraph + character styles, colour swatches
+styles.json                      # the book's styles (`Book.styles` in memory, D-28): the look, the body typeface, named paragraph styles (each may name its own `family`), colour swatches
 masters.json                     # master pages (frames, `guides` and `bg`; see D-22, D-23)
 text/
   flow-<id>.md                   # long text flows as CommonMark + Folio attributes (see below)

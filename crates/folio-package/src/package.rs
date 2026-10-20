@@ -59,7 +59,6 @@ pub struct Package {
     source: Option<PathBuf>,
     created: String,
     book: Book,
-    styles: Value,
     masters: Value,
     settings: Value,
     /// Long text, keyed by package path (`text/flow-main.md`).
@@ -111,7 +110,6 @@ impl Package {
             source: None,
             created: now(),
             book,
-            styles: json!({}),
             masters: json!({}),
             settings: json!({}),
             flows: BTreeMap::new(),
@@ -127,15 +125,6 @@ impl Package {
 
     pub fn book_mut(&mut self) -> &mut Book {
         &mut self.book
-    }
-
-    /// `styles.json`: paragraph and character styles, and colour swatches.
-    pub fn styles(&self) -> &Value {
-        &self.styles
-    }
-
-    pub fn styles_mut(&mut self) -> &mut Value {
-        &mut self.styles
     }
 
     /// `masters.json`: master pages.
@@ -325,6 +314,14 @@ impl Package {
                 supported: SUPPORTED_SCHEMA,
             });
         }
+        // The styles are a part of the book in memory but their own file in the package.
+        let mut book_value = book_value;
+        if let (Some(styles), Some(object)) = (
+            read_json(&mut archive, "styles.json", path)?,
+            book_value.as_object_mut(),
+        ) {
+            object.insert("styles".into(), styles);
+        }
         let book: Book = serde_json::from_value(book_value).map_err(|e| PackageError::Json {
             file: "book.json".into(),
             message: e.to_string(),
@@ -334,7 +331,6 @@ impl Package {
             source: Some(path.to_path_buf()),
             created: manifest.created.clone(),
             book,
-            styles: read_json(&mut archive, "styles.json", path)?.unwrap_or_else(|| json!({})),
             masters: read_json(&mut archive, "masters.json", path)?.unwrap_or_else(|| json!({})),
             settings: read_json(&mut archive, "settings.json", path)?.unwrap_or_else(|| json!({})),
             flows: BTreeMap::new(),
@@ -439,8 +435,12 @@ impl Package {
         let stored = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
         let deflated = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
 
-        let book = pretty(&self.book, "book.json")?;
-        let styles = pretty(&self.styles, "styles.json")?;
+        // `styles.json` holds the book's styles; `book.json` holds the rest, with its keys in the
+        // order the model declares them.
+        let mut without_styles = self.book.clone();
+        let styles_part = std::mem::take(&mut without_styles.styles);
+        let book = pretty(&without_styles, "book.json")?;
+        let styles = pretty(&styles_part, "styles.json")?;
         let masters = pretty(&self.masters, "masters.json")?;
         let settings = pretty(&self.settings, "settings.json")?;
 

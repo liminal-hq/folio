@@ -21,6 +21,7 @@ Product and engineering decisions for Folio. D-01 to D-07 and D-12 are defined w
 | D-25 | Spelling is Folio's own, from a pure-Rust checker and bundled dictionaries, on by default                                                            | `docs/decisions.md`          |
 | D-26 | A section is a field on the spread that starts it, and page labels are counted from the sections                                                     | `docs/decisions.md`          |
 | D-27 | Autosave writes a recovery copy of the book beside the real file, and a crash is recovered from it                                                   | `docs/decisions.md`          |
+| D-28 | The styles are part of the book in memory and their own file in the package                                                                          |
 | D-30 | A book can keep its fonts, and its own copy is laid out before an installed one of the same name                                                     |                              |
 
 ## D-08 · Shared chrome and unpublished plugins are copied; published ones are dependencies
@@ -104,6 +105,10 @@ A crash or a power cut must lose seconds of work, not an afternoon. While the ma
 The whole book is copied rather than a journal of intents because a book never saved has no file to hold a journal, because replaying intents needs ids and results that match exactly, and because the package can copy pictures it already has without reading them (the ones added since come from memory), so a copy costs the changed parts. The undo history is not kept: a recovered book starts with none.
 
 On the next launch the start screen offers each copy, newest first, with Restore and Discard. Restore opens the book as it was, still unsaved: its real file is where it was kept so one Save puts it back, and a book never saved comes back untitled, with the changes counted as made so closing it asks. Opening a file for which a newer copy exists asks which to open. The plugin does the writing and the window decides when, so the interval and the on/off switch are settings the window reads, as the plugins never call each other. The earlier plan, an intent journal in the package's `recovery/` folder, is dropped; a package keeps ignoring a `recovery/` folder it finds in a file.
+
+## D-28 · The styles are part of the book in memory and their own file in the package
+
+The named styles and the typeface body text starts in used to be an untyped `styles.json` value the package held, which the session never saw: nothing could change a style, undo it, or send it to the UI as a patch, and a style could not name a typeface of its own. `Book.styles` (`look`, `fontFamily` and a table of `StyleDef`) is now part of the book the session owns, so a later intent can edit it and be undone like any other change. In the package it is still `styles.json`: a save takes `styles` out of the book it writes to `book.json` and puts it in its own file, and an open puts it back, so the format and its stable key order do not change. Keys this version does not know (colour swatches, character styles) are kept as they were. A style gains an optional `family`, which wins over the look and over `sans`; the look's typeface and `sans` still decide for a style that has none.
 
 ## D-30 · A book can keep its fonts, and its own copy is laid out before an installed one of the same name
 
