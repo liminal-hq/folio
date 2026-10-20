@@ -228,6 +228,12 @@ pub enum Intent {
         flow: FlowId,
         count: usize,
     },
+    /// Takes the frames of a flow after the first `keep` out of it and off the pages, and the spreads
+    /// they leave with nothing on them: what a story that has shrunk no longer needs. One undo step.
+    TrimFlowPages {
+        flow: FlowId,
+        keep: usize,
+    },
     /// Chains the text frame `frame` after the text frame `to`, so the words that run out of `to`
     /// continue in it. `to` starts a flow when it was not in one, taking its words as the story;
     /// the words `frame` held are added to the end of the story.

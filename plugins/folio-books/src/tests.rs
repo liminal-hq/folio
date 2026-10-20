@@ -1577,3 +1577,44 @@ fn a_swatch_is_drawn_as_the_colour_it_shows_as() {
     assert!(colours.contains(&"#ff0000".to_string()), "{colours:?}");
     assert!(!colours.iter().any(|c| c.starts_with("swatch:")));
 }
+
+#[test]
+fn a_story_that_shrinks_gives_back_the_pages_it_no_longer_needs_with_one_undo() {
+    let app = app();
+    let dir = tempfile::tempdir().unwrap();
+    let long = dir.path().join("long.md");
+    let para = "The otter counted the stars over the river and then the pebbles under it.\n\n";
+    std::fs::write(&long, para.repeat(60)).unwrap();
+    let short = dir.path().join("short.md");
+    std::fs::write(&short, "Just one paragraph.\n").unwrap();
+    let id = books(&app)
+        .new_book(&NewBookSpec {
+            kind: folio_model::BookKind::Novel,
+            ..NewBookSpec::default()
+        })
+        .unwrap()
+        .summary
+        .id;
+    let start = books(&app).snapshot(&id).unwrap().book;
+    books(&app)
+        .import_text(&id, &long.to_string_lossy())
+        .unwrap();
+    let grown = books(&app).snapshot(&id).unwrap().book;
+    assert!(grown.spreads.len() > start.spreads.len());
+    // A short story needs no more than the frames the book started with, or fewer.
+    books(&app)
+        .import_text(&id, &short.to_string_lossy())
+        .unwrap();
+    let shrunk = books(&app).snapshot(&id).unwrap().book;
+    assert!(shrunk.spreads.len() < grown.spreads.len());
+    assert!(shrunk.flows[0].frames.len() < grown.flows[0].frames.len());
+    assert!(!shrunk.flows[0].frames.is_empty());
+    // One undo brings the long story and its pages back together.
+    books(&app).undo(&id).unwrap();
+    let back = books(&app).snapshot(&id).unwrap().book;
+    assert_eq!(back.spreads.len(), grown.spreads.len());
+    assert_eq!(
+        back.flows[0].paragraphs.len(),
+        grown.flows[0].paragraphs.len()
+    );
+}

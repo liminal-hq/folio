@@ -1488,6 +1488,7 @@ impl<R: Runtime> Books<R> {
     pub fn apply(&self, id: &str, intent: Intent) -> Result<Patch, Error> {
         // A change to a story may leave it with more words than its frames have room for.
         let refit = changes_a_story(&intent);
+        let edits_words = edits_a_story(&intent);
         let base = self.fonts.get_or_init(FontBook::with_system_fonts);
         let layered = if refit {
             let mut inner = locked(&self.inner);
@@ -1529,6 +1530,25 @@ impl<R: Runtime> Books<R> {
                         })?;
                         patch.ops.extend(more.ops);
                         patch.revision = more.revision;
+                        continue;
+                    }
+                    // A story whose words were edited may have shrunk, leaving frames, and so pages,
+                    // with nothing in them. Chaining a frame or restyling does not give pages back.
+                    if !edits_words {
+                        continue;
+                    }
+                    let layouter = Layouter::new(session.book(), &styles, fonts);
+                    let used = layouter.frames_used(&flow).map_err(Error::from)?;
+                    let have = session
+                        .book()
+                        .flows
+                        .iter()
+                        .find(|f| f.id == flow)
+                        .map_or(0, |f| f.frames.len());
+                    if let Some(used) = used.filter(|u| *u < have) {
+                        let less = session.apply(Intent::TrimFlowPages { flow, keep: used })?;
+                        patch.ops.extend(less.ops);
+                        patch.revision = less.revision;
                     }
                 }
                 // The pages added for the change are taken back with it.
@@ -1629,5 +1649,16 @@ fn changes_a_story(intent: &Intent) -> bool {
             | Intent::UnlinkFrame { .. }
             | Intent::SetStyle { .. }
             | Intent::OverrideStyle { .. }
+    )
+}
+
+/// Whether an intent edits the words of a story, which can make it shorter.
+fn edits_a_story(intent: &Intent) -> bool {
+    matches!(
+        intent,
+        Intent::SetParagraphText { .. }
+            | Intent::SpliceStory { .. }
+            | Intent::SplitParagraph { .. }
+            | Intent::JoinParagraphs { .. }
     )
 }

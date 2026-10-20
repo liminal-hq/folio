@@ -1713,6 +1713,9 @@ fn spreads_laid_out_with_a_shared_flow_cache_are_the_same_as_without_one() {
             serde_json::to_value(&shared).unwrap()
         );
     }
+}
+
+#[test]
 fn a_swatch_that_is_missing_or_lays_down_too_much_ink_is_reported_once_for_the_spread() {
     use folio_layout::wire::PreflightKind;
     use folio_model::{Background, BookSwatch, Colour, Ink, SwatchId};

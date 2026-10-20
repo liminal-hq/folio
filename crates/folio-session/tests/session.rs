@@ -3886,3 +3886,38 @@ fn removing_a_swatch_also_rewrites_the_words_of_a_story() {
         .unwrap()
         .contains("swatch:brand"));
 }
+
+#[test]
+fn frames_a_story_no_longer_needs_leave_with_the_spreads_they_empty_in_one_undo_step() {
+    let mut s = Session::new(book());
+    let flow = FlowId("fl_main".into());
+    s.apply(Intent::AddFlowPages {
+        flow: flow.clone(),
+        count: 4,
+    })
+    .unwrap();
+    let grown = s.book().spreads.len();
+    assert_eq!(s.book().flows[0].frames.len(), 5);
+    s.apply(Intent::TrimFlowPages {
+        flow: flow.clone(),
+        keep: 1,
+    })
+    .unwrap();
+    assert_eq!(s.book().flows[0].frames, [frame("fr_flowed")]);
+    assert!(s.book().spreads.len() < grown);
+    // The spread the first frame is on, and the ones the person made, are left.
+    assert!(s.book().spreads.iter().any(|sp| sp.id.0 == "sp_1"));
+    assert!(s.book().spreads.iter().any(|sp| sp.id.0 == "sp_2"));
+    s.undo().unwrap();
+    assert_eq!(s.book().spreads.len(), grown);
+    assert_eq!(s.book().flows[0].frames.len(), 5);
+    for bad in [0, 5, 9] {
+        assert!(matches!(
+            s.apply(Intent::TrimFlowPages {
+                flow: flow.clone(),
+                keep: bad
+            }),
+            Err(SessionError::BadStory(_))
+        ));
+    }
+}
