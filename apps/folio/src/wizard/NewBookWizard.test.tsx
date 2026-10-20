@@ -119,3 +119,45 @@ describe('the kind and size steps', () => {
 		expect(screen.getByRole('radio', { name: 'Cream' })).toBeChecked();
 	});
 });
+
+async function toStep(name: RegExp) {
+	for (let n = 0; n < 6; n += 1) {
+		if (screen.queryByRole('heading', { name }) !== null) return;
+		await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+	}
+}
+
+describe('the title, words and way steps', () => {
+	it('takes a title, an author and an ISBN, and flags a bad ISBN as it is typed', async () => {
+		mount();
+		await toStep(/Title and you/);
+		await userEvent.type(screen.getByLabelText('Title'), 'Pip and the Moon');
+		await userEvent.type(screen.getByLabelText('Author'), 'Mom');
+		expect(screen.getByLabelText('Title')).toHaveValue('Pip and the Moon');
+		const isbn = screen.getByLabelText('ISBN (optional)');
+		await userEvent.type(isbn, '9780306406158');
+		expect(screen.getByRole('alert')).toHaveTextContent('not a valid ISBN-13');
+		await userEvent.clear(isbn);
+		await userEvent.type(isbn, '978-0-306-40615-7');
+		expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+	});
+
+	it('chooses sample pages or an empty start, with importing not available yet', async () => {
+		mount();
+		await toStep(/Bring your words/);
+		expect(screen.getByRole('radio', { name: /Start with sample pages/ })).toBeChecked();
+		await userEvent.click(screen.getByRole('radio', { name: /Start empty/ }));
+		expect(screen.getByRole('radio', { name: /Start empty/ })).toBeChecked();
+		expect(screen.getByRole('radio', { name: /Bring in a document/ })).toBeDisabled();
+	});
+
+	it('starts from the saved way of working and lets the person change it', async () => {
+		mount();
+		await toStep(/How you like to work/);
+		expect(screen.getByRole('radio', { name: 'Easy' })).toBeChecked();
+		await userEvent.click(screen.getByRole('radio', { name: 'Expert' }));
+		expect(screen.getByRole('radio', { name: 'Expert' })).toBeChecked();
+		await userEvent.click(screen.getByRole('radio', { name: 'No thanks' }));
+		expect(screen.getByRole('radio', { name: 'No thanks' })).toBeChecked();
+	});
+});
