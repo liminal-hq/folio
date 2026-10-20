@@ -520,6 +520,12 @@ export const messages = {
 	'inspector.words': 'Words',
 	'inspector.words.flow':
 		'These words flow from one frame to the next. Edit the story to change them.',
+	'import.title': 'Import text',
+	'import.brought':
+		'Brought in {paragraphs} paragraphs, including {headings} headings and {breaks} scene breaks.',
+	'import.notes': 'What was left out or changed:',
+	'import.undo': 'The story was replaced in one step: Undo brings the old one back.',
+	'import.done': 'Done',
 	'inspector.flow.edit': 'Edit the story…',
 	'story.title': 'Story',
 	'story.hint':

@@ -1422,3 +1422,58 @@ fn the_cover_sheet_is_drawn_wide_and_changes_with_the_paper() {
     );
     assert!(cream.spine > white.spine);
 }
+
+#[test]
+fn a_markdown_file_becomes_the_books_story_in_one_undo_step_and_a_book_without_one_says_so() {
+    let app = app();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("story.md");
+    std::fs::write(
+        &file,
+        "# Chapter one\n\nThe otter slept.\n\n***\n\nMorning came.\n",
+    )
+    .unwrap();
+    let path = file.to_string_lossy().into_owned();
+
+    let novel = books(&app)
+        .new_book(&NewBookSpec {
+            kind: folio_model::BookKind::Novel,
+            ..NewBookSpec::default()
+        })
+        .unwrap()
+        .summary
+        .id;
+    let report = books(&app).import_text(&novel, &path).unwrap();
+    assert_eq!(
+        (report.paragraphs, report.headings, report.scene_breaks),
+        (4, 1, 1)
+    );
+    let story = |id: &str| -> Vec<String> {
+        books(&app).snapshot(id).unwrap().book.flows[0]
+            .paragraphs
+            .iter()
+            .map(|p| p.text())
+            .collect()
+    };
+    assert_eq!(story(&novel)[0], "Chapter one");
+    assert_eq!(story(&novel).len(), 4);
+    books(&app).undo(&novel).unwrap();
+    assert!(story(&novel)[0].starts_with("Mara had kept"));
+
+    // A picture book has no flow, and a file that is not text is refused in plain words.
+    let picture = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let refused = books(&app).import_text(&picture, &path).unwrap_err();
+    assert!(refused.to_string().contains("no story"), "{refused}");
+    let doc = dir.path().join("story.docx");
+    std::fs::write(&doc, b"PK").unwrap();
+    assert!(books(&app)
+        .import_text(&novel, &doc.to_string_lossy())
+        .unwrap_err()
+        .to_string()
+        .contains("Markdown"));
+}
+}

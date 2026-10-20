@@ -280,6 +280,75 @@ impl<R: Runtime> Books<R> {
         }
     }
 
+    /// Brings the words of the Markdown or plain text file at `path` in as the story of the book's
+    /// first flow, in one undo step. A book with no flow has no story to put them in.
+    pub fn import_text(&self, id: &str, path: &str) -> Result<folio_import::ImportReport, Error> {
+        /// More than this is not a manuscript someone typed; it would also stall the page.
+        const MAX_BYTES: u64 = 8 * 1024 * 1024;
+        let file = Path::new(path);
+        let known = file
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(str::to_ascii_lowercase);
+        if !matches!(known.as_deref(), Some("md" | "markdown" | "txt")) {
+            return Err(Error::Import(
+                "Folio can bring in Markdown (.md) and plain text (.txt) files so far. Word and \
+                 other formats are not supported yet."
+                    .into(),
+            ));
+        }
+        let size = std::fs::metadata(file)
+            .map_err(|e| Error::Import(format!("{path}: {e}")))?
+            .len();
+        if size > MAX_BYTES {
+            return Err(Error::Import(
+                "That file is too large to bring in (the limit is 8 MB).".into(),
+            ));
+        }
+        let text = std::fs::read_to_string(file).map_err(|e| {
+            Error::Import(format!(
+                "{path} could not be read as text ({e}). Save it as UTF-8 and try again."
+            ))
+        })?;
+        let imported = folio_import::import_markdown(&text);
+        if imported.story.is_empty() {
+            return Err(Error::Import("That file has no words to bring in.".into()));
+        }
+        let (flow, count) = {
+            let inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let flow = open
+                .session
+                .book()
+                .flows
+                .first()
+                .map(|f| (f.id.clone(), f.paragraphs.len()))
+                .ok_or_else(|| {
+                    Error::Import(
+                        "This book's pages hold their own words, so there is no story to bring \
+                         them into. Use a flowing book such as a novel, or chain its text frames \
+                         first."
+                            .into(),
+                    )
+                })?;
+            (flow.0, flow.1)
+        };
+        self.apply(
+            id,
+            Intent::SpliceStory {
+                flow,
+                at: 0,
+                remove: count,
+                insert: imported.story,
+            },
+        )?;
+        Ok(imported.report)
+    }
+
     /// Stops the export in progress after the file it is making.
     pub fn cancel_export(&self) {
         self.cancel_export.store(true, Ordering::SeqCst);
