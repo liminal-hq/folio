@@ -9,6 +9,7 @@ use folio_model::{Book, Paper};
 use crate::cover::cover_sheet;
 use crate::epub::{export_epub, EpubFlavour, EpubOptions};
 use crate::error::ExportError;
+use crate::fixed::export_fixed_epub;
 use crate::pdf::{export_pdf, Assets, InkOptions, PdfOptions, PdfTarget};
 use crate::raster::page_to_jpeg;
 
@@ -27,6 +28,8 @@ pub enum Target {
     EbookCover,
     /// A reflowable EPUB for Kindle Direct Publishing, which converts it for Kindle.
     KindleEpub,
+    /// A fixed-layout EPUB: every page as laid out, for a picture book.
+    FixedEpub,
     /// A reflowable EPUB for Kobo Writing Life, and the Kobo flavour of it beside it.
     KoboEpub,
 }
@@ -74,6 +77,7 @@ impl Target {
             Self::KdpCover => vec![format!("{slug}-paperback-cover.pdf")],
             Self::EbookCover => vec![format!("{slug}-ebook-cover.jpg")],
             Self::KindleEpub => vec![format!("{slug}-kindle.epub")],
+            Self::FixedEpub => vec![format!("{slug}-fixed.epub")],
             Self::KoboEpub => vec![format!("{slug}.epub"), format!("{slug}.kepub.epub")],
         }
     }
@@ -142,6 +146,7 @@ pub fn export_target(
             vec![page_to_jpeg(&scene, fonts, assets, 1600, 2560)?]
         }
         Target::KindleEpub => vec![epub(EpubFlavour::Standard)?],
+        Target::FixedEpub => vec![export_fixed_epub(book, styles, fonts, assets)?],
         Target::KoboEpub => vec![epub(EpubFlavour::Standard)?, epub(EpubFlavour::Kobo)?],
     };
     Ok(names
@@ -178,6 +183,7 @@ mod tests {
             ["pip-paperback-interior.pdf"]
         );
         assert_eq!(Target::KindleEpub.file_names("Pip"), ["pip-kindle.epub"]);
+        assert_eq!(Target::FixedEpub.file_names("Pip"), ["pip-fixed.epub"]);
         assert_eq!(
             Target::KdpCover.file_names("Pip"),
             ["pip-paperback-cover.pdf"]

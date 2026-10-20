@@ -84,6 +84,15 @@ describe('the Export dialog', () => {
 		expect(await screen.findByText('pip-ebook-cover.jpg')).toBeInTheDocument();
 	});
 
+	it('offers the fixed-layout picture book EPUB', async () => {
+		await setup();
+		await userEvent.click(
+			screen.getByRole('checkbox', { name: /Picture book \(fixed-layout EPUB\)/ }),
+		);
+		await userEvent.click(screen.getByRole('button', { name: 'Make files' }));
+		expect(await screen.findByText('pip-fixed.epub')).toBeInTheDocument();
+	});
+
 	it('cannot make nothing', async () => {
 		await setup();
 		await userEvent.click(screen.getByRole('checkbox', { name: /Sharing PDF/ }));

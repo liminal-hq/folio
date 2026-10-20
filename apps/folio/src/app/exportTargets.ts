@@ -29,6 +29,11 @@ export const EXPORT_TARGETS: readonly TargetInfo[] = [
 		description: 'export.target.kindleEpub.sub',
 	},
 	{
+		id: 'fixedEpub',
+		name: 'export.target.fixedEpub',
+		description: 'export.target.fixedEpub.sub',
+	},
+	{
 		id: 'koboEpub',
 		name: 'export.target.koboEpub',
 		description: 'export.target.koboEpub.sub',

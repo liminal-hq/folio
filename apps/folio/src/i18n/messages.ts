@@ -144,6 +144,9 @@ export const messages = {
 	'export.target.kindleEpub': 'Kindle (EPUB)',
 	'export.target.kindleEpub.sub':
 		'A reflowable book for Amazon KDP, which makes the Kindle edition from it.',
+	'export.target.fixedEpub': 'Picture book (fixed-layout EPUB)',
+	'export.target.fixedEpub.sub':
+		'Every page just as it is, with the words as live text over the pictures, for Kindle and Kobo picture books.',
 	'export.target.koboEpub': 'Kobo (EPUB and KEPUB)',
 	'export.target.koboEpub.sub':
 		'A reflowable book for Kobo Writing Life, and the Kobo flavour with faster page turns.',

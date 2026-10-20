@@ -9,6 +9,7 @@
 pub mod cover;
 pub mod epub;
 pub mod error;
+pub mod fixed;
 pub mod job;
 pub mod pdf;
 pub mod pdfx;
