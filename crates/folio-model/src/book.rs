@@ -248,6 +248,41 @@ pub struct Isbns {
     pub ebook: Option<String>,
 }
 
+/// What a book says about itself on its cover and in a store: its title, who made it, what it is
+/// about and its ISBNs. They are set together, as one undo step.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(rename_all = "camelCase")]
+pub struct Details {
+    pub title: String,
+    pub subtitle: Option<String>,
+    pub authors: Vec<Contributor>,
+    pub description: String,
+    pub isbn: Isbns,
+}
+
+impl Details {
+    /// The details a book has now.
+    pub fn of(book: &Book) -> Self {
+        Self {
+            title: book.title.clone(),
+            subtitle: book.subtitle.clone(),
+            authors: book.authors.clone(),
+            description: book.metadata.description.clone(),
+            isbn: book.metadata.isbn.clone(),
+        }
+    }
+
+    /// Puts these details in `book`, leaving its keywords alone.
+    pub fn apply(&self, book: &mut Book) {
+        book.title = self.title.clone();
+        book.subtitle = self.subtitle.clone();
+        book.authors = self.authors.clone();
+        book.metadata.description = self.description.clone();
+        book.metadata.isbn = self.isbn.clone();
+    }
+}
+
 impl Book {
     /// The number of pages in the book, not counting the cover, which a printer counts apart.
     pub fn page_count(&self) -> usize {

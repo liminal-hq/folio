@@ -39,6 +39,18 @@ function applyOp(book: Book, op: PatchOp): Book {
 				...(op.numbers !== 'none' ? { pageNumbers: op.numbers } : {}),
 			};
 		}
+		case 'setDetails': {
+			// Rust leaves a missing subtitle out of the book, and so does the copy.
+			const { subtitle: _subtitle, ...rest } = book;
+			const d = op.details;
+			return {
+				...rest,
+				title: d.title,
+				...(d.subtitle !== null ? { subtitle: d.subtitle } : {}),
+				authors: d.authors,
+				metadata: { ...book.metadata, description: d.description, isbn: d.isbn },
+			};
+		}
 		case 'setLanguage':
 			return { ...book, language: op.language };
 		case 'setPreflightIgnore': {

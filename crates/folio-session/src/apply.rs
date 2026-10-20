@@ -12,6 +12,11 @@ use folio_model::{
 /// The most preflight issues a book can leave alone.
 pub const MAX_IGNORED_ISSUES: usize = 500;
 
+/// How long the details of a book may be.
+const MAX_TITLE: usize = 300;
+const MAX_DESCRIPTION: usize = 5000;
+const MAX_AUTHORS: usize = 20;
+
 /// The most fonts a book can keep, and a sanity limit on the weights a font can name.
 pub const MAX_BOOK_FONTS: usize = 128;
 
@@ -430,6 +435,14 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         }
         Intent::SetFonts { fonts } => {
             check_fonts(fonts)?;
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                merge: None,
+            })
+        }
+        Intent::SetDetails { details } => {
+            check_details(details)?;
             Ok(Plan {
                 touched: Vec::new(),
                 new_spread: None,
@@ -971,6 +984,7 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             }
         }
         Intent::SetFonts { fonts } => book.fonts = fonts,
+        Intent::SetDetails { details } => details.apply(book),
         Intent::SetPreflightIgnore { keys } => book.preflight_ignore = keys,
         Intent::EndUndoStep => {}
         Intent::IgnoreWord { word } => {
@@ -1426,4 +1440,44 @@ fn edit_table(table: &mut TableFrame, edit: &TableEdit) {
         TableEdit::SetLook { look } => table.look = *look,
         _ => {}
     }
+}
+
+/// Refuses details a book cannot have: no title, text that is too long, or an ISBN that is not an
+/// ISBN-13 with a correct check digit.
+fn check_details(details: &folio_model::Details) -> Result<(), SessionError> {
+    let bad = |what: &str| Err(SessionError::BadDetails(what.to_owned()));
+    if details.title.trim().is_empty() || details.title.chars().count() > MAX_TITLE {
+        return bad("the title must be there and no longer than 300 characters");
+    }
+    if details
+        .subtitle
+        .as_deref()
+        .is_some_and(|s| s.chars().count() > MAX_TITLE)
+    {
+        return bad("the subtitle is too long");
+    }
+    if details.description.chars().count() > MAX_DESCRIPTION {
+        return bad("the description is too long");
+    }
+    if details.authors.len() > MAX_AUTHORS
+        || details
+            .authors
+            .iter()
+            .any(|a| a.name.trim().is_empty() || a.name.chars().count() > MAX_TITLE)
+    {
+        return bad("each author needs a name, and there can be at most 20");
+    }
+    for isbn in [
+        &details.isbn.paperback,
+        &details.isbn.hardcover,
+        &details.isbn.ebook,
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if !isbn.is_empty() && !folio_model::is_valid_isbn13(isbn) {
+            return bad("an ISBN is not a valid ISBN-13");
+        }
+    }
+    Ok(())
 }
