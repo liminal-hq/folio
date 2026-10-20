@@ -6,8 +6,8 @@
 use std::time::{Duration, Instant};
 
 use folio_model::{
-    Axis, Book, Frame, FrameId, Grid, Intent, Margins, Pt, Rect, ReorderTo, Size, SpreadId,
-    SpreadKind, StyleId, StyleOverrides, Surface,
+    Axis, Book, BookFont, Frame, FrameId, Grid, Intent, Margins, Pt, Rect, ReorderTo, Size,
+    SpreadId, SpreadKind, StyleId, StyleOverrides, Surface,
 };
 use folio_session::{PatchOp, Session, SessionError, COALESCE_WINDOW, UNDO_DEPTH};
 use serde_json::json;
@@ -623,6 +623,19 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
         .unwrap()
     });
     record("undo the language", &mut s, &|s| s.undo().unwrap());
+    record("keep a font", &mut s, &|s| {
+        s.apply(Intent::SetFonts {
+            fonts: vec![BookFont {
+                family: "Zed Sans".into(),
+                weight: 400,
+                italic: false,
+                path: "assets/fonts/ab12.ttf".into(),
+                index: 0,
+            }],
+        })
+        .unwrap()
+    });
+    record("undo the fonts", &mut s, &|s| s.undo().unwrap());
     record("ignore a word", &mut s, &|s| {
         s.apply(Intent::IgnoreWord {
             word: "Zorblat".into(),
@@ -2928,4 +2941,73 @@ fn the_language_is_set_checked_and_undone() {
         );
     }
     assert_eq!(s.book().language, "fr-CA");
+}
+
+fn font(family: &str, path: &str) -> BookFont {
+    BookFont {
+        family: family.into(),
+        weight: 400,
+        italic: false,
+        path: path.into(),
+        index: 0,
+    }
+}
+
+#[test]
+fn keeping_fonts_is_one_undo_step_and_nothing_when_they_are_the_same() {
+    let mut s = Session::new(book());
+    let kept = vec![font("Zed Sans", "assets/fonts/ab12.ttf")];
+    let patch = s
+        .apply(Intent::SetFonts {
+            fonts: kept.clone(),
+        })
+        .unwrap();
+    assert_eq!(
+        patch.ops,
+        vec![PatchOp::SetFonts {
+            fonts: kept.clone()
+        }]
+    );
+    assert_eq!(s.book().fonts, kept);
+
+    // Setting the same list again changes nothing, so it makes no step.
+    let depth = s.undo_depth();
+    let again = s
+        .apply(Intent::SetFonts {
+            fonts: kept.clone(),
+        })
+        .unwrap();
+    assert!(again.ops.is_empty());
+    assert_eq!(s.undo_depth(), depth);
+
+    let undone = s.undo().unwrap();
+    assert_eq!(undone.ops, vec![PatchOp::SetFonts { fonts: Vec::new() }]);
+    assert!(s.book().fonts.is_empty());
+    let redone = s.redo().unwrap();
+    assert_eq!(redone.ops, vec![PatchOp::SetFonts { fonts: kept }]);
+}
+
+#[test]
+fn a_list_of_fonts_that_cannot_be_kept_is_refused_and_changes_nothing() {
+    let mut s = Session::new(book());
+    for bad in [
+        vec![font(" ", "assets/fonts/a.ttf")],
+        vec![font("Zed", "assets/images/a.png")],
+        vec![font("Zed", "assets/fonts/../book.json")],
+        vec![BookFont {
+            weight: 0,
+            ..font("Zed", "assets/fonts/a.ttf")
+        }],
+        vec![
+            font("Zed", "assets/fonts/a.ttf"),
+            font("Zed", "assets/fonts/a.ttf"),
+        ],
+    ] {
+        assert!(matches!(
+            s.apply(Intent::SetFonts { fonts: bad }),
+            Err(SessionError::BadFont(_))
+        ));
+    }
+    assert!(s.book().fonts.is_empty());
+    assert_eq!(s.revision(), 0);
 }

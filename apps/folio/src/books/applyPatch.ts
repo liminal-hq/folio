@@ -41,6 +41,11 @@ function applyOp(book: Book, op: PatchOp): Book {
 		}
 		case 'setLanguage':
 			return { ...book, language: op.language };
+		case 'setFonts': {
+			// Rust leaves an empty list out of the book, and so does the copy.
+			const { fonts: _fonts, ...rest } = book;
+			return op.fonts.length > 0 ? { ...rest, fonts: op.fonts } : rest;
+		}
 		case 'setProofing': {
 			// Rust leaves an empty list out of the book, and so does the copy.
 			const { proofing: _proofing, ...rest } = book;

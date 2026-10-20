@@ -4,7 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    Book, Grid, Margins, Master, MasterId, PageNumbers, Proofing, Pt, Size, Spread, SpreadId,
+    Book, BookFont, Grid, Margins, Master, MasterId, PageNumbers, Proofing, Pt, Size, Spread,
+    SpreadId,
 };
 
 use crate::patch::PatchOp;
@@ -86,6 +87,7 @@ pub struct Delta {
     pub masters: Masters,
     pub proofing: Proofing,
     pub language: String,
+    pub fonts: Vec<BookFont>,
     pub spreads: Vec<(SpreadId, Option<Spread>)>,
 }
 
@@ -98,6 +100,7 @@ impl Delta {
             masters: Masters::of(book),
             proofing: book.proofing.clone(),
             language: book.language.clone(),
+            fonts: book.fonts.clone(),
             spreads: touched
                 .iter()
                 .map(|id| {
@@ -118,6 +121,7 @@ impl Delta {
         let was_masters = Masters::of(book);
         let was_proofing = book.proofing.clone();
         let was_language = book.language.clone();
+        let was_fonts = book.fonts.clone();
 
         for (id, spread) in &self.spreads {
             match spread {
@@ -161,6 +165,12 @@ impl Delta {
             book.language = self.language.clone();
             ops.push(PatchOp::SetLanguage {
                 language: self.language.clone(),
+            });
+        }
+        if was_fonts != self.fonts {
+            book.fonts = self.fonts.clone();
+            ops.push(PatchOp::SetFonts {
+                fonts: self.fonts.clone(),
             });
         }
         if was_proofing != self.proofing {

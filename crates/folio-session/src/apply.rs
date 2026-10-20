@@ -4,10 +4,47 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    clean_language, BackgroundTarget, Book, Colour, Frame, FrameId, Guide, InlineContent, Intent,
-    Master, MasterId, Page, Paint, Proofing, Pt, ReorderTo, Run, Spread, SpreadId, SpreadKind,
-    Surface, TableCell, TableEdit, TableFrame, MAX_IGNORED_WORDS,
+    clean_language, BackgroundTarget, Book, BookFont, Colour, Frame, FrameId, Guide, InlineContent,
+    Intent, Master, MasterId, Page, Paint, Proofing, Pt, ReorderTo, Run, Spread, SpreadId,
+    SpreadKind, Surface, TableCell, TableEdit, TableFrame, MAX_IGNORED_WORDS,
 };
+
+/// The most fonts a book can keep, and a sanity limit on the weights a font can name.
+pub const MAX_BOOK_FONTS: usize = 128;
+
+/// Whether `fonts` could be kept: each names a family and a file under `assets/fonts/`, and none
+/// is listed twice.
+fn check_fonts(fonts: &[BookFont]) -> Result<(), SessionError> {
+    if fonts.len() > MAX_BOOK_FONTS {
+        return Err(SessionError::BadFont(format!(
+            "a book keeps at most {MAX_BOOK_FONTS} fonts"
+        )));
+    }
+    for (at, font) in fonts.iter().enumerate() {
+        if font.family.trim().is_empty() {
+            return Err(SessionError::BadFont("a font needs a family name".into()));
+        }
+        if !font.path.starts_with("assets/fonts/") || font.path.contains("..") {
+            return Err(SessionError::BadFont(format!(
+                "`{}` is not a file in the book's fonts",
+                font.path
+            )));
+        }
+        if !(1..=1000).contains(&font.weight) {
+            return Err(SessionError::BadFont(format!(
+                "{} is not a font weight",
+                font.weight
+            )));
+        }
+        if fonts[..at].contains(font) {
+            return Err(SessionError::BadFont(format!(
+                "{} is listed twice",
+                font.family
+            )));
+        }
+    }
+    Ok(())
+}
 
 /// The widest an outline can be, and the roundest a corner, in points.
 const MAX_STROKE: f64 = 100.0;
@@ -382,6 +419,14 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         }
         Intent::SetLanguage { language } => {
             clean_language(language).map_err(SessionError::BadLanguage)?;
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                merge: None,
+            })
+        }
+        Intent::SetFonts { fonts } => {
+            check_fonts(fonts)?;
             Ok(Plan {
                 touched: Vec::new(),
                 new_spread: None,
@@ -908,6 +953,7 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 book.language = language;
             }
         }
+        Intent::SetFonts { fonts } => book.fonts = fonts,
         Intent::EndUndoStep => {}
         Intent::IgnoreWord { word } => {
             if let Ok(word) = Proofing::clean(&word) {
