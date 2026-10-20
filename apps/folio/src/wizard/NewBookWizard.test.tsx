@@ -35,10 +35,9 @@ describe('NewBookWizard', () => {
 		mount();
 		expect(screen.getByRole('heading', { name: 'What are you making?' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Back' })).toBeDisabled();
-		expect(screen.getByText('What are you making?', { selector: 'li' })).toHaveAttribute(
-			'aria-current',
-			'step',
-		);
+		expect(
+			screen.getByText('What are you making?', { selector: 'span' }).closest('li'),
+		).toHaveAttribute('aria-current', 'step');
 	});
 
 	it('moves forward and back through every step, stopping at the review', async () => {

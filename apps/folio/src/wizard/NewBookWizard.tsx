@@ -41,7 +41,9 @@ export function NewBookWizard() {
 									data-done={at < index || undefined}
 								>
 									<span className={styles.number}>{at + 1}</span>
-									{LABELS[id]}
+									<span className={styles.label} data-text={LABELS[id]}>
+										{LABELS[id]}
+									</span>
 								</li>
 							))}
 						</ol>
