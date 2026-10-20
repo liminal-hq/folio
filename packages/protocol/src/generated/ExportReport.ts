@@ -8,4 +8,8 @@ export type ExportReport = {
 /**
  * The folder the files are in.
  */
-folder: string, files: Array<ExportedFile>, };
+folder: string, files: Array<ExportedFile>, 
+/**
+ * Set when the person stopped the export, so the files are those made before that.
+ */
+cancelled: boolean, };

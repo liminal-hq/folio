@@ -152,3 +152,16 @@ describe('print colour', () => {
 		);
 	});
 });
+
+describe('progress', () => {
+	it('says which file the export has reached and lets the person stop it', async () => {
+		const { fake } = await setup();
+		await userEvent.click(screen.getByRole('checkbox', { name: /Cover picture for a store/ }));
+		const release = fake.holdExport();
+		await userEvent.click(screen.getByRole('button', { name: 'Make files' }));
+		expect(await screen.findByText(/Making file 1 of 2: Sharing PDF/)).toBeInTheDocument();
+		await userEvent.click(screen.getByRole('button', { name: 'Stop' }));
+		release();
+		expect(await screen.findByText(/Stopped\. 0 files were made first\./)).toBeInTheDocument();
+	});
+});
