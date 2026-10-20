@@ -979,6 +979,7 @@ export function BookView({
 				book={book}
 				onSave={(details) => apply({ type: 'SetDetails', details })}
 				onNotes={(notes) => apply({ type: 'SetBackNotes', notes })}
+				onPickPicture={pickBackgroundPicture}
 			/>
 			<SoftProofDialog
 				open={proofOpen}

@@ -214,6 +214,8 @@ export const messages = {
 	'coverSheet.authorField': 'Author (front cover and spine)',
 	'coverSheet.blurbField': 'Back cover blurb',
 	'coverSheet.update': 'Update the cover',
+	'coverSheet.addPicture': 'Add a picture to the back cover',
+	'coverSheet.pictureBox': 'A picture on the back cover',
 	'coverSheet.addNote': 'Add words to the back cover',
 	'coverSheet.newNote': 'New words',
 	'coverSheet.noteText': 'The words in the chosen box',
