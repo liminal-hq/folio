@@ -9,10 +9,11 @@ use ts_rs::TS;
 use crate::units::{Pt, Rect, Size};
 
 // ── Export maths ──
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
 pub enum Paper {
+    #[default]
     White,
     Cream,
     Colour,
@@ -38,6 +39,21 @@ pub struct CoverMaths {
     pub barcode: Rect,
 }
 
+/// KDP puts text on the spine of a book of this many pages or more. Its own pages disagree between
+/// 79 and 80, so Folio takes the stricter (D-34).
+pub const SPINE_TEXT_FROM: u32 = 80;
+
+/// How many pages KDP counts for the spine: the interior, in twos, and at least 24.
+pub fn spine_pages(book: &crate::book::Book) -> u32 {
+    let interior: u32 = book
+        .spreads
+        .iter()
+        .skip(1)
+        .map(|s| s.pages.len() as u32)
+        .sum();
+    (interior + interior % 2).max(24)
+}
+
 pub fn paperback_cover(trim: Size, pages: u32, paper: Paper) -> CoverMaths {
     let spine = Pt::from_in(pages as f64 * spine_factor(paper));
     let edge = Pt::from_in(0.125);
@@ -55,7 +71,7 @@ pub fn paperback_cover(trim: Size, pages: u32, paper: Paper) -> CoverMaths {
         edge,
         width,
         height,
-        spine_text_allowed: pages >= 79,
+        spine_text_allowed: pages >= SPINE_TEXT_FROM,
         barcode,
     }
 }
@@ -81,13 +97,13 @@ mod tests {
     }
 
     #[test]
-    fn the_spine_takes_text_from_79_pages() {
+    fn the_spine_takes_text_from_80_pages() {
         let trim = Size {
             w: Pt::from_in(5.0),
             h: Pt::from_in(8.0),
         };
-        assert!(!paperback_cover(trim, 78, Paper::Cream).spine_text_allowed);
-        assert!(paperback_cover(trim, 79, Paper::Cream).spine_text_allowed);
+        assert!(!paperback_cover(trim, 79, Paper::Cream).spine_text_allowed);
+        assert!(paperback_cover(trim, 80, Paper::Cream).spine_text_allowed);
     }
 
     #[test]
