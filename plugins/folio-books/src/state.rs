@@ -747,7 +747,7 @@ impl<R: Runtime> Books<R> {
                             .and_then(|s| book.flows.iter().find(|f| f.id == s.id))
                         {
                             if flowed.insert(flow.id.0.clone()) {
-                                look(&spread.id.0, &t.base.id.0, None, &flow.source, false);
+                                look(&spread.id.0, &t.base.id.0, None, &flow.text(), false);
                             }
                         }
                     }
