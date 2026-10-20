@@ -36,6 +36,8 @@ pub enum SessionError {
     NotTable(String),
     #[error("that word cannot be ignored: {0}")]
     BadWord(String),
+    #[error("those fonts cannot be kept: {0}")]
+    BadFont(String),
     #[error("that language cannot be used: {0}")]
     BadLanguage(String),
     #[error("that section cannot be used: {0}")]

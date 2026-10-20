@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::background::Background;
-use crate::book::{Grid, PageNumbers};
+use crate::book::{BookFont, Grid, PageNumbers};
 use crate::colour::Colour;
 use crate::frame::{Fit, Frame, Shape, StyleOverrides, TableLook};
 use crate::ids::{FrameId, MasterId, PageId, SpreadId, StyleId};
@@ -166,6 +166,11 @@ pub enum Intent {
     /// decides which dictionary checks the spelling, and how words are hyphenated and shaped.
     SetLanguage {
         language: String,
+    },
+    /// Sets the fonts the book keeps, each a file already in the package. The books plugin adds the
+    /// files and sends this; it is one undo step.
+    SetFonts {
+        fonts: Vec<BookFont>,
     },
     /// Closes the last undo step, so the next change on the same frame starts a new one instead of
     /// joining it. It changes nothing in the book. Words typed in an editor send it before each pause
