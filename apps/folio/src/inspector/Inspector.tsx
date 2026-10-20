@@ -53,6 +53,12 @@ export interface InspectorProps {
 	images?: Record<string, string>;
 	/** The languages a book can be written in. Without them the book's language is not offered. */
 	languages?: { choices: LanguageChoice[]; selected: string };
+	/** The text frame whose words are waiting to continue in the next frame clicked, if any. */
+	linking?: string | null;
+	/** Starts, or with `null` cancels, choosing the frame the words continue in. */
+	onLink?(frame: string | null): void;
+	/** Opens the story of a flow in the story editor. */
+	onEditStory?(flow: string): void;
 }
 
 const MARK_ROWS: { key: keyof Marks; label: string }[] = [
@@ -399,6 +405,43 @@ function TextSection({ frame, props }: { frame: TextFrame; props: InspectorProps
 				/>
 			</label>
 			{frame.flow != null && <p className={styles.note}>{t('inspector.words.flow')}</p>}
+			{frame.flow != null && props.onEditStory && (
+				<div className={styles.field}>
+					<button
+						type="button"
+						className={styles.chip}
+						onClick={() => props.onEditStory?.(frame.flow!.id)}
+					>
+						{t('inspector.flow.edit')}
+					</button>
+				</div>
+			)}
+			{props.mode === 'expert' && props.onLink && !frame.locked && (
+				<div className={styles.field}>
+					{frame.flow != null ? (
+						<button
+							type="button"
+							className={styles.chip}
+							onClick={() => apply({ type: 'UnlinkFrame', frame: frame.id })}
+						>
+							{t('inspector.flow.unlink')}
+						</button>
+					) : props.linking === frame.id ? (
+						<>
+							<p className={styles.note} role="status">
+								{t('inspector.flow.choose')}
+							</p>
+							<button type="button" className={styles.chip} onClick={() => props.onLink?.(null)}>
+								{t('inspector.flow.cancel')}
+							</button>
+						</>
+					) : (
+						<button type="button" className={styles.chip} onClick={() => props.onLink?.(frame.id)}>
+							{t('inspector.flow.link')}
+						</button>
+					)}
+				</div>
+			)}
 			{choices.length > 0 && (
 				<div className={styles.field} role="group" aria-label={t('inspector.style')}>
 					<span>{t('inspector.style')}</span>

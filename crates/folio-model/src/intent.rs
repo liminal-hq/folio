@@ -9,8 +9,9 @@ use ts_rs::TS;
 use crate::background::Background;
 use crate::book::{BookFont, Details, Grid, PageNumbers};
 use crate::colour::Colour;
+use crate::flow::StoryPara;
 use crate::frame::{Fit, Frame, Shape, StyleOverrides, TableLook};
-use crate::ids::{FrameId, MasterId, PageId, SpreadId, StyleId};
+use crate::ids::{FlowId, FrameId, MasterId, PageId, SpreadId, StyleId};
 use crate::runs::RunChange;
 use crate::sections::Section;
 use crate::spread::Axis;
@@ -175,6 +176,61 @@ pub enum Intent {
     /// files and sends this; it is one undo step.
     SetFonts {
         fonts: Vec<BookFont>,
+    },
+    /// Sets the words of one paragraph of a flow's story, keeping the look of the words left alone.
+    /// Typing in one paragraph is one undo step.
+    SetParagraphText {
+        flow: FlowId,
+        para: usize,
+        text: String,
+    },
+    /// Splits a paragraph of a flow's story at character `at`: Enter in the middle of its words. The
+    /// new paragraph after it has the same style, and both keep the look of their words.
+    SplitParagraph {
+        flow: FlowId,
+        para: usize,
+        at: usize,
+    },
+    /// Joins a paragraph of a flow's story to the one after it: Backspace at the start of that one.
+    JoinParagraphs {
+        flow: FlowId,
+        para: usize,
+    },
+    /// Replaces `remove` paragraphs of a flow's story from place `at` with `insert`: Enter, Backspace
+    /// across paragraphs, paste and deleting a stretch of paragraphs are all this. One undo step.
+    SpliceStory {
+        flow: FlowId,
+        at: usize,
+        remove: usize,
+        insert: Vec<StoryPara>,
+    },
+    /// Sets the paragraph style of paragraphs `from..=to` of a flow's story; none takes it away.
+    StyleParagraphs {
+        flow: FlowId,
+        from: usize,
+        to: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        style: Option<StyleId>,
+    },
+    /// Changes the look of characters `start..end` of one paragraph of a flow's story.
+    StyleStoryRange {
+        flow: FlowId,
+        para: usize,
+        start: u32,
+        end: u32,
+        change: RunChange,
+    },
+    /// Chains the text frame `frame` after the text frame `to`, so the words that run out of `to`
+    /// continue in it. `to` starts a flow when it was not in one, taking its words as the story;
+    /// the words `frame` held are added to the end of the story.
+    LinkFrame {
+        frame: FrameId,
+        to: FrameId,
+    },
+    /// Takes a text frame out of its flow. The frames after it stay chained; a frame that was the
+    /// only one takes the story back as its own words.
+    UnlinkFrame {
+        frame: FrameId,
     },
     /// Sets the title, subtitle, authors, description and ISBNs together. One undo step.
     SetDetails {

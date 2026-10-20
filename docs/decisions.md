@@ -27,6 +27,7 @@ Product and engineering decisions for Folio. D-01 to D-07 and D-12 are defined w
 | D-35 | EPUBs are written by Folio itself, reflowable first, and checked with EPUBCheck                                                                                    |                              |
 | D-36 | Textures are shared data: one set of SVG tiles in `folio-presets`, drawn at 300 ppi for print and laid edge to edge from the page corner                           | `spec/11-tools.md`           |
 | D-37 | Colours stay `#rrggbb` in the book; ink (CMYK) is made at export through the chosen press profile, so there are no `cmyk(...)` colour strings or CMYK swatches yet | `spec/05-export.md`          |
+| D-39 | A flow's story is paragraphs of `Run`s (`StoryPara`), not Markdown; paragraphs are named by their place in the list, and a paragraph's style styles its runs       | `spec/04-layout-engine.md`   |
 | D-30 | A book can keep its fonts, and its own copy is laid out before an installed one of the same name                                                                   |                              |
 
 ## D-08 · Shared chrome and unpublished plugins are copied; published ones are dependencies

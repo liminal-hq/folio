@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    Book, BookFont, Details, Grid, Margins, Master, MasterId, PageNumbers, Proofing, Pt, Size,
-    Spread, SpreadId,
+    Book, BookFont, Details, Flow, FlowId, Grid, Margins, Master, MasterId, PageNumbers, Proofing,
+    Pt, Size, Spread, SpreadId,
 };
 
 use crate::patch::PatchOp;
@@ -90,12 +90,14 @@ pub struct Delta {
     pub details: Details,
     pub fonts: Vec<BookFont>,
     pub preflight_ignore: Vec<String>,
+    /// The flows a step touched, each as it was (or `None` where it did not exist).
+    pub flows: Vec<(FlowId, Option<Flow>)>,
     pub spreads: Vec<(SpreadId, Option<Spread>)>,
 }
 
 impl Delta {
     /// Captures `touched` and the book-wide parts.
-    pub fn capture(book: &Book, touched: &[SpreadId]) -> Self {
+    pub fn capture(book: &Book, touched: &[SpreadId], flows: &[FlowId]) -> Self {
         Self {
             order: book.spreads.iter().map(|s| s.id.clone()).collect(),
             geometry: Geometry::of(book),
@@ -105,6 +107,10 @@ impl Delta {
             details: Details::of(book),
             fonts: book.fonts.clone(),
             preflight_ignore: book.preflight_ignore.clone(),
+            flows: flows
+                .iter()
+                .map(|id| (id.clone(), book.flows.iter().find(|f| &f.id == id).cloned()))
+                .collect(),
             spreads: touched
                 .iter()
                 .map(|id| {
@@ -178,6 +184,25 @@ impl Delta {
             ops.push(PatchOp::SetDetails {
                 details: self.details.clone(),
             });
+        }
+        for (id, flow) in &self.flows {
+            let slot = book.flows.iter().position(|f| &f.id == id);
+            match (flow, slot) {
+                (Some(flow), Some(at)) if book.flows[at] == *flow => {}
+                (Some(flow), Some(at)) => {
+                    book.flows[at] = flow.clone();
+                    ops.push(PatchOp::SetFlow { flow: flow.clone() });
+                }
+                (Some(flow), None) => {
+                    book.flows.push(flow.clone());
+                    ops.push(PatchOp::SetFlow { flow: flow.clone() });
+                }
+                (None, Some(at)) => {
+                    book.flows.remove(at);
+                    ops.push(PatchOp::RemoveFlow { id: id.clone() });
+                }
+                (None, None) => {}
+            }
         }
         if was_ignore != self.preflight_ignore {
             book.preflight_ignore = self.preflight_ignore.clone();
