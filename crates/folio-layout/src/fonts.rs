@@ -157,6 +157,24 @@ impl Font {
         }
     }
 
+    /// Which face of the font file this is (0 for an ordinary font).
+    pub fn index(&self) -> u32 {
+        self.index
+    }
+
+    /// The axes a variable font is set to when drawn at `size_pt` and `weight`, as a tag and a
+    /// value: the weight, and the optical size where it has one. Empty for a static font.
+    pub fn variations_for(&self, size_pt: f64, weight: u16) -> Vec<([u8; 4], f32)> {
+        let mut axes = Vec::with_capacity(2);
+        if let Some(range) = self.wght {
+            axes.push((*b"wght", range.clamp(f32::from(weight))));
+        }
+        if let Some(range) = self.opsz {
+            axes.push((*b"opsz", range.clamp(size_pt as f32)));
+        }
+        axes
+    }
+
     /// A face for shaping at `size_pt` and `weight`: the weight axis set, and the optical size
     /// where the font has one.
     pub(crate) fn face(&self, size_pt: f64, weight: u16) -> Face<'_> {
@@ -392,6 +410,13 @@ impl FontBook {
         BUNDLED
             .iter()
             .any(|b| b.family.eq_ignore_ascii_case(family))
+    }
+
+    /// The font file with `key` (`Font::face_key`), if one of that key has been loaded: layout
+    /// loads a font the first time it shapes with it, so a key a layout gave is always found.
+    pub fn font_by_key(&self, key: &str) -> Option<Arc<Font>> {
+        let cache = self.cache.lock().expect("the font cache lock");
+        cache.values().find(|f| f.face_key() == key).cloned()
     }
 
     /// Reads the system's fonts again, for fonts installed or removed since the book was made, and
