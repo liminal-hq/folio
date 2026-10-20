@@ -23,6 +23,7 @@ describe('CoverSheetDialog', () => {
 				book={made.book}
 				onSave={() => undefined}
 				onNotes={() => undefined}
+				onPickPicture={async () => null}
 			/>,
 		);
 		expect(
@@ -44,6 +45,7 @@ describe('CoverSheetDialog', () => {
 				book={made.book}
 				onSave={() => undefined}
 				onNotes={() => undefined}
+				onPickPicture={async () => null}
 			/>,
 		);
 		expect(fake.calls.some((c) => c.startsWith('previewCoverSheet'))).toBe(false);
@@ -62,6 +64,7 @@ describe('CoverSheetDialog', () => {
 				book={made.book}
 				onSave={() => undefined}
 				onNotes={() => undefined}
+				onPickPicture={async () => null}
 			/>,
 		);
 		expect(await screen.findByTestId('cover-guides')).toBeInTheDocument();
@@ -83,6 +86,7 @@ describe('CoverSheetDialog', () => {
 				book={made.book}
 				onSave={onSave}
 				onNotes={() => undefined}
+				onPickPicture={async () => null}
 			/>,
 		);
 		const update = await screen.findByRole('button', { name: 'Update the cover' });
@@ -115,6 +119,7 @@ describe('CoverSheetDialog', () => {
 				book={{ ...made.book, backNotes: [note] }}
 				onSave={() => undefined}
 				onNotes={onNotes}
+				onPickPicture={async () => null}
 			/>,
 		);
 		await userEvent.click(
@@ -143,5 +148,30 @@ describe('CoverSheetDialog', () => {
 		await userEvent.type(width, '150');
 		await userEvent.tab();
 		expect(onNotes).toHaveBeenLastCalledWith([{ ...note, rect: { ...note.rect, w: 150 } }]);
+	});
+
+	it('adds a picture to the back cover as a box that can be moved like words', async () => {
+		const fake = createFakeBooksClient();
+		const made = await fake.client.newBook({});
+		const onNotes = vi.fn();
+		render(
+			<CoverSheetDialog
+				open
+				onClose={() => undefined}
+				client={fake.client}
+				id={made.summary.id}
+				revision={0}
+				book={made.book}
+				onSave={() => undefined}
+				onNotes={onNotes}
+				onPickPicture={async () => 'assets/images/otter.png'}
+			/>,
+		);
+		await userEvent.click(
+			await screen.findByRole('button', { name: 'Add a picture to the back cover' }),
+		);
+		expect(onNotes).toHaveBeenCalledWith([
+			expect.objectContaining({ id: 'n1', text: '', picture: 'assets/images/otter.png' }),
+		]);
 	});
 });

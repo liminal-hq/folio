@@ -307,6 +307,7 @@ fn words_put_on_the_back_cover_are_drawn_on_the_sheet() {
             h: Pt(40.0),
         },
         size: 11.0,
+        picture: None,
     }];
     let sheet = cover_sheet(&book, Paper::White).unwrap();
     let found = sheet.spreads[0].frames.iter().any(|f| match f {
@@ -318,4 +319,31 @@ fn words_put_on_the_back_cover_are_drawn_on_the_sheet() {
         _ => false,
     });
     assert!(found, "the note is a text frame of the sheet");
+}
+
+#[test]
+fn a_picture_put_on_the_back_cover_is_an_image_frame_of_the_sheet() {
+    use folio_model::{BackNote, Pt, Rect};
+    let (mut book, _) = sample(BookKind::Picture);
+    book.back_notes = vec![BackNote {
+        id: "n2".into(),
+        text: String::new(),
+        rect: Rect {
+            x: Pt(30.0),
+            y: Pt(60.0),
+            w: Pt(100.0),
+            h: Pt(100.0),
+        },
+        size: 12.0,
+        picture: Some("assets/images/otter.png".into()),
+    }];
+    let sheet = cover_sheet(&book, Paper::White).unwrap();
+    let found = sheet.spreads[0].frames.iter().any(|f| match f {
+        Frame::Image(i) => {
+            i.base.id.0 == "cover_note_n2"
+                && i.image.asset.as_deref() == Some("assets/images/otter.png")
+        }
+        _ => false,
+    });
+    assert!(found, "the picture is an image frame of the sheet");
 }

@@ -27,6 +27,8 @@ interface CoverSheetDialogProps {
 	onSave(details: Details): void;
 	/** Keeps new words on the back cover, whole (one undo step). */
 	onNotes(notes: BackNote[]): void;
+	/** Asks for a picture and brings it into the book; its path, or `null` if none was chosen. */
+	onPickPicture(): Promise<string | null>;
 }
 
 export function CoverSheetDialog({
@@ -38,6 +40,7 @@ export function CoverSheetDialog({
 	book,
 	onSave,
 	onNotes,
+	onPickPicture,
 }: CoverSheetDialogProps) {
 	const notes = book.backNotes ?? [];
 	const [chosen, setChosen] = useState<string | null>(null);
@@ -48,6 +51,24 @@ export function CoverSheetDialog({
 	useEffect(() => setDraft(current?.text ?? ''), [current?.id, current?.text]);
 	const change = (id: string, patch: Partial<BackNote>) =>
 		onNotes(notes.map((n) => (n.id === id ? { ...n, ...patch } : n)));
+	const addPicture = async (sheet: CoverSheetPreview) => {
+		const asset = await onPickPicture();
+		if (asset === null) return;
+		const next =
+			notes.reduce((top, n) => Math.max(top, Number(n.id.replace(/\D/g, '')) || 0), 0) + 1;
+		const side = Math.min(160, Math.max(40, sheet.cover - 72));
+		onNotes([
+			...notes,
+			{
+				id: `n${next}`,
+				text: '',
+				rect: { x: 36, y: 36, w: side, h: side },
+				size: 12,
+				picture: asset,
+			},
+		]);
+		setChosen(`n${next}`);
+	};
 	const addNote = (sheet: CoverSheetPreview) => {
 		const next =
 			notes.reduce((top, n) => Math.max(top, Number(n.id.replace(/\D/g, '')) || 0), 0) + 1;
@@ -163,24 +184,31 @@ export function CoverSheetDialog({
 			{picture && (
 				<div className={styles.notes}>
 					<DialogButton onClick={() => addNote(picture)}>{t('coverSheet.addNote')}</DialogButton>
+					<DialogButton onClick={() => void addPicture(picture)}>
+						{t('coverSheet.addPicture')}
+					</DialogButton>
 					{current && (
 						<>
-							<label className={styles.field}>
-								<span>{t('coverSheet.noteText')}</span>
-								<textarea
-									rows={2}
-									value={draft}
-									onChange={(event) => setDraft(event.target.value)}
-									onBlur={() => draft !== current.text && change(current.id, { text: draft })}
-								/>
-							</label>
-							<PointsField
-								label={t('coverSheet.noteSize')}
-								value={current.size}
-								min={6}
-								max={72}
-								onCommit={(size) => change(current.id, { size })}
-							/>
+							{current.picture === null || current.picture === undefined ? (
+								<>
+									<label className={styles.field}>
+										<span>{t('coverSheet.noteText')}</span>
+										<textarea
+											rows={2}
+											value={draft}
+											onChange={(event) => setDraft(event.target.value)}
+											onBlur={() => draft !== current.text && change(current.id, { text: draft })}
+										/>
+									</label>
+									<PointsField
+										label={t('coverSheet.noteSize')}
+										value={current.size}
+										min={6}
+										max={72}
+										onCommit={(size) => change(current.id, { size })}
+									/>
+								</>
+							) : null}
 							<PointsField
 								label={t('coverSheet.noteWidth')}
 								value={current.rect.w}
@@ -331,7 +359,11 @@ function NoteBoxes({
 						key={note.id}
 						role="button"
 						tabIndex={0}
-						aria-label={t('coverSheet.noteBox', { text: note.text })}
+						aria-label={
+							note.picture
+								? t('coverSheet.pictureBox')
+								: t('coverSheet.noteBox', { text: note.text })
+						}
 						data-note={note.id}
 						x={sheet.edge + at.x}
 						y={sheet.edge + at.y}

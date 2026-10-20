@@ -212,6 +212,19 @@ pub fn cover_sheet(book: &Book, paper: Paper) -> Option<Book> {
     }
     // Words the person put on the back, from the back cover's top-left.
     for note in &book.back_notes {
+        if let Some(asset) = &note.picture {
+            frames.push(Frame::Image(folio_model::ImageFrame {
+                base: base(&format!("note_{}", note.id), note.rect, 0.0),
+                image: folio_model::ImageRef {
+                    asset: Some(asset.clone()),
+                    fit: folio_model::Fit::Fit,
+                    focus: (0.5, 0.5),
+                    crop: None,
+                },
+                placeholder_label: None,
+            }));
+            continue;
+        }
         let mut frame = text_frame(
             &format!("note_{}", note.id),
             "body",
