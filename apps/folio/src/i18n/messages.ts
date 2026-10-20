@@ -103,6 +103,8 @@ export const messages = {
 	'wizard.way.modeHint':
 		'Easy keeps things simple. Expert shows grids, master pages and print settings.',
 	'wizard.look.type': 'Typeface',
+	'wizard.look.preview': 'Your cover, as it will look',
+	'wizard.look.previewHint': 'The cover of your book with this look. You can change it later.',
 	'wizard.look.friendly': 'Friendly',
 	'wizard.look.friendlySub': 'Clear, warm and easy to read.',
 	'wizard.look.modern': 'Modern',
