@@ -5,10 +5,16 @@
 
 import { WindowFrame } from '@liminal-hq/folio-chrome/WindowFrame';
 import { useWindowControls } from '@liminal-hq/folio-chrome/WindowChromeProvider/WindowChromeProvider';
-import { useState } from 'react';
+import type { KindInfo } from '@liminal-hq/folio-plugin-books';
+import { useEffect, useState } from 'react';
 import { AppTitleBar } from '../app/AppTitleBar';
+import type { BooksClient } from '../books/booksClient';
+import { tauriBooksClient } from '../books/booksClient';
 import { t } from '../i18n/messages';
 import styles from './NewBookWizard.module.css';
+import { KindStep } from './KindStep';
+import { SizeStep } from './SizeStep';
+import { initialDraft, type WizardDraft } from './wizardDraft';
 import { WIZARD_STEPS, type WizardStep } from './wizardSteps';
 
 const LABELS: Record<WizardStep, string> = {
@@ -36,8 +42,21 @@ function Tick() {
 	);
 }
 
-export function NewBookWizard() {
+export function NewBookWizard({ client = tauriBooksClient }: { client?: BooksClient }) {
 	const controls = useWindowControls();
+	const [kinds, setKinds] = useState<KindInfo[]>([]);
+	const [draft, setDraft] = useState<WizardDraft>(initialDraft);
+	const change = (patch: Partial<WizardDraft>) => setDraft((was) => ({ ...was, ...patch }));
+	useEffect(() => {
+		let live = true;
+		client
+			.presets()
+			.then((found) => live && setKinds(found))
+			.catch(() => {});
+		return () => {
+			live = false;
+		};
+	}, [client]);
 	const [index, setIndex] = useState(0);
 	// The furthest step met: a step already seen can be returned to by clicking it.
 	const [reached, setReached] = useState(0);
@@ -85,7 +104,17 @@ export function NewBookWizard() {
 					</nav>
 					<main className={styles.page}>
 						<h1 className={styles.heading}>{LABELS[step]}</h1>
-						<p className={styles.note}>{t('wizard.comingSoon')}</p>
+						{step === 'kind' && <KindStep kinds={kinds} draft={draft} onChange={change} />}
+						{step === 'size' && (
+							<SizeStep
+								kind={kinds.find((info) => info.kind === draft.kind)}
+								draft={draft}
+								onChange={change}
+							/>
+						)}
+						{step !== 'kind' && step !== 'size' && (
+							<p className={styles.note}>{t('wizard.comingSoon')}</p>
+						)}
 					</main>
 				</div>
 				<footer className={styles.footer}>
