@@ -15,9 +15,9 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow};
 use crate::error::Error;
 use crate::state::Books;
 use crate::wire::{
-    BookSnapshot, BookSpelling, BookSummary, DictionaryProgress, DictionaryStatus, ExportReport,
-    ExportTarget, FontChoice, FontUse, KeepFontsReport, ReaderPreview, Recoverable, SpellCheck,
-    SpreadLayoutResult,
+    BookSnapshot, BookSpelling, BookSummary, DictionaryProgress, DictionaryStatus, ExportColour,
+    ExportReport, ExportTarget, FontChoice, FontUse, KeepFontsReport, ReaderPreview, Recoverable,
+    SpellCheck, SpreadLayoutResult,
 };
 use crate::DICTIONARY_PROGRESS_EVENT;
 
@@ -323,11 +323,15 @@ pub async fn export_book<R: Runtime>(
     _window: WebviewWindow<R>,
     id: String,
     targets: Vec<ExportTarget>,
+    colour: Option<ExportColour>,
 ) -> Result<ExportReport, Error> {
     // Laying out and writing a book is work for a blocking thread, not the async runtime.
-    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().export(&id, &targets))
-        .await
-        .expect("the export task does not panic")
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Books<R>>()
+            .export(&id, &targets, colour.unwrap_or_default())
+    })
+    .await
+    .expect("the export task does not panic")
 }
 
 /// Shows a file in the system's file manager.

@@ -527,8 +527,8 @@ export function createFakeBooksClient(): FakeBooks {
 			};
 			return preview;
 		},
-		async exportBook(id, targets) {
-			await call('exportBook', [id, targets]);
+		async exportBook(id, targets, colour) {
+			await call('exportBook', colour ? [id, targets, colour] : [id, targets]);
 			find(id);
 			const names: Record<string, string[]> = {
 				sharingPdf: ['pip-share.pdf'],

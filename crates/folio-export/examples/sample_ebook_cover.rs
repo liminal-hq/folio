@@ -27,6 +27,7 @@ fn main() {
         &styles,
         &FontBook::bundled(),
         &NoAssets,
+        None,
     )
     .expect("the cover exports");
     std::fs::write(&out, &files[0].bytes).expect("the file is written");

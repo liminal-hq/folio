@@ -137,3 +137,18 @@ describe('the Export dialog', () => {
 		expect(onClose).toHaveBeenCalled();
 	});
 });
+
+describe('print colour', () => {
+	it('is offered only with a paperback file and is passed to the export', async () => {
+		const { fake } = await setup();
+		expect(screen.queryByRole('group', { name: 'Print colour' })).not.toBeInTheDocument();
+		await userEvent.click(screen.getByRole('checkbox', { name: /Paperback interior/ }));
+		await userEvent.click(screen.getByRole('checkbox', { name: /in ink \(CMYK\)/ }));
+		await userEvent.type(screen.getByRole('textbox'), '/tmp/press.icc');
+		await userEvent.click(screen.getByRole('button', { name: 'Make files' }));
+		expect(await screen.findByText('Your files are ready.')).toBeInTheDocument();
+		expect(fake.calls.some((c) => c.includes('"cmyk":true') && c.includes('/tmp/press.icc'))).toBe(
+			true,
+		);
+	});
+});

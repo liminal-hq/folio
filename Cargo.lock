@@ -4836,6 +4836,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "dunce",
+ "folio-colour",
  "folio-export",
  "folio-layout",
  "folio-model",
