@@ -474,3 +474,47 @@ describe('words selected in the open editor', () => {
 		}
 	});
 });
+
+describe('the text colour list', () => {
+	const frame = {
+		type: 'text',
+		id: 't',
+		box: {},
+		locked: false,
+		rotation: 0,
+		style: 'body',
+		content: { inline: [{ text: 'Hello brave world', bold: false, italic: false }] },
+	} as unknown as Frame;
+
+	it('offers colours once words are selected', () => {
+		const state = editorState(input([frame]));
+		expect(state.available.has('colour')).toBe(true);
+		expect(state.options.colour?.[0]?.[0]).toBe('#1c1b20');
+		expect(editorState(input([])).available.has('colour')).toBe(false);
+	});
+
+	it('colours the selected words, or all of them when none are selected', () => {
+		expect(
+			editorAction(
+				'colour',
+				'#a23b2a',
+				input([frame], { selection: { frame: 't', start: 6, end: 11 } }),
+			),
+		).toEqual({
+			kind: 'intents',
+			intents: [
+				{ type: 'StyleRange', frame: 't', start: 6, end: 11, change: { colour: '#a23b2a' } },
+			],
+		});
+		expect(editorAction('colour', '#a23b2a', input([frame]))).toEqual({
+			kind: 'intents',
+			intents: [
+				{ type: 'StyleRange', frame: 't', start: 0, end: 17, change: { colour: '#a23b2a' } },
+			],
+		});
+		// Choosing "Colour from style" takes the colour away.
+		expect(editorAction('colour', '', input([frame]))).toMatchObject({
+			intents: [{ change: { colour: '' } }],
+		});
+	});
+});

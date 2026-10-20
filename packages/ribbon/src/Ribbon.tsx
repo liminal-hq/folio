@@ -226,6 +226,7 @@ export function Ribbon(props: RibbonProps) {
 			role="group"
 			aria-label={labels.ribbon}
 			className={styles.ribbon}
+			data-ribbon=""
 			data-variant={variant}
 			data-density={density}
 			onKeyDown={onRootKeys}
