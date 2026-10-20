@@ -142,6 +142,9 @@ pub enum PreflightKind {
     /// A colour refers to a swatch the book does not have, so it is drawn as grey. The item's
     /// `family` names it.
     SwatchMissing,
+    /// Small words are set in a black made of several inks, so the plates can misregister and
+    /// fringe the letters. The item's `family` names the swatch.
+    RichBlackSmallText,
 }
 
 /// How much an issue matters: an error waits on the person, a warning is worth a look and a note
@@ -164,7 +167,9 @@ impl PreflightKind {
             | Self::VeryLowResolution
             | Self::PicturePlaceholder => Severity::Error,
             Self::AltMissing => Severity::Note,
-            Self::MissingGlyphs | Self::InkOverLimit => Severity::Warning,
+            Self::MissingGlyphs | Self::InkOverLimit | Self::RichBlackSmallText => {
+                Severity::Warning
+            }
             Self::SwatchMissing => Severity::Error,
             Self::TextOutsideMargin
             | Self::PictureShortOfBleed
