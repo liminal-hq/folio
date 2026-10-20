@@ -70,6 +70,7 @@ Issues are **fix-oriented**, sorted Waiting on you → Worth a look → Fine, sh
 | `OVERSET` | "Chapter 3 has words that don't fit" | "Add pages, or let Folio add them for you." |
 | `SPINE-NARROW` | "Spine is too narrow for text (under 79 pages)" | "We'll leave the spine blank, which KDP expects." |
 | `FONT-EMBED` | "Gill Sans can't be embedded in eBooks" | "Use Literata or Inter (both included), or let readers choose their own font." |
+| `FONT-MISSING` | "Zed Sans isn't on this computer or in the book" | "Pages are set in a stand-in and will break differently. Install the font, pick another, or open the book on the computer it was made on." (engine: `PreflightKind::FontMissing`, with the family) |
 | `FXL-SMALL-TEXT` | "Story text is 14 pt on a fixed-layout page" | "Make it 18 pt or larger so it reads well on a phone-sized screen." |
 | `ALT-MISSING` | "3 pictures have no description" | "Add a short description so screen readers can share them." |
 

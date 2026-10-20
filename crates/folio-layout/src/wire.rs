@@ -105,6 +105,10 @@ pub enum PreflightKind {
     VeryLowResolution,
     /// A page has a background but the book has no bleed, so a trimmed edge may show paper.
     BleedNeeded,
+    /// A text frame asks for a font the book does not have and this computer lacks, so it is set
+    /// in a stand-in and its lines will break differently from where the book was made. The item's
+    /// `family` names it.
+    FontMissing,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
@@ -119,6 +123,9 @@ pub struct PreflightItem {
     /// The page at fault, for a background.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub page: Option<folio_model::PageId>,
+    /// The typeface at fault, for a missing font.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub family: Option<String>,
 }
 
 impl PreflightItem {
@@ -129,6 +136,7 @@ impl PreflightItem {
             spread: spread.clone(),
             frame: Some(frame.clone()),
             page: None,
+            family: None,
         }
     }
 
@@ -139,6 +147,15 @@ impl PreflightItem {
             spread: spread.clone(),
             frame: None,
             page: Some(page.clone()),
+            family: None,
+        }
+    }
+
+    /// A frame of `spread` set in a stand-in because `family` is missing.
+    pub fn font_missing(spread: &SpreadId, frame: &FrameId, family: &str) -> Self {
+        Self {
+            family: Some(family.to_owned()),
+            ..Self::of_frame(PreflightKind::FontMissing, spread, frame)
         }
     }
 }
