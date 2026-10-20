@@ -27,12 +27,15 @@ import { keepWords } from '../canvas/editCheckpoint';
 import { CheckBookDialog } from './CheckBookDialog';
 import { ExportDialog } from './ExportDialog';
 import { getTextSelection } from '../canvas/textSelection';
-import { IMPORT_TEXT_EVENT } from './importRequest';
+import { IMPORT_TEXT_EVENT, requestImportText } from './importRequest';
 import { ImportReportDialog, type ImportOutcome } from './ImportReportDialog';
 import { StoryEditorDialog } from '../story/StoryEditorDialog';
 import { BookDetailsDialog } from './BookDetailsDialog';
 import { BarcodeDialog } from './BarcodeDialog';
 import { CoverSheetDialog } from './CoverSheetDialog';
+import { JAX_TOGGLE_EVENT } from '../jax/jaxToggle';
+import { JaxPanel } from '../jax/JaxPanel';
+import rowStyles from '../jax/shelfSlot.module.css';
 import { SoftProofDialog } from './SoftProofDialog';
 import { EXPORT_EVENT } from './exportRequest';
 import { ReaderView } from './ReaderView';
@@ -376,6 +379,13 @@ export function BookView({
 		return () => window.removeEventListener('keydown', onKey);
 	}, [linking]);
 	const [sheetOpen, setSheetOpen] = useState(false);
+	/** Jax's panel, open from the start when the person asked to be walked through. */
+	const [jaxOpen, setJaxOpen] = useState(settings.jax === 'guide');
+	useEffect(() => {
+		const toggle = () => setJaxOpen((open) => !open);
+		window.addEventListener(JAX_TOGGLE_EVENT, toggle);
+		return () => window.removeEventListener(JAX_TOGGLE_EVENT, toggle);
+	}, []);
 	const [barcodeOpen, setBarcodeOpen] = useState(false);
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	// The Export dialog; `quick` makes the Sharing PDF the moment it opens.
@@ -820,37 +830,84 @@ export function BookView({
 					}}
 				/>
 			</main>
-			<Shelf
-				book={drawn}
-				images={images}
-				labels={labels}
-				selected={shown}
-				onSelect={(index) => {
-					setEditing(null);
-					setSpreadIndex(index);
-				}}
-				onAdd={() => {
-					setEditing(null);
-					pageOp('add');
-				}}
-				onCommand={(command, index) => {
-					const intent = shelfIntent(command, book, index);
-					if (!intent) return;
-					setEditing(null);
-					apply(intent);
-					if (command === 'duplicate' || command === 'moveRight') setSpreadIndex(index + 1);
-					else if (command === 'moveLeft') setSpreadIndex(index - 1);
-					else if (command === 'remove') setSpreadIndex(Math.max(0, index - 1));
-				}}
-				onMove={(from, to) => {
-					const moved = book.spreads[from];
-					if (!moved) return;
-					setEditing(null);
-					apply({ type: 'MoveSpread', spread: moved.id, to });
-					// Nothing goes in front of a cover, and the selection follows the spread.
-					setSpreadIndex(Math.max(book.spreads[0]?.kind === 'cover' ? 1 : 0, to));
-				}}
-			/>
+			<div className={rowStyles.row}>
+				<div className={rowStyles.slot}>
+					<Shelf
+						book={drawn}
+						images={images}
+						labels={labels}
+						selected={shown}
+						onSelect={(index) => {
+							setEditing(null);
+							setSpreadIndex(index);
+						}}
+						onAdd={() => {
+							setEditing(null);
+							pageOp('add');
+						}}
+						onCommand={(command, index) => {
+							const intent = shelfIntent(command, book, index);
+							if (!intent) return;
+							setEditing(null);
+							apply(intent);
+							if (command === 'duplicate' || command === 'moveRight') setSpreadIndex(index + 1);
+							else if (command === 'moveLeft') setSpreadIndex(index - 1);
+							else if (command === 'remove') setSpreadIndex(Math.max(0, index - 1));
+						}}
+						onMove={(from, to) => {
+							const moved = book.spreads[from];
+							if (!moved) return;
+							setEditing(null);
+							apply({ type: 'MoveSpread', spread: moved.id, to });
+							// Nothing goes in front of a cover, and the selection follows the spread.
+							setSpreadIndex(Math.max(book.spreads[0]?.kind === 'cover' ? 1 : 0, to));
+						}}
+					/>
+				</div>
+				{jaxOpen && settings.jax !== 'off' && (
+					<JaxPanel
+						context={{
+							picture: selected.some((f) => f.type === 'image'),
+							text: selected.some((f) => f.type === 'text' || f.type === 'shape'),
+							reader: preview,
+							flowing: book.layout === 'flowing',
+							grid: marks.columns || marks.baseline,
+						}}
+						issues={layout?.preflight ?? []}
+						spreadName={labels[shown] ?? ''}
+						guided={settings.jax === 'guide'}
+						onHush={() => setJaxOpen(false)}
+						onShow={(action) => {
+							switch (action.kind) {
+								case 'page':
+									setEditing(null);
+									setSpreadIndex(Math.min(action.index, book.spreads.length - 1));
+									break;
+								case 'preview':
+									setPreview(action.mode);
+									break;
+								case 'check':
+									setChecking(true);
+									break;
+								case 'export':
+									setExporting({ quick: false });
+									break;
+								case 'details':
+									setDetailsOpen(true);
+									break;
+								case 'import':
+									requestImportText();
+									break;
+								case 'coverSheet':
+									setSheetOpen(true);
+									break;
+								default:
+									break;
+							}
+						}}
+					/>
+				)}
+			</div>
 			<ExportDialog
 				open={exporting !== null}
 				onClose={() => setExporting(null)}
