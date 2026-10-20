@@ -78,7 +78,7 @@ Issues are **fix-oriented**, sorted Waiting on you → Worth a look → Fine, sh
 
 When nothing needs attention: **"No issues found. Book looks ready to export."**
 
-**Built so far:** the Export tab's **Check book** button opens a dialog that lays out every spread and lists what it finds in three groups (Waiting on you, Worth a look, For your information), worst first, each with the way to fix it and **Show me**, which goes to the page and selects the frame. Empty picture frames and pictures with no description are said once with a count. It covers the checks the engine has (words that do not fit, words outside the margin, pictures short of the bleed, missing and soft pictures, a missing font, an empty picture frame, no description). The Expert panel that stays open, ignoring an issue, and the checks that need the exporters (spine, page count, embedding) are still to come.
+**Built so far:** the Export tab's **Check book** button opens a dialog that lays out every spread and lists what it finds in three groups (Waiting on you, Worth a look, For your information), worst first, each with the way to fix it and **Show me**, which goes to the page and selects the frame. Empty picture frames and pictures with no description are said once with a count. It covers the checks the engine has (words that do not fit, words outside the margin, pictures short of the bleed, missing and soft pictures, a missing font, an empty picture frame, no description). The Expert panel that stays open and the checks that need the exporters (spine, page count, embedding) are still to come.
 
 ## Job model
 

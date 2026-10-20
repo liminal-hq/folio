@@ -41,6 +41,11 @@ function applyOp(book: Book, op: PatchOp): Book {
 		}
 		case 'setLanguage':
 			return { ...book, language: op.language };
+		case 'setPreflightIgnore': {
+			// Rust leaves an empty list out of the book, and so does the copy.
+			const { preflightIgnore: _ignore, ...rest } = book;
+			return op.keys.length > 0 ? { ...rest, preflightIgnore: op.keys } : rest;
+		}
 		case 'setFonts': {
 			// Rust leaves an empty list out of the book, and so does the copy.
 			const { fonts: _fonts, ...rest } = book;

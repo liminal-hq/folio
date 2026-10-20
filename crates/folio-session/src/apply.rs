@@ -9,6 +9,9 @@ use folio_model::{
     SpreadKind, Surface, TableCell, TableEdit, TableFrame, MAX_IGNORED_WORDS,
 };
 
+/// The most preflight issues a book can leave alone.
+pub const MAX_IGNORED_ISSUES: usize = 500;
+
 /// The most fonts a book can keep, and a sanity limit on the weights a font can name.
 pub const MAX_BOOK_FONTS: usize = 128;
 
@@ -427,6 +430,20 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         }
         Intent::SetFonts { fonts } => {
             check_fonts(fonts)?;
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                merge: None,
+            })
+        }
+        Intent::SetPreflightIgnore { keys } => {
+            if keys.len() > MAX_IGNORED_ISSUES
+                || keys.iter().any(|k| k.is_empty() || k.chars().count() > 240)
+            {
+                return Err(SessionError::BadIgnore(format!(
+                    "at most {MAX_IGNORED_ISSUES} issues, each with a key"
+                )));
+            }
             Ok(Plan {
                 touched: Vec::new(),
                 new_spread: None,
@@ -954,6 +971,7 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             }
         }
         Intent::SetFonts { fonts } => book.fonts = fonts,
+        Intent::SetPreflightIgnore { keys } => book.preflight_ignore = keys,
         Intent::EndUndoStep => {}
         Intent::IgnoreWord { word } => {
             if let Ok(word) = Proofing::clean(&word) {
