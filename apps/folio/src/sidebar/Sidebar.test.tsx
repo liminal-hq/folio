@@ -19,6 +19,7 @@ function Harness({ start = 'properties' as SidebarGroup }) {
 				properties: <p>The properties</p>,
 				pages: <p>The pages</p>,
 				proofing: <p>The proofing</p>,
+				fonts: <p>The fonts</p>,
 			}}
 		/>
 	);
@@ -58,9 +59,11 @@ describe('Sidebar', () => {
 		await userEvent.keyboard('{ArrowRight}');
 		expect(proofing).toHaveFocus();
 		await userEvent.keyboard('{ArrowRight}');
+		expect(screen.getByRole('tab', { name: 'Fonts' })).toHaveFocus();
+		await userEvent.keyboard('{ArrowRight}');
 		expect(properties).toHaveFocus();
 		await userEvent.keyboard('{End}');
-		expect(proofing).toHaveFocus();
+		expect(screen.getByRole('tab', { name: 'Fonts' })).toHaveFocus();
 		await userEvent.keyboard('{Home}');
 		expect(properties).toHaveFocus();
 	});

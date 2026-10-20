@@ -14,6 +14,7 @@ import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/Di
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
 import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
+import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
 import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
@@ -204,6 +205,7 @@ export type {
 	ExportReport,
 	ExportTarget,
 	FontChoice,
+	FontUse,
 	KeepFontsReport,
 	Misspelling,
 	PreflightItem,
@@ -244,6 +246,16 @@ export function preflightBook(id: string): Promise<PreflightItem[]> {
 /** Every family a book can draw in, and where each comes from (bundled, kept in the book or installed). */
 export function listFonts(id: string): Promise<FontChoice[]> {
 	return cmd<FontChoice[]>('list_fonts', { id });
+}
+
+/** The typefaces the book uses, and where each comes from. */
+export function fontsInUse(id: string): Promise<FontUse[]> {
+	return cmd<FontUse[]>('fonts_in_use', { id });
+}
+
+/** Takes fonts out of the book, so it is laid out from the computer's again. */
+export function unkeepFonts(id: string, families: string[]): Promise<void> {
+	return cmd<void>('unkeep_fonts', { id, families });
 }
 
 /** Keeps installed fonts inside the book; says which were kept and which could not be, and why. */

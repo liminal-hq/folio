@@ -18,6 +18,7 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
@@ -122,6 +123,8 @@ export interface FakeBooks {
 	installedFonts: string[];
 	/** What the fake preflight finds; a test puts items here. */
 	preflightItems: PreflightItem[];
+	/** The typefaces the fake book uses; a test puts some here. */
+	fontUses: FontUse[];
 }
 
 export function createFakeBooksClient(): FakeBooks {
@@ -133,6 +136,7 @@ export function createFakeBooksClient(): FakeBooks {
 	const misspelt: string[] = [];
 	const installedFonts: string[] = [];
 	const preflightItems: PreflightItem[] = [];
+	const fontUses: FontUse[] = [];
 	const downloaded = new Set<string>();
 	/** Books a crash left changes in; a test puts some here. */
 	const recoveries: Recoverable[] = [];
@@ -499,6 +503,18 @@ export function createFakeBooksClient(): FakeBooks {
 			downloaded.delete(id);
 			return listing();
 		},
+		async fontsInUse(id) {
+			await call('fontsInUse', [id]);
+			find(id);
+			return fontUses.map((use) => ({ ...use }));
+		},
+		async unkeepFonts(id, families) {
+			await call('unkeepFonts', [id, families]);
+			find(id);
+			for (const use of fontUses) {
+				if (families.includes(use.family) && use.origin === 'book') use.origin = 'system';
+			}
+		},
 		async readerPreview(id) {
 			await call('readerPreview', [id]);
 			find(id);
@@ -614,6 +630,7 @@ export function createFakeBooksClient(): FakeBooks {
 		misspelt,
 		installedFonts,
 		preflightItems,
+		fontUses,
 		recoveries,
 	};
 }

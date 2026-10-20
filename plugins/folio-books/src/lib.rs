@@ -66,6 +66,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::export_book,
             commands::reveal_path,
             commands::preflight_book,
+            commands::fonts_in_use,
+            commands::unkeep_fonts,
             commands::list_fonts,
             commands::keep_fonts,
             commands::dictionaries,

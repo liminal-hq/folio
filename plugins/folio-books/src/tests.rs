@@ -1176,3 +1176,54 @@ fn the_reader_preview_is_the_chapters_and_css_the_epub_ships() {
     assert!(preview.css.contains("font-family"));
     assert!(books(&app).reader_preview("nope").is_err());
 }
+
+#[test]
+fn the_fonts_panel_lists_the_families_a_book_uses_and_a_kept_font_can_be_let_go() {
+    use crate::wire::{FontLicence, FontOrigin};
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let in_use = books(&app).fonts_in_use(&id).unwrap();
+    let look = in_use
+        .iter()
+        .find(|f| f.family == "Atkinson Hyperlegible")
+        .expect("the look");
+    assert_eq!(look.origin, FontOrigin::Bundled);
+    assert!(!look.missing);
+    assert_eq!(look.licence, FontLicence::Free);
+
+    // A font nobody has is reported missing.
+    let snapshot = books(&app).snapshot(&id).unwrap();
+    let frame = snapshot.book.spreads[1]
+        .frames
+        .iter()
+        .find(|f| matches!(f, folio_model::Frame::Text(_)))
+        .unwrap()
+        .base()
+        .id
+        .clone();
+    books(&app)
+        .apply(
+            &id,
+            Intent::OverrideStyle {
+                frame,
+                overrides: folio_model::StyleOverrides {
+                    font: Some("Zed Sans".into()),
+                    ..Default::default()
+                },
+            },
+        )
+        .unwrap();
+    let in_use = books(&app).fonts_in_use(&id).unwrap();
+    assert!(in_use.iter().any(|f| f.family == "Zed Sans" && f.missing));
+
+    // Letting go of a font that is not kept changes nothing.
+    let depth = books(&app).history_mark(&id).unwrap();
+    books(&app)
+        .unkeep_fonts(&id, &["Zed Sans".to_string()])
+        .unwrap();
+    assert_eq!(books(&app).history_mark(&id).unwrap(), depth);
+}
