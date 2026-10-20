@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use folio_model::{FrameId, SpreadId};
+use folio_model::{Colour, FrameId, SpreadId};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -22,6 +22,9 @@ pub struct LayoutRun {
     pub italic: bool,
     /// Extra space after every glyph, in ems.
     pub tracking: f64,
+    /// The colour of the words, when the style or the run sets one; the page's ink otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub colour: Option<Colour>,
     /// A hyphen drawn at the end of a line; it is not part of the text.
     pub hyphen: bool,
     /// The misspelt parts of `text`, each as where it starts and ends in UTF-16 code units.

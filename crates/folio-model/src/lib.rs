@@ -18,6 +18,7 @@ mod intent;
 mod sections;
 mod snap;
 mod spread;
+mod styles;
 mod units;
 
 pub use background::*;
@@ -31,4 +32,5 @@ pub use intent::*;
 pub use sections::*;
 pub use snap::*;
 pub use spread::*;
+pub use styles::*;
 pub use units::*;
