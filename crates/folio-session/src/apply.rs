@@ -4,9 +4,10 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    clean_language, BackgroundTarget, BarcodeChoice, Book, BookFont, Colour, Frame, FrameId, Guide,
-    InlineContent, Intent, Master, MasterId, Page, Paint, Proofing, Pt, ReorderTo, Run, Spread,
-    SpreadId, SpreadKind, Surface, TableCell, TableEdit, TableFrame, MAX_IGNORED_WORDS,
+    clean_language, BackgroundTarget, BarcodeChoice, Book, BookFont, Colour, FlowId, Frame,
+    FrameId, Guide, InlineContent, Intent, Master, MasterId, Page, Paint, Proofing, Pt, ReorderTo,
+    Run, Spread, SpreadId, SpreadKind, StoryPara, Surface, TableCell, TableEdit, TableFrame,
+    MAX_IGNORED_WORDS,
 };
 
 /// The most preflight issues a book can leave alone.
@@ -75,6 +76,8 @@ pub struct Plan {
     pub touched: Vec<SpreadId>,
     /// The id the spread an `AddSpread` makes will have.
     pub new_spread: Option<SpreadId>,
+    /// The flows whose story the intent changes.
+    pub flows: Vec<FlowId>,
     /// Intents that repeat on one frame (a drag, a nudge, typing) merge into one undo step.
     pub merge: Option<MergeKey>,
 }
@@ -84,6 +87,7 @@ pub enum MergeKey {
     Move(FrameId),
     Moves(Vec<FrameId>),
     Text(FrameId),
+    Paragraph(FlowId, usize),
     Style(FrameId),
     Shape(FrameId),
     Focus(FrameId),
@@ -367,6 +371,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
     let one = |id: SpreadId, merge: Option<MergeKey>| Plan {
         touched: vec![id],
         new_spread: None,
+        flows: Vec::new(),
         merge,
     };
     // The spreads a change on `on` touches: a master page is captured for every change.
@@ -376,6 +381,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Surface::Master(_) => Vec::new(),
         },
         new_spread: None,
+        flows: Vec::new(),
         merge,
     };
     match intent {
@@ -422,6 +428,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched: touched_by(book, frame)?,
                 new_spread: None,
+                flows: Vec::new(),
                 merge: focus.is_some().then(|| MergeKey::Focus(frame.clone())),
             })
         }
@@ -430,6 +437,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched: Vec::new(),
                 new_spread: None,
+                flows: Vec::new(),
                 merge: None,
             })
         }
@@ -438,6 +446,99 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched: Vec::new(),
                 new_spread: None,
+                flows: Vec::new(),
+                merge: None,
+            })
+        }
+        Intent::SetParagraphText { flow, para, .. } => {
+            let story = story_of(book, flow)?;
+            if *para >= story.len() {
+                return Err(SessionError::BadStory(format!(
+                    "no paragraph {para} in a story of {}",
+                    story.len()
+                )));
+            }
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                flows: vec![flow.clone()],
+                merge: Some(MergeKey::Paragraph(flow.clone(), *para)),
+            })
+        }
+        Intent::SpliceStory {
+            flow, at, remove, ..
+        } => {
+            let story = story_of(book, flow)?;
+            if *at > story.len() || at.saturating_add(*remove) > story.len() {
+                return Err(SessionError::BadStory(format!(
+                    "paragraphs {at}..{} in a story of {}",
+                    at.saturating_add(*remove),
+                    story.len()
+                )));
+            }
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                flows: vec![flow.clone()],
+                merge: None,
+            })
+        }
+        Intent::StyleParagraphs {
+            flow,
+            from,
+            to,
+            style,
+        } => {
+            let story = story_of(book, flow)?;
+            if from > to || *to >= story.len() {
+                return Err(SessionError::BadStory(format!(
+                    "paragraphs {from}..={to} in a story of {}",
+                    story.len()
+                )));
+            }
+            if style.as_ref().is_some_and(|s| s.0.is_empty()) {
+                return Err(SessionError::BadStory("that style has no name".into()));
+            }
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                flows: vec![flow.clone()],
+                merge: None,
+            })
+        }
+        Intent::StyleStoryRange {
+            flow,
+            para,
+            start,
+            end,
+            change,
+        } => {
+            let story = story_of(book, flow)?;
+            let length = story
+                .get(*para)
+                .map(|p| p.text().chars().count())
+                .ok_or_else(|| {
+                    SessionError::BadStory(format!(
+                        "no paragraph {para} in a story of {}",
+                        story.len()
+                    ))
+                })?;
+            if start >= end || *end as usize > length || change.is_empty() {
+                return Err(SessionError::BadRange(format!(
+                    "{start}..{end} in words of {length} characters"
+                )));
+            }
+            if change
+                .colour
+                .as_deref()
+                .is_some_and(|c| !c.is_empty() && folio_model::Colour::parse(c).is_err())
+            {
+                return Err(SessionError::BadRange("that colour is not #rrggbb".into()));
+            }
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                flows: vec![flow.clone()],
                 merge: None,
             })
         }
@@ -452,12 +553,14 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched: Vec::new(),
                 new_spread: None,
+                flows: Vec::new(),
                 merge: None,
             })
         }
         Intent::SetPaper { .. } => Ok(Plan {
             touched: Vec::new(),
             new_spread: None,
+            flows: Vec::new(),
             merge: None,
         }),
         Intent::SetDetails { details } => {
@@ -465,6 +568,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched: Vec::new(),
                 new_spread: None,
+                flows: Vec::new(),
                 merge: None,
             })
         }
@@ -479,17 +583,20 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched: Vec::new(),
                 new_spread: None,
+                flows: Vec::new(),
                 merge: None,
             })
         }
         Intent::EndUndoStep => Ok(Plan {
             touched: Vec::new(),
             new_spread: None,
+            flows: Vec::new(),
             merge: None,
         }),
         Intent::EnsureMasters => Ok(Plan {
             touched: book.spreads.iter().map(|s| s.id.clone()).collect(),
             new_spread: None,
+            flows: Vec::new(),
             merge: None,
         }),
         Intent::IgnoreWord { word } => {
@@ -505,6 +612,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched: Vec::new(),
                 new_spread: None,
+                flows: Vec::new(),
                 merge: None,
             })
         }
@@ -515,6 +623,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched: Vec::new(),
                 new_spread: None,
+                flows: Vec::new(),
                 merge: None,
             })
         }
@@ -542,6 +651,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         Intent::SetPageNumbers { .. } => Ok(Plan {
             touched: book.spreads.iter().map(|s| s.id.clone()).collect(),
             new_spread: None,
+            flows: Vec::new(),
             merge: None,
         }),
         Intent::SetBackground { target, bg } => {
@@ -571,6 +681,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 BackgroundTarget::EveryPage => Ok(Plan {
                     touched: book.spreads.iter().map(|s| s.id.clone()).collect(),
                     new_spread: None,
+                    flows: Vec::new(),
                     merge,
                 }),
             }
@@ -652,6 +763,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched: touched_by(book, frame)?,
                 new_spread: None,
+                flows: Vec::new(),
                 merge: trying.then(|| MergeKey::Shape(frame.clone())),
             })
         }
@@ -701,6 +813,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 return Ok(Plan {
                     touched: book.spreads.iter().map(|sp| sp.id.clone()).collect(),
                     new_spread: None,
+                    flows: Vec::new(),
                     merge: None,
                 });
             }
@@ -731,6 +844,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                     .map(|sp| sp.id.clone())
                     .collect(),
                 new_spread: None,
+                flows: Vec::new(),
                 merge: None,
             })
         }
@@ -739,6 +853,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched: touched_by(book, frame)?,
                 new_spread: None,
+                flows: Vec::new(),
                 merge: Some(MergeKey::Text(frame.clone())),
             })
         }
@@ -767,6 +882,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched: touched_by(book, frame)?,
                 new_spread: None,
+                flows: Vec::new(),
                 merge: None,
             })
         }
@@ -799,6 +915,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched: touched_by(book, frame)?,
                 new_spread: None,
+                flows: Vec::new(),
                 merge: match edit {
                     TableEdit::SetCell { row, col, .. } => {
                         Some(MergeKey::Cell(frame.clone(), *row, *col))
@@ -820,6 +937,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched,
                 new_spread: None,
+                flows: Vec::new(),
                 merge: None,
             })
         }
@@ -832,6 +950,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched: touched_by(book, frame)?,
                 new_spread: None,
+                flows: Vec::new(),
                 merge: Some(MergeKey::Style(frame.clone())),
             })
         }
@@ -890,6 +1009,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched: vec![id.clone()],
                 new_spread: Some(id),
+                flows: Vec::new(),
                 merge: None,
             })
         }
@@ -910,6 +1030,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched: Vec::new(),
                 new_spread: None,
+                flows: Vec::new(),
                 merge: None,
             })
         }
@@ -923,6 +1044,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched: Vec::new(),
                 new_spread: None,
+                flows: Vec::new(),
                 merge: None,
             })
         }
@@ -1033,6 +1155,45 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
         Intent::SetFonts { fonts } => book.fonts = fonts,
         Intent::SetBarcode { choice } => book.barcode = choice,
         Intent::SetPaper { paper } => book.paper = paper,
+        Intent::SetParagraphText { flow, para, text } => {
+            if let Some(p) = flow_mut(book, &flow).and_then(|f| f.paragraphs.get_mut(para)) {
+                p.inline = folio_model::retext(&p.inline, &text);
+            }
+        }
+        Intent::SpliceStory {
+            flow,
+            at,
+            remove,
+            insert,
+        } => {
+            if let Some(f) = flow_mut(book, &flow) {
+                f.paragraphs.splice(at..at + remove, insert);
+            }
+        }
+        Intent::StyleParagraphs {
+            flow,
+            from,
+            to,
+            style,
+        } => {
+            if let Some(f) = flow_mut(book, &flow) {
+                for p in &mut f.paragraphs[from..=to] {
+                    p.style = style.clone();
+                }
+            }
+        }
+        Intent::StyleStoryRange {
+            flow,
+            para,
+            start,
+            end,
+            change,
+        } => {
+            if let Some(p) = flow_mut(book, &flow).and_then(|f| f.paragraphs.get_mut(para)) {
+                p.inline =
+                    folio_model::style_range(&p.inline, start as usize, end as usize, &change);
+            }
+        }
         Intent::SetDetails { details } => details.apply(book),
         Intent::SetPreflightIgnore { keys } => book.preflight_ignore = keys,
         Intent::EndUndoStep => {}
@@ -1557,4 +1718,17 @@ fn words_of<'a>(book: &'a Book, frame: &FrameId) -> Option<&'a [Run]> {
         Frame::Shape(s) => s.content.as_ref().map(|c| c.inline.as_slice()),
         _ => None,
     }
+}
+
+/// The paragraphs of a flow's story, or why there are none.
+fn story_of<'a>(book: &'a Book, flow: &FlowId) -> Result<&'a [StoryPara], SessionError> {
+    book.flows
+        .iter()
+        .find(|f| &f.id == flow)
+        .map(|f| f.paragraphs.as_slice())
+        .ok_or_else(|| SessionError::NoSuchFlow(flow.0.clone()))
+}
+
+fn flow_mut<'a>(book: &'a mut Book, flow: &FlowId) -> Option<&'a mut folio_model::Flow> {
+    book.flows.iter_mut().find(|f| &f.id == flow)
 }

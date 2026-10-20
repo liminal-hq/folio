@@ -10,8 +10,9 @@ use crate::background::Background;
 use crate::book::{BookFont, Details, Grid, PageNumbers};
 use crate::colour::Colour;
 use crate::cover::{BarcodeChoice, Paper};
+use crate::flow::StoryPara;
 use crate::frame::{Fit, Frame, Shape, StyleOverrides, TableLook};
-use crate::ids::{FrameId, MasterId, PageId, SpreadId, StyleId};
+use crate::ids::{FlowId, FrameId, MasterId, PageId, SpreadId, StyleId};
 use crate::runs::RunChange;
 use crate::sections::Section;
 use crate::spread::Axis;
@@ -184,6 +185,37 @@ pub enum Intent {
     /// Sets the paper a printed copy is on. One undo step.
     SetPaper {
         paper: Paper,
+    },
+    /// Sets the words of one paragraph of a flow's story, keeping the look of the words left alone.
+    /// Typing in one paragraph is one undo step.
+    SetParagraphText {
+        flow: FlowId,
+        para: usize,
+        text: String,
+    },
+    /// Replaces `remove` paragraphs of a flow's story from place `at` with `insert`: Enter, Backspace
+    /// across paragraphs, paste and deleting a stretch of paragraphs are all this. One undo step.
+    SpliceStory {
+        flow: FlowId,
+        at: usize,
+        remove: usize,
+        insert: Vec<StoryPara>,
+    },
+    /// Sets the paragraph style of paragraphs `from..=to` of a flow's story; none takes it away.
+    StyleParagraphs {
+        flow: FlowId,
+        from: usize,
+        to: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        style: Option<StyleId>,
+    },
+    /// Changes the look of characters `start..end` of one paragraph of a flow's story.
+    StyleStoryRange {
+        flow: FlowId,
+        para: usize,
+        start: u32,
+        end: u32,
+        change: RunChange,
     },
     /// Sets the title, subtitle, authors, description and ISBNs together. One undo step.
     SetDetails {

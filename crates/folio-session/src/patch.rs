@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    BarcodeChoice, BookFont, Details, Grid, Margins, Master, MasterId, PageNumbers, Paper,
-    Proofing, Pt, Size, Spread, SpreadId,
+    BarcodeChoice, BookFont, Details, Flow, FlowId, Grid, Margins, Master, MasterId, PageNumbers,
+    Paper, Proofing, Pt, Size, Spread, SpreadId,
 };
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -33,6 +33,10 @@ pub enum PatchOp {
     SetBarcode { choice: BarcodeChoice },
     /// The paper a printed copy is on.
     SetPaper { paper: Paper },
+    /// A flow's story and frames, whole.
+    SetFlow { flow: Flow },
+    /// A flow that is gone.
+    RemoveFlow { id: FlowId },
     /// The title, authors, description and ISBNs.
     SetDetails { details: Details },
     /// The preflight issues the book leaves alone.
