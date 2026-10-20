@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { formatTrim, pageCount } from '../books/format';
 import { useActiveBook, useBooks, useBooksSelector } from '../books/useBooks';
 import { APP_MENU_MNEMONICS } from '../commands/appMenuModel';
+import { requestJaxToggle } from '../jax/jaxToggle';
 import { t } from '../i18n/messages';
 import { tauriAppInfoClient, type AppInfoClient } from '../services/appInfoClient';
 import { tauriCloseRequests, type CloseRequests } from '../services/closeRequests';
@@ -139,7 +140,14 @@ export function MainScreen({
 					</span>
 					<span className={styles.statusGroup}>
 						{active && <span>{savedText(active.summary.path, active.summary.dirty)}</span>}
-						{settings.jax !== 'off' && <span>{t('status.jax')}</span>}
+						{settings.jax !== 'off' &&
+							(active ? (
+								<button type="button" className={styles.perch} onClick={requestJaxToggle}>
+									{t('status.jax')}
+								</button>
+							) : (
+								<span>{t('status.jax')}</span>
+							))}
 						{version !== null && <span>{`${t('app.name')} ${version}`}</span>}
 					</span>
 				</footer>

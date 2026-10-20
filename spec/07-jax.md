@@ -108,3 +108,7 @@ Performance: one WebGL context, rendered only while visible (`IntersectionObserv
 ### Prototype
 
 The prototype uses keyword scoring over `HELP` as a stand-in for retrieval (Tier A behaviour) so the flow can be judged before the model work starts.
+
+### Built so far
+
+The panel is in: a status-bar Jax button (and the Jax setting) opens a 470 px panel at the right end of the shelf with Tip, This page and Guide tabs. Tips follow what is selected or shown; the guide steps through the book with "Show me" buttons. There is no 3D model and no Ask tab yet, and the otter is a placeholder emoji.
