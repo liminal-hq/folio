@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::background::Background;
-use crate::cover::Paper;
+use crate::cover::{BarcodeChoice, Paper};
 use crate::flow::Flow;
 use crate::frame::Frame;
 use crate::ids::{BookId, MasterId};
@@ -75,6 +75,9 @@ pub struct Book {
     /// The paper a printed copy is on, which decides how thick the spine is.
     #[serde(default, skip_serializing_if = "is_default_paper")]
     pub paper: Paper,
+    /// Who makes the barcode on the paperback cover.
+    #[serde(default, skip_serializing_if = "is_default_barcode")]
+    pub barcode: BarcodeChoice,
     /// Preflight issues the person has said to leave alone, each by its key (D-31).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub preflight_ignore: Vec<String>,
@@ -296,6 +299,10 @@ impl Book {
             .map(|s| s.pages.len())
             .sum()
     }
+}
+
+fn is_default_barcode(choice: &BarcodeChoice) -> bool {
+    *choice == BarcodeChoice::default()
 }
 
 fn is_default_paper(paper: &Paper) -> bool {

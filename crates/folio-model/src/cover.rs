@@ -39,6 +39,32 @@ pub struct CoverMaths {
     pub barcode: Rect,
 }
 
+/// Who makes the barcode on the back of the paperback cover.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum BarcodeChoice {
+    /// Folio draws the barcode when the paperback ISBN is a good one, and leaves the box clear for
+    /// KDP to fill when it is not.
+    #[default]
+    Auto,
+    /// The box is kept clear, and KDP adds its own barcode.
+    Kdp,
+    /// Folio draws an EAN-13 from the ISBN, with a five-digit price add-on when `addon` is set
+    /// (`90000` for no price; `5` and four digits for US dollars, `6` and four for Canadian).
+    Own {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        addon: Option<String>,
+    },
+}
+
+impl BarcodeChoice {
+    /// Whether a price add-on is five digits, as the EAN-5 it is drawn as needs.
+    pub fn addon_is_valid(addon: &str) -> bool {
+        addon.len() == 5 && addon.chars().all(|c| c.is_ascii_digit())
+    }
+}
+
 /// KDP puts text on the spine of a book of this many pages or more. Its own pages disagree between
 /// 79 and 80, so Folio takes the stricter (D-34).
 pub const SPINE_TEXT_FROM: u32 = 80;

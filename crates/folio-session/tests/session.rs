@@ -717,6 +717,13 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
     record("undo the heading", &mut s, &|s| s.undo().unwrap());
     record("undo the split", &mut s, &|s| s.undo().unwrap());
     record("undo the typing", &mut s, &|s| s.undo().unwrap());
+    record("leave the barcode to KDP", &mut s, &|s| {
+        s.apply(Intent::SetBarcode {
+            choice: folio_model::BarcodeChoice::Kdp,
+        })
+        .unwrap()
+    });
+    record("undo the barcode choice", &mut s, &|s| s.undo().unwrap());
     record("choose cream paper", &mut s, &|s| {
         s.apply(Intent::SetPaper {
             paper: folio_model::Paper::Cream,
@@ -3918,6 +3925,39 @@ fn frames_a_story_no_longer_needs_leave_with_the_spreads_they_empty_in_one_undo_
                 keep: bad
             }),
             Err(SessionError::BadStory(_))
+        ));
+    }
+}
+
+#[test]
+fn the_barcode_choice_is_one_undo_step_and_a_bad_price_addon_is_refused() {
+    use folio_model::BarcodeChoice;
+    let mut s = Session::new(book());
+    let own = BarcodeChoice::Own {
+        addon: Some("51999".into()),
+    };
+    let patch = s
+        .apply(Intent::SetBarcode {
+            choice: own.clone(),
+        })
+        .unwrap();
+    assert_eq!(
+        patch.ops,
+        vec![PatchOp::SetBarcode {
+            choice: own.clone()
+        }]
+    );
+    assert_eq!(s.book().barcode, own);
+    s.undo().unwrap();
+    assert_eq!(s.book().barcode, BarcodeChoice::Auto);
+    for bad in ["1234", "1234a", "123456"] {
+        assert!(matches!(
+            s.apply(Intent::SetBarcode {
+                choice: BarcodeChoice::Own {
+                    addon: Some(bad.into())
+                }
+            }),
+            Err(SessionError::BadBarcode(_))
         ));
     }
 }

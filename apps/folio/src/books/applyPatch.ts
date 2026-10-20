@@ -47,6 +47,11 @@ function applyOp(book: Book, op: PatchOp): Book {
 		}
 		case 'removeFlow':
 			return { ...book, flows: book.flows.filter((f) => f.id !== op.id) };
+		case 'setBarcode': {
+			// Rust leaves the automatic barcode out of the book, and so does the copy.
+			const { barcode: _barcode, ...rest } = book;
+			return op.choice.kind !== 'auto' ? { ...rest, barcode: op.choice } : rest;
+		}
 		case 'setPaper': {
 			// Rust leaves the default, white paper out of the book, and so does the copy.
 			const { paper: _paper, ...rest } = book;

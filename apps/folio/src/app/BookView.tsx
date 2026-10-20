@@ -31,6 +31,7 @@ import { IMPORT_TEXT_EVENT } from './importRequest';
 import { ImportReportDialog, type ImportOutcome } from './ImportReportDialog';
 import { StoryEditorDialog } from '../story/StoryEditorDialog';
 import { BookDetailsDialog } from './BookDetailsDialog';
+import { BarcodeDialog } from './BarcodeDialog';
 import { CoverSheetDialog } from './CoverSheetDialog';
 import { SoftProofDialog } from './SoftProofDialog';
 import { EXPORT_EVENT } from './exportRequest';
@@ -375,6 +376,7 @@ export function BookView({
 		return () => window.removeEventListener('keydown', onKey);
 	}, [linking]);
 	const [sheetOpen, setSheetOpen] = useState(false);
+	const [barcodeOpen, setBarcodeOpen] = useState(false);
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	// The Export dialog; `quick` makes the Sharing PDF the moment it opens.
 	const [exporting, setExporting] = useState<{ quick: boolean } | null>(null);
@@ -532,6 +534,9 @@ export function BookView({
 				break;
 			case 'coverSheet':
 				setSheetOpen(true);
+				break;
+			case 'barcode':
+				setBarcodeOpen(true);
 				break;
 			case 'bookDetails':
 				setDetailsOpen(true);
@@ -869,6 +874,12 @@ export function BookView({
 				book={book}
 				onSave={(details) => apply({ type: 'SetDetails', details })}
 				onPaper={(paper) => apply({ type: 'SetPaper', paper })}
+			/>
+			<BarcodeDialog
+				open={barcodeOpen}
+				onClose={() => setBarcodeOpen(false)}
+				book={book}
+				apply={apply}
 			/>
 			<CoverSheetDialog
 				open={sheetOpen}

@@ -9,7 +9,7 @@ use ts_rs::TS;
 use crate::background::Background;
 use crate::book::{BookFont, Details, Grid, PageNumbers};
 use crate::colour::{BookSwatch, Colour};
-use crate::cover::Paper;
+use crate::cover::{BarcodeChoice, Paper};
 use crate::flow::StoryPara;
 use crate::frame::{Fit, Frame, Shape, StyleOverrides, TableLook};
 use crate::ids::{FlowId, FrameId, MasterId, PageId, SpreadId, StyleId, SwatchId};
@@ -245,6 +245,10 @@ pub enum Intent {
     /// only one takes the story back as its own words.
     UnlinkFrame {
         frame: FrameId,
+    },
+    /// Sets who makes the barcode on the paperback cover. One undo step.
+    SetBarcode {
+        choice: BarcodeChoice,
     },
     /// Sets the paper a printed copy is on. One undo step.
     SetPaper {

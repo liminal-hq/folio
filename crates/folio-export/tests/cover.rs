@@ -261,3 +261,34 @@ fn a_swatch_with_ink_prints_as_exactly_that_ink_and_one_without_is_separated() {
     let doc = Document::load_mem(&cover_pdf(&book, &styles, Paper::White)).unwrap();
     assert!(ink_colours(&doc).iter().any(|c| c[0] > 0.4 && c[2] < c[0]));
 }
+
+#[test]
+fn the_barcode_follows_the_books_choice_and_a_price_addon_adds_bars() {
+    use folio_model::BarcodeChoice;
+    let (mut book, _) = sample(BookKind::Novel);
+    book.metadata.isbn.paperback = Some("978-0-306-40615-7".into());
+    let auto = bar_count(&book);
+    assert!((25..=35).contains(&auto), "{auto}");
+    book.barcode = BarcodeChoice::Kdp;
+    assert_eq!(bar_count(&book), 0, "KDP adds its own");
+    book.barcode = BarcodeChoice::Own { addon: None };
+    assert_eq!(bar_count(&book), auto);
+    book.barcode = BarcodeChoice::Own {
+        addon: Some("90000".into()),
+    };
+    let sheet = cover_sheet(&book, Paper::White).unwrap();
+    let addon_bars = sheet
+        .spreads
+        .iter()
+        .flat_map(|s| &s.frames)
+        .filter(|f| {
+            f.base().id.0.starts_with("cover_addon_") && f.base().id.0 != "cover_addon_digits"
+        })
+        .count();
+    assert!(addon_bars >= 8, "{addon_bars}");
+    assert!(sheet
+        .spreads
+        .iter()
+        .flat_map(|s| &s.frames)
+        .any(|f| f.base().id.0 == "cover_addon_digits"));
+}

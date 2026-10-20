@@ -153,6 +153,7 @@ pub fn new_book_with_ids(
         master_pages: Vec::new(),
         page_numbers: folio_model::PageNumbers::None,
         fonts: Vec::new(),
+        barcode: Default::default(),
         paper: match spec.paper {
             Paper::White => folio_model::Paper::White,
             Paper::Cream => folio_model::Paper::Cream,

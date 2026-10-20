@@ -1,0 +1,81 @@
+.group {
+	display: grid;
+	gap: 8px;
+	margin: 0 0 12px;
+	padding: 0;
+	border: 0;
+}
+
+.legend {
+	margin-bottom: 8px;
+	font-weight: 600;
+}
+
+.option {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	padding: 10px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 8px;
+	background: var(--folio-bg-raised);
+}
+
+.option:hover {
+	background: var(--folio-bg-hover);
+}
+
+.optionText {
+	display: grid;
+}
+
+.name {
+	font-weight: 600;
+}
+
+.hint {
+	margin: 0;
+	color: var(--folio-text-muted);
+	font-size: 13px;
+}
+
+.form {
+	display: grid;
+	gap: 10px;
+	margin-bottom: 12px;
+}
+
+.field {
+	display: grid;
+	gap: 4px;
+}
+
+.field input,
+.field select {
+	padding: 6px 8px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-bg-raised);
+	color: inherit;
+	font: inherit;
+}
+
+.field input[aria-invalid='true'] {
+	border-color: var(--folio-danger);
+}
+
+.problem {
+	margin: 0;
+	color: var(--folio-danger);
+	font-size: 13px;
+}
+
+.link {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--folio-accent);
+	font: inherit;
+	text-decoration: underline;
+	cursor: pointer;
+}

@@ -4,10 +4,10 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    clean_language, BackgroundTarget, Book, BookFont, Colour, FlowId, Frame, FrameId, Guide,
-    InlineContent, Intent, Master, MasterId, Page, Paint, Proofing, Pt, Rect, ReorderTo, Run,
-    Spread, SpreadId, SpreadKind, StoryPara, Surface, TableCell, TableEdit, TableFrame,
-    MAX_IGNORED_WORDS,
+    clean_language, BackgroundTarget, BarcodeChoice, Book, BookFont, Colour, FlowId, Frame,
+    FrameId, Guide, InlineContent, Intent, Master, MasterId, Page, Paint, Proofing, Pt, Rect,
+    ReorderTo, Run, Spread, SpreadId, SpreadKind, StoryPara, Surface, TableCell, TableEdit,
+    TableFrame, MAX_IGNORED_WORDS,
 };
 
 /// The most preflight issues a book can leave alone.
@@ -788,6 +788,23 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched,
                 new_spread: None,
                 flows,
+                new_flow: None,
+                fresh: Vec::new(),
+                merge: None,
+            })
+        }
+        Intent::SetBarcode { choice } => {
+            if let BarcodeChoice::Own { addon: Some(addon) } = choice {
+                if !BarcodeChoice::addon_is_valid(addon) {
+                    return Err(SessionError::BadBarcode(
+                        "a price add-on is five digits".into(),
+                    ));
+                }
+            }
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                flows: Vec::new(),
                 new_flow: None,
                 fresh: Vec::new(),
                 merge: None,
@@ -1592,6 +1609,7 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             }
             renumber(book, &flow_id);
         }
+        Intent::SetBarcode { choice } => book.barcode = choice,
         Intent::SetPaper { paper } => book.paper = paper,
         Intent::SetSwatch { mut swatch } => {
             if let Some(ink) = swatch.ink {
