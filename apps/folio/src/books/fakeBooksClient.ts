@@ -550,6 +550,18 @@ export function createFakeBooksClient(): FakeBooks {
 			const png = 'data:image/png;base64,AAAA';
 			return [{ original: png, proofed: `${png}B`, outside: 12.5 }];
 		},
+		async importText(id, path) {
+			await call('importText', [id, path]);
+			const held = find(id);
+			if (held.snapshot.book.flows.length === 0) {
+				throw {
+					kind: 'import',
+					message:
+						"This book's pages hold their own words, so there is no story to bring them into.",
+				};
+			}
+			return { paragraphs: 3, headings: 1, sceneBreaks: 0, notes: ['Pictures were left out.'] };
+		},
 		async onExportProgress(listener) {
 			exportListeners.add(listener);
 			return () => exportListeners.delete(listener);

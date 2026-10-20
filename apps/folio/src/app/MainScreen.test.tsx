@@ -61,6 +61,7 @@ function setup(
 		pickBook: async () => picks.open ?? null,
 		pickSavePath: async () => picks.save ?? null,
 		pickImage: async () => null,
+		pickText: async () => null,
 	};
 	render(
 		<SettingsProvider client={settings}>

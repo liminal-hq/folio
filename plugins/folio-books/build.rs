@@ -34,6 +34,7 @@ const COMMANDS: &[&str] = &[
     "reader_preview",
     "proof_spread",
     "export_book",
+    "import_text",
     "cancel_export",
     "reveal_path",
     "preflight_book",

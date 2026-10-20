@@ -31,6 +31,7 @@ permissions = [
   "allow-reader-preview",
   "allow-proof-spread",
   "allow-export-book",
+  "allow-import-text",
   "allow-cancel-export",
   "allow-reveal-path",
   "allow-preflight-book",

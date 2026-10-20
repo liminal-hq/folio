@@ -9,6 +9,7 @@ members = [
   "crates/folio-spell",
   "crates/folio-export",
   "crates/folio-colour",
+  "crates/folio-import",
   "crates/folio-settings",
   "apps/folio/src-tauri",
   "crates/wayland-toplevel-drag",

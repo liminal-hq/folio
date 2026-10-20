@@ -26,6 +26,8 @@ import { keepWords } from '../canvas/editCheckpoint';
 import { CheckBookDialog } from './CheckBookDialog';
 import { ExportDialog } from './ExportDialog';
 import { getTextSelection } from '../canvas/textSelection';
+import { IMPORT_TEXT_EVENT } from './importRequest';
+import { ImportReportDialog, type ImportOutcome } from './ImportReportDialog';
 import { StoryEditorDialog } from '../story/StoryEditorDialog';
 import { BookDetailsDialog } from './BookDetailsDialog';
 import { SoftProofDialog } from './SoftProofDialog';
@@ -327,6 +329,28 @@ export function BookView({
 	const [proofOpen, setProofOpen] = useState(false);
 	/** The text frame whose words are to continue in the next frame clicked. */
 	const [linking, setLinking] = useState<string | null>(null);
+	/** What the last text import did, or why it could not. */
+	const [imported, setImported] = useState<ImportOutcome | null>(null);
+	useEffect(() => {
+		const run = () => {
+			void (async () => {
+				const path = await dialogs.pickText();
+				if (path === null) return;
+				try {
+					setImported({ report: await client.importText(id, path) });
+				} catch (reason) {
+					setImported({
+						problem:
+							typeof reason === 'object' && reason !== null && 'message' in reason
+								? String((reason as { message: unknown }).message)
+								: String(reason),
+					});
+				}
+			})();
+		};
+		window.addEventListener(IMPORT_TEXT_EVENT, run);
+		return () => window.removeEventListener(IMPORT_TEXT_EVENT, run);
+	}, [client, dialogs, id]);
 	/** The flow whose story is open in the story editor. */
 	const [storyFlow, setStoryFlow] = useState<string | null>(null);
 	// Escape gives up choosing the frame the words continue in.
@@ -812,6 +836,7 @@ export function BookView({
 				autoStart={exporting?.quick ? ['sharingPdf'] : null}
 				onCheck={() => setChecking(true)}
 			/>
+			<ImportReportDialog outcome={imported} onClose={() => setImported(null)} />
 			<StoryEditorDialog
 				open={storyFlow !== null}
 				onClose={() => setStoryFlow(null)}
