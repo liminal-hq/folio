@@ -23,8 +23,8 @@ pub mod wire;
 pub use assets::{AssetFact, AssetFacts};
 pub use error::LayoutError;
 pub use fonts::{
-    Embedding, EmbeddingRights, FaceInfo, Font, FontBook, FontRequest, FontSource, Metrics,
-    Resolved,
+    BookFace, Embedding, EmbeddingRights, FaceInfo, Font, FontBook, FontRequest, FontSource,
+    Metrics, Resolved,
 };
 pub use shape::{feature, shape, Glyph, Run, Shaped};
 pub use spread::Layouter;
