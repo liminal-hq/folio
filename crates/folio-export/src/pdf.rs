@@ -116,7 +116,7 @@ pub fn export_pdf(
             None => Separator::plain(),
         }),
     };
-    let mut drawing = Drawing::new(fonts, assets, separator);
+    let mut drawing = Drawing::new(fonts, assets, separator, book.styles.swatches.clone());
 
     let mut scenes = Vec::new();
     for spread in book.spreads.iter().skip(skip) {
@@ -234,6 +234,8 @@ pub fn export_pdf(
 struct Drawing<'a> {
     /// Set for a file whose colours are ink: each one is separated, the page's ink as black alone.
     separator: Option<Separator>,
+    /// The book's swatches, so a colour that refers to one is drawn as it and in its exact ink.
+    swatches: Vec<folio_model::BookSwatch>,
     fonts: &'a FontBook,
     assets: &'a dyn Assets,
     /// The krilla fonts made so far, by file key, weight and size, since each variable instance is
@@ -276,9 +278,15 @@ fn krect(r: &SceneRect) -> Option<KRect> {
 }
 
 impl<'a> Drawing<'a> {
-    fn new(fonts: &'a FontBook, assets: &'a dyn Assets, separator: Option<Separator>) -> Self {
+    fn new(
+        fonts: &'a FontBook,
+        assets: &'a dyn Assets,
+        separator: Option<Separator>,
+        swatches: Vec<folio_model::BookSwatch>,
+    ) -> Self {
         Self {
             separator,
+            swatches,
             fonts,
             assets,
             faces: HashMap::new(),
@@ -291,12 +299,16 @@ impl<'a> Drawing<'a> {
     /// anything goes. A frame across the gutter shows only its own side.
     /// A colour as the file holds it: sRGB, or ink when the file is for print.
     fn color(&self, c: &Colour) -> krilla::color::Color {
-        let hex = c.0.trim_start_matches('#');
-        let byte =
-            |at: usize| u8::from_str_radix(hex.get(at..at + 2).unwrap_or("00"), 16).unwrap_or(0);
-        let rgb = (byte(0), byte(2), byte(4));
+        let paint = folio_model::Swatches(&self.swatches).resolve(c);
+        let rgb = (paint.rgb[0], paint.rgb[1], paint.rgb[2]);
         match &self.separator {
             None => rgb::Color::new(rgb.0, rgb.1, rgb.2).into(),
+            // A swatch with ink prints as the ink it names, with no conversion.
+            Some(_) if paint.ink.is_some() => {
+                let ink = paint.ink.expect("checked above");
+                let plate = |percent: u8| (u16::from(percent) * 255 / 100) as u8;
+                cmyk::Color::new(plate(ink.c), plate(ink.m), plate(ink.y), plate(ink.k)).into()
+            }
             Some(separator) => {
                 let ink = separator.cmyk(rgb);
                 let plate = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
@@ -507,9 +519,14 @@ impl<'a> Drawing<'a> {
         tint: Option<&Colour>,
         area: &SceneRect,
     ) -> bool {
-        let key = format!("{id}|{}", tint.map_or("", |c| c.0.as_str()));
+        // A tint that is a swatch is drawn as the colour the swatch shows as.
+        let tint_hex = tint.map(|c| {
+            let [r, g, b] = folio_model::Swatches(&self.swatches).resolve(c).rgb;
+            format!("#{r:02x}{g:02x}{b:02x}")
+        });
+        let key = format!("{id}|{}", tint_hex.as_deref().unwrap_or(""));
         let entry = self.textures.entry(key).or_insert_with(|| {
-            let (png, size) = crate::texture::tile_png(id, tint.map(|c| c.0.as_str()))?;
+            let (png, size) = crate::texture::tile_png(id, tint_hex.as_deref())?;
             Some((
                 Image::from_png(
                     Data::from(Arc::new(png) as Arc<dyn AsRef<[u8]> + Send + Sync>),
