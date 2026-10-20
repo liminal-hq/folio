@@ -32,7 +32,7 @@ pub use frame::*;
 pub use ids::*;
 pub use intent::*;
 pub use isbn::is_valid_isbn13;
-pub use runs::{retext, style_range, text_of, RunChange};
+pub use runs::{join_runs, retext, split_runs, style_range, text_of, RunChange};
 pub use sections::*;
 pub use snap::*;
 pub use spread::*;

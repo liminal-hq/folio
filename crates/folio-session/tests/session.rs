@@ -3539,3 +3539,74 @@ fn a_frame_that_cannot_be_chained_is_refused_and_deleting_one_leaves_its_flow() 
     assert_eq!(s.book().flows[0].frames.len(), 2);
     assert_eq!(slot_of(&s, "fr_text"), Some(("fl_main".into(), 1)));
 }
+
+#[test]
+fn enter_splits_a_paragraph_where_the_caret_is_and_backspace_joins_it_back() {
+    let mut s = Session::new(book());
+    let flow = FlowId("fl_main".into());
+    s.apply(Intent::StyleStoryRange {
+        flow: flow.clone(),
+        para: 1,
+        start: 4,
+        end: 9,
+        change: folio_model::RunChange {
+            bold: Some(true),
+            ..Default::default()
+        },
+    })
+    .unwrap();
+    s.apply(Intent::SplitParagraph {
+        flow: flow.clone(),
+        para: 1,
+        at: 7,
+    })
+    .unwrap();
+    assert_eq!(
+        story(&s),
+        ["A chapter", "The ott", "er slept.", "Morning came."]
+    );
+    // Both halves keep the look of their words.
+    let paragraphs = &s.book().flows[0].paragraphs;
+    assert!(paragraphs[1]
+        .inline
+        .iter()
+        .any(|r| r.bold && r.text == "ott"));
+    assert!(paragraphs[2]
+        .inline
+        .iter()
+        .any(|r| r.bold && r.text == "er"));
+    s.apply(Intent::JoinParagraphs {
+        flow: flow.clone(),
+        para: 1,
+    })
+    .unwrap();
+    assert_eq!(
+        story(&s),
+        ["A chapter", "The otter slept.", "Morning came."]
+    );
+    assert_eq!(
+        s.book().flows[0].paragraphs[1]
+            .inline
+            .iter()
+            .filter(|r| r.bold)
+            .map(|r| r.text.as_str())
+            .collect::<String>(),
+        "otter"
+    );
+    assert!(s
+        .apply(Intent::JoinParagraphs {
+            flow: flow.clone(),
+            para: 2
+        })
+        .is_err());
+    assert!(s
+        .apply(Intent::SplitParagraph {
+            flow,
+            para: 0,
+            at: 99
+        })
+        .is_err());
+    s.undo().unwrap();
+    s.undo().unwrap();
+    assert_eq!(story(&s).len(), 3);
+}

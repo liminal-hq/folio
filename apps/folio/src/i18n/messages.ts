@@ -480,6 +480,14 @@ export const messages = {
 	'inspector.words': 'Words',
 	'inspector.words.flow':
 		'These words flow from one frame to the next. Edit the story to change them.',
+	'inspector.flow.edit': 'Edit the story…',
+	'story.title': 'Story',
+	'story.hint':
+		'Each box is a paragraph. Enter starts a new one, and Backspace at the start joins it to the one before. The paragraph style on the left sets how it looks.',
+	'story.paragraph': 'Paragraph {n}',
+	'story.paragraphStyle': 'Style of paragraph {n}',
+	'story.frameStyle': 'Like the frame',
+	'story.done': 'Done',
 	'inspector.flow.link': 'Continue in another frame',
 	'inspector.flow.choose': 'Click the empty text frame the words should continue in.',
 	'inspector.flow.cancel': 'Cancel',

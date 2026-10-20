@@ -26,6 +26,7 @@ import { keepWords } from '../canvas/editCheckpoint';
 import { CheckBookDialog } from './CheckBookDialog';
 import { ExportDialog } from './ExportDialog';
 import { getTextSelection } from '../canvas/textSelection';
+import { StoryEditorDialog } from '../story/StoryEditorDialog';
 import { BookDetailsDialog } from './BookDetailsDialog';
 import { SoftProofDialog } from './SoftProofDialog';
 import { EXPORT_EVENT } from './exportRequest';
@@ -326,6 +327,8 @@ export function BookView({
 	const [proofOpen, setProofOpen] = useState(false);
 	/** The text frame whose words are to continue in the next frame clicked. */
 	const [linking, setLinking] = useState<string | null>(null);
+	/** The flow whose story is open in the story editor. */
+	const [storyFlow, setStoryFlow] = useState<string | null>(null);
 	// Escape gives up choosing the frame the words continue in.
 	useEffect(() => {
 		if (linking === null) return;
@@ -684,6 +687,7 @@ export function BookView({
 								languages={languages}
 								linking={linking}
 								onLink={setLinking}
+								onEditStory={setStoryFlow}
 							/>
 						),
 						proofing: (
@@ -807,6 +811,14 @@ export function BookView({
 				id={id}
 				autoStart={exporting?.quick ? ['sharingPdf'] : null}
 				onCheck={() => setChecking(true)}
+			/>
+			<StoryEditorDialog
+				open={storyFlow !== null}
+				onClose={() => setStoryFlow(null)}
+				book={book}
+				flow={storyFlow}
+				choices={choices}
+				apply={apply}
 			/>
 			<BookDetailsDialog
 				open={detailsOpen}
