@@ -84,8 +84,8 @@ describe('opening a frame of a story', () => {
 		expect(screen.getByRole('textbox', { name: 'Edit the words' })).toBeInTheDocument();
 	});
 
-	it('edits the paragraph under the click in place when it can', () => {
-		const onEditParagraph = vi.fn();
+	it('edits every paragraph the frame shows in place, one to a line, when it can', () => {
+		const onEditParagraphs = vi.fn();
 		const withFlow = {
 			...book,
 			flows: [
@@ -133,15 +133,22 @@ describe('opening a frame of a story', () => {
 				onSelect={() => undefined}
 				onEditText={() => undefined}
 				onEditStory={() => undefined}
-				onEditParagraph={onEditParagraph}
+				onEditParagraphs={onEditParagraphs}
 			/>,
 		);
 		const hit = document.querySelector('[data-hit="f1"]')!;
 		fireEvent.doubleClick(hit);
 		const box = screen.getByRole('textbox', { name: 'Edit the words' });
-		expect(box).toHaveValue('First words.');
-		fireEvent.change(box, { target: { value: 'First words, changed.' } });
+		expect(box).toHaveValue('First words.\nSecond words.');
+		fireEvent.change(box, {
+			target: { value: 'First words, changed.\nSecond words.\nA new one.' },
+		});
 		fireEvent.blur(box);
-		expect(onEditParagraph).toHaveBeenLastCalledWith('fl_1', 0, 'First words, changed.');
+		expect(onEditParagraphs).toHaveBeenLastCalledWith(
+			'fl_1',
+			0,
+			['First words.', 'Second words.'],
+			['First words, changed.', 'Second words.', 'A new one.'],
+		);
 	});
 });
