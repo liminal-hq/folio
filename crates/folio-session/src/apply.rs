@@ -723,6 +723,34 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 merge: Some(MergeKey::Text(frame.clone())),
             })
         }
+        Intent::StyleRange {
+            frame,
+            start,
+            end,
+            change,
+        } => {
+            check_text(book, frame)?;
+            let length = words_of(book, frame)
+                .map(|runs| folio_model::text_of(runs).chars().count())
+                .unwrap_or(0);
+            if start >= end || *end as usize > length || change.is_empty() {
+                return Err(SessionError::BadRange(format!(
+                    "{start}..{end} in words of {length} characters"
+                )));
+            }
+            if change
+                .colour
+                .as_deref()
+                .is_some_and(|c| !c.is_empty() && folio_model::Colour::parse(c).is_err())
+            {
+                return Err(SessionError::BadRange("that colour is not #rrggbb".into()));
+            }
+            Ok(Plan {
+                touched: touched_by(book, frame)?,
+                new_spread: None,
+                merge: None,
+            })
+        }
         Intent::EditTable { frame, edit } => {
             let Some(found) = locate(book, frame) else {
                 return Err(SessionError::NoSuchFrame(frame.0.clone()));
@@ -1169,16 +1197,35 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 sp.guides.retain(|g| g.locked);
             }
         }
+        Intent::StyleRange {
+            frame,
+            start,
+            end,
+            change,
+        } => {
+            let styled = |content: &mut Option<InlineContent>| {
+                if let Some(content) = content {
+                    content.inline = folio_model::style_range(
+                        &content.inline,
+                        start as usize,
+                        end as usize,
+                        &change,
+                    );
+                }
+            };
+            match locate_mut(book, &frame) {
+                Some(Frame::Text(t)) => styled(&mut t.content),
+                Some(Frame::Shape(s)) => styled(&mut s.content),
+                _ => {}
+            }
+        }
         Intent::SetText { frame, text } => {
+            // Words already there keep the look of the stretches that were not touched.
+            let old: Vec<Run> = words_of(book, &frame)
+                .map(<[Run]>::to_vec)
+                .unwrap_or_default();
             let content = InlineContent {
-                inline: vec![Run {
-                    text,
-                    style: None,
-                    bold: false,
-                    italic: false,
-                    font: None,
-                    colour: None,
-                }],
+                inline: folio_model::retext(&old, &text),
             };
             match locate_mut(book, &frame) {
                 Some(Frame::Text(t)) => t.content = Some(content),
@@ -1480,4 +1527,13 @@ fn check_details(details: &folio_model::Details) -> Result<(), SessionError> {
         }
     }
     Ok(())
+}
+
+/// The runs of the words a text frame or shape holds.
+fn words_of<'a>(book: &'a Book, frame: &FrameId) -> Option<&'a [Run]> {
+    match locate(book, frame)? {
+        Frame::Text(t) => t.content.as_ref().map(|c| c.inline.as_slice()),
+        Frame::Shape(s) => s.content.as_ref().map(|c| c.inline.as_slice()),
+        _ => None,
+    }
 }

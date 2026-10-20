@@ -25,6 +25,7 @@ import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../can
 import { keepWords } from '../canvas/editCheckpoint';
 import { CheckBookDialog } from './CheckBookDialog';
 import { ExportDialog } from './ExportDialog';
+import { getTextSelection } from '../canvas/textSelection';
 import { BookDetailsDialog } from './BookDetailsDialog';
 import { SoftProofDialog } from './SoftProofDialog';
 import { EXPORT_EVENT } from './exportRequest';
@@ -495,7 +496,12 @@ export function BookView({
 	/** The ribbon's document controls; answers whether the command was one of them. */
 	const onEditorCommand = (command: RibbonCommand): boolean => {
 		const value = typeof command.value === 'boolean' ? undefined : command.value;
-		const action = editorAction(command.id, value, input);
+		// What is selected in the open editor is read now: the ribbon keeps the editor's focus.
+		const action = editorAction(command.id, value, {
+			...input,
+			// Easy styles the whole box; only Expert styles the selected words (spec 09).
+			selection: settings.mode === 'expert' ? getTextSelection() : null,
+		});
 		if (!action) return false;
 		perform(action);
 		return true;
