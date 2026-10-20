@@ -15,7 +15,7 @@ use folio_model::{join_runs, Run, StoryPara, StyleId};
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::Reader;
 
-use crate::{ImportReport, Imported};
+use crate::{ImportReport, Imported, StyleMap, Tally};
 
 /// Why an OpenDocument file could not be read.
 #[derive(Debug, thiserror::Error)]
@@ -56,13 +56,18 @@ fn is_quote(name: &str) -> bool {
 
 /// Reads an `.odt` held in `bytes` into a story.
 pub fn import_odt(bytes: &[u8]) -> Result<Imported, OdtError> {
+    import_odt_with(bytes, &StyleMap::new())
+}
+
+/// Reads an `.odt` with the person's choices of Folio style for the document's styles.
+pub fn import_odt_with(bytes: &[u8], map: &StyleMap) -> Result<Imported, OdtError> {
     let mut zip = zip::ZipArchive::new(Cursor::new(bytes)).map_err(|_| OdtError::NotOdt)?;
     let mut xml = String::new();
     zip.by_name("content.xml")
         .map_err(|_| OdtError::NotOdt)?
         .read_to_string(&mut xml)
         .map_err(|_| OdtError::NotOdt)?;
-    Ok(read_content(&xml))
+    Ok(read_content(&xml, map))
 }
 
 fn note(report: &mut ImportReport, text: &str) {
@@ -71,7 +76,9 @@ fn note(report: &mut ImportReport, text: &str) {
     }
 }
 
-fn read_content(xml: &str) -> Imported {
+fn read_content(xml: &str, map: &StyleMap) -> Imported {
+    let mut tally = Tally::default();
+    let mut source = String::new();
     let mut reader = Reader::from_str(xml);
     let mut report = ImportReport::default();
     // Automatic text styles that are bold or italic, by name.
@@ -126,19 +133,16 @@ fn read_content(xml: &str) -> Imported {
                     b"h" => {
                         in_para = true;
                         runs.clear();
-                        style = Some(if attr(&e, b"outline-level").as_deref() == Some("1") {
-                            "h1"
-                        } else {
-                            "h2"
-                        });
-                        report.headings += 1;
+                        let level = attr(&e, b"outline-level").unwrap_or_else(|| "1".into());
+                        style = Some(if level == "1" { "h1" } else { "h2" });
+                        source = format!("Heading {level}");
                     }
                     b"p" => {
                         in_para = true;
                         runs.clear();
-                        style = attr(&e, b"style-name")
-                            .filter(|n| is_quote(n))
-                            .map(|_| "epigraph");
+                        let named = attr(&e, b"style-name");
+                        style = named.as_deref().filter(|n| is_quote(n)).map(|_| "epigraph");
+                        source = named.unwrap_or_else(|| "Standard".into());
                     }
                     b"span" if in_para => {
                         let look = attr(&e, b"style-name")
@@ -193,7 +197,12 @@ fn read_content(xml: &str) -> Imported {
                     in_para = false;
                     if runs.iter().any(|r| !r.text.trim().is_empty()) {
                         let mut inline = std::mem::take(&mut runs);
-                        if list > 0 && style.is_none() {
+                        let words: String = inline.iter().map(|r| r.text.as_str()).collect();
+                        let applied = tally.see(&source, style, map, words.trim());
+                        if matches!(applied.as_deref(), Some("h1" | "h2")) {
+                            report.headings += 1;
+                        }
+                        if list > 0 && applied.is_none() {
                             inline.insert(0, run("\u{2013} ", Look::default()));
                             note(
                                 &mut report,
@@ -201,7 +210,7 @@ fn read_content(xml: &str) -> Imported {
                             );
                         }
                         story.push(StoryPara {
-                            style: style.map(|s| StyleId(s.to_owned())),
+                            style: applied.map(StyleId),
                             inline,
                         });
                     }
@@ -214,5 +223,6 @@ fn read_content(xml: &str) -> Imported {
         }
     }
     report.paragraphs = story.len() as u32;
+    report.styles = tally.into_styles();
     Imported { story, report }
 }

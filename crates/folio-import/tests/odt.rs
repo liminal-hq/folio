@@ -71,3 +71,33 @@ fn tables_pictures_and_notes_are_left_out_and_said() {
 fn something_that_is_not_an_odt_file_is_refused() {
     assert!(matches!(import_odt(b"plain"), Err(OdtError::NotOdt)));
 }
+
+#[test]
+fn the_styles_found_are_listed_and_a_choice_changes_what_a_style_becomes() {
+    use folio_import::{import_odt_with, StyleMap};
+    let body = r#"
+        <text:h text:outline-level="2">Part</text:h>
+        <text:p text:style-name="Caption">A caption</text:p>
+        <text:p>Plain</text:p>
+    "#;
+    let bytes = odt(body);
+    let first = import_odt(&bytes).unwrap();
+    let names: Vec<&str> = first
+        .report
+        .styles
+        .iter()
+        .map(|s| s.name.as_str())
+        .collect();
+    assert_eq!(names, vec!["Caption", "Heading 2", "Standard"]);
+    let mut map = StyleMap::new();
+    map.insert("Heading 2".into(), "h1".into());
+    map.insert("Caption".into(), "epigraph".into());
+    let second = import_odt_with(&bytes, &map).unwrap();
+    let styles: Vec<Option<&str>> = second
+        .story
+        .iter()
+        .map(|p| p.style.as_ref().map(|s| s.0.as_str()))
+        .collect();
+    assert_eq!(styles, vec![Some("h1"), Some("epigraph"), None]);
+    assert_eq!(second.report.headings, 1);
+}

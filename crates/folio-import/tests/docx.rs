@@ -86,3 +86,43 @@ fn something_that_is_not_a_word_file_is_refused() {
         Err(DocxError::NotDocx)
     ));
 }
+
+#[test]
+fn the_styles_found_are_listed_and_a_choice_changes_what_a_style_becomes() {
+    use folio_import::{import_docx_with, StyleMap};
+    let body = r#"
+        <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Chapter</w:t></w:r></w:p>
+        <w:p><w:pPr><w:pStyle w:val="Caption"/></w:pPr><w:r><w:t>A picture caption</w:t></w:r></w:p>
+        <w:p><w:r><w:t>Plain words</w:t></w:r></w:p>
+        <w:p><w:r><w:t>More plain words</w:t></w:r></w:p>
+    "#;
+    let bytes = docx(body, false);
+    let first = import_docx(&bytes).unwrap();
+    let seen: Vec<(String, u32, Option<String>)> = first
+        .report
+        .styles
+        .iter()
+        .map(|s| (s.name.clone(), s.count, s.folio.clone()))
+        .collect();
+    assert_eq!(
+        seen,
+        vec![
+            ("Caption".to_string(), 1, None),
+            ("Heading1".to_string(), 1, Some("h1".to_string())),
+            ("Normal".to_string(), 2, None),
+        ]
+    );
+    assert_eq!(first.report.styles[0].sample, "A picture caption");
+
+    let mut map = StyleMap::new();
+    map.insert("Caption".into(), "epigraph".into());
+    map.insert("Heading1".into(), String::new());
+    let second = import_docx_with(&bytes, &map).unwrap();
+    let styles: Vec<Option<&str>> = second
+        .story
+        .iter()
+        .map(|p| p.style.as_ref().map(|s| s.0.as_str()))
+        .collect();
+    assert_eq!(styles, vec![None, Some("epigraph"), None, None]);
+    assert_eq!(second.report.headings, 0);
+}

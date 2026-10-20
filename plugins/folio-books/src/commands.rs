@@ -382,10 +382,14 @@ pub async fn import_text<R: Runtime>(
     _window: WebviewWindow<R>,
     id: String,
     path: String,
+    mapping: Option<std::collections::BTreeMap<String, String>>,
 ) -> Result<ImportReport, Error> {
-    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().import_text(&id, &path))
-        .await
-        .expect("the import task does not panic")
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Books<R>>()
+            .import_text_with(&id, &path, &mapping.unwrap_or_default())
+    })
+    .await
+    .expect("the import task does not panic")
 }
 
 /// Stops the export in progress after the file it is making; what was made is kept.

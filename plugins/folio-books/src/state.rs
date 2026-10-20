@@ -309,6 +309,17 @@ impl<R: Runtime> Books<R> {
     /// Brings the words of the Markdown or plain text file at `path` in as the story of the book's
     /// first flow, in one undo step. A book with no flow has no story to put them in.
     pub fn import_text(&self, id: &str, path: &str) -> Result<folio_import::ImportReport, Error> {
+        self.import_text_with(id, path, &folio_import::StyleMap::new())
+    }
+
+    /// As `import_text`, with the person's choice of Folio style for each style of a Word or
+    /// OpenDocument file.
+    pub fn import_text_with(
+        &self,
+        id: &str,
+        path: &str,
+        mapping: &folio_import::StyleMap,
+    ) -> Result<folio_import::ImportReport, Error> {
         /// More than this is not a manuscript someone typed; it would also stall the page.
         const MAX_BYTES: u64 = 8 * 1024 * 1024;
         let file = Path::new(path);
@@ -337,9 +348,11 @@ impl<R: Runtime> Books<R> {
         let imported = if matches!(known.as_deref(), Some("docx" | "odt" | "rtf")) {
             let bytes = std::fs::read(file).map_err(|e| Error::Import(format!("{path}: {e}")))?;
             if known.as_deref() == Some("docx") {
-                folio_import::import_docx(&bytes).map_err(|e| Error::Import(e.to_string()))?
+                folio_import::import_docx_with(&bytes, mapping)
+                    .map_err(|e| Error::Import(e.to_string()))?
             } else if known.as_deref() == Some("odt") {
-                folio_import::import_odt(&bytes).map_err(|e| Error::Import(e.to_string()))?
+                folio_import::import_odt_with(&bytes, mapping)
+                    .map_err(|e| Error::Import(e.to_string()))?
             } else {
                 folio_import::import_rtf(&bytes).map_err(|e| Error::Import(e.to_string()))?
             }

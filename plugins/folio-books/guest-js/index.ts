@@ -270,8 +270,12 @@ export function exportBook(
 }
 
 /** Brings the words of a Markdown or plain text file in as the book's story, in one undo step. */
-export function importText(id: string, path: string): Promise<ImportReport> {
-	return cmd<ImportReport>('import_text', { id, path });
+export function importText(
+	id: string,
+	path: string,
+	mapping?: Record<string, string>,
+): Promise<ImportReport> {
+	return cmd<ImportReport>('import_text', { id, path, mapping: mapping ?? null });
 }
 
 /** Shows a file in the system's file manager. */

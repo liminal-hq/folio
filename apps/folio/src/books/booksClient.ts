@@ -140,7 +140,7 @@ export interface BooksClient {
 	/** Makes the files for `targets` and writes them into the book's `exports` folder. */
 	exportBook(id: string, targets: ExportTarget[], colour?: ExportColour): Promise<ExportReport>;
 	/** Brings the words of a Markdown or plain text file in as the book's story. */
-	importText(id: string, path: string): Promise<ImportReport>;
+	importText(id: string, path: string, mapping?: Record<string, string>): Promise<ImportReport>;
 	/** Shows a file in the system's file manager. */
 	revealPath(path: string): Promise<void>;
 	/** What preflight finds in the whole book, the issues that wait on the person first. */
