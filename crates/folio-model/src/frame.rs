@@ -122,6 +122,10 @@ pub struct StyleOverrides {
     pub align: Option<Align>,
     pub bold: Option<bool>,
     pub italic: Option<bool>,
+    /// A typeface for the whole box, over its style's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub font: Option<String>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]

@@ -2,4 +2,8 @@
 import type { Align } from "./Align";
 import type { Pt } from "./Pt";
 
-export type StyleOverrides = { size: Pt | null, align: Align | null, bold: boolean | null, italic: boolean | null, };
+export type StyleOverrides = { size: Pt | null, align: Align | null, bold: boolean | null, italic: boolean | null, 
+/**
+ * A typeface for the whole box, over its style's.
+ */
+font?: string, };

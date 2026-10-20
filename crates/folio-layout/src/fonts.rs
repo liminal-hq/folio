@@ -269,6 +269,17 @@ pub enum FontSource {
     System,
 }
 
+/// An installed font file with what its licence allows, for a book to keep.
+#[derive(Debug, Clone)]
+pub struct KeepableFace {
+    pub family: String,
+    pub weight: u16,
+    pub italic: bool,
+    pub index: u32,
+    pub rights: EmbeddingRights,
+    pub data: Arc<[u8]>,
+}
+
 /// A font file a book keeps with it: what it is called and where its bytes are.
 #[derive(Debug, Clone)]
 pub struct BookFace {
@@ -342,6 +353,45 @@ impl FontBook {
         let mut names: Vec<&str> = BUNDLED.iter().map(|b| b.family).collect();
         names.dedup();
         names
+    }
+
+    /// The installed files of `family`, each with what its licence allows, in weight order. The
+    /// bundled and the book's own fonts are not listed: the first travel with Folio and the second
+    /// are already in the book.
+    pub fn installed_files_of(&self, family: &str) -> Vec<KeepableFace> {
+        let Some(db) = &self.system else {
+            return Vec::new();
+        };
+        let mut files: Vec<KeepableFace> = db
+            .faces()
+            .filter(|f| {
+                f.families
+                    .first()
+                    .is_some_and(|(name, _)| name.eq_ignore_ascii_case(family))
+            })
+            .filter_map(|f| {
+                let (data, index) =
+                    db.with_face_data(f.id, |data, index| (Arc::<[u8]>::from(data), index))?;
+                let face = ttf_parser::Face::parse(&data, index).ok()?;
+                Some(KeepableFace {
+                    family: f.families.first().map(|(n, _)| n.clone())?,
+                    weight: f.weight.0,
+                    italic: f.style != fontdb::Style::Normal,
+                    index,
+                    rights: embedding_rights_of(&face),
+                    data,
+                })
+            })
+            .collect();
+        files.sort_by_key(|f| (f.italic, f.weight));
+        files
+    }
+
+    /// Whether `family` ships with Folio.
+    pub fn is_bundled(family: &str) -> bool {
+        BUNDLED
+            .iter()
+            .any(|b| b.family.eq_ignore_ascii_case(family))
     }
 
     /// Reads the system's fonts again, for fonts installed or removed since the book was made, and

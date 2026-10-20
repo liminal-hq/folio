@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use folio_layout::assets::sniff;
 use folio_layout::preflight::spread_assets;
-use folio_layout::{AssetFact, AssetFacts, BookFace, FontBook, Layouter, StyleSheet};
+use folio_layout::{AssetFact, AssetFacts, BookFace, FontBook, FontSource, Layouter, StyleSheet};
 use folio_model::{BookFont, Intent, SpreadId};
 use folio_package::{Package, SaveOptions};
 use folio_presets::{kind_infos, new_book, suggest_save_path, KindInfo, NewBookSpec};
@@ -21,8 +21,9 @@ use crate::error::Error;
 use crate::recovery::{self, Recovery};
 use crate::spelling::Spelling;
 use crate::wire::{
-    BookSnapshot, BookSpelling, BookSummary, BooksChanged, Misspelling, MisspeltWord, PatchEvent,
-    Recoverable, SpellCheck, SpreadLayoutResult,
+    BookSnapshot, BookSpelling, BookSummary, BooksChanged, FontChoice, FontOrigin, FontSkip,
+    KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, Recoverable, SkippedFont, SpellCheck,
+    SpreadLayoutResult,
 };
 use crate::{CHANGED_EVENT, PATCH_EVENT};
 
@@ -62,6 +63,18 @@ const MAX_LISTED_WORDS: usize = 500;
 
 /// The largest picture file taken in whole.
 const MAX_IMAGE_BYTES: u64 = 100 * 1024 * 1024;
+
+/// The largest font file a book will keep: a family with a bigger one is left to the computer.
+const MAX_KEPT_FONT_BYTES: usize = 32 * 1024 * 1024;
+
+/// The extension a font file should be stored under, from its first bytes.
+fn font_extension(data: &[u8]) -> &'static str {
+    match data.get(..4) {
+        Some(b"OTTO") => "otf",
+        Some(b"ttcf") => "ttc",
+        _ => "ttf",
+    }
+}
 
 struct OpenBook {
     id: String,
@@ -787,6 +800,119 @@ impl<R: Runtime> Books<R> {
             .find(|b| b.id == id)
             .ok_or_else(|| Error::NoSuchBook(id.into()))?;
         Ok(open.package.asset_bytes(asset)?)
+    }
+
+    /// Every family the book can draw in, bundled first, then the book's own, then the computer's,
+    /// each said once and with where it comes from.
+    pub fn font_choices(&self, id: &str) -> Result<Vec<FontChoice>, Error> {
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let layered = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            open.font_book(base)
+        };
+        let fonts = layered.as_deref().unwrap_or(base);
+        let mut seen: Vec<FontChoice> = Vec::new();
+        for face in fonts.faces() {
+            if seen
+                .iter()
+                .any(|c| c.family.eq_ignore_ascii_case(&face.family))
+            {
+                continue;
+            }
+            seen.push(FontChoice {
+                origin: match face.source {
+                    FontSource::Bundled => FontOrigin::Bundled,
+                    FontSource::Book => FontOrigin::Book,
+                    FontSource::System => FontOrigin::System,
+                },
+                family: face.family,
+            });
+        }
+        Ok(seen)
+    }
+
+    /// Keeps the installed fonts of `families` inside the book, so it lays out the same on a
+    /// computer without them (D-30). A font whose licence does not let its file travel, or that is
+    /// too large, is left and reported; the rest are added to the package and the book's list in
+    /// one undo step.
+    pub fn keep_fonts(&self, id: &str, families: &[String]) -> Result<KeepFontsReport, Error> {
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let mut report = KeepFontsReport::default();
+        // Reading the font files is slow and needs no lock.
+        let wanted: Vec<(String, Vec<folio_layout::KeepableFace>)> = families
+            .iter()
+            .filter(|family| !FontBook::is_bundled(family))
+            .map(|family| (family.clone(), base.installed_files_of(family)))
+            .collect();
+        let list = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let mut list = open.session.book().fonts.clone();
+            for (family, files) in wanted {
+                if list.iter().any(|f| f.family.eq_ignore_ascii_case(&family)) {
+                    report.kept.push(family);
+                    continue;
+                }
+                if files.is_empty() {
+                    report.skipped.push(SkippedFont {
+                        family,
+                        reason: FontSkip::NotInstalled,
+                    });
+                    continue;
+                }
+                if files.iter().any(|f| !f.rights.may_keep_with_book()) {
+                    report.skipped.push(SkippedFont {
+                        family,
+                        reason: FontSkip::NotAllowed,
+                    });
+                    continue;
+                }
+                if files.iter().any(|f| f.data.len() > MAX_KEPT_FONT_BYTES) {
+                    report.skipped.push(SkippedFont {
+                        family,
+                        reason: FontSkip::TooLarge,
+                    });
+                    continue;
+                }
+                for file in files {
+                    let path = open
+                        .package
+                        .add_font(file.data.to_vec(), font_extension(&file.data));
+                    list.push(BookFont {
+                        family: file.family,
+                        weight: file.weight,
+                        italic: file.italic,
+                        path,
+                        index: file.index,
+                    });
+                }
+                report.kept.push(family);
+            }
+            list
+        };
+        if list != self.book_fonts(id)? {
+            self.apply(id, Intent::SetFonts { fonts: list })?;
+        }
+        Ok(report)
+    }
+
+    fn book_fonts(&self, id: &str) -> Result<Vec<BookFont>, Error> {
+        let inner = locked(&self.inner);
+        inner
+            .books
+            .iter()
+            .find(|b| b.id == id)
+            .map(|open| open.session.book().fonts.clone())
+            .ok_or_else(|| Error::NoSuchBook(id.into()))
     }
 
     /// Applies an intent to a book, tells every window, and answers with what changed.

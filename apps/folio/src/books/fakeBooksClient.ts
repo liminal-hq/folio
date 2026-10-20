@@ -18,6 +18,7 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
 import { applyPatch } from './applyPatch';
 import type { BooksClient, BooksListener } from './booksClient';
 import cases from './fixtures/patchCases.json';
@@ -114,6 +115,8 @@ export interface FakeBooks {
 	recoveries: Recoverable[];
 	/** The words the fake speller flags, whatever the case; none to begin with. */
 	misspelt: string[];
+	/** The families installed on the fake computer; a test puts some here. */
+	installedFonts: string[];
 }
 
 export function createFakeBooksClient(): FakeBooks {
@@ -123,6 +126,7 @@ export function createFakeBooksClient(): FakeBooks {
 	const refusals = new Map<string, { kind: string; message: string }>();
 	let counter = 0;
 	const misspelt: string[] = [];
+	const installedFonts: string[] = [];
 	const downloaded = new Set<string>();
 	/** Books a crash left changes in; a test puts some here. */
 	const recoveries: Recoverable[] = [];
@@ -489,6 +493,58 @@ export function createFakeBooksClient(): FakeBooks {
 			downloaded.delete(id);
 			return listing();
 		},
+		async listFonts(id) {
+			await call('listFonts', [id]);
+			const kept = new Set(find(id).snapshot.book.fonts?.map((f) => f.family) ?? []);
+			return [
+				...['Literata', 'Source Serif 4', 'Inter', 'Atkinson Hyperlegible'].map((family) => ({
+					family,
+					origin: 'bundled' as const,
+				})),
+				...[...kept].map((family) => ({ family, origin: 'book' as const })),
+				...installedFonts
+					.filter((family) => !kept.has(family))
+					.map((family) => ({ family, origin: 'system' as const })),
+			];
+		},
+		async keepFonts(id, families) {
+			await call('keepFonts', [id, families]);
+			const book = find(id);
+			const report: KeepFontsReport = { kept: [], skipped: [] };
+			const fonts = [...(book.snapshot.book.fonts ?? [])];
+			for (const family of families) {
+				if (fonts.some((f) => f.family === family)) report.kept.push(family);
+				else if (installedFonts.includes(family)) {
+					fonts.push({
+						family,
+						weight: 400,
+						italic: false,
+						path: `assets/fonts/${family.toLowerCase().replace(/\W+/g, '')}.ttf`,
+						index: 0,
+					});
+					report.kept.push(family);
+				} else if (
+					!['Literata', 'Source Serif 4', 'Inter', 'Atkinson Hyperlegible'].includes(family)
+				) {
+					report.skipped.push({ family, reason: 'notInstalled' });
+				}
+			}
+			if (fonts.length !== (book.snapshot.book.fonts?.length ?? 0)) {
+				const revision = book.snapshot.revision + 1;
+				const result: Patch = { revision, ops: [{ op: 'setFonts', fonts }] };
+				book.past += 1;
+				book.snapshot = {
+					...book.snapshot,
+					revision,
+					book: applyPatch(book.snapshot.book, result),
+					canUndo: true,
+					canRedo: false,
+				};
+				const event: PatchEvent = { id, patch: result, canUndo: true, canRedo: false };
+				listeners.forEach((l) => l.onPatch(event));
+			}
+			return report;
+		},
 		async subscribe(listener) {
 			await call('subscribe');
 			listeners.add(listener);
@@ -505,6 +561,7 @@ export function createFakeBooksClient(): FakeBooks {
 		},
 		refuseNext: (name, kind, message) => refusals.set(name, { kind, message }),
 		misspelt,
+		installedFonts,
 		recoveries,
 	};
 }

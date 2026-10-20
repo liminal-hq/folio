@@ -31,6 +31,7 @@ export function withOverrides(
 		align: frame.overrides?.align ?? null,
 		bold: frame.overrides?.bold ?? null,
 		italic: frame.overrides?.italic ?? null,
+		...(frame.overrides?.font ? { font: frame.overrides.font } : {}),
 		...change,
 	};
 }

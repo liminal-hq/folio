@@ -114,6 +114,9 @@ impl StyleSheet {
             if let Some(italic) = o.italic {
                 text.italic = italic;
             }
+            if let Some(font) = &o.font {
+                text.family = font.clone();
+            }
         }
         ResolvedStyle {
             first_indent: def.first_indent.unwrap_or(0.0) * text.size_pt,

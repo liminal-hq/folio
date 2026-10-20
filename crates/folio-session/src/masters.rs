@@ -68,6 +68,7 @@ fn place_number(master: &mut Master, id: &str, x: f64, y: f64, align: Align) {
             align: None,
             bold: None,
             italic: None,
+            font: None,
         });
         overrides.align = Some(align);
     } else {

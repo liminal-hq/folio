@@ -14,8 +14,8 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow};
 use crate::error::Error;
 use crate::state::Books;
 use crate::wire::{
-    BookSnapshot, BookSpelling, BookSummary, DictionaryProgress, DictionaryStatus, Recoverable,
-    SpellCheck, SpreadLayoutResult,
+    BookSnapshot, BookSpelling, BookSummary, DictionaryProgress, DictionaryStatus, FontChoice,
+    KeepFontsReport, Recoverable, SpellCheck, SpreadLayoutResult,
 };
 use crate::DICTIONARY_PROGRESS_EVENT;
 
@@ -300,6 +300,31 @@ pub async fn spell_suggest<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().spell_suggest(&id, &word))
         .await
         .expect("the spelling task does not panic")
+}
+
+/// Every family a book can draw in, and where each comes from.
+#[tauri::command]
+pub async fn list_fonts<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+) -> Result<Vec<FontChoice>, Error> {
+    books.font_choices(&id)
+}
+
+/// Keeps installed fonts inside a book, so it opens the same on a computer without them, and says
+/// which were kept and which could not be.
+#[tauri::command]
+pub async fn keep_fonts<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    families: Vec<String>,
+) -> Result<KeepFontsReport, Error> {
+    // Reading font files is work for a blocking thread, not the async runtime.
+    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().keep_fonts(&id, &families))
+        .await
+        .expect("the font task does not panic")
 }
 
 /// Every dictionary there is, and whether it is in place.

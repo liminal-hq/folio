@@ -333,3 +333,54 @@ describe('the rulers and their guides', () => {
 		});
 	});
 });
+
+describe('the font list', () => {
+	const fonts = [
+		{ family: 'Literata', origin: 'bundled' },
+		{ family: 'Zed Sans', origin: 'system' },
+		{ family: 'Quill Mono', origin: 'book' },
+	] as const;
+
+	it("is live for words, offers the book's fonts and shows the font of the words", () => {
+		expect(editorState(input([image()])).available.has('font')).toBe(false);
+		const state = editorState(
+			input([text({ overrides: { font: 'Zed Sans' } })], { fonts: [...fonts] }),
+		);
+		expect(state.available.has('font')).toBe(true);
+		expect(state.texts.font).toBe('Zed Sans');
+		expect(state.options.font).toEqual([
+			['Literata', 'Literata'],
+			['Zed Sans', 'Zed Sans'],
+			['Quill Mono', 'Quill Mono'],
+		]);
+		expect(editorState(input([text()], { fonts: [...fonts] })).texts.font).toBe('');
+	});
+
+	it('sets the font of the words, and asks to keep an installed one with the book', () => {
+		const frame = text({ overrides: { size: 12, align: null, bold: true, italic: null } });
+		const action = editorAction('font', 'Zed Sans', input([frame], { fonts: [...fonts] }));
+		expect(action).toMatchObject({ kind: 'font', keep: 'Zed Sans' });
+		expect(action?.kind === 'font' && action.intents).toEqual([
+			{
+				type: 'OverrideStyle',
+				frame: 't',
+				overrides: { size: 12, align: null, bold: true, italic: null, font: 'Zed Sans' },
+			},
+		]);
+	});
+
+	it('keeps nothing for a bundled font or one the book already has, and clears with the empty choice', () => {
+		const base = input([text()], { fonts: [...fonts] });
+		expect(editorAction('font', 'Literata', base)).toMatchObject({ keep: null });
+		expect(editorAction('font', 'Quill Mono', base)).toMatchObject({ keep: null });
+		const had = input([text({ overrides: { font: 'Zed Sans' } })], { fonts: [...fonts] });
+		const cleared = editorAction('font', '', had);
+		expect(cleared).toMatchObject({ kind: 'font', keep: null });
+		expect(cleared?.kind === 'font' && cleared.intents[0]).toMatchObject({
+			overrides: { size: null, align: null, bold: null, italic: null },
+		});
+		expect(
+			cleared?.kind === 'font' && 'font' in (cleared.intents[0] as { overrides: object }).overrides,
+		).toBe(false);
+	});
+});
