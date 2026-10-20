@@ -200,6 +200,8 @@ pub enum ExportTarget {
     EbookCover,
     /// A reflowable EPUB for Kindle Direct Publishing.
     KindleEpub,
+    /// A fixed-layout EPUB: every page as laid out, for a picture book.
+    FixedEpub,
     /// A reflowable EPUB for Kobo, and its Kobo flavour (KEPUB).
     KoboEpub,
 }
