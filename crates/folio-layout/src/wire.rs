@@ -63,6 +63,9 @@ pub struct LayoutLine {
     pub width: f64,
     pub height: f64,
     pub runs: Vec<LayoutRun>,
+    /// For a line of a story: the paragraph it is from, so a click on it finds its words.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paragraph: Option<u32>,
 }
 
 /// A rectangle in points, from a frame's top-left.

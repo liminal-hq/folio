@@ -83,4 +83,65 @@ describe('opening a frame of a story', () => {
 		expect(onEditStory).not.toHaveBeenCalled();
 		expect(screen.getByRole('textbox', { name: 'Edit the words' })).toBeInTheDocument();
 	});
+
+	it('edits the paragraph under the click in place when it can', () => {
+		const onEditParagraph = vi.fn();
+		const withFlow = {
+			...book,
+			flows: [
+				{
+					id: 'fl_1',
+					frames: ['f1'],
+					autoAddPages: false,
+					paragraphs: [
+						{ inline: [{ text: 'First words.', style: null, bold: false, italic: false }] },
+						{ inline: [{ text: 'Second words.', style: null, bold: false, italic: false }] },
+					],
+				},
+			],
+		} as unknown as Book;
+		const line = (paragraph: number, top: number) => ({
+			x: 0,
+			top,
+			baseline: top + 10,
+			width: 80,
+			height: 14,
+			paragraph,
+			runs: [],
+		});
+		render(
+			<SpreadCanvas
+				book={withFlow}
+				spread={spread([frame()])}
+				layout={
+					{
+						spread: 's',
+						preflight: [],
+						frames: [
+							{
+								frame: 'f1',
+								overset: false,
+								firstParagraph: 0,
+								lines: [line(0, 0), line(1, 40)],
+							},
+						],
+					} as unknown as SpreadLayout
+				}
+				zoom={1}
+				label="Page"
+				selection={[]}
+				onSelect={() => undefined}
+				onEditText={() => undefined}
+				onEditStory={() => undefined}
+				onEditParagraph={onEditParagraph}
+			/>,
+		);
+		const hit = document.querySelector('[data-hit="f1"]')!;
+		fireEvent.doubleClick(hit);
+		const box = screen.getByRole('textbox', { name: 'Edit the words' });
+		expect(box).toHaveValue('First words.');
+		fireEvent.change(box, { target: { value: 'First words, changed.' } });
+		fireEvent.blur(box);
+		expect(onEditParagraph).toHaveBeenLastCalledWith('fl_1', 0, 'First words, changed.');
+	});
 });
