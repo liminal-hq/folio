@@ -75,6 +75,7 @@ export interface StageProps {
 	onCommand?(command: FrameCommand, ids: string[]): void;
 	onEditText?(id: string, text: string): void;
 	onEditTable?(id: string, edit: TableEdit): void;
+	onEditStory?(flow: string): void;
 	speller?: Speller;
 	onEditingCell?(cell: { row: number; col: number } | null): void;
 	/** A choice from the page menu; `point` is where it was asked for, in points on the spread. */
@@ -111,6 +112,7 @@ export function Stage({
 	onCommand,
 	onEditText,
 	onEditTable,
+	onEditStory,
 	onEditingCell,
 	speller,
 	onPageCommand,
@@ -266,6 +268,7 @@ export function Stage({
 							onCommand={onCommand}
 							onEditText={onEditText}
 							onEditTable={onEditTable}
+							onEditStory={onEditStory}
 							speller={speller}
 							onEditingCell={onEditingCell}
 							onPageMenu={(at, point) => setPageMenu({ at, point })}
