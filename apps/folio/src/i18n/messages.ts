@@ -63,6 +63,45 @@ export const messages = {
 	'bookTools.empty':
 		'The workbenches for structure, typesetting, pictures and publishing will open here.',
 
+	// Check book
+	'preflight.title': 'Check book',
+	'preflight.checking': 'Checking the book…',
+	'preflight.failed': 'The book could not be checked.',
+	'preflight.clear': 'No issues found. Book looks ready to export.',
+	'preflight.again': 'Check again',
+	'preflight.done': 'Done',
+	'preflight.show': 'Show me',
+	'preflight.group.error': 'Waiting on you',
+	'preflight.group.warning': 'Worth a look',
+	'preflight.group.note': 'For your information',
+	'preflight.overset': 'Some words do not fit on {where}',
+	'preflight.overset.fix': 'Add pages, or make the frame bigger.',
+	'preflight.textOutside': 'Words sit outside the margin on {where}',
+	'preflight.textOutside.fix': 'Move them inside the purple lines, or they might get trimmed.',
+	'preflight.bleedShort': 'A picture stops short of the edge on {where}',
+	'preflight.bleedShort.fix':
+		'Stretch it to the pink dashed line so no white sliver shows after trimming.',
+	'preflight.poemLong': 'A line of a poem is too long on {where}',
+	'preflight.poemLong.fix': 'Shorten the line or make the frame wider.',
+	'preflight.pictureMissing': 'A picture on {where} cannot be found',
+	'preflight.pictureMissing.fix': 'Choose the picture again.',
+	'preflight.lowRes': 'A picture on {where} is a little soft',
+	'preflight.lowRes.fix': 'Use a larger file, or make it smaller on the page.',
+	'preflight.veryLowRes': 'A picture on {where} is too small',
+	'preflight.veryLowRes.fix': 'It will print blurry. Use a larger file.',
+	'preflight.bleedNeeded': 'A background on {where} may show a white edge',
+	'preflight.bleedNeeded.fix': 'Give the book a bleed so the colour runs past the trim.',
+	'preflight.fontMissing': '{family} is not on this computer or in the book',
+	'preflight.fontMissing.fix':
+		'Pages are set in a stand-in and will break differently. Install the font, or pick another.',
+	'preflight.placeholder': 'A picture frame on {where} is still empty',
+	'preflight.placeholder.many': '{count} picture frames are still empty',
+	'preflight.placeholder.fix':
+		'Drop the final artwork onto the frame. Export leaves a tinted box otherwise.',
+	'preflight.altMissing': 'A picture on {where} has no description',
+	'preflight.altMissing.many': '{count} pictures have no description',
+	'preflight.altMissing.fix': 'Add a short description so screen readers can share it.',
+
 	// Preferences
 	'preferences.section.interface': 'Interface',
 	'preferences.section.appearance': 'Appearance',
