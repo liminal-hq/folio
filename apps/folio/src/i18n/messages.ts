@@ -107,6 +107,9 @@ export const messages = {
 	'preflight.swatchMissing': 'A colour on {where} refers to {family}, which is not in the book',
 	'preflight.swatchMissing.fix':
 		'It is drawn as grey. Add the swatch again, or choose another colour.',
+	'preflight.richBlack': 'Small words on {where} are set in {family}, a black made of several inks',
+	'preflight.richBlack.fix':
+		'The plates can sit a hair apart and fringe small letters. Use a black that is only the black plate for text under about 12 points.',
 	'preflight.placeholder': 'A picture frame on {where} is still empty',
 	'preflight.placeholder.many': '{count} picture frames are still empty',
 	'preflight.placeholder.fix':

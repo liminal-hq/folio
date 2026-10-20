@@ -1775,3 +1775,45 @@ fn a_swatch_that_is_missing_or_lays_down_too_much_ink_is_reported_once_for_the_s
     // 240% in all is within what a press holds.
     assert!(kinds(3).is_empty());
 }
+
+#[test]
+fn small_words_in_a_rich_black_are_warned_about_and_large_ones_are_not() {
+    use folio_layout::wire::PreflightKind;
+    use folio_model::{BookSwatch, Colour, Ink, StyleDef, SwatchId};
+    let (mut book, styles) = sample(BookKind::Novel);
+    book.styles.swatches = vec![BookSwatch {
+        id: SwatchId("rich".into()),
+        name: "Rich black".into(),
+        display: Colour("#000000".into()),
+        ink: Some(Ink {
+            c: 60,
+            m: 40,
+            y: 40,
+            k: 100,
+        }),
+    }];
+    let small = text_frame("small", "body", 20.0, 20.0, 200.0, 40.0, "Fine print");
+    let big = text_frame("big", "body", 20.0, 80.0, 200.0, 40.0, "Heading");
+    let put = |frame: Frame, size: f64, book: &mut Book| {
+        let Frame::Text(mut t) = frame else {
+            unreachable!()
+        };
+        let style = format!("s{size}");
+        t.style = StyleId(style.clone());
+        let mut def = StyleDef::default();
+        def.size_pt = Some(size);
+        def.colour = Some(Colour("swatch:rich".into()));
+        book.styles.styles.insert(style, def);
+        book.spreads[1].frames.push(Frame::Text(t));
+    };
+    put(small, 9.0, &mut book);
+    put(big, 24.0, &mut book);
+    let found: Vec<_> = lay(&book, &styles, 1)
+        .preflight
+        .into_iter()
+        .filter(|i| i.kind == PreflightKind::RichBlackSmallText)
+        .collect();
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].family.as_deref(), Some("Rich black"));
+    assert_eq!(found[0].frame.as_ref().map(|f| f.0.as_str()), Some("small"));
+}

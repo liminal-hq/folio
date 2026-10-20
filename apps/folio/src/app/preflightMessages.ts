@@ -20,6 +20,7 @@ const KEYS: Record<PreflightKind, string> = {
 	missingGlyphs: 'missingGlyphs',
 	inkOverLimit: 'inkOver',
 	swatchMissing: 'swatchMissing',
+	richBlackSmallText: 'richBlack',
 	picturePlaceholder: 'placeholder',
 	altMissing: 'altMissing',
 };
