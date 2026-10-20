@@ -234,6 +234,8 @@ impl Builder<'_> {
                     style: None,
                     bold: false,
                     italic: false,
+                    font: None,
+                    colour: None,
                 }],
             }),
             flow: None,

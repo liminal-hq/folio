@@ -85,6 +85,7 @@ impl StyleSheet {
         };
         let mut text = TextStyle::new(family, size);
         text.weight = def.weight.unwrap_or(400);
+        text.colour = def.colour.clone();
         text.italic = def.italic;
         text.tracking_em = def.tracking.unwrap_or(0.0);
         text.line_height = def.line_height.unwrap_or(DEFAULT_LINE_HEIGHT);
