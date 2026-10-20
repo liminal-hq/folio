@@ -22,6 +22,7 @@ import { shelfIntent } from '../canvas/shelfMenu';
 import { guideIntents } from '../canvas/guides';
 import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../canvas/marksModel';
 import { keepWords } from '../canvas/editCheckpoint';
+import { CheckBookDialog } from './CheckBookDialog';
 import { PageBackgroundDialog } from '../canvas/PageBackgroundDialog';
 import { Stage, type ZoomApi } from '../canvas/Stage';
 import type { Speller } from '../canvas/TextEditor';
@@ -309,6 +310,15 @@ export function BookView({
 		} else setEditing(named);
 	};
 
+	// The Check book dialog, and the frame to select once "Show me" has gone to its spread.
+	const [checking, setChecking] = useState(false);
+	const [reveal, setReveal] = useState<{ spread: string; frame: string } | null>(null);
+	useEffect(() => {
+		if (reveal && spread?.id === reveal.spread) {
+			select([reveal.frame]);
+			setReveal(null);
+		}
+	});
 	// The page background dialog: which page it was asked about, and the palette it offers.
 	const [background, setBackground] = useState<{ page: number | null; scope?: string } | null>(
 		null,
@@ -438,6 +448,9 @@ export function BookView({
 				break;
 			case 'pageBackground':
 				setBackground({ page: null });
+				break;
+			case 'checkBook':
+				setChecking(true);
 				break;
 			case 'editMaster': {
 				if (editing !== null) setEditing(null);
@@ -703,6 +716,20 @@ export function BookView({
 					apply({ type: 'MoveSpread', spread: moved.id, to });
 					// Nothing goes in front of a cover, and the selection follows the spread.
 					setSpreadIndex(Math.max(book.spreads[0]?.kind === 'cover' ? 1 : 0, to));
+				}}
+			/>
+			<CheckBookDialog
+				open={checking}
+				onClose={() => setChecking(false)}
+				client={client}
+				id={id}
+				book={book}
+				labels={labels}
+				onShow={(at, frame) => {
+					if (master !== null) setEditing(null);
+					setSpreadIndex(at);
+					const target = book.spreads[at];
+					if (frame && target) setReveal({ spread: target.id, frame });
 				}}
 			/>
 			<PageBackgroundDialog

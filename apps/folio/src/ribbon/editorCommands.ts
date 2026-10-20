@@ -61,6 +61,7 @@ export type EditorAction =
 	| { kind: 'choosePicture'; frame: string }
 	| { kind: 'stretch'; frame: string }
 	| { kind: 'fit'; frame: string; fit: 'fill' | 'fit' }
+	| { kind: 'checkBook' }
 	| { kind: 'editMaster' }
 	| { kind: 'pageBackground' };
 
@@ -126,6 +127,7 @@ export function editorState(input: EditorInput): EditorState {
 	}
 	if (input.master) active.master = true;
 	available.add('master');
+	available.add('preflight');
 	// A master page has no spread to paint; its background is set from the pages that use it.
 	if (!input.master) available.add('pageBg');
 	if (selected.length > 0) available.add('lock');
@@ -187,6 +189,8 @@ export function editorAction(
 	const { spread, selected } = input;
 	const on = { on: surfaceOf(spread) };
 	switch (id) {
+		case 'preflight':
+			return { kind: 'checkBook' };
 		case 'text':
 			return { kind: 'add', shape: 'text' };
 		case 'image':

@@ -384,3 +384,10 @@ describe('the font list', () => {
 		).toBe(false);
 	});
 });
+
+describe('the Check book button', () => {
+	it('is always available and asks for the dialog', () => {
+		expect(editorState(input()).available.has('preflight')).toBe(true);
+		expect(editorAction('preflight', undefined, input())).toEqual({ kind: 'checkBook' });
+	});
+});
