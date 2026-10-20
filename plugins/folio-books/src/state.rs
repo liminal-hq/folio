@@ -1400,9 +1400,58 @@ impl<R: Runtime> Books<R> {
 
     /// Applies an intent to a book, tells every window, and answers with what changed.
     pub fn apply(&self, id: &str, intent: Intent) -> Result<Patch, Error> {
+        // A change to a story may leave it with more words than its frames have room for.
+        let refit = changes_a_story(&intent);
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let layered = if refit {
+            let mut inner = locked(&self.inner);
+            inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .and_then(|open| open.font_book(base))
+        } else {
+            None
+        };
         self.change(
             id,
-            |session| session.apply(intent).map_err(Error::from),
+            |session| {
+                let depth = session.undo_depth();
+                let mut patch = session.apply(intent)?;
+                if !refit {
+                    return Ok(patch);
+                }
+                let user_step = session.undo_depth() > depth;
+                let after_user = session.undo_depth();
+                let styles = style_sheet(&session.book().styles);
+                let fonts = layered.as_deref().unwrap_or(base);
+                let flows: Vec<folio_model::FlowId> = session
+                    .book()
+                    .flows
+                    .iter()
+                    .filter(|f| f.auto_add_pages)
+                    .map(|f| f.id.clone())
+                    .collect();
+                for flow in flows {
+                    let needed = Layouter::new(session.book(), &styles, fonts)
+                        .frames_needed(&flow)
+                        .map_err(Error::from)?;
+                    if needed > 0 {
+                        let more = session.apply(Intent::AddFlowPages {
+                            flow,
+                            count: needed,
+                        })?;
+                        patch.ops.extend(more.ops);
+                        patch.revision = more.revision;
+                    }
+                }
+                // The pages added for the change are taken back with it.
+                let added = session.undo_depth() - after_user;
+                if user_step && added > 0 {
+                    session.join_last(added + 1);
+                }
+                Ok(patch)
+            },
             |patch: &Patch| Some(patch),
         )
     }
@@ -1477,4 +1526,22 @@ impl<R: Runtime> Books<R> {
 fn style_sheet(styles: &folio_model::Styles) -> StyleSheet {
     StyleSheet::from_styles(styles)
         .with_fallback(&StyleSheet::from_styles(&folio_presets::preset_styles()))
+}
+
+/// Whether an intent can change how much room a story needs: its words, their styles, or the frames
+/// they run through.
+fn changes_a_story(intent: &Intent) -> bool {
+    matches!(
+        intent,
+        Intent::SetParagraphText { .. }
+            | Intent::SpliceStory { .. }
+            | Intent::SplitParagraph { .. }
+            | Intent::JoinParagraphs { .. }
+            | Intent::StyleParagraphs { .. }
+            | Intent::StyleStoryRange { .. }
+            | Intent::LinkFrame { .. }
+            | Intent::UnlinkFrame { .. }
+            | Intent::SetStyle { .. }
+            | Intent::OverrideStyle { .. }
+    )
 }

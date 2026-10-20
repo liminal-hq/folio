@@ -220,6 +220,13 @@ pub enum Intent {
         end: u32,
         change: RunChange,
     },
+    /// Adds `count` frames like the last one of a flow, each after the one before it, on the next
+    /// pages: the other page of the same spread when it is free, new spreads otherwise. One undo
+    /// step. It is what a story that has outgrown its frames asks for.
+    AddFlowPages {
+        flow: FlowId,
+        count: usize,
+    },
     /// Chains the text frame `frame` after the text frame `to`, so the words that run out of `to`
     /// continue in it. `to` starts a flow when it was not in one, taking its words as the story;
     /// the words `frame` held are added to the end of the story.
