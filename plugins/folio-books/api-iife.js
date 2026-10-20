@@ -116,6 +116,14 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function onDictionaryProgress(listener) {
         return event.listen(DICTIONARY_PROGRESS_EVENT, (e) => listener(e.payload));
     }
+    /** Makes the files for `targets` and writes them into the book's `exports` folder. */
+    function exportBook(id, targets) {
+        return cmd('export_book', { id, targets });
+    }
+    /** Shows a file in the system's file manager. */
+    function revealPath(path) {
+        return cmd('reveal_path', { path });
+    }
     /** What preflight finds in the whole book, the issues that wait on the person first. */
     function preflightBook(id) {
         return cmd('preflight_book', { id });
@@ -172,6 +180,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.dictionaries = dictionaries;
     exports.discardRecovered = discardRecovered;
     exports.downloadDictionary = downloadDictionary;
+    exports.exportBook = exportBook;
     exports.getStatus = getStatus;
     exports.historyMark = historyMark;
     exports.importImage = importImage;
@@ -192,6 +201,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.redo = redo;
     exports.removeDictionary = removeDictionary;
     exports.restoreBook = restoreBook;
+    exports.revealPath = revealPath;
     exports.rewindHistory = rewindHistory;
     exports.saveBook = saveBook;
     exports.snapshot = snapshot;

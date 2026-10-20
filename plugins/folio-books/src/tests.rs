@@ -1094,3 +1094,56 @@ fn preflight_gathers_the_whole_book_with_what_waits_on_the_person_first() {
     assert_eq!(severities, sorted, "errors, then warnings, then notes");
     assert!(books(&app).preflight("nope").is_err());
 }
+
+#[test]
+fn exporting_writes_each_target_into_an_exports_folder_beside_the_saved_book() {
+    use crate::wire::ExportTarget;
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("Otter").join("Otter.folio");
+    books(&app).save(&id, Some(file.as_path())).unwrap();
+
+    let report = books(&app)
+        .export(&id, &[ExportTarget::SharingPdf, ExportTarget::KdpInterior])
+        .unwrap();
+    let folder = dir.path().join("Otter").join("exports");
+    assert_eq!(std::path::Path::new(&report.folder), folder);
+    assert_eq!(report.files.len(), 2);
+    let names: Vec<String> = report
+        .files
+        .iter()
+        .map(|f| {
+            std::path::Path::new(&f.path)
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "the-otter-who-couldnt-sleep-share.pdf",
+            "the-otter-who-couldnt-sleep-paperback-interior.pdf"
+        ]
+    );
+    for file in &report.files {
+        let bytes = std::fs::read(&file.path).unwrap();
+        assert!(bytes.starts_with(b"%PDF-"));
+        assert_eq!(bytes.len() as u32, file.bytes);
+    }
+    // No half-written file is left behind.
+    assert!(std::fs::read_dir(&folder).unwrap().all(|e| !e
+        .unwrap()
+        .file_name()
+        .to_string_lossy()
+        .ends_with(".partial")));
+    assert!(books(&app)
+        .export("nope", &[ExportTarget::SharingPdf])
+        .is_err());
+}

@@ -7,6 +7,8 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
+import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
 import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
@@ -22,6 +24,8 @@ import {
 	removeDictionary,
 	onDictionaryProgress,
 	importImage,
+	exportBook,
+	revealPath,
 	preflightBook,
 	keepFonts,
 	listFonts,
@@ -105,6 +109,10 @@ export interface BooksClient {
 	spellCheckBook(id: string, personal?: string[]): Promise<BookSpelling>;
 	/** Corrections for a word, best first. */
 	spellSuggest(id: string, word: string): Promise<string[]>;
+	/** Makes the files for `targets` and writes them into the book's `exports` folder. */
+	exportBook(id: string, targets: ExportTarget[]): Promise<ExportReport>;
+	/** Shows a file in the system's file manager. */
+	revealPath(path: string): Promise<void>;
 	/** What preflight finds in the whole book, the issues that wait on the person first. */
 	preflightBook(id: string): Promise<PreflightItem[]>;
 	/** Every family the book can draw in, and where each comes from. */
@@ -149,6 +157,8 @@ export const tauriBooksClient: BooksClient = {
 	spellCheck,
 	spellCheckBook,
 	spellSuggest,
+	exportBook,
+	revealPath,
 	preflightBook,
 	listFonts,
 	keepFonts,

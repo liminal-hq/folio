@@ -30,6 +30,8 @@ const COMMANDS: &[&str] = &[
     "spell_check",
     "spell_suggest",
     "spell_check_book",
+    "export_book",
+    "reveal_path",
     "preflight_book",
     "list_fonts",
     "keep_fonts",

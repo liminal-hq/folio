@@ -31,6 +31,8 @@ Files land in `~/Books/<Title>/exports/` by default (Documents\Books on Windows)
 
 KEPUB is EPUB plus `<span class="koboSpan" id="kobo.N.M">` around sentences, plus a `kobo.js`-free stylesheet. The file extension is `.kepub.epub`. It's generated from the same XHTML in a post-pass.
 
+**Built so far:** the Export tab's **Export book** opens a dialog with the Sharing PDF and the KDP paperback interior (the others are still to come); it says how many things are waiting on you with a way to check the book first, makes the chosen files in the book's `exports` folder (beside its file, or in its folder under `Books` before it is saved), lists them with their sizes and **Show in folder**. **Quick PDF** makes the Sharing PDF at once. File names follow `<slug>-share.pdf` and `<slug>-paperback-interior.pdf`. Pictures, fonts kept in the book and the page scene (D-29) are what it draws; bleed, crop marks, PDF/X and the cover are still to come.
+
 ## PDF writer
 
 - `pdf-writer` + `subsetter` for font subsetting, with the full glyph set for PDF/X.
