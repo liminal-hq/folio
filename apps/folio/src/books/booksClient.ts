@@ -11,6 +11,7 @@ import type { ProofPage } from '@liminal-hq/folio-protocol/generated/ProofPage';
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
 import type { ExportColour } from '@liminal-hq/folio-protocol/generated/ExportColour';
 import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
+import type { CoverSheetPreview } from '@liminal-hq/folio-protocol/generated/CoverSheetPreview';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
 import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
 import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
@@ -124,7 +125,7 @@ export interface BooksClient {
 	/** The book as an e-reader would show it, from the same chapters and CSS the EPUB ships. */
 	readerPreview(id: string): Promise<ReaderPreview>;
 	/** The paperback cover sheet as the exporter would make it, or `null` with no cover. */
-	previewCoverSheet(id: string): Promise<string | null>;
+	previewCoverSheet(id: string): Promise<CoverSheetPreview | null>;
 	/** A spread as a press would print it, through the CMYK ICC profile at `profile`. */
 	proofSpread(id: string, spread: string, profile: string): Promise<ProofPage[]>;
 	/** Hears which file an export has reached. */

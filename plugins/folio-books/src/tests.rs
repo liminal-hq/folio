@@ -1404,7 +1404,9 @@ fn the_cover_sheet_is_drawn_wide_and_changes_with_the_paper() {
         .summary
         .id;
     let white = books(&app).preview_cover_sheet(&id).unwrap().unwrap();
-    assert!(white.starts_with("data:image/png;base64,"));
+    assert!(white.image.starts_with("data:image/png;base64,"));
+    assert!(white.width > white.cover * 2.0 + white.spine);
+    assert!(white.barcode.w.0 > 100.0);
     books(&app)
         .apply(
             &id,
@@ -1414,5 +1416,9 @@ fn the_cover_sheet_is_drawn_wide_and_changes_with_the_paper() {
         )
         .unwrap();
     let cream = books(&app).preview_cover_sheet(&id).unwrap().unwrap();
-    assert_ne!(white, cream, "a thicker spine draws differently");
+    assert_ne!(
+        white.image, cream.image,
+        "a thicker spine draws differently"
+    );
+    assert!(cream.spine > white.spine);
 }
