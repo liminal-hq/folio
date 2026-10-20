@@ -133,5 +133,10 @@ describe('CoverSheetDialog', () => {
 		await userEvent.type(screen.getByRole('spinbutton', { name: 'Size in points' }), '9');
 		await userEvent.tab();
 		expect(onNotes).toHaveBeenLastCalledWith([{ ...note, size: 9 }]);
+		const width = screen.getByRole('spinbutton', { name: 'Box width in points' });
+		await userEvent.clear(width);
+		await userEvent.type(width, '150');
+		await userEvent.tab();
+		expect(onNotes).toHaveBeenLastCalledWith([{ ...note, rect: { ...note.rect, w: 150 } }]);
 	});
 });

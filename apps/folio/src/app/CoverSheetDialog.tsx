@@ -45,9 +45,7 @@ export function CoverSheetDialog({
 	const [dragging, setDragging] = useState<{ id: string; x: number; y: number } | null>(null);
 	const current = notes.find((n) => n.id === chosen) ?? null;
 	const [draft, setDraft] = useState('');
-	const [sizeDraft, setSizeDraft] = useState('');
 	useEffect(() => setDraft(current?.text ?? ''), [current?.id, current?.text]);
-	useEffect(() => setSizeDraft(String(current?.size ?? '')), [current?.id, current?.size]);
 	const change = (id: string, patch: Partial<BackNote>) =>
 		onNotes(notes.map((n) => (n.id === id ? { ...n, ...patch } : n)));
 	const addNote = (sheet: CoverSheetPreview) => {
@@ -173,21 +171,30 @@ export function CoverSheetDialog({
 									onBlur={() => draft !== current.text && change(current.id, { text: draft })}
 								/>
 							</label>
-							<label className={styles.field}>
-								<span>{t('coverSheet.noteSize')}</span>
-								<input
-									type="number"
-									min={6}
-									max={72}
-									value={sizeDraft}
-									onChange={(event) => setSizeDraft(event.target.value)}
-									onBlur={() => {
-										const size = Math.min(72, Math.max(6, Number(sizeDraft) || current.size));
-										setSizeDraft(String(size));
-										if (size !== current.size) change(current.id, { size });
-									}}
-								/>
-							</label>
+							<PointsField
+								label={t('coverSheet.noteSize')}
+								value={current.size}
+								min={6}
+								max={72}
+								onCommit={(size) => change(current.id, { size })}
+							/>
+							<PointsField
+								label={t('coverSheet.noteWidth')}
+								value={current.rect.w}
+								min={20}
+								max={Math.max(20, (picture?.cover ?? 400) - current.rect.x)}
+								onCommit={(w) => change(current.id, { rect: { ...current.rect, w } })}
+							/>
+							<PointsField
+								label={t('coverSheet.noteHeight')}
+								value={current.rect.h}
+								min={10}
+								max={Math.max(
+									10,
+									(picture ? picture.height - 2 * picture.edge : 600) - current.rect.y,
+								)}
+								onCommit={(h) => change(current.id, { rect: { ...current.rect, h } })}
+							/>
 							<DialogButton
 								onClick={() => {
 									onNotes(notes.filter((n) => n.id !== current.id));
@@ -234,6 +241,41 @@ export function CoverSheetDialog({
 				</div>
 			)}
 		</Dialog>
+	);
+}
+
+/** A number of points, edited as typed and kept (within its limits) when the field is left. */
+function PointsField({
+	label,
+	value,
+	min,
+	max,
+	onCommit,
+}: {
+	label: string;
+	value: number;
+	min: number;
+	max: number;
+	onCommit(value: number): void;
+}) {
+	const [draft, setDraft] = useState(String(value));
+	useEffect(() => setDraft(String(value)), [value]);
+	return (
+		<label className={styles.field}>
+			<span>{label}</span>
+			<input
+				type="number"
+				min={min}
+				max={max}
+				value={draft}
+				onChange={(event) => setDraft(event.target.value)}
+				onBlur={() => {
+					const next = Math.round(Math.min(max, Math.max(min, Number(draft) || value)));
+					setDraft(String(next));
+					if (next !== value) onCommit(next);
+				}}
+			/>
+		</label>
 	);
 }
 
