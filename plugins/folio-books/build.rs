@@ -33,6 +33,7 @@ const COMMANDS: &[&str] = &[
     "reader_preview",
     "proof_spread",
     "export_book",
+    "cancel_export",
     "reveal_path",
     "preflight_book",
     "fonts_in_use",

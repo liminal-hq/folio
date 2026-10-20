@@ -13,6 +13,7 @@ import type { DictionaryOffer } from '@liminal-hq/folio-protocol/generated/Dicti
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import type { ExportColour } from '@liminal-hq/folio-protocol/generated/ExportColour';
+import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
 import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
 import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
@@ -190,6 +191,18 @@ export function onPatch(listener: (event: PatchEvent) => void): Promise<Unlisten
 /** Hears when books open, close, save or become changed or clean. */
 export function onBooksChanged(listener: (event: BooksChanged) => void): Promise<UnlistenFn> {
 	return listen<BooksChanged>(CHANGED_EVENT, (e) => listener(e.payload));
+}
+
+export const EXPORT_PROGRESS_EVENT = 'folio-books://export-progress';
+
+/** Hears which file an export has reached. */
+export function onExportProgress(listener: (event: ExportProgress) => void): Promise<UnlistenFn> {
+	return listen<ExportProgress>(EXPORT_PROGRESS_EVENT, (e) => listener(e.payload));
+}
+
+/** Stops the export in progress after the file it is making; what was made is kept. */
+export function cancelExport(): Promise<void> {
+	return cmd<void>('cancel_export');
 }
 
 /** Hears how far a dictionary download has got. */

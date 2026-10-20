@@ -160,3 +160,14 @@
 	color: inherit;
 	font: inherit;
 }
+
+.progress {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin: 0 0 12px;
+	padding: 8px 12px;
+	border-radius: 8px;
+	background: var(--folio-bg-raised);
+}

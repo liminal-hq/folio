@@ -5,6 +5,7 @@
 
 import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
+import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
 import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
 import { useEffect, useRef, useState } from 'react';
@@ -12,6 +13,9 @@ import type { BooksClient } from '../books/booksClient';
 import { t } from '../i18n/messages';
 import styles from './ExportDialog.module.css';
 import { EXPORT_TARGETS } from './exportTargets';
+
+const targetName = (id: ExportTarget) =>
+	EXPORT_TARGETS.find((target) => target.id === id)?.name ?? 'export.title';
 
 interface ExportDialogProps {
 	open: boolean;
@@ -50,12 +54,14 @@ export function ExportDialog({
 	const [waiting, setWaiting] = useState<number | null>(null);
 	const started = useRef(false);
 
+	const [reached, setReached] = useState<ExportProgress | null>(null);
 	const [cmyk, setCmyk] = useState(false);
 	const [profile, setProfile] = useState('');
 
 	const run = (targets: ExportTarget[]) => {
 		if (targets.length === 0) return;
 		setStage({ kind: 'working' });
+		setReached(null);
 		client
 			.exportBook(
 				id,
@@ -73,6 +79,23 @@ export function ExportDialog({
 				}),
 			);
 	};
+
+	// Which file the export has reached, while it works.
+	useEffect(() => {
+		if (!open) return;
+		let off: (() => void) | undefined;
+		let live = true;
+		void client
+			.onExportProgress((progress) => live && setReached(progress))
+			.then((unlisten) => {
+				if (live) off = unlisten;
+				else unlisten();
+			});
+		return () => {
+			live = false;
+			off?.();
+		};
+	}, [open, client]);
 
 	useEffect(() => {
 		if (!open) {
@@ -145,6 +168,22 @@ export function ExportDialog({
 					</button>
 				</p>
 			)}
+			{stage.kind === 'working' && (
+				<div className={styles.progress} role="status">
+					<span>
+						{reached
+							? t('export.progress', {
+									done: reached.done + 1,
+									total: reached.total,
+									name: t(targetName(reached.target)),
+								})
+							: t('export.working')}
+					</span>
+					<button type="button" className={styles.link} onClick={() => void client.cancelExport()}>
+						{t('export.stop')}
+					</button>
+				</div>
+			)}
 			{stage.kind === 'failed' && (
 				<p role="alert" className={styles.error}>
 					{t('export.failed', { message: stage.message })}
@@ -152,7 +191,11 @@ export function ExportDialog({
 			)}
 			{stage.kind === 'done' ? (
 				<section aria-label={t('export.files')}>
-					<p className={styles.ok}>{t('export.made', { count: stage.report.files.length })}</p>
+					<p className={styles.ok}>
+						{stage.report.cancelled
+							? t('export.stopped', { count: stage.report.files.length })
+							: t('export.made', { count: stage.report.files.length })}
+					</p>
 					<ul className={styles.files}>
 						{stage.report.files.map((file) => (
 							<li key={file.path} className={styles.file}>

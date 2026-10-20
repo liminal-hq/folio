@@ -32,6 +32,9 @@ pub const CHANGED_EVENT: &str = "folio-books://changed";
 /// Sent to every window while a dictionary downloads: how much has arrived.
 pub const DICTIONARY_PROGRESS_EVENT: &str = "folio-books://dictionary-progress";
 
+/// Sent to every window while an export runs: which file it has reached.
+pub const EXPORT_PROGRESS_EVENT: &str = "folio-books://export-progress";
+
 /// Registers the plugin.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("folio-books")
@@ -65,6 +68,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::reader_preview,
             commands::proof_spread,
             commands::export_book,
+            commands::cancel_export,
             commands::reveal_path,
             commands::preflight_book,
             commands::fonts_in_use,

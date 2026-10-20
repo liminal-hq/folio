@@ -112,6 +112,15 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function onBooksChanged(listener) {
         return event.listen(CHANGED_EVENT, (e) => listener(e.payload));
     }
+    const EXPORT_PROGRESS_EVENT = 'folio-books://export-progress';
+    /** Hears which file an export has reached. */
+    function onExportProgress(listener) {
+        return event.listen(EXPORT_PROGRESS_EVENT, (e) => listener(e.payload));
+    }
+    /** Stops the export in progress after the file it is making; what was made is kept. */
+    function cancelExport() {
+        return cmd('cancel_export');
+    }
     /** Hears how far a dictionary download has got. */
     function onDictionaryProgress(listener) {
         return event.listen(DICTIONARY_PROGRESS_EVENT, (e) => listener(e.payload));
@@ -187,10 +196,12 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
 
     exports.CHANGED_EVENT = CHANGED_EVENT;
     exports.DICTIONARY_PROGRESS_EVENT = DICTIONARY_PROGRESS_EVENT;
+    exports.EXPORT_PROGRESS_EVENT = EXPORT_PROGRESS_EVENT;
     exports.PATCH_EVENT = PATCH_EVENT;
     exports.applyIntent = applyIntent;
     exports.assetData = assetData;
     exports.autosaveBooks = autosaveBooks;
+    exports.cancelExport = cancelExport;
     exports.closeBook = closeBook;
     exports.defaultSavePath = defaultSavePath;
     exports.dictionaries = dictionaries;
@@ -209,6 +220,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.newBook = newBook;
     exports.onBooksChanged = onBooksChanged;
     exports.onDictionaryProgress = onDictionaryProgress;
+    exports.onExportProgress = onExportProgress;
     exports.onPatch = onPatch;
     exports.openBook = openBook;
     exports.paintPresets = paintPresets;
