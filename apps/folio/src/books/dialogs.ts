@@ -23,7 +23,10 @@ const IMAGE_FILTERS = [
 ];
 
 const TEXT_FILTERS = [
-	{ name: 'Word, Markdown and text', extensions: ['docx', 'md', 'markdown', 'txt'] },
+	{
+		name: 'Word, OpenDocument, Markdown and text',
+		extensions: ['docx', 'odt', 'md', 'markdown', 'txt'],
+	},
 ];
 
 export const tauriFileDialogs: FileDialogs = {
