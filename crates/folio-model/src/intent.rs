@@ -193,6 +193,18 @@ pub enum Intent {
         para: usize,
         text: String,
     },
+    /// Splits a paragraph of a flow's story at character `at`: Enter in the middle of its words. The
+    /// new paragraph after it has the same style, and both keep the look of their words.
+    SplitParagraph {
+        flow: FlowId,
+        para: usize,
+        at: usize,
+    },
+    /// Joins a paragraph of a flow's story to the one after it: Backspace at the start of that one.
+    JoinParagraphs {
+        flow: FlowId,
+        para: usize,
+    },
     /// Replaces `remove` paragraphs of a flow's story from place `at` with `insert`: Enter, Backspace
     /// across paragraphs, paste and deleting a stretch of paragraphs are all this. One undo step.
     SpliceStory {

@@ -57,6 +57,8 @@ export interface InspectorProps {
 	linking?: string | null;
 	/** Starts, or with `null` cancels, choosing the frame the words continue in. */
 	onLink?(frame: string | null): void;
+	/** Opens the story of a flow in the story editor. */
+	onEditStory?(flow: string): void;
 }
 
 const MARK_ROWS: { key: keyof Marks; label: string }[] = [
@@ -403,6 +405,17 @@ function TextSection({ frame, props }: { frame: TextFrame; props: InspectorProps
 				/>
 			</label>
 			{frame.flow != null && <p className={styles.note}>{t('inspector.words.flow')}</p>}
+			{frame.flow != null && props.onEditStory && (
+				<div className={styles.field}>
+					<button
+						type="button"
+						className={styles.chip}
+						onClick={() => props.onEditStory?.(frame.flow!.id)}
+					>
+						{t('inspector.flow.edit')}
+					</button>
+				</div>
+			)}
 			{props.mode === 'expert' && props.onLink && !frame.locked && (
 				<div className={styles.field}>
 					{frame.flow != null ? (
