@@ -133,6 +133,9 @@ pub enum PreflightKind {
     PicturePlaceholder,
     /// A picture has no description for screen readers.
     AltMissing,
+    /// Words use characters no font Folio has covers, so they are drawn as empty boxes. The item's
+    /// `chars` names them.
+    MissingGlyphs,
 }
 
 /// How much an issue matters: an error waits on the person, a warning is worth a look and a note
@@ -155,6 +158,7 @@ impl PreflightKind {
             | Self::VeryLowResolution
             | Self::PicturePlaceholder => Severity::Error,
             Self::AltMissing => Severity::Note,
+            Self::MissingGlyphs => Severity::Warning,
             Self::TextOutsideMargin
             | Self::PictureShortOfBleed
             | Self::PoemLineTooLong
@@ -181,6 +185,9 @@ pub struct PreflightItem {
     /// The typeface at fault, for a missing font.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub family: Option<String>,
+    /// The characters at fault, for words no font covers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chars: Option<String>,
     /// What names this issue (see `compute_key`); set when a whole book is checked.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub key: String,
@@ -204,11 +211,12 @@ impl PreflightItem {
             .or(self.page.as_ref().map(|p| p.0.as_str()))
             .unwrap_or("");
         format!(
-            "{:?}:{}:{}:{}",
+            "{:?}:{}:{}:{}{}",
             self.kind,
             self.spread.0,
             at,
-            self.family.as_deref().unwrap_or("")
+            self.family.as_deref().unwrap_or(""),
+            self.chars.as_deref().unwrap_or("")
         )
     }
 
@@ -221,6 +229,7 @@ impl PreflightItem {
             frame: Some(frame.clone()),
             page: None,
             family: None,
+            chars: None,
             key: String::new(),
             ignored: false,
         }
@@ -235,8 +244,17 @@ impl PreflightItem {
             frame: None,
             page: Some(page.clone()),
             family: None,
+            chars: None,
             key: String::new(),
             ignored: false,
+        }
+    }
+
+    /// A frame of `spread` whose words use `chars`, which no font covers.
+    pub fn missing_glyphs(spread: &SpreadId, frame: &FrameId, chars: &str) -> Self {
+        Self {
+            chars: Some(chars.to_owned()),
+            ..Self::of_frame(PreflightKind::MissingGlyphs, spread, frame)
         }
     }
 

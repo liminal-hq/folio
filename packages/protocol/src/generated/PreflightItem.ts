@@ -19,6 +19,10 @@ page?: PageId | null,
  */
 family?: string | null, 
 /**
+ * The characters at fault, for words no font covers.
+ */
+chars?: string | null, 
+/**
  * What names this issue (see `compute_key`); set when a whole book is checked.
  */
 key?: string, 
