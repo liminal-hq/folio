@@ -192,6 +192,10 @@ pub enum ExportTarget {
     SharingPdf,
     /// The interior of a paperback, as Kindle Direct Publishing asks for it.
     KdpInterior,
+    /// A reflowable EPUB for Kindle Direct Publishing.
+    KindleEpub,
+    /// A reflowable EPUB for Kobo, and its Kobo flavour (KEPUB).
+    KoboEpub,
 }
 
 /// A file an export wrote.

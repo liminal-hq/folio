@@ -15,7 +15,10 @@ folio-model = { path = "../folio-model" }
 krilla = "0.8"
 thiserror = { workspace = true }
 kurbo = "0.11"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+unicode-segmentation = "1"
 
 [dev-dependencies]
 folio-presets = { path = "../folio-presets" }
 lopdf = "0.34"
+quick-xml = "0.37"

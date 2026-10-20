@@ -6,14 +6,14 @@ One **Export book** dialog builds many targets in one pass. Each target has plai
 
 ## Targets
 
-| Target | Output | Notes |
-|---|---|---|
-| **Kindle** | `<slug>-kindle.epub` | KDP accepts EPUB uploads and converts them to Kindle formats. Reflowable for flowing books. Fixed-layout picture books are produced as fixed-layout EPUB 3, and the user is pointed to Kindle Kids' Book Creator / Kindle Create if KDP rejects direct fixed-layout upload ⚠ |
-| **Kobo** | `<slug>.epub` + `<slug>.kepub.epub` | EPUB 3 for Kobo Writing Life. KEPUB adds `koboSpan` wrappers for faster page turns and better stats |
-| **KDP paperback** | `<slug>-paperback-interior.pdf` + `<slug>-paperback-cover.pdf` | PDF/X-1a or X-4, fonts embedded, no crop marks, bleed when any element bleeds |
-| **KDP hardcover** | `<slug>-hardcover-interior.pdf` + `<slug>-hardcover-cover.pdf` | Case laminate; wrap-around cover with hinge ⚠ |
-| **Print-shop PDF** | `<slug>-print-pdfx4.pdf` | PDF/X-4 (default) or X-1a, crop marks + bleed + slug optional, chosen output intent |
-| **Sharing PDF** | `<slug>-share.pdf` | RGB, images downsampled to 150 ppi, bookmarks from chapters, spreads or single pages |
+| Target             | Output                                                         | Notes                                                                                                                                                                                                                                                                        |
+| ------------------ | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Kindle**         | `<slug>-kindle.epub`                                           | KDP accepts EPUB uploads and converts them to Kindle formats. Reflowable for flowing books. Fixed-layout picture books are produced as fixed-layout EPUB 3, and the user is pointed to Kindle Kids' Book Creator / Kindle Create if KDP rejects direct fixed-layout upload ⚠ |
+| **Kobo**           | `<slug>.epub` + `<slug>.kepub.epub`                            | EPUB 3 for Kobo Writing Life. KEPUB adds `koboSpan` wrappers for faster page turns and better stats                                                                                                                                                                          |
+| **KDP paperback**  | `<slug>-paperback-interior.pdf` + `<slug>-paperback-cover.pdf` | PDF/X-1a or X-4, fonts embedded, no crop marks, bleed when any element bleeds                                                                                                                                                                                                |
+| **KDP hardcover**  | `<slug>-hardcover-interior.pdf` + `<slug>-hardcover-cover.pdf` | Case laminate; wrap-around cover with hinge ⚠                                                                                                                                                                                                                                |
+| **Print-shop PDF** | `<slug>-print-pdfx4.pdf`                                       | PDF/X-4 (default) or X-1a, crop marks + bleed + slug optional, chosen output intent                                                                                                                                                                                          |
+| **Sharing PDF**    | `<slug>-share.pdf`                                             | RGB, images downsampled to 150 ppi, bookmarks from chapters, spreads or single pages                                                                                                                                                                                         |
 
 Files land in `~/Books/<Title>/exports/` by default (Documents\Books on Windows). The done state lists them and offers **Show in folder**, which opens Waypoint if it's installed, otherwise the system file manager.
 
@@ -31,7 +31,7 @@ Files land in `~/Books/<Title>/exports/` by default (Documents\Books on Windows)
 
 KEPUB is EPUB plus `<span class="koboSpan" id="kobo.N.M">` around sentences, plus a `kobo.js`-free stylesheet. The file extension is `.kepub.epub`. It's generated from the same XHTML in a post-pass.
 
-**Built so far:** the Export tab's **Export book** opens a dialog with the Sharing PDF and the KDP paperback interior (the others are still to come); it says how many things are waiting on you with a way to check the book first, makes the chosen files in the book's `exports` folder (beside its file, or in its folder under `Books` before it is saved), lists them with their sizes and **Show in folder**. **Quick PDF** makes the Sharing PDF at once. File names follow `<slug>-share.pdf` and `<slug>-paperback-interior.pdf`. Pictures, fonts kept in the book and the page scene (D-29) are what it draws; bleed, crop marks, PDF/X and the cover are still to come.
+**Built so far:** the Export tab's **Export book** opens a dialog with the Sharing PDF and the KDP paperback interior and reflowable EPUBs for Kindle and Kobo (the Kobo one with its KEPUB beside it); the print-shop PDF, the cover files and the fixed-layout EPUB are still to come; it says how many things are waiting on you with a way to check the book first, makes the chosen files in the book's `exports` folder (beside its file, or in its folder under `Books` before it is saved), lists them with their sizes and **Show in folder**. **Quick PDF** makes the Sharing PDF at once. File names follow `<slug>-share.pdf` and `<slug>-paperback-interior.pdf`. Pictures, fonts kept in the book and the page scene (D-29) are what it draws; bleed, crop marks, PDF/X and the cover are still to come.
 
 ## PDF writer
 
@@ -63,18 +63,18 @@ The cover builder draws a live diagram (back · spine · front, bleed/wrap dashe
 
 Issues are **fix-oriented**, sorted Waiting on you → Worth a look → Fine, shown as `IssueRow`s with a 6 px dot (never solid red blocks):
 
-| Code | Message | Fix |
-|---|---|---|
-| `IMG-PLACEHOLDER` | "4 pictures are still placeholders" | "Drop the final artwork onto each frame. Export will leave tinted boxes otherwise." |
-| `IMG-LOW-PPI` | "The picture on page 4 is 180 ppi at this size" | "It'll print a little soft. Use a larger file, or make it smaller on the page." |
-| `BLEED-SHORT` | "A picture stops at the edge on page 7" | "Stretch it to the pink dashed line so no white sliver shows after trimming." |
-| `TEXT-SAFE` | "Words sit outside the margin on page 12" | "Move them inside the purple lines — they might get trimmed." |
-| `OVERSET` | "Chapter 3 has words that don't fit" | "Add pages, or let Folio add them for you." |
-| `SPINE-NARROW` | "Spine is too narrow for text (under 79 pages)" | "We'll leave the spine blank, which KDP expects." |
-| `FONT-EMBED` | "Gill Sans can't be embedded in eBooks" | "Use Literata or Inter (both included), or let readers choose their own font." |
-| `FONT-MISSING` | "Zed Sans isn't on this computer or in the book" | "Pages are set in a stand-in and will break differently. Install the font, pick another, or open the book on the computer it was made on." (engine: `PreflightKind::FontMissing`, with the family) |
-| `FXL-SMALL-TEXT` | "Story text is 14 pt on a fixed-layout page" | "Make it 18 pt or larger so it reads well on a phone-sized screen." |
-| `ALT-MISSING` | "3 pictures have no description" | "Add a short description so screen readers can share them." |
+| Code              | Message                                          | Fix                                                                                                                                                                                                |
+| ----------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IMG-PLACEHOLDER` | "4 pictures are still placeholders"              | "Drop the final artwork onto each frame. Export will leave tinted boxes otherwise."                                                                                                                |
+| `IMG-LOW-PPI`     | "The picture on page 4 is 180 ppi at this size"  | "It'll print a little soft. Use a larger file, or make it smaller on the page."                                                                                                                    |
+| `BLEED-SHORT`     | "A picture stops at the edge on page 7"          | "Stretch it to the pink dashed line so no white sliver shows after trimming."                                                                                                                      |
+| `TEXT-SAFE`       | "Words sit outside the margin on page 12"        | "Move them inside the purple lines — they might get trimmed."                                                                                                                                      |
+| `OVERSET`         | "Chapter 3 has words that don't fit"             | "Add pages, or let Folio add them for you."                                                                                                                                                        |
+| `SPINE-NARROW`    | "Spine is too narrow for text (under 79 pages)"  | "We'll leave the spine blank, which KDP expects."                                                                                                                                                  |
+| `FONT-EMBED`      | "Gill Sans can't be embedded in eBooks"          | "Use Literata or Inter (both included), or let readers choose their own font."                                                                                                                     |
+| `FONT-MISSING`    | "Zed Sans isn't on this computer or in the book" | "Pages are set in a stand-in and will break differently. Install the font, pick another, or open the book on the computer it was made on." (engine: `PreflightKind::FontMissing`, with the family) |
+| `FXL-SMALL-TEXT`  | "Story text is 14 pt on a fixed-layout page"     | "Make it 18 pt or larger so it reads well on a phone-sized screen."                                                                                                                                |
+| `ALT-MISSING`     | "3 pictures have no description"                 | "Add a short description so screen readers can share them."                                                                                                                                        |
 
 When nothing needs attention: **"No issues found. Book looks ready to export."**
 

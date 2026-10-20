@@ -51,6 +51,17 @@ describe('the Export dialog', () => {
 		expect(fake.calls).toContain('revealPath("/home/mom/Books/Pip/exports/pip-share.pdf")');
 	});
 
+	it('offers the Kindle and Kobo books and lists both Kobo files', async () => {
+		await setup();
+		await userEvent.click(screen.getByRole('checkbox', { name: /Kobo \(EPUB and KEPUB\)/ }));
+		await userEvent.click(screen.getByRole('checkbox', { name: /Kindle \(EPUB\)/ }));
+		await userEvent.click(screen.getByRole('button', { name: 'Make files' }));
+		const files = await screen.findByRole('region', { name: 'The files that were made' });
+		for (const name of ['pip-kindle.epub', 'pip.epub', 'pip.kepub.epub']) {
+			expect(within(files).getByText(name)).toBeInTheDocument();
+		}
+	});
+
 	it('cannot make nothing', async () => {
 		await setup();
 		await userEvent.click(screen.getByRole('checkbox', { name: /Sharing PDF/ }));

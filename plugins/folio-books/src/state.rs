@@ -907,6 +907,8 @@ impl<R: Runtime> Books<R> {
                 match target {
                     ExportTarget::SharingPdf => folio_export::Target::SharingPdf,
                     ExportTarget::KdpInterior => folio_export::Target::KdpInterior,
+                    ExportTarget::KindleEpub => folio_export::Target::KindleEpub,
+                    ExportTarget::KoboEpub => folio_export::Target::KoboEpub,
                 },
                 &book,
                 &styles,
@@ -914,16 +916,18 @@ impl<R: Runtime> Books<R> {
                 &source,
             )
             .map_err(|e| Error::Export(e.to_string()))?;
-            let path = folder.join(&made.file_name);
-            let partial = folder.join(format!(".{}.partial", made.file_name));
-            std::fs::write(&partial, &made.bytes)
-                .and_then(|()| std::fs::rename(&partial, &path))
-                .map_err(|e| Error::Export(format!("{}: {e}", path.display())))?;
-            report.files.push(ExportedFile {
-                target,
-                path: path.to_string_lossy().into_owned(),
-                bytes: made.bytes.len().try_into().unwrap_or(u32::MAX),
-            });
+            for file in made {
+                let path = folder.join(&file.file_name);
+                let partial = folder.join(format!(".{}.partial", file.file_name));
+                std::fs::write(&partial, &file.bytes)
+                    .and_then(|()| std::fs::rename(&partial, &path))
+                    .map_err(|e| Error::Export(format!("{}: {e}", path.display())))?;
+                report.files.push(ExportedFile {
+                    target,
+                    path: path.to_string_lossy().into_owned(),
+                    bytes: file.bytes.len().try_into().unwrap_or(u32::MAX),
+                });
+            }
         }
         Ok(report)
     }

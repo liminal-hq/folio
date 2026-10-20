@@ -6,6 +6,7 @@
 use folio_layout::{FontBook, StyleSheet};
 use folio_model::Book;
 
+use crate::epub::{export_epub, EpubFlavour, EpubOptions};
 use crate::error::ExportError;
 use crate::pdf::{export_pdf, Assets, PdfOptions, PdfTarget};
 
@@ -16,6 +17,10 @@ pub enum Target {
     SharingPdf,
     /// The interior of a paperback, as Kindle Direct Publishing asks for it.
     KdpInterior,
+    /// A reflowable EPUB for Kindle Direct Publishing, which converts it for Kindle.
+    KindleEpub,
+    /// A reflowable EPUB for Kobo Writing Life, and the Kobo flavour of it beside it.
+    KoboEpub,
 }
 
 /// A file made from a book, not yet written anywhere.
@@ -51,34 +56,54 @@ pub fn slug(title: &str) -> String {
 }
 
 impl Target {
-    /// The file this target makes for a book called `title`.
-    pub fn file_name(self, title: &str) -> String {
+    /// The files this target makes for a book called `title`.
+    pub fn file_names(self, title: &str) -> Vec<String> {
         let slug = slug(title);
         match self {
-            Self::SharingPdf => format!("{slug}-share.pdf"),
-            Self::KdpInterior => format!("{slug}-paperback-interior.pdf"),
+            Self::SharingPdf => vec![format!("{slug}-share.pdf")],
+            Self::KdpInterior => vec![format!("{slug}-paperback-interior.pdf")],
+            Self::KindleEpub => vec![format!("{slug}-kindle.epub")],
+            Self::KoboEpub => vec![format!("{slug}.epub"), format!("{slug}.kepub.epub")],
         }
     }
 }
 
-/// Makes the file for `target`.
+/// Makes the files for `target`.
 pub fn export_target(
     target: Target,
     book: &Book,
     styles: &StyleSheet,
     fonts: &FontBook,
     assets: &dyn Assets,
-) -> Result<Exported, ExportError> {
+) -> Result<Vec<Exported>, ExportError> {
     let pdf = |kind| export_pdf(book, styles, fonts, assets, &PdfOptions { target: kind });
-    let bytes = match target {
-        Target::SharingPdf => pdf(PdfTarget::Sharing)?,
-        Target::KdpInterior => pdf(PdfTarget::Print)?,
+    let epub = |flavour| {
+        export_epub(
+            book,
+            fonts,
+            assets,
+            &EpubOptions {
+                flavour,
+                embed_fonts: true,
+            },
+        )
     };
-    Ok(Exported {
-        target,
-        file_name: target.file_name(&book.title),
-        bytes,
-    })
+    let names = target.file_names(&book.title);
+    let made: Vec<Vec<u8>> = match target {
+        Target::SharingPdf => vec![pdf(PdfTarget::Sharing)?],
+        Target::KdpInterior => vec![pdf(PdfTarget::Print)?],
+        Target::KindleEpub => vec![epub(EpubFlavour::Standard)?],
+        Target::KoboEpub => vec![epub(EpubFlavour::Standard)?, epub(EpubFlavour::Kobo)?],
+    };
+    Ok(names
+        .into_iter()
+        .zip(made)
+        .map(|(file_name, bytes)| Exported {
+            target,
+            file_name,
+            bytes,
+        })
+        .collect())
 }
 
 #[cfg(test)]
@@ -97,11 +122,16 @@ mod tests {
     }
 
     #[test]
-    fn each_target_names_its_file() {
-        assert_eq!(Target::SharingPdf.file_name("Pip"), "pip-share.pdf");
+    fn each_target_names_its_files() {
+        assert_eq!(Target::SharingPdf.file_names("Pip"), ["pip-share.pdf"]);
         assert_eq!(
-            Target::KdpInterior.file_name("Pip"),
-            "pip-paperback-interior.pdf"
+            Target::KdpInterior.file_names("Pip"),
+            ["pip-paperback-interior.pdf"]
+        );
+        assert_eq!(Target::KindleEpub.file_names("Pip"), ["pip-kindle.epub"]);
+        assert_eq!(
+            Target::KoboEpub.file_names("Pip"),
+            ["pip.epub", "pip.kepub.epub"]
         );
     }
 }
