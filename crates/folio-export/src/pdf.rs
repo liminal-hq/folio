@@ -69,26 +69,74 @@ pub fn export_pdf(
     };
     let mut document = krilla::Document::new_with(settings);
     let mut drawing = Drawing::new(fonts, assets);
-    let mut pages = 0;
-    for spread in &book.spreads {
-        let Some(scene) = layouter.scene_spread(&spread.id)? else {
-            continue;
-        };
-        for page in &scene.pages {
-            let size = Size::from_wh(page.width as f32, page.height as f32)
-                .ok_or_else(|| ExportError::Pdf("a page has no size".into()))?;
-            let mut pdf_page = document.start_page_with(PageSettings::new(size));
-            let mut surface = pdf_page.surface();
-            for item in &page.items {
-                drawing.item(&mut surface, item, page.width, page.height);
-            }
-            surface.finish();
-            pdf_page.finish();
-            pages += 1;
+
+    // A print PDF is the interior only: the cover is made for the cover file.
+    let skip = usize::from(
+        options.target == PdfTarget::Print
+            && book
+                .spreads
+                .first()
+                .is_some_and(|s| s.kind == folio_model::SpreadKind::Cover),
+    );
+    let mut scenes = Vec::new();
+    for spread in book.spreads.iter().skip(skip) {
+        if let Some(scene) = layouter.scene_spread(&spread.id)? {
+            scenes.extend(scene.pages);
         }
     }
-    if pages == 0 {
+    if scenes.is_empty() {
         return Err(ExportError::NoPages);
+    }
+    let print = options.target == PdfTarget::Print;
+    // Bleed is for a print file, and when anything bleeds every page is set up with it.
+    let bleed = if print && book.bleed.0 > 0.0 && scenes.iter().any(spills) {
+        book.bleed.0
+    } else {
+        0.0
+    };
+    // A printed book has an even number of pages: a blank one closes an odd count.
+    let blank_at_end = print && scenes.len() % 2 == 1;
+    let total = scenes.len() + usize::from(blank_at_end);
+    for number in 0..total {
+        let page = scenes.get(number);
+        let (width, height) = page.map_or((book.trim.w.0, book.trim.h.0), |p| (p.width, p.height));
+        let recto = page.map_or(number % 2 == 0, |p| p.recto);
+        // The outer edge, away from the fold, is where the picture runs on into the bleed.
+        let (left, right) = if recto { (0.0, bleed) } else { (bleed, 0.0) };
+        let area = SceneRect {
+            x: -left,
+            y: -bleed,
+            w: width + left + right,
+            h: height + 2.0 * bleed,
+        };
+        let size = Size::from_wh(area.w as f32, area.h as f32)
+            .ok_or_else(|| ExportError::Pdf("a page has no size".into()))?;
+        let mut settings = PageSettings::new(size);
+        if bleed > 0.0 {
+            settings = settings
+                .with_trim_box(KRect::from_xywh(
+                    left as f32,
+                    bleed as f32,
+                    width as f32,
+                    height as f32,
+                ))
+                .with_bleed_box(KRect::from_xywh(0.0, 0.0, area.w as f32, area.h as f32));
+        }
+        let mut pdf_page = document.start_page_with(settings);
+        let mut surface = pdf_page.surface();
+        if bleed > 0.0 {
+            surface.push_transform(&Transform::from_translate(left as f32, bleed as f32));
+        }
+        if let Some(page) = page {
+            for item in &page.items {
+                drawing.item(&mut surface, item, &area);
+            }
+        }
+        if bleed > 0.0 {
+            surface.pop();
+        }
+        surface.finish();
+        pdf_page.finish();
     }
     let mut metadata = Metadata::new().title(book.title.clone());
     let authors: Vec<String> = book.authors.iter().map(|a| a.name.clone()).collect();
@@ -111,6 +159,20 @@ struct Drawing<'a> {
     /// its own font to the PDF.
     faces: HashMap<(String, u16, u32), Option<Font>>,
     images: HashMap<String, Option<Image>>,
+}
+
+/// Whether something on the page runs past its trim on a side, so the file needs a bleed.
+fn spills(page: &folio_layout::scene::PageScene) -> bool {
+    page.items.iter().any(|item| match &item.kind {
+        SceneKind::Background { .. } => true,
+        SceneKind::Picture { rect, .. } | SceneKind::Shape { rect, .. } => {
+            rect.y < -0.01
+                || rect.y + rect.h > page.height + 0.01
+                || rect.x < -0.01
+                || rect.x + rect.w > page.width + 0.01
+        }
+        _ => false,
+    })
 }
 
 fn colour(c: &Colour) -> rgb::Color {
@@ -151,15 +213,10 @@ impl<'a> Drawing<'a> {
         }
     }
 
-    fn item(&mut self, surface: &mut Surface, item: &SceneItem, page_w: f64, page_h: f64) {
-        // Cut to the page: a frame across the gutter shows only its side, and what runs past the
-        // bleed is not drawn. Without a bleed the page itself is the limit.
-        let clip = SceneRect {
-            x: 0.0,
-            y: 0.0,
-            w: page_w,
-            h: page_h,
-        };
+    /// Draws `item` into `area`: the page and the bleed beyond its outer edge, which is as far as
+    /// anything goes. A frame across the gutter shows only its own side.
+    fn item(&mut self, surface: &mut Surface, item: &SceneItem, area: &SceneRect) {
+        let clip = *area;
         if let Some(rect) = krect(&clip) {
             let mut pb = PathBuilder::new();
             pb.push_rect(rect);
@@ -169,7 +226,7 @@ impl<'a> Drawing<'a> {
         }
         match &item.kind {
             SceneKind::Background { bg, across } => {
-                self.background(surface, bg, across.as_ref(), page_w, page_h)
+                self.background(surface, bg, across.as_ref(), area)
             }
             SceneKind::Picture {
                 rect,
@@ -251,15 +308,9 @@ impl<'a> Drawing<'a> {
         surface: &mut Surface,
         bg: &Background,
         across: Option<&SceneRect>,
-        page_w: f64,
-        page_h: f64,
+        area: &SceneRect,
     ) {
-        let whole = SceneRect {
-            x: 0.0,
-            y: 0.0,
-            w: page_w,
-            h: page_h,
-        };
+        let whole = *area;
         match bg {
             Background::Colour { colour: c } => self.fill_rect(surface, &whole, fill_of(c, 1.0)),
             Background::Gradient { angle, stops } => {

@@ -126,3 +126,64 @@ fn a_book_with_nothing_to_draw_is_an_error_not_an_empty_file() {
     let fonts = FontBook::bundled();
     assert!(export_pdf(&book, &styles, &fonts, &NoAssets, &PdfOptions::default()).is_err());
 }
+
+fn boxes(doc: &Document, page: lopdf::ObjectId, key: &[u8]) -> Option<Vec<f64>> {
+    doc.get_object(page)
+        .unwrap()
+        .as_dict()
+        .unwrap()
+        .get(key)
+        .ok()?
+        .as_array()
+        .ok()
+        .map(|a| a.iter().map(|n| n.as_float().unwrap() as f64).collect())
+}
+
+#[test]
+fn a_print_pdf_is_the_interior_only_with_an_even_number_of_pages() {
+    for kind in KINDS {
+        let (book, bytes) = export(kind, PdfTarget::Print);
+        let doc = Document::load_mem(&bytes).unwrap();
+        let interior: usize = book.spreads.iter().skip(1).map(|s| s.pages.len()).sum();
+        let expected = interior + interior % 2;
+        assert_eq!(doc.get_pages().len(), expected, "{kind:?}");
+        assert_eq!(doc.get_pages().len() % 2, 0, "{kind:?}");
+    }
+}
+
+#[test]
+fn when_anything_bleeds_every_page_has_the_bleed_on_its_outer_edge_and_a_trim_box() {
+    let (book, bytes) = export(BookKind::Picture, PdfTarget::Print);
+    assert!(book.bleed.0 > 0.0, "the sample picture book has a bleed");
+    let doc = Document::load_mem(&bytes).unwrap();
+    let (w, h, bleed) = (book.trim.w.0, book.trim.h.0, book.bleed.0);
+    let pages: Vec<_> = doc.get_pages().into_values().collect();
+    for (index, page) in pages.iter().enumerate() {
+        let media = boxes(&doc, *page, b"MediaBox").unwrap();
+        assert!((media[2] - (w + bleed)).abs() < 0.01, "page {index} width");
+        assert!(
+            (media[3] - (h + 2.0 * bleed)).abs() < 0.01,
+            "page {index} height"
+        );
+        let trim = boxes(&doc, *page, b"TrimBox").expect("a trim box");
+        // The page after the cover is a left-hand page: its bleed is on the left.
+        let left = if index % 2 == 0 { bleed } else { 0.0 };
+        assert!(
+            (trim[0] - left).abs() < 0.01,
+            "page {index} trim x: {trim:?}"
+        );
+        assert!((trim[2] - trim[0] - w).abs() < 0.01 && (trim[3] - trim[1] - h).abs() < 0.01);
+        assert!(boxes(&doc, *page, b"BleedBox").is_some());
+    }
+}
+
+#[test]
+fn a_book_with_no_bleed_gets_pages_at_the_trim_size_and_no_trim_box() {
+    let (book, bytes) = export(BookKind::Novel, PdfTarget::Print);
+    assert_eq!(book.bleed.0, 0.0);
+    let doc = Document::load_mem(&bytes).unwrap();
+    let page = *doc.get_pages().values().next().unwrap();
+    let media = boxes(&doc, page, b"MediaBox").unwrap();
+    assert!((media[2] - book.trim.w.0).abs() < 0.01);
+    assert!(boxes(&doc, page, b"TrimBox").is_none());
+}
