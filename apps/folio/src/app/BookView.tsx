@@ -663,6 +663,9 @@ export function BookView({
 								setStoryPara(paragraph ?? null);
 								setStoryFlow(flow);
 							}}
+							onEditParagraph={(flow, para, text) =>
+								keepAsStep({ type: 'SetParagraphText', flow, para, text })
+							}
 							speller={speller}
 							onEditingCell={(cell) => cell && setEditingCell(cell)}
 							editableMasters={settings.mode === 'expert'}

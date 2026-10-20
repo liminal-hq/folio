@@ -1842,3 +1842,26 @@ fn a_frame_in_a_story_says_which_paragraph_its_words_begin_with() {
         .all(|(_, p)| p.is_none());
     assert!(own);
 }
+
+#[test]
+fn each_line_of_a_story_names_its_paragraph_and_other_lines_name_none() {
+    let (book, styles) = sample(BookKind::Novel);
+    let flow = &book.flows[0];
+    let mut story_lines = 0;
+    for index in 0..book.spreads.len() {
+        for frame in lay(&book, &styles, index).frames {
+            let in_story = flow.frames.iter().any(|f| f.0 == frame.frame.0);
+            for line in &frame.lines {
+                if in_story {
+                    story_lines += 1;
+                    assert!(line
+                        .paragraph
+                        .is_some_and(|p| (p as usize) < flow.paragraphs.len()));
+                } else {
+                    assert_eq!(line.paragraph, None);
+                }
+            }
+        }
+    }
+    assert!(story_lines > 0);
+}

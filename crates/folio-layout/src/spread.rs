@@ -1064,6 +1064,7 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo) -> LayoutLine {
         width: placed.line.width,
         height: placed.line.height,
         runs,
+        paragraph: None,
     }
 }
 
@@ -1103,7 +1104,10 @@ fn flow_frame(id: &FrameId, laid: &Flowed, index: Option<usize>, info: &StoryInf
             .lines
             .iter()
             .filter(|l| l.frame == index)
-            .map(|l| wire_line(l, info))
+            .map(|l| LayoutLine {
+                paragraph: Some(l.paragraph as u32),
+                ..wire_line(l, info)
+            })
             .collect(),
         overset: laid.overset && index + 1 == laid.used_height.len(),
         origin: None,
