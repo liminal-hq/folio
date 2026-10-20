@@ -81,3 +81,21 @@
 .masterHint {
 	color: var(--folio-text-muted);
 }
+
+.perch {
+	padding: 0 6px;
+	border: 0;
+	border-radius: 4px;
+	background: none;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.perch:hover {
+	background: var(--folio-bg-hover);
+}
+
+.perch:active {
+	background: var(--folio-bg-pressed);
+}
