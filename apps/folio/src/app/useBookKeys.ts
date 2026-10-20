@@ -21,6 +21,8 @@ export function commandForKey(event: {
 			return 'file.open';
 		case 'n':
 			return 'file.new';
+		case 'e':
+			return 'file.export';
 		case 'w':
 			return 'file.close';
 		case 'z':
