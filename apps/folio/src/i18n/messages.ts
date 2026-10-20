@@ -220,6 +220,7 @@ export const messages = {
 	'coverSheet.noteWidth': 'Box width in points',
 	'coverSheet.noteHeight': 'Box height in points',
 	'coverSheet.deleteNote': 'Take the box away',
+	'coverSheet.noteCorner': 'Drag to stretch the box',
 	'coverSheet.noteBox': 'Words on the back cover: {text}',
 	'proof.colours': 'Your swatches: as drawn, then as printed',
 	'proof.colourOutside': 'The press cannot reproduce this one',
