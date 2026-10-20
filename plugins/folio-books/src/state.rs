@@ -310,11 +310,11 @@ impl<R: Runtime> Books<R> {
             .map(str::to_ascii_lowercase);
         if !matches!(
             known.as_deref(),
-            Some("md" | "markdown" | "txt" | "docx" | "odt")
+            Some("md" | "markdown" | "txt" | "docx" | "odt" | "rtf")
         ) {
             return Err(Error::Import(
-                "Folio can bring in Word (.docx), OpenDocument (.odt), Markdown (.md) and plain text \
-                 (.txt) files so far. Other formats are not supported yet."
+                "Folio can bring in Word (.docx), OpenDocument (.odt), Rich Text (.rtf), Markdown \
+                 (.md) and plain text (.txt) files so far. Other formats are not supported yet."
                     .into(),
             ));
         }
@@ -326,12 +326,14 @@ impl<R: Runtime> Books<R> {
                 "That file is too large to bring in (the limit is 8 MB).".into(),
             ));
         }
-        let imported = if matches!(known.as_deref(), Some("docx" | "odt")) {
+        let imported = if matches!(known.as_deref(), Some("docx" | "odt" | "rtf")) {
             let bytes = std::fs::read(file).map_err(|e| Error::Import(format!("{path}: {e}")))?;
             if known.as_deref() == Some("docx") {
                 folio_import::import_docx(&bytes).map_err(|e| Error::Import(e.to_string()))?
-            } else {
+            } else if known.as_deref() == Some("odt") {
                 folio_import::import_odt(&bytes).map_err(|e| Error::Import(e.to_string()))?
+            } else {
+                folio_import::import_rtf(&bytes).map_err(|e| Error::Import(e.to_string()))?
             }
         } else {
             let text = std::fs::read_to_string(file).map_err(|e| {

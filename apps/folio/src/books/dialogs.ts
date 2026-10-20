@@ -25,7 +25,7 @@ const IMAGE_FILTERS = [
 const TEXT_FILTERS = [
 	{
 		name: 'Word, OpenDocument, Markdown and text',
-		extensions: ['docx', 'odt', 'md', 'markdown', 'txt'],
+		extensions: ['docx', 'odt', 'rtf', 'md', 'markdown', 'txt'],
 	},
 ];
 
