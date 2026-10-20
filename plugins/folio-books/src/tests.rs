@@ -1109,11 +1109,18 @@ fn exporting_writes_each_target_into_an_exports_folder_beside_the_saved_book() {
     books(&app).save(&id, Some(file.as_path())).unwrap();
 
     let report = books(&app)
-        .export(&id, &[ExportTarget::SharingPdf, ExportTarget::KdpInterior])
+        .export(
+            &id,
+            &[
+                ExportTarget::SharingPdf,
+                ExportTarget::KdpInterior,
+                ExportTarget::KdpCover,
+            ],
+        )
         .unwrap();
     let folder = dir.path().join("Otter").join("exports");
     assert_eq!(std::path::Path::new(&report.folder), folder);
-    assert_eq!(report.files.len(), 2);
+    assert_eq!(report.files.len(), 3);
     let names: Vec<String> = report
         .files
         .iter()
@@ -1129,7 +1136,8 @@ fn exporting_writes_each_target_into_an_exports_folder_beside_the_saved_book() {
         names,
         [
             "the-otter-who-couldnt-sleep-share.pdf",
-            "the-otter-who-couldnt-sleep-paperback-interior.pdf"
+            "the-otter-who-couldnt-sleep-paperback-interior.pdf",
+            "the-otter-who-couldnt-sleep-paperback-cover.pdf"
         ]
     );
     for file in &report.files {

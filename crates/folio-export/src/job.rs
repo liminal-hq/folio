@@ -4,11 +4,12 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_layout::{FontBook, StyleSheet};
-use folio_model::Book;
+use folio_model::{Book, Paper};
 
+use crate::cover::cover_sheet;
 use crate::epub::{export_epub, EpubFlavour, EpubOptions};
 use crate::error::ExportError;
-use crate::pdf::{export_pdf, Assets, PdfOptions, PdfTarget};
+use crate::pdf::{export_pdf, Assets, InkOptions, PdfOptions, PdfTarget};
 
 /// A kind of file to make from a book.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -19,6 +20,8 @@ pub enum Target {
     KdpInterior,
     /// Every page for a print shop: bleed all round, crop marks, PDF/X-4.
     PrintShopPdf,
+    /// The paperback cover for Kindle Direct Publishing: back, spine and front on one sheet.
+    KdpCover,
     /// A reflowable EPUB for Kindle Direct Publishing, which converts it for Kindle.
     KindleEpub,
     /// A reflowable EPUB for Kobo Writing Life, and the Kobo flavour of it beside it.
@@ -65,6 +68,7 @@ impl Target {
             Self::SharingPdf => vec![format!("{slug}-share.pdf")],
             Self::KdpInterior => vec![format!("{slug}-paperback-interior.pdf")],
             Self::PrintShopPdf => vec![format!("{slug}-print-pdfx4.pdf")],
+            Self::KdpCover => vec![format!("{slug}-paperback-cover.pdf")],
             Self::KindleEpub => vec![format!("{slug}-kindle.epub")],
             Self::KoboEpub => vec![format!("{slug}.epub"), format!("{slug}.kepub.epub")],
         }
@@ -74,6 +78,7 @@ impl Target {
 /// Makes the files for `target`.
 pub fn export_target(
     target: Target,
+    paper: Paper,
     book: &Book,
     styles: &StyleSheet,
     fonts: &FontBook,
@@ -108,6 +113,21 @@ pub fn export_target(
         Target::SharingPdf => vec![pdf(PdfTarget::Sharing)?],
         Target::KdpInterior => vec![pdf(PdfTarget::Print)?],
         Target::PrintShopPdf => vec![pdf(PdfTarget::PrintShop)?],
+        Target::KdpCover => {
+            let sheet = cover_sheet(book, paper).ok_or(ExportError::NoPages)?;
+            vec![export_pdf(
+                &sheet,
+                styles,
+                fonts,
+                assets,
+                &PdfOptions {
+                    target: PdfTarget::Cover,
+                    // KDP wants the cover in CMYK, untagged, with no spot colours.
+                    ink: Some(InkOptions::default()),
+                    crop_marks: false,
+                },
+            )?]
+        }
         Target::KindleEpub => vec![epub(EpubFlavour::Standard)?],
         Target::KoboEpub => vec![epub(EpubFlavour::Standard)?, epub(EpubFlavour::Kobo)?],
     };
@@ -145,6 +165,10 @@ mod tests {
             ["pip-paperback-interior.pdf"]
         );
         assert_eq!(Target::KindleEpub.file_names("Pip"), ["pip-kindle.epub"]);
+        assert_eq!(
+            Target::KdpCover.file_names("Pip"),
+            ["pip-paperback-cover.pdf"]
+        );
         assert_eq!(
             Target::KoboEpub.file_names("Pip"),
             ["pip.epub", "pip.kepub.epub"]
