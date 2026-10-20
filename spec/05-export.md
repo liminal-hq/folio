@@ -10,7 +10,7 @@ One **Export book** dialog builds many targets in one pass. Each target has plai
 | ------------------ | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Kindle**         | `<slug>-kindle.epub`                                           | KDP accepts EPUB uploads and converts them to Kindle formats. Reflowable for flowing books. Fixed-layout picture books are produced as fixed-layout EPUB 3, and the user is pointed to Kindle Kids' Book Creator / Kindle Create if KDP rejects direct fixed-layout upload ⚠ |
 | **Kobo**           | `<slug>.epub` + `<slug>.kepub.epub`                            | EPUB 3 for Kobo Writing Life. KEPUB adds `koboSpan` wrappers for faster page turns and better stats                                                                                                                                                                          |
-| **KDP paperback**  | `<slug>-paperback-interior.pdf` + `<slug>-paperback-cover.pdf` | PDF/X-1a or X-4, fonts embedded, no crop marks, bleed when any element bleeds                                                                                                                                                                                                |
+| **KDP paperback** | `<slug>-paperback-interior.pdf` + `<slug>-paperback-cover.pdf` | A plain print-ready PDF, not PDF/X (KDP's help pages never ask for it). Every font embedded in full, transparency flattened, no crop marks, bookmarks, comments, annotations or metadata beyond title and author, bleed on every page when any element bleeds (page width = trim + 0.125 in, height = trim + 0.25 in), single pages, 300 ppi images. The cover is one PDF in untagged DeviceCMYK with no spot colours ⚠ |
 | **KDP hardcover**  | `<slug>-hardcover-interior.pdf` + `<slug>-hardcover-cover.pdf` | Case laminate; wrap-around cover with hinge ⚠                                                                                                                                                                                                                                |
 | **Print-shop PDF** | `<slug>-print-pdfx4.pdf`                                       | PDF/X-4 (default) or X-1a, crop marks + bleed + slug optional, chosen output intent                                                                                                                                                                                          |
 | **Sharing PDF**    | `<slug>-share.pdf`                                             | RGB, images downsampled to 150 ppi, bookmarks from chapters, spreads or single pages                                                                                                                                                                                         |
@@ -35,24 +35,24 @@ KEPUB is EPUB plus `<span class="koboSpan" id="kobo.N.M">` around sentences, plu
 
 ## PDF writer
 
-- `pdf-writer` + `subsetter` for font subsetting, with the full glyph set for PDF/X.
-- **PDF/X-4** (default for print-shop): live transparency, ICC-based output intent (GRACoL 2013 / FOGRA39 / user ICC), RGB images converted at export with `lcms2` (perceptual) or kept with an output intent (Expert choice).
+- `krilla` (on `pdf-writer` and `subsetter`) for font subsetting, with the full glyph set for PDF/X and for the KDP targets; a spike confirms it can write PDF/X boxes and output intents, and `pdf-writer` is the fallback.
+- **PDF/X-4** (default for print-shop): live transparency, ICC-based output intent (GRACoL 2013 / FOGRA39 / user ICC), RGB images converted at export with `lcms2` (perceptual, behind a trait in `folio-colour`) or kept with an output intent (Expert choice).
 - **PDF/X-1a:2001**: flattened transparency and CMYK-only. Offered for printers that ask for it.
 - TrimBox, BleedBox and MediaBox are set correctly. Crop marks and slug are only drawn when asked for (KDP must have **no** marks).
 - Interior: single pages (not spreads) for KDP, page 1 on a recto, blank versos inserted where a chapter must open on the right.
-- Validated with **veraPDF** (PDF/X profiles) in CI.
+- Validated in CI by Folio's own structural checks (boxes, output intent, embedded fonts) and, for EPUB, EPUBCheck. veraPDF covers PDF/A and PDF/UA but not PDF/X, so PDF/X gets a manual preflight before each release.
 
 ## KDP cover maths
 
 ```
 spine (in) = pages × paper_factor
-  paper_factor: white 0.002252 · cream 0.0025 · premium colour 0.002347 · standard colour 0.002252   ⚠
+  paper_factor: white 0.002252 · cream 0.0025 · groundwood 0.00235 · premium colour 0.002347 · standard colour 0.002252   ⚠
 paperback full cover:
   width  = bleed + back(trim.w) + spine + front(trim.w) + bleed      bleed = 0.125 in
   height = bleed + trim.h + bleed
 hardcover (case laminate):
   wrap  ≈ 0.591 in each edge (15 mm), hinge ≈ 0.394 in beside the spine   ⚠ — use KDP's template table by trim × page count
-spine text allowed only when pages ≥ 79 (paperback) ⚠; keep 0.0625 in clear either side of the spine fold
+spine text allowed only when pages ≥ 80 (paperback; KDP's own pages say 79 or 80, Folio takes the stricter) ⚠; keep 0.0625 in clear either side of the spine fold
 barcode area: 2 × 1.2 in, bottom-right of the back cover, 0.25 in from trim edges (KDP prints the ISBN barcode there)
 minimum pages: 24 (paperback) ⚠, 75 (hardcover) ⚠
 ```
@@ -70,7 +70,7 @@ Issues are **fix-oriented**, sorted Waiting on you → Worth a look → Fine, sh
 | `BLEED-SHORT`     | "A picture stops at the edge on page 7"          | "Stretch it to the pink dashed line so no white sliver shows after trimming."                                                                                                                      |
 | `TEXT-SAFE`       | "Words sit outside the margin on page 12"        | "Move them inside the purple lines — they might get trimmed."                                                                                                                                      |
 | `OVERSET`         | "Chapter 3 has words that don't fit"             | "Add pages, or let Folio add them for you."                                                                                                                                                        |
-| `SPINE-NARROW`    | "Spine is too narrow for text (under 79 pages)"  | "We'll leave the spine blank, which KDP expects."                                                                                                                                                  |
+| `SPINE-NARROW`    | "Spine is too narrow for text (under 80 pages)"  | "We'll leave the spine blank, which KDP expects."                                                                                                                                                  |
 | `FONT-EMBED`      | "Gill Sans can't be embedded in eBooks"          | "Use Literata or Inter (both included), or let readers choose their own font."                                                                                                                     |
 | `FONT-MISSING`    | "Zed Sans isn't on this computer or in the book" | "Pages are set in a stand-in and will break differently. Install the font, pick another, or open the book on the computer it was made on." (engine: `PreflightKind::FontMissing`, with the family) |
 | `FXL-SMALL-TEXT`  | "Story text is 14 pt on a fixed-layout page"     | "Make it 18 pt or larger so it reads well on a phone-sized screen."                                                                                                                                |
