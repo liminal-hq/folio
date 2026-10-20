@@ -282,6 +282,15 @@ function PointsField({
 	);
 }
 
+/** Keeps the pointer on the box while it is dragged; a pointer that has gone is not worth stopping for. */
+function capture(event: React.PointerEvent<SVGElement>) {
+	try {
+		event.currentTarget.setPointerCapture?.(event.pointerId);
+	} catch {
+		// The drag still works while the pointer stays over the box.
+	}
+}
+
 /** The notes on the back cover as boxes over the sheet, which can be picked up and moved. */
 function NoteBoxes({
 	sheet,
@@ -330,7 +339,7 @@ function NoteBoxes({
 						height={sizing?.id === note.id ? sizing.h : note.rect.h}
 						className={note.id === chosen ? styles.noteChosen : styles.note}
 						onPointerDown={(event) => {
-							event.currentTarget.setPointerCapture?.(event.pointerId);
+							capture(event);
 							onChoose(note.id);
 							grab.current = { x: event.clientX, y: event.clientY };
 							onDrag({ id: note.id, x: note.rect.x, y: note.rect.y });
@@ -377,7 +386,7 @@ function NoteBoxes({
 							height={10}
 							className={styles.corner}
 							onPointerDown={(event) => {
-								event.currentTarget.setPointerCapture?.(event.pointerId);
+								capture(event);
 								grab.current = { x: event.clientX, y: event.clientY };
 								setSizing({ id: note.id, w: note.rect.w, h: note.rect.h });
 							}}
