@@ -6,6 +6,7 @@
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
 import { useState } from 'react';
 import { describe } from '../app/preflightMessages';
+import { askHelp } from './helpArticles';
 import { t } from '../i18n/messages';
 import {
 	contextualTip,
@@ -17,7 +18,7 @@ import {
 } from './jaxTips';
 import styles from './JaxPanel.module.css';
 
-type Tab = 'tip' | 'page' | 'guide';
+type Tab = 'tip' | 'page' | 'guide' | 'ask';
 
 interface JaxPanelProps {
 	/** What the person is doing, for the tip. */
@@ -37,6 +38,8 @@ export function JaxPanel({ context, issues, spreadName, guided, onShow, onHush }
 	const [tab, setTab] = useState<Tab>(guided ? 'guide' : 'tip');
 	const [pool, setPool] = useState(0);
 	const [step, setStep] = useState(0);
+	const [question, setQuestion] = useState('');
+	const [asked, setAsked] = useState<string | null>(null);
 	const guide = context.flowing ? FLOWING_GUIDE : FIXED_GUIDE;
 	const open = issues.filter((i) => i.severity !== 'note' && !i.ignored);
 	const tip = contextualTip(context) ?? GENERAL_TIPS[pool % GENERAL_TIPS.length]!;
@@ -54,7 +57,8 @@ export function JaxPanel({ context, issues, spreadName, guided, onShow, onHush }
 		}
 	};
 
-	const tabs: Tab[] = guided ? ['tip', 'page', 'guide'] : ['tip', 'page'];
+	const tabs: Tab[] = guided ? ['tip', 'page', 'ask', 'guide'] : ['tip', 'page', 'ask'];
+	const answer = asked === null ? null : askHelp(asked);
 	return (
 		<aside className={styles.panel} aria-label={t('jax.title')}>
 			<div className={styles.head}>
@@ -108,6 +112,48 @@ export function JaxPanel({ context, issues, spreadName, guided, onShow, onHush }
 							</ul>
 						</>
 					))}
+				{tab === 'ask' && (
+					<>
+						<form
+							className={styles.ask}
+							onSubmit={(event) => {
+								event.preventDefault();
+								if (question.trim() !== '') setAsked(question.trim());
+							}}
+						>
+							<input
+								type="text"
+								aria-label={t('jax.ask.label')}
+								placeholder={t('jax.ask.placeholder')}
+								value={question}
+								onChange={(event) => setQuestion(event.target.value)}
+							/>
+							<button type="submit" className={styles.button}>
+								{t('jax.ask.go')}
+							</button>
+						</form>
+						{asked !== null && answer === null && (
+							<p className={styles.says}>{t('jax.ask.none')}</p>
+						)}
+						{answer !== null && (
+							<>
+								<p className={styles.hint}>{answer.title}</p>
+								<p className={styles.says}>{answer.body}</p>
+								{answer.action.kind !== 'none' && (
+									<div className={styles.actions}>
+										<button
+											type="button"
+											className={styles.button}
+											onClick={() => onShow(answer.action)}
+										>
+											{t('jax.guide.show')}
+										</button>
+									</div>
+								)}
+							</>
+						)}
+					</>
+				)}
 				{tab === 'guide' && (
 					<>
 						<p className={styles.hint}>

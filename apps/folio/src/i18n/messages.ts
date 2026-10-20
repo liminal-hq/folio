@@ -732,6 +732,12 @@ export const messages = {
 	'jax.tab.tip': 'Tip',
 	'jax.tab.page': 'This page',
 	'jax.tab.guide': 'Guide',
+	'jax.tab.ask': 'Ask',
+	'jax.ask.label': 'Ask Jax a question',
+	'jax.ask.placeholder': 'How do I…?',
+	'jax.ask.go': 'Ask',
+	'jax.ask.none':
+		"I don't know that one yet. Try a word like bleed, spine, Kindle, import or export.",
 	'jax.hush': 'Hush',
 	'jax.another': 'Another tip',
 	'jax.lost': "I'm lost: what next?",
