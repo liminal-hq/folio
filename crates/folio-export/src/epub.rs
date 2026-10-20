@@ -590,36 +590,11 @@ pub fn export_epub(
         lang = escape(&book.language),
         identifier = escape(&identifier),
         title = escape(&book.title),
-        modified = utc_now(),
+        modified = crate::time::utc_now(),
     );
     put(&mut zip, "OEBPS/content.opf", opf.as_bytes(), deflated)?;
     let done = zip.finish().map_err(|e| ExportError::Epub(e.to_string()))?;
     Ok(done.into_inner())
-}
-
-/// The time now as `2026-10-20T01:17:00Z`, which an EPUB's `dcterms:modified` wants.
-fn utc_now() -> String {
-    let seconds = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0) as i64;
-    let (days, rest) = (seconds.div_euclid(86_400), seconds.rem_euclid(86_400));
-    // Days since 1970-01-01 to a calendar date, by the standard civil-from-days steps.
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let day = doy - (153 * mp + 2) / 5 + 1;
-    let month = if mp < 10 { mp + 3 } else { mp - 9 };
-    let year = yoe + era * 400 + i64::from(month <= 2);
-    format!(
-        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z",
-        rest / 3_600,
-        rest % 3_600 / 60,
-        rest % 60
-    )
 }
 
 /// What the reader preview shows: the same chapters and CSS the EPUB ships, and the pictures.

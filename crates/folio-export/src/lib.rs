@@ -10,6 +10,8 @@ pub mod epub;
 pub mod error;
 pub mod job;
 pub mod pdf;
+pub mod pdfx;
+mod time;
 
 pub use error::ExportError;
 pub use job::{export_target, slug, Exported, Target};

@@ -132,6 +132,9 @@ export const messages = {
 	'export.target.kdpInterior': 'Paperback interior for Amazon KDP',
 	'export.target.kdpInterior.sub':
 		'Print-ready pages with the fonts inside and nothing KDP asks you to remove.',
+	'export.target.printShopPdf': 'Print shop PDF (PDF/X-4)',
+	'export.target.printShopPdf.sub':
+		'Every page with the bleed all round and crop marks, for a printer who asks for PDF/X.',
 	'export.target.kindleEpub': 'Kindle (EPUB)',
 	'export.target.kindleEpub.sub':
 		'A reflowable book for Amazon KDP, which makes the Kindle edition from it.',

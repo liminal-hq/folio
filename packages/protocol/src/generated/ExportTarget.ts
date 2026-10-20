@@ -3,4 +3,4 @@
 /**
  * A kind of file to make from a book.
  */
-export type ExportTarget = "sharingPdf" | "kdpInterior" | "kindleEpub" | "koboEpub";
+export type ExportTarget = "sharingPdf" | "kdpInterior" | "printShopPdf" | "kindleEpub" | "koboEpub";
