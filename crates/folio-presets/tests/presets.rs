@@ -215,6 +215,7 @@ fn the_paper_isbn_and_look_are_kept() {
         ..spec(BookKind::Memoir)
     })
     .unwrap();
+    assert_eq!(made.book.paper, folio_model::Paper::Cream);
     assert_eq!(made.settings["paper"], "cream");
     assert_eq!(made.settings["plannedPages"], 212);
     assert_eq!(

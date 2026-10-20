@@ -441,6 +441,11 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 merge: None,
             })
         }
+        Intent::SetPaper { .. } => Ok(Plan {
+            touched: Vec::new(),
+            new_spread: None,
+            merge: None,
+        }),
         Intent::SetDetails { details } => {
             check_details(details)?;
             Ok(Plan {
@@ -1012,6 +1017,7 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             }
         }
         Intent::SetFonts { fonts } => book.fonts = fonts,
+        Intent::SetPaper { paper } => book.paper = paper,
         Intent::SetDetails { details } => details.apply(book),
         Intent::SetPreflightIgnore { keys } => book.preflight_ignore = keys,
         Intent::EndUndoStep => {}

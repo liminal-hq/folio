@@ -11,6 +11,7 @@ import type { Margins } from "./Margins";
 import type { Master } from "./Master";
 import type { MasterId } from "./MasterId";
 import type { PageNumbers } from "./PageNumbers";
+import type { Paper } from "./Paper";
 import type { Proofing } from "./Proofing";
 import type { Pt } from "./Pt";
 import type { Size } from "./Size";
@@ -26,6 +27,10 @@ masterPages?: Array<Master>,
  * Where the page numbers go, kept so the masters can be made again when pages come and go.
  */
 pageNumbers?: PageNumbers, 
+/**
+ * The paper a printed copy is on, which decides how thick the spine is.
+ */
+paper?: Paper, 
 /**
  * Preflight issues the person has said to leave alone, each by its key (D-31).
  */

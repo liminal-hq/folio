@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    BookFont, Details, Grid, Margins, Master, MasterId, PageNumbers, Proofing, Pt, Size, Spread,
-    SpreadId,
+    BookFont, Details, Grid, Margins, Master, MasterId, PageNumbers, Paper, Proofing, Pt, Size,
+    Spread, SpreadId,
 };
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -29,6 +29,8 @@ pub enum PatchOp {
     },
     /// The language the book is written in.
     SetLanguage { language: String },
+    /// The paper a printed copy is on.
+    SetPaper { paper: Paper },
     /// The title, authors, description and ISBNs.
     SetDetails { details: Details },
     /// The preflight issues the book leaves alone.

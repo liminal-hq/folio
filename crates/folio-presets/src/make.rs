@@ -132,6 +132,11 @@ pub fn new_book_with_ids(
         master_pages: Vec::new(),
         page_numbers: folio_model::PageNumbers::None,
         fonts: Vec::new(),
+        paper: match spec.paper {
+            Paper::White => folio_model::Paper::White,
+            Paper::Cream => folio_model::Paper::Cream,
+            Paper::Colour => folio_model::Paper::Colour,
+        },
         preflight_ignore: Vec::new(),
         proofing: folio_model::Proofing::default(),
         styles: style_file(spec.look, data, &used),
