@@ -27,6 +27,8 @@ permissions = [
   "allow-spell-check",
   "allow-spell-suggest",
   "allow-spell-check-book",
+  "allow-list-fonts",
+  "allow-keep-fonts",
   "allow-dictionaries",
   "allow-download-dictionary",
   "allow-remove-dictionary",

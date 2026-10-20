@@ -6,6 +6,7 @@
 import type { RibbonCommand } from '@liminal-hq/folio-ribbon/types';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { usePaintPresets } from './usePaintPresets';
+import { useFontChoices } from './useFontChoices';
 import { shelfLabels } from '../books/shelfLabels';
 import type { OpenBookCopy } from '../books/booksStore';
 import { useBooks } from '../books/useBooks';
@@ -111,6 +112,7 @@ export function BookView({
 		...backgroundAssets(book),
 	]);
 	const choices = useMemo(() => styleChoices(copy.styles), [copy.styles]);
+	const fonts = useFontChoices(client, id, (book.fonts ?? []).map((f) => f.path).join('|'));
 	const selected = useMemo(
 		() => spread?.frames.filter((f) => selection.includes(f.id)) ?? [],
 		[spread, selection],
@@ -145,6 +147,7 @@ export function BookView({
 				selected,
 				layout,
 				choices,
+				...(fonts ? { fonts } : {}),
 				marks,
 				snap,
 				rulers: rulers.on,
@@ -393,6 +396,11 @@ export function BookView({
 		switch (action.kind) {
 			case 'intents':
 				action.intents.forEach(apply);
+				break;
+			case 'font':
+				action.intents.forEach(apply);
+				// An installed font is kept inside the book, so it opens the same on another computer.
+				if (action.keep) void client.keepFonts(id, [action.keep]).catch(() => undefined);
 				break;
 			case 'add':
 				addFrame(action.shape);

@@ -1381,3 +1381,37 @@ fn a_run_can_have_its_own_typeface_and_colour_and_the_others_keep_the_styles() {
     assert_ne!(plain.family, "Inter");
     assert_eq!(plain.colour, None);
 }
+
+#[test]
+fn the_families_a_book_asks_for_come_from_its_look_styles_overrides_and_runs() {
+    use folio_layout::families::families_used;
+    let (mut book, _) = sample(BookKind::Picture);
+    let before = families_used(&book);
+    assert!(before.contains(&book.styles.font_family));
+    assert!(!before.iter().any(|f| f == "Zed Sans"));
+
+    let mut frame = text_frame("fonts", "body", 60.0, 60.0, 300.0, 80.0, "words");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    text.overrides = Some(folio_model::StyleOverrides {
+        font: Some("Zed Sans".into()),
+        ..Default::default()
+    });
+    text.content.as_mut().unwrap().inline.push(Run {
+        text: " more".into(),
+        style: None,
+        bold: false,
+        italic: false,
+        font: Some("Quill Mono".into()),
+        colour: None,
+    });
+    book.spreads[1].frames.push(frame);
+    let after = families_used(&book);
+    assert!(after.contains(&"Zed Sans".to_string()));
+    assert!(after.contains(&"Quill Mono".to_string()));
+    let mut sorted = after.clone();
+    sorted.sort();
+    sorted.dedup();
+    assert_eq!(after, sorted, "sorted, one of each");
+}

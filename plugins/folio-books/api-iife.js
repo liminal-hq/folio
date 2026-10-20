@@ -116,6 +116,14 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function onDictionaryProgress(listener) {
         return event.listen(DICTIONARY_PROGRESS_EVENT, (e) => listener(e.payload));
     }
+    /** Every family a book can draw in, and where each comes from (bundled, kept in the book or installed). */
+    function listFonts(id) {
+        return cmd('list_fonts', { id });
+    }
+    /** Keeps installed fonts inside the book; says which were kept and which could not be, and why. */
+    function keepFonts(id, families) {
+        return cmd('keep_fonts', { id, families });
+    }
     /** Reads a picture file into the book; resolves to its path inside the book (`assets/images/…`). */
     function importImage(id, path) {
         return cmd('import_image', { id, path });
@@ -163,9 +171,11 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.getStatus = getStatus;
     exports.historyMark = historyMark;
     exports.importImage = importImage;
+    exports.keepFonts = keepFonts;
     exports.layoutMaster = layoutMaster;
     exports.layoutSpread = layoutSpread;
     exports.listBooks = listBooks;
+    exports.listFonts = listFonts;
     exports.newBook = newBook;
     exports.onBooksChanged = onBooksChanged;
     exports.onDictionaryProgress = onDictionaryProgress;

@@ -7,6 +7,8 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
+import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
 import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck';
 import type { SpreadLayoutResult } from '@liminal-hq/folio-protocol/generated/SpreadLayoutResult';
 import {
@@ -19,6 +21,8 @@ import {
 	removeDictionary,
 	onDictionaryProgress,
 	importImage,
+	keepFonts,
+	listFonts,
 	layoutMaster,
 	layoutSpread,
 	listBooks,
@@ -99,6 +103,10 @@ export interface BooksClient {
 	spellCheckBook(id: string, personal?: string[]): Promise<BookSpelling>;
 	/** Corrections for a word, best first. */
 	spellSuggest(id: string, word: string): Promise<string[]>;
+	/** Every family the book can draw in, and where each comes from. */
+	listFonts(id: string): Promise<FontChoice[]>;
+	/** Keeps installed fonts inside the book; says which were kept and which could not be. */
+	keepFonts(id: string, families: string[]): Promise<KeepFontsReport>;
 	/** Every dictionary there is, and whether it is in place. */
 	dictionaries(): Promise<DictionaryStatus[]>;
 	/** Downloads a dictionary, checked against what is pinned for it; resolves to the list again. */
@@ -137,6 +145,8 @@ export const tauriBooksClient: BooksClient = {
 	spellCheck,
 	spellCheckBook,
 	spellSuggest,
+	listFonts,
+	keepFonts,
 	dictionaries,
 	downloadDictionary,
 	removeDictionary,

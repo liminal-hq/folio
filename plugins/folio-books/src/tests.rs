@@ -980,3 +980,96 @@ fn a_book_never_saved_comes_back_untitled_and_closing_or_giving_up_leaves_no_cop
         Err(Error::Recovery(_))
     ));
 }
+
+#[test]
+fn a_book_offers_the_bundled_families_first_and_says_where_each_comes_from() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let choices = books(&app).font_choices(&id).unwrap();
+    assert_eq!(choices[0].origin, crate::wire::FontOrigin::Bundled);
+    assert!(choices.iter().any(|c| c.family == "Literata"));
+    let mut names: Vec<String> = choices.iter().map(|c| c.family.to_lowercase()).collect();
+    names.sort();
+    names.dedup();
+    assert_eq!(names.len(), choices.len(), "each family once");
+    assert!(books(&app).font_choices("nope").is_err());
+}
+
+#[test]
+fn keeping_fonts_leaves_the_bundled_ones_alone_and_reports_what_is_not_installed() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let report = books(&app)
+        .keep_fonts(&id, &["Literata".to_string(), "No Such Family".to_string()])
+        .unwrap();
+    assert!(report.kept.is_empty());
+    assert_eq!(report.skipped.len(), 1);
+    assert_eq!(report.skipped[0].family, "No Such Family");
+    assert_eq!(
+        report.skipped[0].reason,
+        crate::wire::FontSkip::NotInstalled
+    );
+    // Nothing was kept, so nothing changed and there is nothing to undo.
+    assert!(books(&app).snapshot(&id).unwrap().book.fonts.is_empty());
+    assert!(!books(&app).snapshot(&id).unwrap().can_undo);
+}
+
+#[test]
+fn an_installed_font_that_may_travel_is_kept_in_one_undo_step_and_laid_out_from_the_book() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    // Which fonts are installed depends on the computer, so use the first one whose licence allows.
+    let installed: Vec<String> = books(&app)
+        .font_choices(&id)
+        .unwrap()
+        .into_iter()
+        .filter(|c| c.origin == crate::wire::FontOrigin::System)
+        .map(|c| c.family)
+        .collect();
+    let Some(family) = installed.into_iter().find(|f| {
+        let report = books(&app)
+            .keep_fonts(&id, std::slice::from_ref(f))
+            .unwrap();
+        !report.kept.is_empty()
+    }) else {
+        return; // No installed font may be kept on this computer; there is nothing to check.
+    };
+    let snapshot = books(&app).snapshot(&id).unwrap();
+    assert!(snapshot
+        .book
+        .fonts
+        .iter()
+        .all(|f| f.path.starts_with("assets/fonts/")));
+    assert!(snapshot.book.fonts.iter().any(|f| f.family == family));
+    assert!(snapshot.can_undo);
+    // The family now comes from the book.
+    let origin = books(&app)
+        .font_choices(&id)
+        .unwrap()
+        .into_iter()
+        .find(|c| c.family == family)
+        .unwrap()
+        .origin;
+    assert_eq!(origin, crate::wire::FontOrigin::Book);
+    // Keeping it again changes nothing.
+    let depth = books(&app).history_mark(&id).unwrap();
+    books(&app)
+        .keep_fonts(&id, std::slice::from_ref(&family))
+        .unwrap();
+    assert_eq!(books(&app).history_mark(&id).unwrap(), depth);
+    // One undo takes it back out.
+    books(&app).undo(&id).unwrap();
+    assert!(books(&app).snapshot(&id).unwrap().book.fonts.is_empty());
+}
