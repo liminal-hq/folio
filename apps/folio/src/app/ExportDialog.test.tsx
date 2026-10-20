@@ -70,6 +70,13 @@ describe('the Export dialog', () => {
 		expect(exported(fake.calls)[0]).toContain('printShopPdf');
 	});
 
+	it('offers the KDP paperback cover', async () => {
+		await setup();
+		await userEvent.click(screen.getByRole('checkbox', { name: /Paperback cover for Amazon KDP/ }));
+		await userEvent.click(screen.getByRole('button', { name: 'Make files' }));
+		expect(await screen.findByText('pip-paperback-cover.pdf')).toBeInTheDocument();
+	});
+
 	it('cannot make nothing', async () => {
 		await setup();
 		await userEvent.click(screen.getByRole('checkbox', { name: /Sharing PDF/ }));

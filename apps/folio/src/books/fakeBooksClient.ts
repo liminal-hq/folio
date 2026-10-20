@@ -517,6 +517,7 @@ export function createFakeBooksClient(): FakeBooks {
 			const names: Record<string, string[]> = {
 				sharingPdf: ['pip-share.pdf'],
 				kdpInterior: ['pip-paperback-interior.pdf'],
+				kdpCover: ['pip-paperback-cover.pdf'],
 				printShopPdf: ['pip-print-pdfx4.pdf'],
 				kindleEpub: ['pip-kindle.epub'],
 				koboEpub: ['pip.epub', 'pip.kepub.epub'],
