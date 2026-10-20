@@ -659,6 +659,7 @@ export function BookView({
 							}
 							onEditText={(frame, text) => keepAsStep({ type: 'SetText', frame, text })}
 							onEditTable={(frame, edit) => keepAsStep({ type: 'EditTable', frame, edit })}
+							onEditStory={setStoryFlow}
 							speller={speller}
 							onEditingCell={(cell) => cell && setEditingCell(cell)}
 							editableMasters={settings.mode === 'expert'}
