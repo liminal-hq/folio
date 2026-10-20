@@ -6,6 +6,7 @@
 use std::ops::Range;
 use std::sync::Arc;
 
+use folio_model::Colour;
 use rustybuzz::Feature;
 
 use crate::breaker::{break_lines, first_fit, Break, Item, Params, INFINITE};
@@ -27,6 +28,8 @@ pub struct TextStyle {
     pub features: Vec<(String, u32)>,
     /// Line height as a multiple of the size.
     pub line_height: f64,
+    /// The colour the words are drawn in; `None` is the ink the page uses.
+    pub colour: Option<Colour>,
 }
 
 impl TextStyle {
@@ -39,6 +42,7 @@ impl TextStyle {
             tracking_em: 0.0,
             features: Vec::new(),
             line_height: 1.3,
+            colour: None,
         }
     }
 }

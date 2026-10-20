@@ -101,6 +101,12 @@ pub struct Run {
     pub bold: bool,
     #[serde(default)]
     pub italic: bool,
+    /// A typeface for these words alone, over the style's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub font: Option<String>,
+    /// A colour for these words alone, over the style's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub colour: Option<Colour>,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]

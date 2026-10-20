@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use ts_rs::TS;
 
+use crate::colour::Colour;
+
 /// One named style as `styles.json` stores it. Every key is optional.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
@@ -27,6 +29,9 @@ pub struct StyleDef {
     /// This style's own typeface, which wins over the look and `sans`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub family: Option<String>,
+    /// The colour the words are drawn in; none is the ink the page uses.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub colour: Option<Colour>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub align: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

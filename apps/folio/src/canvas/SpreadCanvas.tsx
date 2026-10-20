@@ -111,7 +111,7 @@ function Lines({
 								fontSize={run.size}
 								fontWeight={run.weight}
 								fontStyle={run.italic ? 'italic' : 'normal'}
-								fill={INK}
+								fill={run.colour ?? INK}
 								textLength={run.width}
 								lengthAdjust="spacing"
 								xmlSpace="preserve"
@@ -142,7 +142,7 @@ function Lines({
 									fontSize={run.size}
 									fontWeight={run.weight}
 									fontStyle={run.italic ? 'italic' : 'normal'}
-									fill={INK}
+									fill={run.colour ?? INK}
 								>
 									-
 								</text>
