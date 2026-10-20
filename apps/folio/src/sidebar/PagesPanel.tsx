@@ -6,6 +6,7 @@
 import type { Background } from '@liminal-hq/folio-protocol/generated/Background';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
+import type { StoryChapter } from '@liminal-hq/folio-protocol/generated/StoryChapter';
 import { t } from '../i18n/messages';
 import { BackgroundSwatch } from '../canvas/BackgroundSwatch';
 import { resolveBackgrounds } from '../canvas/backgrounds';
@@ -26,6 +27,8 @@ export interface PagesPanelProps {
 	onApply(intent: Intent): void;
 	/** An address to draw for each picture a background uses, once it has been read. */
 	images?: Record<string, string>;
+	/** The chapters of the book's story and the spread each begins on, to jump between. */
+	chapters?: StoryChapter[];
 }
 
 /** In words, so the swatch is not the only way to tell what a page has. */
@@ -46,6 +49,7 @@ export function PagesPanel({
 	onChange,
 	onApply,
 	images,
+	chapters = [],
 }: PagesPanelProps) {
 	const spread = book.spreads[shown];
 	const scopes = spread ? backgroundTargets(spread) : [];
@@ -75,6 +79,30 @@ export function PagesPanel({
 					))}
 				</ul>
 			</section>
+			{chapters.length > 1 && (
+				<section className={styles.section} aria-labelledby="pages-chapters">
+					<h2 id="pages-chapters" className={styles.heading}>
+						{t('pages.chapters')}
+					</h2>
+					<ul className={styles.list}>
+						{chapters.map((chapter, i) => {
+							const index = book.spreads.findIndex((s) => s.id === chapter.spread);
+							return (
+								<li key={`${i}:${chapter.title}`}>
+									<button
+										type="button"
+										className={styles.row}
+										disabled={index < 0}
+										onClick={() => onShow(index)}
+									>
+										<span className={styles.label}>{chapter.title}</span>
+									</button>
+								</li>
+							);
+						})}
+					</ul>
+				</section>
+			)}
 			{spread && (
 				<SectionPanel
 					spread={spread}

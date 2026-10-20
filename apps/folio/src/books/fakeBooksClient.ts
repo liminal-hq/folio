@@ -642,6 +642,14 @@ export function createFakeBooksClient(): FakeBooks {
 		async revealPath(path) {
 			await call('revealPath', [path]);
 		},
+		async storyChapters(id) {
+			await call('storyChapters', [id]);
+			const held = find(id);
+			const first = held.snapshot.book.spreads[1]?.id;
+			return first && held.snapshot.book.flows.length > 0
+				? [{ title: 'The kettle', spread: first }]
+				: [];
+		},
 		async preflightBook(id) {
 			await call('preflightBook', [id]);
 			find(id);

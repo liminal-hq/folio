@@ -18,6 +18,7 @@ use crate::wire::{
     BookSnapshot, BookSpelling, BookSummary, CoverSheetPreview, DictionaryProgress,
     DictionaryStatus, ExportColour, ExportReport, ExportTarget, FontChoice, FontUse,
     KeepFontsReport, ProofSpread, ReaderPreview, Recoverable, SpellCheck, SpreadLayoutResult,
+    StoryChapter,
 };
 use crate::DICTIONARY_PROGRESS_EVENT;
 use folio_import::ImportReport;
@@ -419,6 +420,19 @@ pub async fn preflight_book<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().preflight(&id))
         .await
         .expect("the preflight task does not panic")
+}
+
+/// The chapters of the book's stories and the spread each begins on.
+#[tauri::command]
+pub async fn story_chapters<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+) -> Result<Vec<StoryChapter>, Error> {
+    // Laying out every spread is work for a blocking thread, not the async runtime.
+    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().story_chapters(&id))
+        .await
+        .expect("the chapters task does not panic")
 }
 
 /// Every family a book can draw in, and where each comes from.

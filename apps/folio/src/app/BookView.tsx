@@ -53,6 +53,7 @@ import { Inspector } from '../inspector/Inspector';
 import { languageChoices } from '../inspector/languageChoices';
 import { PagesPanel } from '../sidebar/PagesPanel';
 import { FontsPanel } from '../sidebar/FontsPanel';
+import { useStoryChapters } from './useStoryChapters';
 import { ProofingPanel } from '../sidebar/ProofingPanel';
 import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
 import { EXPERT_GROUPS, Sidebar, type SidebarGroup } from '../sidebar/Sidebar';
@@ -441,6 +442,7 @@ export function BookView({
 	// The sidebar's open group. Selecting something on the page brings the Properties forward.
 	const [group, setGroup] = useState<SidebarGroup>('properties');
 	const fontUses = useFontsInUse(client, id, copy.revision, group === 'fonts');
+	const chapters = useStoryChapters(client, id, copy.revision, group === 'pages');
 	useEffect(() => {
 		// The Proofing list is a task: showing a word selects it, and the list stays.
 		if (selection.length > 0) setGroup((open) => (open === 'proofing' ? open : 'properties'));
@@ -840,6 +842,7 @@ export function BookView({
 								labels={labels}
 								shown={shown}
 								images={images}
+								chapters={chapters}
 								onShow={(index) => {
 									setEditing(null);
 									setSpreadIndex(index);
