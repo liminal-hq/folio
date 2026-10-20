@@ -10,6 +10,7 @@
 pub mod assets;
 pub mod breaker;
 pub mod error;
+pub mod fallback;
 pub mod families;
 pub mod flow;
 pub mod fonts;

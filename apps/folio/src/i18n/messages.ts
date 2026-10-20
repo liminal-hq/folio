@@ -97,6 +97,9 @@ export const messages = {
 	'preflight.fontMissing': '{family} is not on this computer or in the book',
 	'preflight.fontMissing.fix':
 		'Pages are set in a stand-in and will break differently. Install the font, or pick another.',
+	'preflight.missingGlyphs': 'No font has {chars} on {where}',
+	'preflight.missingGlyphs.fix':
+		'These are drawn as empty boxes. Use a font that has them, or take them out.',
 	'preflight.placeholder': 'A picture frame on {where} is still empty',
 	'preflight.placeholder.many': '{count} picture frames are still empty',
 	'preflight.placeholder.fix':
