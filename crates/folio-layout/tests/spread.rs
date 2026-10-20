@@ -1691,3 +1691,26 @@ fn a_story_says_how_many_more_frames_it_needs_and_needs_none_once_they_are_there
     assert_eq!(layouter.frames_needed(&FlowId("story".into())).unwrap(), 0);
     assert_eq!(layouter.frames_needed(&FlowId("nope".into())).unwrap(), 0);
 }
+
+#[test]
+fn spreads_laid_out_with_a_shared_flow_cache_are_the_same_as_without_one() {
+    use folio_layout::FlowCache;
+    let (book, styles) = sample(BookKind::Novel);
+    let fonts = FontBook::bundled();
+    let cache = FlowCache::new();
+    for spread in &book.spreads {
+        let alone = Layouter::new(&book, &styles, &fonts)
+            .layout_spread(&spread.id)
+            .unwrap()
+            .unwrap();
+        let shared = Layouter::new(&book, &styles, &fonts)
+            .with_flow_cache(&cache, 7)
+            .layout_spread(&spread.id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(&alone).unwrap(),
+            serde_json::to_value(&shared).unwrap()
+        );
+    }
+}
