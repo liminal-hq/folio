@@ -11,6 +11,7 @@ import { AppWindowChrome } from './app/AppWindowChrome';
 import { AboutScreen } from './app/AboutScreen';
 import { BookToolsScreen } from './app/BookToolsScreen';
 import { MainScreen } from './app/MainScreen';
+import { NewBookWizard } from './wizard/NewBookWizard';
 import { BooksProvider } from './books/BooksProvider';
 import { tauriBooksClient } from './books/booksClient';
 import { tauriFileDialogs } from './books/dialogs';
@@ -43,6 +44,8 @@ function screenFor(kind: WindowKind | null) {
 					<BookToolsScreen />
 				</BooksProvider>
 			);
+		case 'WizardNew':
+			return <NewBookWizard />;
 		case null:
 			return null;
 	}

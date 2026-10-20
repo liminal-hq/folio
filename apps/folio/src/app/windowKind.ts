@@ -16,6 +16,8 @@ export function windowKindFromLabel(label: string): WindowKind | null {
 			return 'Preferences';
 		case 'book-tools':
 			return 'BookTools';
+		case 'wizard-new':
+			return 'WizardNew';
 	}
 	return null;
 }

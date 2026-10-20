@@ -53,6 +53,7 @@ export const messages = {
 	'window.about.title': 'About Folio',
 	'window.preferences.title': 'Preferences',
 	'window.bookTools.title': 'Book Tools',
+	'window.wizardNew.title': 'New book',
 
 	// About
 	'about.tagline': 'Books, laid out by hand, without the hard parts.',
@@ -438,6 +439,20 @@ export const messages = {
 	'export.files': 'The files that were made',
 	'export.made': 'Your files are ready.',
 	'export.show': 'Show in folder',
+
+	// New book wizard
+	'wizard.steps': 'Steps',
+	'wizard.step.kind': 'What are you making?',
+	'wizard.step.size': 'Size and paper',
+	'wizard.step.title': 'Title and you',
+	'wizard.step.words': 'Bring your words',
+	'wizard.step.way': 'How you like to work',
+	'wizard.step.look': 'The look',
+	'wizard.step.review': 'Review',
+	'wizard.comingSoon': 'This step is coming soon.',
+	'wizard.skip': 'Skip the wizard',
+	'wizard.back': 'Back',
+	'wizard.next': 'Next',
 
 	// Preferences
 	'preferences.section.interface': 'Interface',
