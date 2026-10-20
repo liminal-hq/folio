@@ -22,6 +22,7 @@ function context(overrides: Partial<CommandContext['settings']> = {}) {
 		undo: vi.fn(async () => {}),
 		redo: vi.fn(async () => {}),
 		exportBook: vi.fn(async () => {}),
+		importText: vi.fn(async () => {}),
 	};
 	const closeWindow = vi.fn();
 	const openWindow = vi.fn();
@@ -98,6 +99,7 @@ describe('runCommand', () => {
 		await runCommand('file.saveAs', value, OPEN);
 		await runCommand('file.close', value, OPEN);
 		await runCommand('file.export', value, OPEN);
+		await runCommand('file.importText', value, OPEN);
 		await runCommand('edit.undo', value, OPEN);
 		await runCommand('edit.redo', value, OPEN);
 		for (const call of Object.values(books)) expect(call).toHaveBeenCalledOnce();

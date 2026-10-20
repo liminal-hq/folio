@@ -23,6 +23,7 @@ async function setup(picks: { open?: string | null; save?: string | null } = {})
 			return picks.save ?? null;
 		},
 		pickImage: async () => null,
+		pickText: async () => null,
 	};
 	return { fake, store, saveStarts, actions: createBookActions(store, fake.client, dialogs) };
 }

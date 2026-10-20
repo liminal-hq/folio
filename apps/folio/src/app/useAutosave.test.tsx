@@ -16,6 +16,7 @@ const dialogs: FileDialogs = {
 	pickBook: async () => null,
 	pickSavePath: async () => null,
 	pickImage: async () => null,
+	pickText: async () => null,
 };
 
 function Clock() {
