@@ -149,6 +149,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function importText(id, path, mapping) {
         return cmd('import_text', { id, path, mapping: mapping ?? null });
     }
+    /** The chapters of the book's stories and the spread each begins on. */
+    function storyChapters(id) {
+        return cmd('story_chapters', { id });
+    }
     /** Shows a file in the system's file manager. */
     function revealPath(path) {
         return cmd('reveal_path', { path });
@@ -254,6 +258,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.spellCheck = spellCheck;
     exports.spellCheckBook = spellCheckBook;
     exports.spellSuggest = spellSuggest;
+    exports.storyChapters = storyChapters;
     exports.undo = undo;
     exports.unkeepFonts = unkeepFonts;
 

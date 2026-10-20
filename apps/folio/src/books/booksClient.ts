@@ -7,6 +7,7 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { StoryChapter } from '@liminal-hq/folio-protocol/generated/StoryChapter';
 import type { ProofSpread } from '@liminal-hq/folio-protocol/generated/ProofSpread';
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
 import type { ExportColour } from '@liminal-hq/folio-protocol/generated/ExportColour';
@@ -42,6 +43,7 @@ import {
 	importText,
 	revealPath,
 	preflightBook,
+	storyChapters,
 	keepFonts,
 	listFonts,
 	layoutMaster,
@@ -142,6 +144,8 @@ export interface BooksClient {
 	revealPath(path: string): Promise<void>;
 	/** What preflight finds in the whole book, the issues that wait on the person first. */
 	preflightBook(id: string): Promise<PreflightItem[]>;
+	/** The chapters of the book's stories and the spread each begins on. */
+	storyChapters(id: string): Promise<StoryChapter[]>;
 	/** The typefaces the book uses, and where each comes from. */
 	fontsInUse(id: string): Promise<FontUse[]>;
 	/** Takes fonts out of the book, so it is laid out from the computer's again. */
@@ -197,6 +201,7 @@ export const tauriBooksClient: BooksClient = {
 	importText,
 	revealPath,
 	preflightBook,
+	storyChapters,
 	fontsInUse,
 	unkeepFonts,
 	listFonts,

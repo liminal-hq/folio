@@ -29,7 +29,7 @@ use crate::wire::{
     ExportProgress, ExportReport, ExportTarget, ExportedFile, FontChoice, FontLicence, FontOrigin,
     FontSkip, FontUse, KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, PreviewChapter,
     PreviewImage, ProofColour, ProofPage, ProofSpread, ReaderPreview, Recoverable, SkippedFont,
-    SpellCheck, SpreadLayoutResult,
+    SpellCheck, SpreadLayoutResult, StoryChapter,
 };
 use crate::{CHANGED_EVENT, EXPORT_PROGRESS_EVENT, PATCH_EVENT};
 
@@ -1044,6 +1044,63 @@ impl<R: Runtime> Books<R> {
         // A stable sort keeps the pages in order within each severity.
         items.sort_by_key(|item| item.severity);
         Ok(items)
+    }
+
+    /// The chapters of the book's stories (paragraphs in the heading style) and the spread each
+    /// begins on, in the order of the stories.
+    pub fn story_chapters(&self, id: &str) -> Result<Vec<StoryChapter>, Error> {
+        let book = {
+            let inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            open.session.book().clone()
+        };
+        let mut out = Vec::new();
+        for flow in &book.flows {
+            let chapters: Vec<(usize, String)> = flow
+                .paragraphs
+                .iter()
+                .enumerate()
+                .filter(|(_, p)| p.style.as_ref().is_some_and(|s| s.0 == "h1"))
+                .map(|(i, p)| {
+                    (
+                        i,
+                        p.inline.iter().map(|r| r.text.as_str()).collect::<String>(),
+                    )
+                })
+                .filter(|(_, title)| !title.trim().is_empty())
+                .collect();
+            if chapters.is_empty() {
+                continue;
+            }
+            // The first spread each of the story's paragraphs is seen on.
+            let mut first_seen: HashMap<u32, String> = HashMap::new();
+            for spread in &book.spreads {
+                let laid = self.layout_spread(id, &spread.id.0, None)?;
+                for frame in &laid.layout.frames {
+                    if !flow.frames.iter().any(|f| f.0 == frame.frame.0) {
+                        continue;
+                    }
+                    for line in &frame.lines {
+                        if let Some(p) = line.paragraph {
+                            first_seen.entry(p).or_insert_with(|| spread.id.0.clone());
+                        }
+                    }
+                }
+            }
+            for (index, title) in chapters {
+                if let Some(spread) = first_seen.get(&(index as u32)) {
+                    out.push(StoryChapter {
+                        title: title.trim().to_owned(),
+                        spread: spread.clone(),
+                    });
+                }
+            }
+        }
+        Ok(out)
     }
 
     /// A spread as a press would print it, through the CMYK ICC profile at `profile`.

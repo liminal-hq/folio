@@ -267,6 +267,15 @@ pub struct ProofPage {
     pub outside: f64,
 }
 
+/// A chapter of a story: its title, and the spread its first words are on.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct StoryChapter {
+    pub title: String,
+    pub spread: String,
+}
+
 /// A swatch of the book as drawn and as a press would print it, each as `#rrggbb`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

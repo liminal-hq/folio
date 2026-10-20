@@ -39,6 +39,7 @@ const COMMANDS: &[&str] = &[
     "cancel_export",
     "reveal_path",
     "preflight_book",
+    "story_chapters",
     "fonts_in_use",
     "unkeep_fonts",
     "list_fonts",

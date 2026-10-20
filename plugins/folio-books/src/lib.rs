@@ -74,6 +74,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::cancel_export,
             commands::reveal_path,
             commands::preflight_book,
+            commands::story_chapters,
             commands::fonts_in_use,
             commands::unkeep_fonts,
             commands::list_fonts,

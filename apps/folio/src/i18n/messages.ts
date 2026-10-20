@@ -643,6 +643,7 @@ export const messages = {
 	'proofing.suggestions': 'Suggestions for {word}',
 	'proofing.onThePage': 'Change this one on the page.',
 	'pages.list': 'Pages',
+	'pages.chapters': 'Chapters',
 	'pages.background': 'Page background',
 	'pages.none': 'None',
 	'pages.is.colour': 'Colour',
