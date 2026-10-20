@@ -249,6 +249,7 @@ fn words_put_on_the_back_cover_are_drawn_on_the_sheet() {
         picture: None,
         shape: None,
         fill: None,
+        rotation: None,
     }];
     let sheet = cover_sheet(&book, Paper::White).unwrap();
     let found = sheet.spreads[0].frames.iter().any(|f| match f {
@@ -279,6 +280,7 @@ fn a_picture_put_on_the_back_cover_is_an_image_frame_of_the_sheet() {
         picture: Some("assets/images/otter.png".into()),
         shape: None,
         fill: None,
+        rotation: None,
     }];
     let sheet = cover_sheet(&book, Paper::White).unwrap();
     let found = sheet.spreads[0].frames.iter().any(|f| match f {
@@ -289,4 +291,55 @@ fn a_picture_put_on_the_back_cover_is_an_image_frame_of_the_sheet() {
         _ => false,
     });
     assert!(found, "the picture is an image frame of the sheet");
+}
+
+#[test]
+fn the_sheet_has_guides_at_the_folds_and_the_safe_areas_for_the_canvas_to_snap_to() {
+    use folio_model::Axis;
+    let (book, _) = sample(BookKind::Picture);
+    let sheet = cover_sheet(&book, Paper::White).unwrap();
+    let w = book.trim.w.0;
+    let spine = paperback_cover(book.trim, spine_pages(&book), Paper::White)
+        .spine
+        .0;
+    let xs: Vec<f64> = sheet.spreads[0]
+        .guides
+        .iter()
+        .filter(|g| g.axis == Axis::X)
+        .map(|g| g.pos.0)
+        .collect();
+    for fold in [0.0, w, w + spine, 2.0 * w + spine, 18.0, w - 18.0] {
+        assert!(
+            xs.iter().any(|x| (x - fold).abs() < 1e-9),
+            "a guide at {fold}"
+        );
+    }
+    assert!(sheet.spreads[0].guides.iter().all(|g| g.locked));
+}
+
+#[test]
+fn a_turned_box_on_the_back_is_a_turned_frame_of_the_sheet() {
+    use folio_model::{BackNote, Pt, Rect};
+    let (mut book, _) = sample(BookKind::Picture);
+    book.back_notes = vec![BackNote {
+        id: "n3".into(),
+        text: "Slanted".into(),
+        rect: Rect {
+            x: Pt(30.0),
+            y: Pt(60.0),
+            w: Pt(100.0),
+            h: Pt(30.0),
+        },
+        size: 12.0,
+        picture: None,
+        shape: None,
+        fill: None,
+        rotation: Some(15.0),
+    }];
+    let sheet = cover_sheet(&book, Paper::White).unwrap();
+    let turned = sheet.spreads[0].frames.iter().any(|f| match f {
+        Frame::Text(t) => t.base.id.0 == "cover_note_n3" && t.base.rotation == 15.0,
+        _ => false,
+    });
+    assert!(turned);
 }

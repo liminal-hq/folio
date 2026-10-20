@@ -1640,6 +1640,7 @@ fn the_cover_sheet_canvas_is_the_sheet_as_one_laid_out_spread_with_what_was_put_
                     picture: None,
                     shape: None,
                     fill: None,
+                    rotation: None,
                 }],
             },
         )

@@ -35,6 +35,7 @@ interface CoverSheetDialogProps {
 		moves: { frame: string; box: { x: number; y: number; w: number; h: number } }[],
 	): void;
 	onFrameText(frame: string, text: string): void;
+	onFrameTurn(frame: string, degrees: number): void;
 	onFrameDelete(frames: string[]): void;
 }
 
@@ -50,6 +51,7 @@ export function CoverSheetDialog({
 	onPickPicture,
 	onFrameBoxes,
 	onFrameText,
+	onFrameTurn,
 	onFrameDelete,
 }: CoverSheetDialogProps) {
 	/** Whether the sheet is drawn as printed (a picture) or as a page to draw on. */
@@ -187,6 +189,7 @@ export function CoverSheetDialog({
 					onNotes={onNotes}
 					onFrameBoxes={onFrameBoxes}
 					onFrameText={onFrameText}
+					onFrameTurn={onFrameTurn}
 					onFrameDelete={onFrameDelete}
 					onPickPicture={onPickPicture}
 				/>

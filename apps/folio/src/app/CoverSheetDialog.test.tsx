@@ -26,6 +26,7 @@ describe('CoverSheetDialog', () => {
 				onPickPicture={async () => null}
 				onFrameBoxes={() => undefined}
 				onFrameText={() => undefined}
+				onFrameTurn={() => undefined}
 				onFrameDelete={() => undefined}
 			/>,
 		);
@@ -51,6 +52,7 @@ describe('CoverSheetDialog', () => {
 				onPickPicture={async () => null}
 				onFrameBoxes={() => undefined}
 				onFrameText={() => undefined}
+				onFrameTurn={() => undefined}
 				onFrameDelete={() => undefined}
 			/>,
 		);
@@ -73,6 +75,7 @@ describe('CoverSheetDialog', () => {
 				onPickPicture={async () => null}
 				onFrameBoxes={() => undefined}
 				onFrameText={() => undefined}
+				onFrameTurn={() => undefined}
 				onFrameDelete={() => undefined}
 			/>,
 		);
@@ -98,6 +101,7 @@ describe('CoverSheetDialog', () => {
 				onPickPicture={async () => null}
 				onFrameBoxes={() => undefined}
 				onFrameText={() => undefined}
+				onFrameTurn={() => undefined}
 				onFrameDelete={() => undefined}
 			/>,
 		);
@@ -134,6 +138,7 @@ describe('CoverSheetDialog', () => {
 				onPickPicture={async () => null}
 				onFrameBoxes={() => undefined}
 				onFrameText={() => undefined}
+				onFrameTurn={() => undefined}
 				onFrameDelete={() => undefined}
 			/>,
 		);
@@ -182,6 +187,7 @@ describe('CoverSheetDialog', () => {
 				onPickPicture={async () => 'assets/images/otter.png'}
 				onFrameBoxes={() => undefined}
 				onFrameText={() => undefined}
+				onFrameTurn={() => undefined}
 				onFrameDelete={() => undefined}
 			/>,
 		);
@@ -210,6 +216,7 @@ describe('CoverSheetDialog', () => {
 				onPickPicture={async () => 'assets/images/otter.png'}
 				onFrameBoxes={() => undefined}
 				onFrameText={() => undefined}
+				onFrameTurn={() => undefined}
 				onFrameDelete={() => undefined}
 			/>,
 		);

@@ -268,6 +268,9 @@ pub struct BackNote {
     pub shape: Option<crate::Shape>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fill: Option<crate::Colour>,
+    /// How far the box is turned, in degrees clockwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<f64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, TS)]
