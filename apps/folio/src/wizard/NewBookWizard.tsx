@@ -14,6 +14,10 @@ import { t } from '../i18n/messages';
 import styles from './NewBookWizard.module.css';
 import { KindStep } from './KindStep';
 import { SizeStep } from './SizeStep';
+import { useSettings } from '../settings/useSettings';
+import { TitleStep } from './TitleStep';
+import { WayStep } from './WayStep';
+import { WordsStep } from './WordsStep';
 import { initialDraft, type WizardDraft } from './wizardDraft';
 import { WIZARD_STEPS, type WizardStep } from './wizardSteps';
 
@@ -44,8 +48,9 @@ function Tick() {
 
 export function NewBookWizard({ client = tauriBooksClient }: { client?: BooksClient }) {
 	const controls = useWindowControls();
+	const settings = useSettings();
 	const [kinds, setKinds] = useState<KindInfo[]>([]);
-	const [draft, setDraft] = useState<WizardDraft>(initialDraft);
+	const [draft, setDraft] = useState<WizardDraft>(() => initialDraft(settings));
 	const change = (patch: Partial<WizardDraft>) => setDraft((was) => ({ ...was, ...patch }));
 	useEffect(() => {
 		let live = true;
@@ -112,7 +117,10 @@ export function NewBookWizard({ client = tauriBooksClient }: { client?: BooksCli
 								onChange={change}
 							/>
 						)}
-						{step !== 'kind' && step !== 'size' && (
+						{step === 'title' && <TitleStep draft={draft} onChange={change} />}
+						{step === 'words' && <WordsStep draft={draft} onChange={change} />}
+						{step === 'way' && <WayStep draft={draft} onChange={change} />}
+						{(step === 'look' || step === 'review') && (
 							<p className={styles.note}>{t('wizard.comingSoon')}</p>
 						)}
 					</main>
