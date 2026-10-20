@@ -129,6 +129,60 @@ pub struct DictionaryStatus {
     pub bundled: bool,
 }
 
+/// Where a font a book can use comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub enum FontOrigin {
+    /// Ships with Folio.
+    Bundled,
+    /// Kept inside the book.
+    Book,
+    /// Installed on this computer.
+    System,
+}
+
+/// One typeface family a book can draw in.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct FontChoice {
+    pub family: String,
+    pub origin: FontOrigin,
+}
+
+/// Why a font was not kept with a book.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub enum FontSkip {
+    /// The font's licence does not let its file be kept in a book.
+    NotAllowed,
+    /// The file is too big to keep.
+    TooLarge,
+    /// No installed font has that family.
+    NotInstalled,
+}
+
+/// A family `keep_fonts` could not keep, and why.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct SkippedFont {
+    pub family: String,
+    pub reason: FontSkip,
+}
+
+/// What keeping fonts with a book did.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct KeepFontsReport {
+    /// The families now kept with the book, including any that already were.
+    pub kept: Vec<String>,
+    pub skipped: Vec<SkippedFont>,
+}
+
 /// A book with changes that were never saved, found after Folio stopped without closing it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

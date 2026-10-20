@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { TableEdit } from '@liminal-hq/folio-protocol/generated/TableEdit';
+import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
@@ -22,6 +23,8 @@ export interface EditorInput {
 	selected: Frame[];
 	layout: SpreadLayout | null;
 	choices: StyleChoice[];
+	/** The typefaces the book can draw in, for the Font list. */
+	fonts?: FontChoice[];
 	marks: Marks;
 	snap: boolean;
 	/** Whether the rulers show. */
@@ -37,12 +40,17 @@ export interface EditorState {
 	available: ReadonlySet<string>;
 	active: Readonly<Record<string, boolean>>;
 	values: Readonly<Record<string, number>>;
+	/** The text a list shows as chosen, by control: the font of the selected words. */
+	texts: Readonly<Record<string, string>>;
+	/** The choices of a list, by control, as value and label. */
+	options: Readonly<Record<string, ReadonlyArray<readonly [string, string]>>>;
 	contextual: readonly string[];
 }
 
 /** What a control asks the book view to do. */
 export type EditorAction =
 	| { kind: 'intents'; intents: Intent[] }
+	| { kind: 'font'; intents: Intent[]; keep: string | null }
 	| { kind: 'add'; shape: NewFrameKind }
 	| { kind: 'marks'; marks: Partial<Marks> }
 	| { kind: 'snap' }
@@ -104,6 +112,7 @@ export function editorState(input: EditorInput): EditorState {
 		snap,
 	};
 	const values: Record<string, number> = {};
+	const shown: Record<string, string> = {};
 	const contextual: string[] = [];
 
 	if (input.master) {
@@ -134,6 +143,8 @@ export function editorState(input: EditorInput): EditorState {
 		const align = first.overrides?.align ?? 'left';
 		for (const [id, value] of Object.entries(ALIGNS)) active[id] = align === value;
 		values.size = effectiveSize(first, layout, choices);
+		available.add('font');
+		shown.font = first.overrides?.font ?? '';
 	}
 	const only = selected.length === 1 ? selected[0]! : null;
 	if (only?.type === 'image') {
@@ -162,7 +173,9 @@ export function editorState(input: EditorInput): EditorState {
 		available.add('rotL');
 		available.add('rotR');
 	}
-	return { available, active, values, contextual };
+	const options: Record<string, ReadonlyArray<readonly [string, string]>> = {};
+	if (input.fonts) options.font = input.fonts.map((f) => [f.family, f.family] as const);
+	return { available, active, values, texts: shown, options, contextual };
 }
 
 /** The action a control asks for, or `null` when it is not one of the document's controls. */
@@ -271,6 +284,23 @@ export function editorAction(
 					overrides: withOverrides(f, { align: ALIGNS[id]! }),
 				})),
 			};
+		case 'font': {
+			const family = typeof value === 'string' ? value : '';
+			const origin = input.fonts?.find((f) => f.family === family)?.origin;
+			return {
+				kind: 'font',
+				// An installed font is kept with the book, so it opens the same elsewhere.
+				keep: origin === 'system' ? family : null,
+				intents: texts(selected).map((f) => {
+					const { font: _was, ...rest } = withOverrides(f, {});
+					return {
+						type: 'OverrideStyle',
+						frame: f.id,
+						overrides: family === '' ? rest : { ...rest, font: family },
+					};
+				}),
+			};
+		}
 		case 'size': {
 			const size = typeof value === 'number' ? value : Number(value);
 			if (!Number.isFinite(size)) return null;

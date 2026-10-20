@@ -12,6 +12,8 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { DictionaryOffer } from '@liminal-hq/folio-protocol/generated/DictionaryOffer';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
+import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
 import type { Misspelling } from '@liminal-hq/folio-protocol/generated/Misspelling';
 import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
@@ -195,6 +197,8 @@ export type {
 	BookSpelling,
 	DictionaryOffer,
 	DictionaryStatus,
+	FontChoice,
+	KeepFontsReport,
 	Misspelling,
 	SpellCheck,
 	BookSummary,
@@ -208,6 +212,16 @@ export type {
 	PluginStatus,
 	Recoverable,
 };
+
+/** Every family a book can draw in, and where each comes from (bundled, kept in the book or installed). */
+export function listFonts(id: string): Promise<FontChoice[]> {
+	return cmd<FontChoice[]>('list_fonts', { id });
+}
+
+/** Keeps installed fonts inside the book; says which were kept and which could not be, and why. */
+export function keepFonts(id: string, families: string[]): Promise<KeepFontsReport> {
+	return cmd<KeepFontsReport>('keep_fonts', { id, families });
+}
 
 /** Reads a picture file into the book; resolves to its path inside the book (`assets/images/…`). */
 export function importImage(id: string, path: string): Promise<string> {

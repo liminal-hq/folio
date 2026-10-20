@@ -10,6 +10,7 @@
 pub mod assets;
 pub mod breaker;
 pub mod error;
+pub mod families;
 pub mod flow;
 pub mod fonts;
 pub mod hyphenate;
@@ -24,7 +25,7 @@ pub use assets::{AssetFact, AssetFacts};
 pub use error::LayoutError;
 pub use fonts::{
     BookFace, Embedding, EmbeddingRights, FaceInfo, Font, FontBook, FontRequest, FontSource,
-    Metrics, Resolved,
+    KeepableFace, Metrics, Resolved,
 };
 pub use shape::{feature, shape, Glyph, Run, Shaped};
 pub use spread::Layouter;
