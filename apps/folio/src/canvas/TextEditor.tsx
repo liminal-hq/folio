@@ -171,7 +171,11 @@ export function TextEditor({
 		const onKeep = (event: Event) => {
 			const { end } = (event as CustomEvent<KeepWordsDetail>).detail;
 			if (end) latest.current();
-			else kept.current();
+			else {
+				kept.current();
+				// A ribbon list that styled the selection gives the focus back to the words.
+				if (document.activeElement?.closest('[data-ribbon]')) area.current?.focus();
+			}
 		};
 		window.addEventListener(KEEP_WORDS_EVENT, onKeep);
 		return () => window.removeEventListener(KEEP_WORDS_EVENT, onKeep);
@@ -344,7 +348,11 @@ export function TextEditor({
 				onSelect={publish}
 				onPaste={keep}
 				onCut={keep}
-				onBlur={() => {
+				onBlur={(event) => {
+					// A list in the ribbon (the font, the colour) takes focus to open, and the words
+					// selected stay selected for it to style: that is not the end of the editing.
+					const to = event.relatedTarget;
+					if (to instanceof Element && to.closest('[data-ribbon]')) return;
 					if (!menuUp.current) finish();
 				}}
 				onContextMenu={(event) => {
