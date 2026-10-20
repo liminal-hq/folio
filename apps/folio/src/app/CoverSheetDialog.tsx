@@ -154,6 +154,9 @@ export function CoverSheetDialog({
 						onMove={(id, x, y) =>
 							change(id, { rect: { ...notes.find((n) => n.id === id)!.rect, x, y } })
 						}
+						onResize={(id, w, h) =>
+							change(id, { rect: { ...notes.find((n) => n.id === id)!.rect, w, h } })
+						}
 					/>
 				</div>
 			)}
@@ -279,6 +282,15 @@ function PointsField({
 	);
 }
 
+/** Keeps the pointer on the box while it is dragged; a pointer that has gone is not worth stopping for. */
+function capture(event: React.PointerEvent<SVGElement>) {
+	try {
+		event.currentTarget.setPointerCapture?.(event.pointerId);
+	} catch {
+		// The drag still works while the pointer stays over the box.
+	}
+}
+
 /** The notes on the back cover as boxes over the sheet, which can be picked up and moved. */
 function NoteBoxes({
 	sheet,
@@ -288,6 +300,7 @@ function NoteBoxes({
 	onChoose,
 	onDrag,
 	onMove,
+	onResize,
 }: {
 	sheet: CoverSheetPreview;
 	notes: BackNote[];
@@ -296,7 +309,10 @@ function NoteBoxes({
 	onChoose(id: string): void;
 	onDrag(drag: { id: string; x: number; y: number } | null): void;
 	onMove(id: string, x: number, y: number): void;
+	onResize(id: string, w: number, h: number): void;
 }) {
+	/** A box being stretched by its corner, and the size it would have. */
+	const [sizing, setSizing] = useState<{ id: string; w: number; h: number } | null>(null);
 	const svg = useRef<SVGSVGElement | null>(null);
 	const grab = useRef<{ x: number; y: number } | null>(null);
 	/** Sheet points for each screen pixel. */
@@ -319,11 +335,11 @@ function NoteBoxes({
 						data-note={note.id}
 						x={sheet.edge + at.x}
 						y={sheet.edge + at.y}
-						width={note.rect.w}
-						height={note.rect.h}
+						width={sizing?.id === note.id ? sizing.w : note.rect.w}
+						height={sizing?.id === note.id ? sizing.h : note.rect.h}
 						className={note.id === chosen ? styles.noteChosen : styles.note}
 						onPointerDown={(event) => {
-							event.currentTarget.setPointerCapture?.(event.pointerId);
+							capture(event);
 							onChoose(note.id);
 							grab.current = { x: event.clientX, y: event.clientY };
 							onDrag({ id: note.id, x: note.rect.x, y: note.rect.y });
@@ -349,6 +365,62 @@ function NoteBoxes({
 					/>
 				);
 			})}
+			{notes
+				.filter((note) => note.id === chosen)
+				.map((note) => {
+					const w = sizing?.id === note.id ? sizing.w : note.rect.w;
+					const h = sizing?.id === note.id ? sizing.h : note.rect.h;
+					const room = {
+						w: Math.max(20, sheet.cover - note.rect.x),
+						h: Math.max(10, sheet.height - 2 * sheet.edge - note.rect.y),
+					};
+					return (
+						<rect
+							key={`${note.id}-corner`}
+							role="button"
+							aria-label={t('coverSheet.noteCorner')}
+							data-corner={note.id}
+							x={sheet.edge + note.rect.x + w - 5}
+							y={sheet.edge + note.rect.y + h - 5}
+							width={10}
+							height={10}
+							className={styles.corner}
+							onPointerDown={(event) => {
+								capture(event);
+								grab.current = { x: event.clientX, y: event.clientY };
+								setSizing({ id: note.id, w: note.rect.w, h: note.rect.h });
+							}}
+							onPointerMove={(event) => {
+								if (!grab.current || sizing?.id !== note.id) return;
+								const scale = unit();
+								setSizing({
+									id: note.id,
+									w: Math.round(
+										Math.min(
+											room.w,
+											Math.max(20, note.rect.w + (event.clientX - grab.current.x) * scale),
+										),
+									),
+									h: Math.round(
+										Math.min(
+											room.h,
+											Math.max(10, note.rect.h + (event.clientY - grab.current.y) * scale),
+										),
+									),
+								});
+							}}
+							onPointerUp={() => {
+								if (
+									sizing?.id === note.id &&
+									(sizing.w !== note.rect.w || sizing.h !== note.rect.h)
+								)
+									onResize(note.id, sizing.w, sizing.h);
+								grab.current = null;
+								setSizing(null);
+							}}
+						/>
+					);
+				})}
 		</svg>
 	);
 }

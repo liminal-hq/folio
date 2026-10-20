@@ -129,6 +129,11 @@ describe('CoverSheetDialog', () => {
 		fireEvent.pointerMove(box, { clientX: 120, clientY: 90, pointerId: 1 });
 		fireEvent.pointerUp(box, { pointerId: 1 });
 		expect(onNotes).toHaveBeenLastCalledWith([{ ...note, rect: { x: 60, y: 40, w: 100, h: 30 } }]);
+		const corner = screen.getByRole('button', { name: 'Drag to stretch the box' });
+		fireEvent.pointerDown(corner, { clientX: 10, clientY: 10, pointerId: 2 });
+		fireEvent.pointerMove(corner, { clientX: 40, clientY: 25, pointerId: 2 });
+		fireEvent.pointerUp(corner, { pointerId: 2 });
+		expect(onNotes).toHaveBeenLastCalledWith([{ ...note, rect: { x: 40, y: 50, w: 130, h: 45 } }]);
 		await userEvent.clear(screen.getByRole('spinbutton', { name: 'Size in points' }));
 		await userEvent.type(screen.getByRole('spinbutton', { name: 'Size in points' }), '9');
 		await userEvent.tab();
