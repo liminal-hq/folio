@@ -100,7 +100,7 @@ export const RIBBON_LAYOUT: readonly LayoutTab[] = [
 						[
 							{
 								id: 'colour',
-								kind: 'menu',
+								kind: 'select',
 							},
 							{
 								id: 'highlight',
