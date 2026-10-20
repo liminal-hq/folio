@@ -61,6 +61,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::spell_check,
             commands::spell_suggest,
             commands::spell_check_book,
+            commands::preflight_book,
             commands::list_fonts,
             commands::keep_fonts,
             commands::dictionaries,

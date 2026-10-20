@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use folio_layout::assets::sniff;
 use folio_layout::preflight::spread_assets;
+use folio_layout::wire::PreflightItem;
 use folio_layout::{AssetFact, AssetFacts, BookFace, FontBook, FontSource, Layouter, StyleSheet};
 use folio_model::{BookFont, Intent, SpreadId};
 use folio_package::{Package, SaveOptions};
@@ -800,6 +801,32 @@ impl<R: Runtime> Books<R> {
             .find(|b| b.id == id)
             .ok_or_else(|| Error::NoSuchBook(id.into()))?;
         Ok(open.package.asset_bytes(asset)?)
+    }
+
+    /// Everything preflight has to say about the whole book: each spread laid out and its issues
+    /// gathered, the ones that wait on the person first and then in page order.
+    pub fn preflight(&self, id: &str) -> Result<Vec<PreflightItem>, Error> {
+        let spreads: Vec<String> = {
+            let inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            open.session
+                .book()
+                .spreads
+                .iter()
+                .map(|s| s.id.0.clone())
+                .collect()
+        };
+        let mut items = Vec::new();
+        for spread in spreads {
+            items.extend(self.layout_spread(id, &spread, None)?.layout.preflight);
+        }
+        // A stable sort keeps the pages in order within each severity.
+        items.sort_by_key(|item| item.severity);
+        Ok(items)
     }
 
     /// Every family the book can draw in, bundled first, then the book's own, then the computer's,

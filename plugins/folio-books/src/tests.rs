@@ -1073,3 +1073,24 @@ fn an_installed_font_that_may_travel_is_kept_in_one_undo_step_and_laid_out_from_
     books(&app).undo(&id).unwrap();
     assert!(books(&app).snapshot(&id).unwrap().book.fonts.is_empty());
 }
+
+#[test]
+fn preflight_gathers_the_whole_book_with_what_waits_on_the_person_first() {
+    use folio_layout::wire::{PreflightKind, Severity};
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let items = books(&app).preflight(&id).unwrap();
+    // A sample picture book has picture frames with no picture yet.
+    assert!(items
+        .iter()
+        .any(|i| i.kind == PreflightKind::PicturePlaceholder));
+    let severities: Vec<Severity> = items.iter().map(|i| i.severity).collect();
+    let mut sorted = severities.clone();
+    sorted.sort();
+    assert_eq!(severities, sorted, "errors, then warnings, then notes");
+    assert!(books(&app).preflight("nope").is_err());
+}
