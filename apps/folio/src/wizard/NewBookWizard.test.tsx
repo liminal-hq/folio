@@ -5,7 +5,7 @@
 
 import type { WindowControls } from '@liminal-hq/folio-chrome/TitleBar/windowControls';
 import { WindowChromeProvider } from '@liminal-hq/folio-chrome/WindowChromeProvider/WindowChromeProvider';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeBooksClient } from '../books/fakeBooksClient';
@@ -13,7 +13,11 @@ import { createFakeSettingsClient } from '../settings/fakeSettingsClient';
 import { SettingsProvider } from '../settings/SettingsProvider';
 import { NewBookWizard } from './NewBookWizard';
 
-function mount(close = () => {}) {
+function mount(
+	close = () => {},
+	fake = createFakeBooksClient(),
+	settings = createFakeSettingsClient(),
+) {
 	const controls: WindowControls = {
 		minimize: () => {},
 		toggleMaximize: () => {},
@@ -23,12 +27,13 @@ function mount(close = () => {}) {
 		onMaximizedChange: () => () => {},
 	};
 	render(
-		<SettingsProvider client={createFakeSettingsClient()}>
+		<SettingsProvider client={settings}>
 			<WindowChromeProvider controls={controls}>
-				<NewBookWizard client={createFakeBooksClient().client} />
+				<NewBookWizard client={fake.client} />
 			</WindowChromeProvider>
 		</SettingsProvider>,
 	);
+	return { fake, settings };
 }
 
 describe('NewBookWizard', () => {
@@ -54,7 +59,8 @@ describe('NewBookWizard', () => {
 			await userEvent.click(screen.getByRole('button', { name: 'Next' }));
 			expect(screen.getByRole('heading', { name })).toBeInTheDocument();
 		}
-		expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+		expect(screen.queryByRole('button', { name: 'Next' })).not.toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Make my book' })).toBeInTheDocument();
 		await userEvent.click(screen.getByRole('button', { name: 'Back' }));
 		expect(screen.getByRole('heading', { name: 'The look' })).toBeInTheDocument();
 	});
@@ -159,5 +165,43 @@ describe('the title, words and way steps', () => {
 		expect(screen.getByRole('radio', { name: 'Expert' })).toBeChecked();
 		await userEvent.click(screen.getByRole('radio', { name: 'No thanks' }));
 		expect(screen.getByRole('radio', { name: 'No thanks' })).toBeChecked();
+	});
+});
+
+describe('making the book', () => {
+	it('summarises the answers, makes the book with them and closes', async () => {
+		const close = vi.fn();
+		const { fake, settings } = mount(close);
+		await userEvent.click(await screen.findByRole('radio', { name: /Novel/ }));
+		await toStep(/Title and you/);
+		await userEvent.type(screen.getByLabelText('Title'), '  Pip  ');
+		await toStep(/How you like to work/);
+		await userEvent.click(screen.getByRole('radio', { name: 'Expert' }));
+		await toStep(/The look/);
+		await userEvent.click(screen.getByRole('radio', { name: /^Classic/ }));
+		await userEvent.click(screen.getByRole('radio', { name: 'Forest' }));
+		await toStep(/Review/);
+		expect(screen.getByText('Novel')).toBeInTheDocument();
+		expect(screen.getByText('Pip')).toBeInTheDocument();
+		await userEvent.click(screen.getByRole('button', { name: 'Make my book' }));
+		await waitFor(() => expect(close).toHaveBeenCalled());
+		const made = fake.calls.find((call) => call.startsWith('newBook('));
+		expect(made).toContain('"kind":"novel"');
+		expect(made).toContain('"title":"Pip"');
+		expect(made).toContain('"look":"classic"');
+		expect(made).toContain('"coverColour":"#2f5d3a"');
+		expect(made).not.toContain('"mode"');
+		expect((await settings.get()).settings.mode).toBe('expert');
+	});
+
+	it('says why the book could not be made and stays open to fix it', async () => {
+		const close = vi.fn();
+		const { fake } = mount(close);
+		await toStep(/Review/);
+		fake.refuseNext('newBook', 'badIsbn', 'The ISBN is not valid');
+		await userEvent.click(screen.getByRole('button', { name: 'Make my book' }));
+		expect(await screen.findByRole('alert')).toHaveTextContent('The ISBN is not valid');
+		expect(close).not.toHaveBeenCalled();
+		expect(screen.getByRole('button', { name: 'Make my book' })).toBeEnabled();
 	});
 });
