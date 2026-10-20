@@ -30,6 +30,7 @@ import { getTextSelection } from '../canvas/textSelection';
 import { IMPORT_TEXT_EVENT, requestImportText } from './importRequest';
 import { ImportReportDialog, type ImportOutcome } from './ImportReportDialog';
 import { StoryEditorDialog } from '../story/StoryEditorDialog';
+import { rangeIntents } from '../story/rangeEdit';
 import { BookDetailsDialog } from './BookDetailsDialog';
 import { BarcodeDialog } from './BarcodeDialog';
 import { CoverSheetDialog } from './CoverSheetDialog';
@@ -676,9 +677,13 @@ export function BookView({
 								setStoryPara(paragraph ?? null);
 								setStoryFlow(flow);
 							}}
-							onEditParagraph={(flow, para, text) =>
-								keepAsStep({ type: 'SetParagraphText', flow, para, text })
-							}
+							onEditParagraphs={(flow, from, before, after) => {
+								const styles = (book.flows.find((f) => f.id === flow)?.paragraphs ?? [])
+									.slice(from, from + before.length)
+									.map((p) => p.style ?? null);
+								for (const intent of rangeIntents(flow, from, before, after, styles))
+									keepAsStep(intent);
+							}}
 							speller={speller}
 							onEditingCell={(cell) => cell && setEditingCell(cell)}
 							editableMasters={settings.mode === 'expert'}

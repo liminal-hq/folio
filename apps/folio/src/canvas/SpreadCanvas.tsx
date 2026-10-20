@@ -22,6 +22,7 @@ import './fonts.css';
 import { PX_PER_POINT, spreadGeometry, type PlainRect } from './geometry';
 import type { FrameCommand } from './frameMenu';
 import { canEditText, TextEditor, type Speller } from './TextEditor';
+import { boxOf, linesOf } from '../story/rangeEdit';
 import { DEFAULT_MARK_COLOURS, DEFAULT_MARKS, type MarkColours, type Marks } from './marksModel';
 import { masterGuidesOn } from './masterGuides';
 import { masterFurniture } from './masterItems';
@@ -68,8 +69,11 @@ export interface SpreadCanvasProps {
 	onEditTable?(id: string, edit: TableEdit): void;
 	/** A frame in a story was opened for editing: the story's words are edited as a whole, apart from the page. */
 	onEditStory?(flow: string, paragraph?: number): void;
-	/** New words for one paragraph of a story, after it was edited in place. */
-	onEditParagraph?(flow: string, paragraph: number, text: string): void;
+	/**
+	 * The paragraphs of a story from `from` on, as they were (`before`) and as the person has them
+	 * now (`after`), after the words of a frame of it were edited in place.
+	 */
+	onEditParagraphs?(flow: string, from: number, before: string[], after: string[]): void;
 	/** Underlines misspelt words in the editor, when spelling is on. */
 	speller?: Speller;
 	/** The cell being edited has changed: its row and column, or `null` when none is. */
@@ -253,7 +257,7 @@ export function SpreadCanvas({
 	guideDrag = null,
 	onEditText,
 	onEditStory,
-	onEditParagraph,
+	onEditParagraphs,
 	onEditTable,
 	onEditingCell,
 	speller,
@@ -309,9 +313,11 @@ export function SpreadCanvas({
 		};
 	};
 	/** A paragraph of a story being edited over the frame it is in. */
-	const [storyEdit, setStoryEdit] = useState<{ frame: string; flow: string; para: number } | null>(
+	const [storyEdit, setStoryEdit] = useState<{ frame: string; flow: string; from: number } | null>(
 		null,
 	);
+	/** The paragraphs of the stretch being edited as the book was last told them. */
+	const lastLines = useRef<string[]>([]);
 	const startEditing = (frame: Frame, at?: { x: number; y: number }) => {
 		if (frame.type === 'table') {
 			if (!onEditTable || frame.locked || frame.fromMaster) return;
@@ -331,8 +337,14 @@ export function SpreadCanvas({
 					}, undefined)
 				: undefined;
 			const para = near?.paragraph ?? laid?.firstParagraph ?? undefined;
-			if (onEditParagraph && para !== undefined && para !== null) {
-				setStoryEdit({ frame: frame.id, flow: frame.flow.id, para });
+			// The whole of every paragraph the frame shows is edited together, one to a line.
+			const shown = laid?.lines.flatMap((l) => (l.paragraph == null ? [] : [l.paragraph])) ?? [];
+			const story = (book.flows ?? []).find((f) => f.id === frame.flow?.id);
+			if (onEditParagraphs && story && shown.length > 0) {
+				const from = Math.min(...shown);
+				const count = Math.max(...shown) - from + 1;
+				lastLines.current = boxOf(story.paragraphs, from, count).split('\n');
+				setStoryEdit({ frame: frame.id, flow: frame.flow.id, from });
 				return;
 			}
 			if (onEditStory) onEditStory(frame.flow.id, para ?? undefined);
@@ -761,21 +773,26 @@ export function SpreadCanvas({
 			{storyEdit &&
 				(() => {
 					const host = spread.frames.find((f) => f.id === storyEdit.frame);
-					const words = book.flows
-						.find((f) => f.id === storyEdit.flow)
-						?.paragraphs[storyEdit.para]?.inline.map((r) => r.text)
-						.join('');
-					if (host?.type !== 'text' || words === undefined) return null;
-					const keep = (text: string) =>
-						onEditParagraph?.(storyEdit.flow, storyEdit.para, text.replace(/\s*\n\s*/g, ' '));
+					if (host?.type !== 'text') return null;
+					const keep = (text: string) => {
+						const after = linesOf(text);
+						const before = lastLines.current;
+						if (after.join('\n') === before.join('\n')) return;
+						onEditParagraphs?.(storyEdit.flow, storyEdit.from, before, after);
+						lastLines.current = after;
+					};
 					return (
 						<TextEditor
-							key={`${storyEdit.flow}:${storyEdit.para}`}
+							key={`${storyEdit.flow}:${storyEdit.from}`}
 							speller={speller}
 							frame={{
 								type: 'text',
 								box: host.box,
-								content: { inline: [{ text: words, style: null, bold: false, italic: false }] },
+								content: {
+									inline: [
+										{ text: lastLines.current.join('\n'), style: null, bold: false, italic: false },
+									],
+								},
 							}}
 							layout={byFrame.get(host.id)}
 							scale={scale}
