@@ -232,6 +232,8 @@ struct Drawing<'a> {
     /// its own font to the PDF.
     faces: HashMap<(String, u16, u32), Option<Font>>,
     images: HashMap<String, Option<Image>>,
+    /// Texture tiles made so far, by texture and tint, with each tile's side in points.
+    textures: HashMap<String, Option<(Image, f64)>>,
 }
 
 /// Whether something on the page runs past its trim on a side, so the file needs a bleed.
@@ -273,6 +275,7 @@ impl<'a> Drawing<'a> {
             assets,
             faces: HashMap::new(),
             images: HashMap::new(),
+            textures: HashMap::new(),
         }
     }
 
@@ -470,10 +473,12 @@ impl<'a> Drawing<'a> {
                     },
                 );
             }
-            // A texture is drawn as its tint, flat, until the pattern tiles are shared with the page.
-            Background::Texture { tint, .. } => {
-                let c = tint.clone().unwrap_or_else(|| Colour("#ebe5d6".into()));
-                self.fill_rect(surface, &whole, self.fill_of(&c, 1.0));
+            // A texture is its tile drawn at 300 ppi and laid edge to edge from the page's corner.
+            Background::Texture { id, tint } => {
+                if !self.tiles(surface, id, tint.as_ref(), &whole) {
+                    let c = tint.clone().unwrap_or_else(|| Colour("#ebe5d6".into()));
+                    self.fill_rect(surface, &whole, self.fill_of(&c, 1.0));
+                }
             }
             Background::Picture { asset, fit, focus } => {
                 let r = across.copied().unwrap_or(whole);
@@ -484,6 +489,50 @@ impl<'a> Drawing<'a> {
                 self.picture(surface, &r, 0.0, Some(asset), fit, *focus);
             }
         }
+    }
+
+    /// Lays tiles of a texture over `area`; `false` when Folio cannot draw that texture.
+    fn tiles(
+        &mut self,
+        surface: &mut Surface,
+        id: &str,
+        tint: Option<&Colour>,
+        area: &SceneRect,
+    ) -> bool {
+        let key = format!("{id}|{}", tint.map_or("", |c| c.0.as_str()));
+        let entry = self.textures.entry(key).or_insert_with(|| {
+            let (png, size) = crate::texture::tile_png(id, tint.map(|c| c.0.as_str()))?;
+            Some((
+                Image::from_png(
+                    Data::from(Arc::new(png) as Arc<dyn AsRef<[u8]> + Send + Sync>),
+                    false,
+                )
+                .ok()?,
+                size,
+            ))
+        });
+        let Some((image, size)) = entry.clone() else {
+            return false;
+        };
+        let Some(tile) = Size::from_wh(size as f32, size as f32) else {
+            return false;
+        };
+        let (x0, y0) = (
+            (area.x / size).floor() * size,
+            (area.y / size).floor() * size,
+        );
+        let mut y = y0;
+        while y < area.y + area.h {
+            let mut x = x0;
+            while x < area.x + area.w {
+                surface.push_transform(&Transform::from_translate(x as f32, y as f32));
+                surface.draw_image(image.clone(), tile);
+                surface.pop();
+                x += size;
+            }
+            y += size;
+        }
+        true
     }
 
     fn fill_rect(&mut self, surface: &mut Surface, rect: &SceneRect, fill: Fill) {

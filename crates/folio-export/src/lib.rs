@@ -14,6 +14,7 @@ pub mod job;
 pub mod pdf;
 pub mod pdfx;
 pub mod raster;
+mod texture;
 mod time;
 
 pub use error::ExportError;

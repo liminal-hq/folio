@@ -15,6 +15,7 @@ mod make;
 mod paints;
 mod paths;
 mod spec;
+pub mod textures;
 
 pub use data::preset_styles;
 pub use data::{kind_infos, KindInfo, TrimChoice};
