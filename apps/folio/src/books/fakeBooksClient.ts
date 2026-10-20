@@ -18,6 +18,7 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
@@ -497,6 +498,18 @@ export function createFakeBooksClient(): FakeBooks {
 			await call('removeDictionary', [id]);
 			downloaded.delete(id);
 			return listing();
+		},
+		async readerPreview(id) {
+			await call('readerPreview', [id]);
+			find(id);
+			const preview: ReaderPreview = {
+				title: 'Pip',
+				language: 'en-CA',
+				css: 'p { margin: 0 }',
+				chapters: [{ title: 'One', body: '<h1>One</h1><p class="body">Down by the reeds.</p>' }],
+				images: [],
+			};
+			return preview;
 		},
 		async exportBook(id, targets) {
 			await call('exportBook', [id, targets]);

@@ -24,6 +24,7 @@ import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../can
 import { keepWords } from '../canvas/editCheckpoint';
 import { CheckBookDialog } from './CheckBookDialog';
 import { ExportDialog } from './ExportDialog';
+import { ReaderView } from './ReaderView';
 import { PageBackgroundDialog } from '../canvas/PageBackgroundDialog';
 import { Stage, type ZoomApi } from '../canvas/Stage';
 import type { Speller } from '../canvas/TextEditor';
@@ -102,6 +103,8 @@ export function BookView({
 		master !== null,
 		settings.spelling.enabled ? settings.spelling.personal : null,
 	);
+	// What the stage shows: the pages as printed, or as a Kindle or a Kobo shows them.
+	const [preview, setPreview] = useState<'print' | 'kindle' | 'kobo'>('print');
 	const [selection, select] = useSelection(
 		spread?.id ?? null,
 		spread?.frames.map((f) => f.id) ?? [],
@@ -153,6 +156,7 @@ export function BookView({
 				marks,
 				snap,
 				rulers: rulers.on,
+				preview,
 				master: master !== null,
 				cell: editingCell,
 			}
@@ -452,6 +456,9 @@ export function BookView({
 			case 'pageBackground':
 				setBackground({ page: null });
 				break;
+			case 'preview':
+				setPreview(action.mode);
+				break;
 			case 'checkBook':
 				setChecking(true);
 				break;
@@ -500,99 +507,112 @@ export function BookView({
 							</button>
 						</div>
 					)}
-					<Stage
-						book={book}
-						spread={spread}
-						label={master ? t('master.page', { name: masterName }) : (labels[shown] ?? '')}
-						heading={master ? t('master.editing', { name: masterName }) : undefined}
-						layout={layout}
-						marks={marks}
-						colours={colours}
-						onMarks={setMarks}
-						onMarkColour={(key: MarkKey, colour: number) =>
-							void update({ marks: { [key]: { colour } } } as SettingsPatch)
-						}
-						snap={snap}
-						rulers={{ on: rulers.on, unit: rulers.units }}
-						onRulerUnit={(units) => void update({ rulers: { units } } as SettingsPatch)}
-						onAddGuide={(axis, pos) => apply({ type: 'AddGuide', on: surface, axis, pos })}
-						onMoveGuide={(index, pos) => apply({ type: 'MoveGuide', on: surface, index, pos })}
-						onRemoveGuide={(index) => apply({ type: 'RemoveGuide', on: surface, index })}
-						onGuideCommand={(command, index) => {
-							for (const intent of guideIntents(command, spread, index, demoteTo)) apply(intent);
-						}}
-						zoomApi={zoomApi}
-						images={images}
-						selection={selection}
-						onSelect={select}
-						onMove={(moves) =>
-							store.apply(
-								moves.length === 1
-									? {
-											type: 'MoveFrame',
-											on: surface,
-											frame: moves[0]!.id,
-											box: boxOf(moves[0]!.rect),
-										}
-									: {
-											type: 'MoveFrames',
-											on: surface,
-											moves: moves.map((m) => ({ frame: m.id, box: boxOf(m.rect) })),
-										},
-							)
-						}
-						onTurn={(frame, degrees) =>
-							store.apply({ type: 'RotateFrame', on: surface, frame, degrees })
-						}
-						onEditText={(frame, text) => keepAsStep({ type: 'SetText', frame, text })}
-						onEditTable={(frame, edit) => keepAsStep({ type: 'EditTable', frame, edit })}
-						speller={speller}
-						onEditingCell={(cell) => cell && setEditingCell(cell)}
-						editableMasters={settings.mode === 'expert'}
-						demoteTo={demoteTo}
-						onPageCommand={(command, point) => {
-							const kinds: Record<string, NewFrameKind> = {
-								addText: 'text',
-								addPicture: 'picture',
-								addNote: 'note',
-							};
-							const kind = kinds[command];
-							if (kind) addFrame(kind, point);
-							else if (command === 'pageBackground')
-								setBackground({ page: pageAt(book, spread, point) });
-							else if (command.startsWith('editMaster:'))
-								setEditing(command.slice('editMaster:'.length));
-							else if (command === 'toggleMargins') setMarks({ margins: !marks.margins });
-							else if (command === 'toggleGrid') {
-								const on = !(marks.columns || marks.baseline);
-								setMarks({ columns: on, baseline: on });
-							} else if (master) return;
-							else if (command === 'addPages') {
-								apply({ type: 'AddSpread', after: spread.id, duplicate: false });
-								setSpreadIndex(shown + 1);
-							} else if (command === 'duplicateSpread') pageOp('duplicate');
-							else if (command.startsWith('copyMaster:')) {
-								const [, page, frame] = command.split(':') as [string, string, string];
-								apply({ type: 'CopyMasterItem', spread: spread.id, page, frame });
-							} else if (command.startsWith('hideMaster:') || command.startsWith('showMaster:')) {
-								const [which, page, frame] = command.split(':') as [string, string, string];
-								apply({
-									type: 'HideMasterItem',
-									spread: spread.id,
-									page,
-									frame,
-									hide: which === 'hideMaster',
-								});
+					{preview === 'print' ? (
+						<Stage
+							book={book}
+							spread={spread}
+							label={master ? t('master.page', { name: masterName }) : (labels[shown] ?? '')}
+							heading={master ? t('master.editing', { name: masterName }) : undefined}
+							layout={layout}
+							marks={marks}
+							colours={colours}
+							onMarks={setMarks}
+							onMarkColour={(key: MarkKey, colour: number) =>
+								void update({ marks: { [key]: { colour } } } as SettingsPatch)
 							}
-						}}
-						onCommand={(command, ids) => {
-							for (const frameId of ids) {
-								const target = spread.frames.find((f) => f.id === frameId);
-								if (!target) continue;
-								for (const intent of frameIntents(command, surface, target)) apply(intent);
+							snap={snap}
+							rulers={{ on: rulers.on, unit: rulers.units }}
+							onRulerUnit={(units) => void update({ rulers: { units } } as SettingsPatch)}
+							onAddGuide={(axis, pos) => apply({ type: 'AddGuide', on: surface, axis, pos })}
+							onMoveGuide={(index, pos) => apply({ type: 'MoveGuide', on: surface, index, pos })}
+							onRemoveGuide={(index) => apply({ type: 'RemoveGuide', on: surface, index })}
+							onGuideCommand={(command, index) => {
+								for (const intent of guideIntents(command, spread, index, demoteTo)) apply(intent);
+							}}
+							zoomApi={zoomApi}
+							images={images}
+							selection={selection}
+							onSelect={select}
+							onMove={(moves) =>
+								store.apply(
+									moves.length === 1
+										? {
+												type: 'MoveFrame',
+												on: surface,
+												frame: moves[0]!.id,
+												box: boxOf(moves[0]!.rect),
+											}
+										: {
+												type: 'MoveFrames',
+												on: surface,
+												moves: moves.map((m) => ({ frame: m.id, box: boxOf(m.rect) })),
+											},
+								)
 							}
-						}}
-					/>
+							onTurn={(frame, degrees) =>
+								store.apply({ type: 'RotateFrame', on: surface, frame, degrees })
+							}
+							onEditText={(frame, text) => keepAsStep({ type: 'SetText', frame, text })}
+							onEditTable={(frame, edit) => keepAsStep({ type: 'EditTable', frame, edit })}
+							speller={speller}
+							onEditingCell={(cell) => cell && setEditingCell(cell)}
+							editableMasters={settings.mode === 'expert'}
+							demoteTo={demoteTo}
+							onPageCommand={(command, point) => {
+								const kinds: Record<string, NewFrameKind> = {
+									addText: 'text',
+									addPicture: 'picture',
+									addNote: 'note',
+								};
+								const kind = kinds[command];
+								if (kind) addFrame(kind, point);
+								else if (command === 'pageBackground')
+									setBackground({ page: pageAt(book, spread, point) });
+								else if (command.startsWith('editMaster:'))
+									setEditing(command.slice('editMaster:'.length));
+								else if (command === 'toggleMargins') setMarks({ margins: !marks.margins });
+								else if (command === 'toggleGrid') {
+									const on = !(marks.columns || marks.baseline);
+									setMarks({ columns: on, baseline: on });
+								} else if (master) return;
+								else if (command === 'addPages') {
+									apply({ type: 'AddSpread', after: spread.id, duplicate: false });
+									setSpreadIndex(shown + 1);
+								} else if (command === 'duplicateSpread') pageOp('duplicate');
+								else if (command.startsWith('copyMaster:')) {
+									const [, page, frame] = command.split(':') as [string, string, string];
+									apply({ type: 'CopyMasterItem', spread: spread.id, page, frame });
+								} else if (command.startsWith('hideMaster:') || command.startsWith('showMaster:')) {
+									const [which, page, frame] = command.split(':') as [string, string, string];
+									apply({
+										type: 'HideMasterItem',
+										spread: spread.id,
+										page,
+										frame,
+										hide: which === 'hideMaster',
+									});
+								}
+							}}
+							onCommand={(command, ids) => {
+								for (const frameId of ids) {
+									const target = spread.frames.find((f) => f.id === frameId);
+									if (!target) continue;
+									for (const intent of frameIntents(command, surface, target)) apply(intent);
+								}
+							}}
+						/>
+					) : (
+						<ReaderView
+							client={client}
+							id={id}
+							book={book}
+							revision={copy.revision}
+							device={preview}
+							spread={spread}
+							layout={layout}
+							images={images}
+						/>
+					)}
 				</div>
 				<Sidebar
 					group={group}

@@ -16,6 +16,7 @@ import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportRe
 import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
 import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
+import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
 import type { Misspelling } from '@liminal-hq/folio-protocol/generated/Misspelling';
 import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck';
@@ -206,6 +207,7 @@ export type {
 	KeepFontsReport,
 	Misspelling,
 	PreflightItem,
+	ReaderPreview,
 	SpellCheck,
 	BookSummary,
 	BooksChanged,
@@ -218,6 +220,11 @@ export type {
 	PluginStatus,
 	Recoverable,
 };
+
+/** The book as an e-reader would show it, from the same chapters and CSS the EPUB ships. */
+export function readerPreview(id: string): Promise<ReaderPreview> {
+	return cmd<ReaderPreview>('reader_preview', { id });
+}
 
 /** Makes the files for `targets` and writes them into the book's `exports` folder. */
 export function exportBook(id: string, targets: ExportTarget[]): Promise<ExportReport> {

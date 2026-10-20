@@ -102,6 +102,28 @@ export const messages = {
 	'preflight.altMissing.many': '{count} pictures have no description',
 	'preflight.altMissing.fix': 'Add a short description so screen readers can share it.',
 
+	// Reader preview
+	'reader.label': 'Preview on a {device}',
+	'reader.device.kindle': 'Kindle Paperwhite',
+	'reader.device.kobo': 'Kobo Clara 2E',
+	'reader.controls': 'Reader controls',
+	'reader.previous': 'Previous page',
+	'reader.next': 'Next page',
+	'reader.page': 'Page {page} of {pages}',
+	'reader.smaller': 'Smaller text',
+	'reader.bigger': 'Bigger text',
+	'reader.theme': 'Page colour',
+	'reader.theme.white': 'White',
+	'reader.theme.sepia': 'Sepia',
+	'reader.theme.dark': 'Dark',
+	'reader.readerFont': 'Use the reader’s font',
+	'reader.screen': 'The screen',
+	'reader.failed': 'The preview could not be made.',
+	'reader.note.reflow':
+		'A close look at how a reader sets the book. Real devices differ a little in their fonts and spacing, and readers can change the text size.',
+	'reader.note.fixed':
+		'Readers can zoom a fixed-layout book but cannot reflow it, so the pages are shown as they are.',
+
 	// Export
 	'export.title': 'Export book',
 	'export.which': 'What would you like to make?',
