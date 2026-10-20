@@ -51,6 +51,10 @@ pub struct StyleDef {
     pub wrap: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hyphenate: Option<bool>,
+    /// Where a paragraph in this style begins in a flowing story: `"page"` or `"recto"` (a
+    /// right-hand page). A chapter title says `"recto"`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start: Option<String>,
     /// Keys this version does not know, kept as they were so a save does not lose them.
     #[serde(flatten, skip_serializing_if = "BTreeMap::is_empty")]
     #[ts(skip)]

@@ -328,3 +328,54 @@ fn an_empty_paragraph_takes_a_line_of_space() {
     assert_eq!(tops.len(), 3);
     assert!(tops[2] - tops[0] >= 2.0 * 12.0, "{tops:?}");
 }
+
+#[test]
+fn a_chapter_opens_on_the_next_right_hand_page_and_leaves_the_others_empty() {
+    use folio_layout::flow::Start;
+    let mut open = paragraph(1);
+    open.start = Start::Recto;
+    let story = vec![paragraph(1), open];
+    let mut frames: Vec<FrameBox> = (0..4).map(|_| FrameBox::new(300.0, 200.0)).collect();
+    for (i, f) in frames.iter_mut().enumerate() {
+        f.recto = Some(i % 2 == 1);
+    }
+    let out = run(&story, &frames, &FlowOptions::default());
+    assert!(!out.overset);
+    let of = |p: usize| {
+        out.lines
+            .iter()
+            .filter(move |l| l.paragraph == p)
+            .map(|l| l.frame)
+    };
+    assert!(of(0).all(|f| f == 0));
+    assert!(
+        of(1).all(|f| f == 1),
+        "the chapter starts on the first recto frame"
+    );
+}
+
+#[test]
+fn a_chapter_on_a_right_hand_page_already_stays_put() {
+    use folio_layout::flow::Start;
+    let mut open = paragraph(1);
+    open.start = Start::Recto;
+    let mut frame = FrameBox::new(300.0, 200.0);
+    frame.recto = Some(true);
+    let out = run(&[open], &[frame], &FlowOptions::default());
+    assert!(!out.overset);
+    assert!(out.lines.iter().all(|l| l.frame == 0));
+}
+
+#[test]
+fn a_chapter_with_no_right_hand_page_left_is_overset() {
+    use folio_layout::flow::Start;
+    let mut open = paragraph(1);
+    open.start = Start::Recto;
+    let story = vec![paragraph(1), open];
+    let mut frames = vec![FrameBox::new(300.0, 200.0), FrameBox::new(300.0, 200.0)];
+    frames[0].recto = Some(false);
+    frames[1].recto = Some(false);
+    let out = run(&story, &frames, &FlowOptions::default());
+    assert!(out.overset);
+    assert_eq!(out.overset_from, Some((1, 0)));
+}

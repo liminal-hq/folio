@@ -22,6 +22,8 @@ pub struct FrameBox {
     pub columns: u8,
     /// Space between columns.
     pub gutter: f64,
+    /// Whether the frame is on a right-hand page; none when that is not known.
+    pub recto: Option<bool>,
 }
 
 impl FrameBox {
@@ -32,8 +34,21 @@ impl FrameBox {
             inset: 0.0,
             columns: 1,
             gutter: 12.0,
+            recto: None,
         }
     }
+}
+
+/// Where a paragraph may begin.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Start {
+    /// Straight after the paragraph before.
+    #[default]
+    Anywhere,
+    /// At the top of a new page.
+    Page,
+    /// At the top of a right-hand page.
+    Recto,
 }
 
 /// A paragraph of the story, with the spacing around it.
@@ -47,6 +62,7 @@ pub struct StoryParagraph {
     pub hyphenate: bool,
     pub space_before: f64,
     pub space_after: f64,
+    pub start: Start,
 }
 
 impl StoryParagraph {
@@ -60,6 +76,7 @@ impl StoryParagraph {
             hyphenate: true,
             space_before: 0.0,
             space_after: 0.0,
+            start: Start::Anywhere,
         }
     }
 }
@@ -187,6 +204,27 @@ pub fn flow(
     let mut col = 0;
     let mut y = 0.0;
     for (p, para) in story.iter().enumerate() {
+        if para.start != Start::Anywhere {
+            // A chapter opens at the top of a page, or of a right-hand one: the frames between are
+            // left empty.
+            let suits = |c: &Column| {
+                c.index == 0 && (para.start == Start::Page || frames[c.frame].recto == Some(true))
+            };
+            let here = y == 0.0 && columns.get(col).is_some_and(suits);
+            if !here {
+                match (col + 1..columns.len()).find(|&i| suits(&columns[i])) {
+                    Some(next) => {
+                        col = next;
+                        y = 0.0;
+                    }
+                    None => {
+                        out.overset = true;
+                        out.overset_from = Some((p, 0));
+                        return Ok(out);
+                    }
+                }
+            }
+        }
         let mut from = 0;
         // Space before a paragraph, except at the top of a column.
         let mut before = para.space_before;
