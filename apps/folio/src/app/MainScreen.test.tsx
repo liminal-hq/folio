@@ -7,7 +7,7 @@ import type { WindowControls } from '@liminal-hq/folio-chrome/TitleBar/windowCon
 import { WindowChromeProvider } from '@liminal-hq/folio-chrome/WindowChromeProvider/WindowChromeProvider';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { BooksProvider } from '../books/BooksProvider';
 import { createFakeBooksClient } from '../books/fakeBooksClient';
 import type { FileDialogs } from '../books/dialogs';
@@ -16,6 +16,7 @@ import type { CloseRequests } from '../services/closeRequests';
 import { createFakeSettingsClient } from '../settings/fakeSettingsClient';
 import { SettingsProvider } from '../settings/SettingsProvider';
 import { MainScreen } from './MainScreen';
+import { WindowsContext } from './WindowsContext';
 
 const controls: WindowControls = {
 	minimize: () => {},
@@ -55,6 +56,7 @@ function setup(
 ) {
 	const settings = createFakeSettingsClient();
 	const books = createFakeBooksClient();
+	const windows = { open: vi.fn(async () => {}), openBookTools: vi.fn(async () => {}) };
 	const dialogs: FileDialogs = {
 		pickBook: async () => picks.open ?? null,
 		pickSavePath: async () => picks.save ?? null,
@@ -65,12 +67,14 @@ function setup(
 		<SettingsProvider client={settings}>
 			<WindowChromeProvider controls={controls}>
 				<BooksProvider client={books.client} dialogs={dialogs}>
-					<MainScreen client={info} {...(closing ? { closeRequests: closing } : {})} />
+					<WindowsContext.Provider value={windows}>
+						<MainScreen client={info} {...(closing ? { closeRequests: closing } : {})} />
+					</WindowsContext.Provider>
 				</BooksProvider>
 			</WindowChromeProvider>
 		</SettingsProvider>,
 	);
-	return { settings, books };
+	return { settings, books, windows };
 }
 
 const startBook = async () => {
@@ -99,6 +103,12 @@ describe('the welcome screen', () => {
 		expect(screen.getByText('Books you open or save will be here.')).toBeInTheDocument();
 		expect(screen.queryByRole('toolbar', { name: 'Toolbar' })).not.toBeInTheDocument();
 		expect(screen.getByText('No book open')).toBeInTheDocument();
+	});
+
+	it('opens the New book wizard from Guide me', async () => {
+		const { windows } = setup();
+		await userEvent.click(await screen.findByRole('button', { name: 'Guide me…' }));
+		expect(windows.open).toHaveBeenCalledWith('WizardNew');
 	});
 
 	it('offers the sizes of the kind chosen', async () => {

@@ -6,6 +6,7 @@
 import type { KindInfo } from '@liminal-hq/folio-plugin-books';
 import { useState, type KeyboardEvent } from 'react';
 import { Segmented } from '../app/Segmented';
+import { useWindows } from '../app/WindowsContext';
 import { useBooks, useBooksSelector } from '../books/useBooks';
 import { t } from '../i18n/messages';
 import { useSettings, useUpdateSettings } from '../settings/useSettings';
@@ -31,6 +32,7 @@ export function WelcomeScreen({ now = new Date() }: { now?: Date }) {
 	const settings = useSettings();
 	const update = useUpdateSettings();
 	const recovery = useRecoveryQuestion();
+	const windows = useWindows();
 
 	const [chosen, setChosen] = useState(0);
 	const [trim, setTrim] = useState('0');
@@ -123,9 +125,18 @@ export function WelcomeScreen({ now = new Date() }: { now?: Date }) {
 									onChange={setJax}
 								/>
 							</div>
-							<button type="button" className={styles.start} disabled={starting} onClick={start}>
-								{starting ? t('welcome.starting') : t('welcome.start', { kind: kind.label })}
-							</button>
+							<div className={styles.doors}>
+								<button type="button" className={styles.start} disabled={starting} onClick={start}>
+									{starting ? t('welcome.starting') : t('welcome.start', { kind: kind.label })}
+								</button>
+								<button
+									type="button"
+									className={styles.guide}
+									onClick={() => void windows.open('WizardNew')}
+								>
+									{t('welcome.guide')}
+								</button>
+							</div>
 						</div>
 					)}
 

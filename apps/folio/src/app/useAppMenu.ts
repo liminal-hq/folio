@@ -67,7 +67,6 @@ export function useAppMenu(
 		/** Closes the book being shown, if there is one; `false` when the person said to keep it. */
 		const makeRoom = async () => !active || (await actions.close(ask)) === 'done';
 		return {
-			newBook: async () => void (await makeRoom()),
 			async open(path) {
 				// Choose first, then close: cancelling the picker must not lose the book being shown.
 				const target = path ?? (await actions.pick());
