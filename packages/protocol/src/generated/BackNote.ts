@@ -19,4 +19,8 @@ picture?: string | null,
 /**
  * A shape in the box instead of words, with its fill.
  */
-shape?: Shape | null, fill?: Colour | null, };
+shape?: Shape | null, fill?: Colour | null, 
+/**
+ * How far the box is turned, in degrees clockwise.
+ */
+rotation?: number | null, };

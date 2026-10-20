@@ -174,6 +174,44 @@ fn barcode_frames(isbn: &str, addon: Option<&str>, maths: &folio_model::CoverMat
     frames
 }
 
+/// Points inside the trimmed edge of a cover that text and pictures that need to stay keep to.
+const SAFE: f64 = 18.0;
+/// The same beside each fold of the spine.
+const SPINE_SAFE: f64 = 4.5;
+
+/// The lines the sheet canvas snaps to: the trimmed edges and folds, and the safe areas inside them.
+fn fold_guides(w: f64, h: f64, spine: f64) -> Vec<folio_model::Guide> {
+    use folio_model::{Axis, Guide};
+    let mut xs = vec![
+        0.0,
+        w,
+        w + spine,
+        2.0 * w + spine,
+        SAFE,
+        w - SAFE,
+        w + spine + SAFE,
+        2.0 * w + spine - SAFE,
+    ];
+    if spine > 2.0 * SPINE_SAFE {
+        xs.push(w + SPINE_SAFE);
+        xs.push(w + spine - SPINE_SAFE);
+    }
+    let mut guides: Vec<Guide> = xs
+        .into_iter()
+        .map(|x| Guide {
+            axis: Axis::X,
+            pos: Pt(x),
+            locked: true,
+        })
+        .collect();
+    guides.extend([0.0, SAFE, h - SAFE, h].map(|y| Guide {
+        axis: Axis::Y,
+        pos: Pt(y),
+        locked: true,
+    }));
+    guides
+}
+
 /// The cover sheet of `book` as a one-page book, or `None` when the book has no cover.
 pub fn cover_sheet(book: &Book, paper: Paper) -> Option<Book> {
     let cover = book
@@ -285,7 +323,11 @@ pub fn cover_sheet(book: &Book, paper: Paper) -> Option<Book> {
     for note in &book.back_notes {
         if let Some(shape) = note.shape {
             frames.push(Frame::Shape(ShapeFrame {
-                base: base(&format!("note_{}", note.id), note.rect, 0.0),
+                base: base(
+                    &format!("note_{}", note.id),
+                    note.rect,
+                    note.rotation.unwrap_or(0.0),
+                ),
                 shape,
                 fill: note.fill.clone().or(Some(Colour("#ffffff".into()))),
                 style: None,
@@ -300,7 +342,11 @@ pub fn cover_sheet(book: &Book, paper: Paper) -> Option<Book> {
         }
         if let Some(asset) = &note.picture {
             frames.push(Frame::Image(folio_model::ImageFrame {
-                base: base(&format!("note_{}", note.id), note.rect, 0.0),
+                base: base(
+                    &format!("note_{}", note.id),
+                    note.rect,
+                    note.rotation.unwrap_or(0.0),
+                ),
                 image: folio_model::ImageRef {
                     asset: Some(asset.clone()),
                     fit: folio_model::Fit::Fit,
@@ -315,7 +361,7 @@ pub fn cover_sheet(book: &Book, paper: Paper) -> Option<Book> {
             &format!("note_{}", note.id),
             "body",
             note.rect,
-            0.0,
+            note.rotation.unwrap_or(0.0),
             &note.text,
         );
         if let Frame::Text(f) = &mut frame {
@@ -361,7 +407,7 @@ pub fn cover_sheet(book: &Book, paper: Paper) -> Option<Book> {
             bg,
         }],
         frames,
-        guides: Vec::new(),
+        guides: fold_guides(w, h, spine),
         master_overrides: Vec::new(),
         bg_span: None,
         section: None,
