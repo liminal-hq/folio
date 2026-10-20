@@ -59,3 +59,44 @@
 	font: inherit;
 	cursor: pointer;
 }
+
+.field {
+	position: relative;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-bg-raised);
+}
+
+/* With a speller the box is clear and the field carries its look, with the mirror behind. */
+.field .words {
+	position: relative;
+	display: block;
+	inline-size: 100%;
+	box-sizing: border-box;
+	border: 0;
+	background: transparent;
+}
+
+.mirror {
+	position: absolute;
+	inset: 0;
+	box-sizing: border-box;
+	padding: 6px 8px;
+	font: inherit;
+	line-height: 1.4;
+	color: transparent;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	pointer-events: none;
+}
+
+.miss {
+	text-decoration: underline wavy var(--folio-danger, #d64545);
+	text-decoration-thickness: 1.5px;
+	text-underline-offset: 2px;
+	text-decoration-skip-ink: none;
+}
+
+.clear {
+	background: transparent;
+}
