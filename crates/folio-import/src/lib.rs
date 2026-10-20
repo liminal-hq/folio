@@ -8,9 +8,11 @@
 
 mod docx;
 mod odt;
+mod rtf;
 
 pub use docx::{import_docx, DocxError};
 pub use odt::{import_odt, OdtError};
+pub use rtf::{import_rtf, RtfError};
 
 use folio_model::{join_runs, Run, StoryPara, StyleId};
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
