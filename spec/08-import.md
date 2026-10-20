@@ -18,6 +18,8 @@ Every import ends with an **Import report**: what came across, what was approxim
 | Markdown / plain text | `pulldown-cmark` with Folio attributes (`{style=…}`) | `#` → chapter; blank-line paragraphs; `***` → scene break |
 | Paste with formatting | clipboard `text/html` → sanitise → same mapping as HTML | Plain paste with Ctrl+Shift+V |
 
+**Built so far:** `folio-import` reads Markdown and plain text (`pulldown-cmark`, with smart punctuation, tables and footnotes recognised so they can be reported) into the paragraphs of a story: `#` becomes a `h1` paragraph, other headings `h2`, blank lines separate paragraphs, `***` becomes a centred `* * *` in the `ornament` style, `*` and `**` become italic and bold runs, quotations take `epigraph` and list items become paragraphs that start with a dash. Pictures, tables, code, HTML and footnotes are left out, links keep their words, and the `ImportReport` says each once. The `{style=…}` attributes, `.docx`, `.odt`, `.rtf`, HTML paste and the style-mapping dialog are not built.
+
 ### Style mapping dialog (Easy shows a summary; Expert shows the table)
 
 "We found 4 kinds of text in your document" → each source style is shown next to the Folio style it will use (Chapter title → Heading, Normal → Body, Caption → Caption, Intense Quote → Note box), with a live sample. Easy just says "Looks good?" with Change… for adjustments.
