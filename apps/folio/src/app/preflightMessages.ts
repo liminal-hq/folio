@@ -17,6 +17,7 @@ const KEYS: Record<PreflightKind, string> = {
 	veryLowResolution: 'veryLowRes',
 	bleedNeeded: 'bleedNeeded',
 	fontMissing: 'fontMissing',
+	missingGlyphs: 'missingGlyphs',
 	picturePlaceholder: 'placeholder',
 	altMissing: 'altMissing',
 };
@@ -54,7 +55,7 @@ export function describe(
 	count = 1,
 ): { problem: string; fix: string } {
 	const key = KEYS[item.kind];
-	const values = { where, family: item.family ?? '', count };
+	const values = { where, family: item.family ?? '', chars: item.chars ?? '', count };
 	const many = count > 1 && SAID_ONCE.has(item.kind);
 	return {
 		problem: t(`preflight.${key}${many ? '.many' : ''}` as MessageKey, values),

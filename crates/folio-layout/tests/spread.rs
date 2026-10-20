@@ -1541,3 +1541,52 @@ fn a_picture_frame_with_no_picture_is_a_placeholder_and_one_without_a_descriptio
         .iter()
         .all(|i| i.severity == i.kind.severity()));
 }
+
+#[test]
+fn a_word_in_a_script_the_font_lacks_is_set_in_a_fallback_and_what_nothing_covers_is_flagged() {
+    use folio_layout::wire::PreflightKind;
+    let (mut book, styles) = sample(BookKind::Picture);
+    book.spreads[1].frames.push(text_frame(
+        "cyr",
+        "body",
+        60.0,
+        60.0,
+        300.0,
+        60.0,
+        "Привет, Pip",
+    ));
+    book.spreads[1].frames.push(text_frame(
+        "han",
+        "body",
+        60.0,
+        140.0,
+        300.0,
+        60.0,
+        "Pip 中 pip",
+    ));
+    let id = book.spreads[1].id.clone();
+    let fonts = FontBook::bundled();
+    let layout = Layouter::new(&book, &styles, &fonts)
+        .layout_spread(&id)
+        .unwrap()
+        .unwrap();
+    let cyr = layout.frames.iter().find(|f| f.frame.0 == "cyr").unwrap();
+    let families: std::collections::BTreeSet<&str> = cyr
+        .lines
+        .iter()
+        .flat_map(|l| &l.runs)
+        .map(|r| r.family.as_str())
+        .collect();
+    assert!(
+        families.len() >= 2,
+        "the Cyrillic is in a fallback: {families:?}"
+    );
+    let flagged: Vec<_> = layout
+        .preflight
+        .iter()
+        .filter(|i| i.kind == PreflightKind::MissingGlyphs)
+        .collect();
+    assert_eq!(flagged.len(), 1);
+    assert_eq!(flagged[0].chars.as_deref(), Some("中"));
+    assert_eq!(flagged[0].frame.as_ref().map(|f| f.0.as_str()), Some("han"));
+}
