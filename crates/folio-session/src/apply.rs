@@ -363,6 +363,7 @@ pub fn plan(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             | Intent::DeleteSpread { .. }
             | Intent::MoveSpread { .. }
             | Intent::AddFlowPages { .. }
+            | Intent::TrimFlowPages { .. }
     );
     if restructures && (!book.page_numbers.is_none() || !book.master_pages.is_empty()) {
         for spread in &book.spreads {
@@ -645,6 +646,33 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 flows: vec![flow.clone()],
                 new_flow: None,
                 fresh,
+                merge: None,
+            })
+        }
+        Intent::TrimFlowPages { flow, keep } => {
+            let found = book
+                .flows
+                .iter()
+                .find(|f| &f.id == flow)
+                .ok_or_else(|| SessionError::NoSuchFlow(flow.0.clone()))?;
+            if *keep == 0 || *keep >= found.frames.len() {
+                return Err(SessionError::BadStory(format!(
+                    "keeping {keep} of {} frames",
+                    found.frames.len()
+                )));
+            }
+            let mut touched = Vec::new();
+            for id in &found.frames[*keep..] {
+                touched.extend(touched_by(book, id)?);
+            }
+            touched.sort_by(|a, b| a.0.cmp(&b.0));
+            touched.dedup();
+            Ok(Plan {
+                touched,
+                new_spread: None,
+                flows: vec![flow.clone()],
+                new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -1314,6 +1342,7 @@ pub fn run(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             | Intent::DeleteSpread { .. }
             | Intent::MoveSpread { .. }
             | Intent::AddFlowPages { .. }
+            | Intent::TrimFlowPages { .. }
     );
     run_one(book, intent, plan, ids);
     if restructures {
@@ -1463,6 +1492,7 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                     folio_model::style_range(&p.inline, start as usize, end as usize, &change);
             }
         }
+        Intent::TrimFlowPages { flow, keep } => trim_flow_pages(book, &flow, keep),
         Intent::AddFlowPages { flow, count } => {
             add_flow_pages(book, &flow, count, &plan.fresh);
         }
@@ -2182,4 +2212,41 @@ fn add_flow_pages(book: &mut Book, flow: &FlowId, count: usize, fresh: &[String]
         }
         renumber(book, flow);
     }
+}
+
+/// Takes the frames of a flow after the first `keep` off their spreads and out of the flow, and
+/// removes a spread they leave with nothing on it (no frame, background or guide). The cover and the
+/// last spread of the book are never removed.
+fn trim_flow_pages(book: &mut Book, flow: &FlowId, keep: usize) {
+    let gone: Vec<FrameId> = match book.flows.iter().find(|f| &f.id == flow) {
+        Some(f) if keep < f.frames.len() => f.frames[keep..].to_vec(),
+        _ => return,
+    };
+    // The spreads that held the frames: the only ones that may be emptied by taking them off.
+    let mut held: Vec<SpreadId> = Vec::new();
+    for id in &gone {
+        for spread in &mut book.spreads {
+            if remove(&mut spread.frames, id) && !held.contains(&spread.id) {
+                held.push(spread.id.clone());
+            }
+        }
+    }
+    if let Some(f) = flow_mut(book, flow) {
+        f.frames.truncate(keep);
+    }
+    let empty = |s: &Spread| {
+        s.frames.is_empty()
+            && s.guides.is_empty()
+            && s.bg_span.is_none()
+            && s.pages.iter().all(|p| p.bg.is_none())
+            && s.kind != SpreadKind::Cover
+    };
+    for id in held {
+        if let Some(at) = book.spreads.iter().position(|s| s.id == id) {
+            if book.spreads.len() > 1 && empty(&book.spreads[at]) {
+                book.spreads.remove(at);
+            }
+        }
+    }
+    renumber(book, flow);
 }
