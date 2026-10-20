@@ -797,6 +797,8 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
                 },
                 size: 10.0,
                 picture: None,
+                shape: None,
+                fill: None,
             }],
         })
         .unwrap()
@@ -3958,6 +3960,8 @@ fn the_words_on_the_back_cover_are_one_undo_step() {
         },
         size: 10.0,
         picture: None,
+        shape: None,
+        fill: None,
     }];
     let patch = s
         .apply(Intent::SetBackNotes {

@@ -964,6 +964,22 @@ export function BookView({
 				onSave={(details) => apply({ type: 'SetDetails', details })}
 				onNotes={(notes) => apply({ type: 'SetBackNotes', notes })}
 				onPickPicture={pickBackgroundPicture}
+				onFrameBoxes={(moves) => {
+					const cover = book.spreads[0];
+					if (!cover) return;
+					apply({
+						type: 'MoveFrames',
+						on: { spread: cover.id },
+						moves: moves.map((m) => ({ frame: m.frame, box: m.box })),
+					});
+				}}
+				onFrameText={(frame, text) => apply({ type: 'SetText', frame, text })}
+				onFrameDelete={(frames) => {
+					const cover = book.spreads[0];
+					if (!cover) return;
+					for (const frame of frames)
+						apply({ type: 'DeleteFrame', on: { spread: cover.id }, frame });
+				}}
 			/>
 			<SoftProofDialog
 				open={proofOpen}

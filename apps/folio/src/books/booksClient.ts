@@ -7,6 +7,7 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { CoverCanvas } from '@liminal-hq/folio-protocol/generated/CoverCanvas';
 import type { StoryChapter } from '@liminal-hq/folio-protocol/generated/StoryChapter';
 import type { ProofSpread } from '@liminal-hq/folio-protocol/generated/ProofSpread';
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
@@ -38,6 +39,7 @@ import {
 	exportBook,
 	proofSpread,
 	previewCoverSheet,
+	coverSheetCanvas,
 	onExportProgress,
 	cancelExport,
 	importText,
@@ -130,6 +132,8 @@ export interface BooksClient {
 	readerPreview(id: string): Promise<ReaderPreview>;
 	/** The paperback cover sheet as the exporter would make it, or `null` with no cover. */
 	previewCoverSheet(id: string): Promise<CoverSheetPreview | null>;
+	/** The cover sheet as a one-spread book with its layout, for the canvas to draw and edit. */
+	coverSheetCanvas(id: string): Promise<CoverCanvas | null>;
 	/** A spread as a press would print it, through the CMYK ICC profile at `profile`. */
 	proofSpread(id: string, spread: string, profile: string): Promise<ProofSpread>;
 	/** Hears which file an export has reached. */
@@ -196,6 +200,7 @@ export const tauriBooksClient: BooksClient = {
 	exportBook,
 	proofSpread,
 	previewCoverSheet,
+	coverSheetCanvas,
 	onExportProgress,
 	cancelExport,
 	importText,

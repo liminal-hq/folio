@@ -533,6 +533,37 @@ export function createFakeBooksClient(): FakeBooks {
 			};
 			return preview;
 		},
+		async coverSheetCanvas(id) {
+			await call('coverSheetCanvas', [id]);
+			const held = find(id);
+			const cover = held.snapshot.book.spreads[0];
+			if (!cover) return null;
+			const sheet = {
+				...cover,
+				id: 'sp_cover_sheet',
+				kind: 'single' as const,
+				frames: [
+					...cover.frames,
+					...(held.snapshot.book.backNotes ?? []).map((n) => ({
+						type: 'text' as const,
+						id: `cover_note_${n.id}`,
+						box: n.rect,
+						rotation: 0,
+						locked: false,
+						style: 'body',
+						columns: 1,
+						baselineLock: false,
+						content: { inline: [{ text: n.text, style: null, bold: false, italic: false }] },
+					})),
+				],
+			};
+			return {
+				book: { ...held.snapshot.book, spreads: [sheet] },
+				layout: { spread: sheet.id, preflight: [], frames: [] },
+				cover: 450,
+				spine: 82,
+			};
+		},
 		async previewCoverSheet(id) {
 			await call('previewCoverSheet', [id]);
 			find(id);

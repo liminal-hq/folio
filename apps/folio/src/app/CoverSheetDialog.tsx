@@ -7,6 +7,7 @@ import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
 import type { BackNote } from '@liminal-hq/folio-protocol/generated/BackNote';
 import { useEffect, useRef, useState } from 'react';
+import { CoverCanvas } from './CoverCanvas';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { CoverSheetPreview } from '@liminal-hq/folio-protocol/generated/CoverSheetPreview';
 import type { Details } from '@liminal-hq/folio-protocol/generated/Details';
@@ -29,6 +30,12 @@ interface CoverSheetDialogProps {
 	onNotes(notes: BackNote[]): void;
 	/** Asks for a picture and brings it into the book; its path, or `null` if none was chosen. */
 	onPickPicture(): Promise<string | null>;
+	/** New boxes for frames of the front, in the cover spread's own points. */
+	onFrameBoxes(
+		moves: { frame: string; box: { x: number; y: number; w: number; h: number } }[],
+	): void;
+	onFrameText(frame: string, text: string): void;
+	onFrameDelete(frames: string[]): void;
 }
 
 export function CoverSheetDialog({
@@ -41,7 +48,12 @@ export function CoverSheetDialog({
 	onSave,
 	onNotes,
 	onPickPicture,
+	onFrameBoxes,
+	onFrameText,
+	onFrameDelete,
 }: CoverSheetDialogProps) {
+	/** Whether the sheet is drawn as printed (a picture) or as a page to draw on. */
+	const [mode, setMode] = useState<'preview' | 'edit'>('preview');
 	const notes = book.backNotes ?? [];
 	const [chosen, setChosen] = useState<string | null>(null);
 	/** A note being dragged, and where it would land. */
@@ -152,6 +164,34 @@ export function CoverSheetDialog({
 			)}
 			{picture === null && <p className={styles.hint}>{t('coverSheet.none')}</p>}
 			{picture && (
+				<div className={styles.modes} role="group" aria-label={t('coverSheet.title')}>
+					{(['preview', 'edit'] as const).map((m) => (
+						<button
+							key={m}
+							type="button"
+							aria-pressed={mode === m}
+							className={mode === m ? styles.modeOn : styles.mode}
+							onClick={() => setMode(m)}
+						>
+							{t(m === 'preview' ? 'coverSheet.modePreview' : 'coverSheet.modeEdit')}
+						</button>
+					))}
+				</div>
+			)}
+			{picture && mode === 'edit' && (
+				<CoverCanvas
+					client={client}
+					id={id}
+					revision={revision}
+					book={book}
+					onNotes={onNotes}
+					onFrameBoxes={onFrameBoxes}
+					onFrameText={onFrameText}
+					onFrameDelete={onFrameDelete}
+					onPickPicture={onPickPicture}
+				/>
+			)}
+			{picture && mode === 'preview' && (
 				<label className={styles.toggle}>
 					<input
 						type="checkbox"
@@ -161,7 +201,7 @@ export function CoverSheetDialog({
 					{t('coverSheet.guides')}
 				</label>
 			)}
-			{picture && (
+			{picture && mode === 'preview' && (
 				<div className={styles.stage}>
 					<img className={styles.sheet} src={picture.image} alt={t('coverSheet.alt')} />
 					{guides && <Guides sheet={picture} />}
@@ -181,7 +221,7 @@ export function CoverSheetDialog({
 					/>
 				</div>
 			)}
-			{picture && (
+			{picture && mode === 'preview' && (
 				<div className={styles.notes}>
 					<DialogButton onClick={() => addNote(picture)}>{t('coverSheet.addNote')}</DialogButton>
 					<DialogButton onClick={() => void addPicture(picture)}>

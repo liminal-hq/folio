@@ -21,6 +21,7 @@ import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTa
 import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
 import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
+import type { CoverCanvas } from '@liminal-hq/folio-protocol/generated/CoverCanvas';
 import type { StoryChapter } from '@liminal-hq/folio-protocol/generated/StoryChapter';
 import type { ProofSpread } from '@liminal-hq/folio-protocol/generated/ProofSpread';
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
@@ -277,6 +278,11 @@ export function importText(
 	mapping?: Record<string, string>,
 ): Promise<ImportReport> {
 	return cmd<ImportReport>('import_text', { id, path, mapping: mapping ?? null });
+}
+
+/** The cover sheet as a one-spread book with its layout, for the canvas; `null` with no cover. */
+export function coverSheetCanvas(id: string): Promise<CoverCanvas | null> {
+	return cmd<CoverCanvas | null>('cover_sheet_canvas', { id });
 }
 
 /** The chapters of the book's stories and the spread each begins on. */

@@ -149,6 +149,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function importText(id, path, mapping) {
         return cmd('import_text', { id, path, mapping: mapping ?? null });
     }
+    /** The cover sheet as a one-spread book with its layout, for the canvas; `null` with no cover. */
+    function coverSheetCanvas(id) {
+        return cmd('cover_sheet_canvas', { id });
+    }
     /** The chapters of the book's stories and the spread each begins on. */
     function storyChapters(id) {
         return cmd('story_chapters', { id });
@@ -219,6 +223,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.autosaveBooks = autosaveBooks;
     exports.cancelExport = cancelExport;
     exports.closeBook = closeBook;
+    exports.coverSheetCanvas = coverSheetCanvas;
     exports.defaultSavePath = defaultSavePath;
     exports.dictionaries = dictionaries;
     exports.discardRecovered = discardRecovered;

@@ -115,3 +115,25 @@
 	vector-effect: non-scaling-stroke;
 	cursor: nwse-resize;
 }
+
+.modes {
+	display: flex;
+	gap: 6px;
+	margin-bottom: 8px;
+}
+
+.mode,
+.modeOn {
+	padding: 4px 12px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 999px;
+	background: var(--folio-bg-raised);
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.modeOn {
+	border-color: var(--folio-accent, #e8833a);
+	background: color-mix(in srgb, var(--folio-accent, #e8833a) 22%, transparent);
+}

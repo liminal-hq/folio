@@ -1609,3 +1609,46 @@ fn the_chapters_of_a_story_say_which_spread_they_begin_on() {
         .id;
     assert!(books(&app).story_chapters(&picture).unwrap().is_empty());
 }
+
+#[test]
+fn the_cover_sheet_canvas_is_the_sheet_as_one_laid_out_spread_with_what_was_put_on_it() {
+    use folio_model::{BackNote, Pt, Rect};
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let none = books(&app).cover_sheet_canvas(&id).unwrap().unwrap();
+    assert_eq!(none.book.spreads.len(), 1);
+    assert!(none.cover > 0.0 && none.spine > 0.0);
+    let before = none.book.spreads[0].frames.len();
+    books(&app)
+        .apply(
+            &id,
+            folio_model::Intent::SetBackNotes {
+                notes: vec![BackNote {
+                    id: "n1".into(),
+                    text: "Praise".into(),
+                    rect: Rect {
+                        x: Pt(30.0),
+                        y: Pt(40.0),
+                        w: Pt(120.0),
+                        h: Pt(30.0),
+                    },
+                    size: 12.0,
+                    picture: None,
+                    shape: None,
+                    fill: None,
+                }],
+            },
+        )
+        .unwrap();
+    let with = books(&app).cover_sheet_canvas(&id).unwrap().unwrap();
+    assert_eq!(with.book.spreads[0].frames.len(), before + 1);
+    assert!(with
+        .layout
+        .frames
+        .iter()
+        .any(|f| f.frame.0 == "cover_note_n1" && !f.lines.is_empty()));
+}

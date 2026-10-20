@@ -210,39 +210,6 @@ pub fn cover_sheet(book: &Book, paper: Paper) -> Option<Book> {
             book.metadata.description.trim(),
         ));
     }
-    // Words the person put on the back, from the back cover's top-left.
-    for note in &book.back_notes {
-        if let Some(asset) = &note.picture {
-            frames.push(Frame::Image(folio_model::ImageFrame {
-                base: base(&format!("note_{}", note.id), note.rect, 0.0),
-                image: folio_model::ImageRef {
-                    asset: Some(asset.clone()),
-                    fit: folio_model::Fit::Fit,
-                    focus: (0.5, 0.5),
-                    crop: None,
-                },
-                placeholder_label: None,
-            }));
-            continue;
-        }
-        let mut frame = text_frame(
-            &format!("note_{}", note.id),
-            "body",
-            note.rect,
-            0.0,
-            &note.text,
-        );
-        if let Frame::Text(f) = &mut frame {
-            f.overrides = Some(StyleOverrides {
-                size: Some(Pt(note.size)),
-                align: None,
-                bold: None,
-                italic: None,
-                font: None,
-            });
-        }
-        frames.push(frame);
-    }
     // The barcode area, kept clear: KDP adds the barcode there when the book has none of its own.
     frames.push(Frame::Shape(ShapeFrame {
         base: base(
@@ -311,6 +278,70 @@ pub fn cover_sheet(book: &Book, paper: Paper) -> Option<Book> {
             90.0,
             &format!("{}{author}", book.title),
         ));
+    }
+
+    // What the person put on the sheet, from the back cover's top-left: words, pictures and shapes
+    // that may sit on the back, across the spine or on the front, over everything else.
+    for note in &book.back_notes {
+        if let Some(shape) = note.shape {
+            frames.push(Frame::Shape(ShapeFrame {
+                base: base(&format!("note_{}", note.id), note.rect, 0.0),
+                shape,
+                fill: note.fill.clone().or(Some(Colour("#ffffff".into()))),
+                style: None,
+                stroke: None,
+                stroke_width: None,
+                radius: None,
+                flip: false,
+                content: None,
+                overrides: None,
+            }));
+            continue;
+        }
+        if let Some(asset) = &note.picture {
+            frames.push(Frame::Image(folio_model::ImageFrame {
+                base: base(&format!("note_{}", note.id), note.rect, 0.0),
+                image: folio_model::ImageRef {
+                    asset: Some(asset.clone()),
+                    fit: folio_model::Fit::Fit,
+                    focus: (0.5, 0.5),
+                    crop: None,
+                },
+                placeholder_label: None,
+            }));
+            continue;
+        }
+        let mut frame = text_frame(
+            &format!("note_{}", note.id),
+            "body",
+            note.rect,
+            0.0,
+            &note.text,
+        );
+        if let Frame::Text(f) = &mut frame {
+            f.overrides = Some(StyleOverrides {
+                size: Some(Pt(note.size)),
+                align: None,
+                bold: None,
+                italic: None,
+                font: None,
+            });
+        }
+        frames.push(frame);
+    }
+
+    // What Folio draws itself (the blurb, the barcode, the spine) is not the person's to move on the
+    // canvas: its words are Book details and its place is the maths of the cover.
+    for frame in &mut frames {
+        let base = match frame {
+            Frame::Text(f) => &mut f.base,
+            Frame::Shape(f) => &mut f.base,
+            Frame::Image(f) => &mut f.base,
+            _ => continue,
+        };
+        if base.id.0.starts_with("cover_") && !base.id.0.starts_with("cover_note_") {
+            base.locked = true;
+        }
     }
 
     let mut sheet = book.clone();
