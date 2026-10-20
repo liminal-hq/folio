@@ -521,6 +521,7 @@ export function createFakeBooksClient(): FakeBooks {
 				printShopPdf: ['pip-print-pdfx4.pdf'],
 				ebookCover: ['pip-ebook-cover.jpg'],
 				kindleEpub: ['pip-kindle.epub'],
+				fixedEpub: ['pip-fixed.epub'],
 				koboEpub: ['pip.epub', 'pip.kepub.epub'],
 			};
 			const report: ExportReport = {

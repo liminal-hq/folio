@@ -1,11 +1,12 @@
-// Writes a sample book of a kind to an EPUB, to check with EPUBCheck: `cargo run -p folio-export --example sample_epub -- novel out.epub [kobo]`
+// Writes a sample book of a kind to an EPUB, to check with EPUBCheck: `cargo run -p folio-export --example sample_epub -- novel out.epub [kobo|fixed]`
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_export::epub::{export_epub, EpubFlavour, EpubOptions};
+use folio_export::fixed::export_fixed_epub;
 use folio_export::pdf::NoAssets;
-use folio_layout::FontBook;
+use folio_layout::{FontBook, StyleSheet};
 use folio_model::BookKind;
 use folio_presets::{new_book, NewBookSpec};
 
@@ -20,7 +21,8 @@ fn main() {
         _ => BookKind::Novel,
     };
     let out = args.next().unwrap_or_else(|| "sample.epub".into());
-    let flavour = if args.next().as_deref() == Some("kobo") {
+    let mode = args.next();
+    let flavour = if mode.as_deref() == Some("kobo") {
         EpubFlavour::Kobo
     } else {
         EpubFlavour::Standard
@@ -30,6 +32,14 @@ fn main() {
         ..NewBookSpec::default()
     })
     .expect("a sample book");
+    if mode.as_deref() == Some("fixed") {
+        let styles = StyleSheet::from_styles(&made.book.styles);
+        let bytes = export_fixed_epub(&made.book, &styles, &FontBook::bundled(), &NoAssets)
+            .expect("the book exports");
+        std::fs::write(&out, bytes).expect("the file is written");
+        println!("wrote {out}");
+        return;
+    }
     let bytes = export_epub(
         &made.book,
         &FontBook::bundled(),
