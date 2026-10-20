@@ -343,6 +343,19 @@ pub async fn proof_spread<R: Runtime>(
     .expect("the proof task does not panic")
 }
 
+/// The paperback cover sheet (back, spine and front) as the exporter would make it, as a
+/// `data:image/png` URI; `None` for a book with no cover.
+#[tauri::command]
+pub async fn preview_cover_sheet<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+) -> Result<Option<String>, Error> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().preview_cover_sheet(&id))
+        .await
+        .expect("the preview task does not panic")
+}
+
 /// Makes the files for `targets` and writes them into the book's `exports` folder.
 #[tauri::command]
 pub async fn export_book<R: Runtime>(

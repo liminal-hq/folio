@@ -1,0 +1,17 @@
+.hint {
+	margin: 0 0 12px;
+	color: var(--folio-text-muted);
+	font-size: 13px;
+}
+
+.problem {
+	margin: 0 0 12px;
+	color: var(--folio-danger);
+}
+
+.sheet {
+	display: block;
+	max-inline-size: 100%;
+	block-size: auto;
+	border: 1px solid var(--folio-border-subtle);
+}

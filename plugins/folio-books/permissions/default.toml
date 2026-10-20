@@ -29,6 +29,7 @@ permissions = [
   "allow-spell-suggest",
   "allow-spell-check-book",
   "allow-reader-preview",
+  "allow-preview-cover-sheet",
   "allow-proof-spread",
   "allow-export-book",
   "allow-cancel-export",
