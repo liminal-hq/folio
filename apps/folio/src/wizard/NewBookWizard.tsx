@@ -14,7 +14,9 @@ import { t } from '../i18n/messages';
 import styles from './NewBookWizard.module.css';
 import { KindStep } from './KindStep';
 import { SizeStep } from './SizeStep';
-import { useSettings } from '../settings/useSettings';
+import { useSettings, useUpdateSettings } from '../settings/useSettings';
+import { LookStep } from './LookStep';
+import { ReviewStep } from './ReviewStep';
 import { TitleStep } from './TitleStep';
 import { WayStep } from './WayStep';
 import { WordsStep } from './WordsStep';
@@ -49,6 +51,9 @@ function Tick() {
 export function NewBookWizard({ client = tauriBooksClient }: { client?: BooksClient }) {
 	const controls = useWindowControls();
 	const settings = useSettings();
+	const update = useUpdateSettings();
+	const [making, setMaking] = useState(false);
+	const [problem, setProblem] = useState<string | null>(null);
 	const [kinds, setKinds] = useState<KindInfo[]>([]);
 	const [draft, setDraft] = useState<WizardDraft>(() => initialDraft(settings));
 	const change = (patch: Partial<WizardDraft>) => setDraft((was) => ({ ...was, ...patch }));
@@ -68,6 +73,32 @@ export function NewBookWizard({ client = tauriBooksClient }: { client?: BooksCli
 	const go = (to: number) => {
 		setIndex(to);
 		setReached((far) => Math.max(far, to));
+	};
+	const make = async () => {
+		setMaking(true);
+		setProblem(null);
+		try {
+			const { mode, jax, ...spec } = draft;
+			// The way of working is the person's setting, so it is kept for the next book too.
+			await update({ mode, jax });
+			await client.newBook({
+				...spec,
+				title: spec.title.trim(),
+				subtitle: spec.subtitle.trim(),
+				author: spec.author.trim(),
+				isbn: spec.isbn.trim(),
+			});
+			controls.close();
+		} catch (reason) {
+			const message =
+				reason instanceof Error
+					? reason.message
+					: typeof reason === 'object' && reason !== null && 'message' in reason
+						? String((reason as { message: unknown }).message)
+						: String(reason);
+			setProblem(t('wizard.makeFailed', { message }));
+			setMaking(false);
+		}
 	};
 	const step = WIZARD_STEPS[index] as WizardStep;
 	const last = index === WIZARD_STEPS.length - 1;
@@ -120,8 +151,13 @@ export function NewBookWizard({ client = tauriBooksClient }: { client?: BooksCli
 						{step === 'title' && <TitleStep draft={draft} onChange={change} />}
 						{step === 'words' && <WordsStep draft={draft} onChange={change} />}
 						{step === 'way' && <WayStep draft={draft} onChange={change} />}
-						{(step === 'look' || step === 'review') && (
-							<p className={styles.note}>{t('wizard.comingSoon')}</p>
+						{step === 'look' && <LookStep draft={draft} onChange={change} />}
+						{step === 'review' && (
+							<ReviewStep
+								kind={kinds.find((info) => info.kind === draft.kind)}
+								draft={draft}
+								problem={problem}
+							/>
 						)}
 					</main>
 				</div>
@@ -138,14 +174,15 @@ export function NewBookWizard({ client = tauriBooksClient }: { client?: BooksCli
 					>
 						{t('wizard.back')}
 					</button>
-					<button
-						type="button"
-						className={styles.primary}
-						disabled={last}
-						onClick={() => go(index + 1)}
-					>
-						{t('wizard.next')}
-					</button>
+					{last ? (
+						<button type="button" className={styles.primary} disabled={making} onClick={make}>
+							{making ? t('wizard.making') : t('wizard.make')}
+						</button>
+					) : (
+						<button type="button" className={styles.primary} onClick={() => go(index + 1)}>
+							{t('wizard.next')}
+						</button>
+					)}
 				</footer>
 			</div>
 		</WindowFrame>

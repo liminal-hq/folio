@@ -15,13 +15,27 @@
 			"name": "a Roman section, then Arabic starting again at 1",
 			"spreads": [
 				{ "kind": "cover", "pages": 1 },
-				{ "kind": "opener", "pages": 1, "section": { "name": "Front matter", "numbering": "roman" } },
+				{
+					"kind": "opener",
+					"pages": 1,
+					"section": { "name": "Front matter", "numbering": "roman" }
+				},
 				{ "kind": "spread", "pages": 2 },
-				{ "kind": "spread", "pages": 2, "section": { "name": "Story", "numbering": "arabic", "start": 1 } },
+				{
+					"kind": "spread",
+					"pages": 2,
+					"section": { "name": "Story", "numbering": "arabic", "start": 1 }
+				},
 				{ "kind": "spread", "pages": 2 }
 			],
 			"labels": [[""], ["i"], ["ii", "iii"], ["1", "2"], ["3", "4"]],
-			"sections": [[""], ["Front matter"], ["Front matter", "Front matter"], ["Story", "Story"], ["Story", "Story"]]
+			"sections": [
+				[""],
+				["Front matter"],
+				["Front matter", "Front matter"],
+				["Story", "Story"],
+				["Story", "Story"]
+			]
 		},
 		{
 			"name": "a section with no start carries the count on, and no numbers still counts the pages",
@@ -38,9 +52,17 @@
 			"name": "a start beyond 3999 in Roman is left in Arabic, and a later start can be anything",
 			"spreads": [
 				{ "kind": "cover", "pages": 1 },
-				{ "kind": "single", "pages": 1, "section": { "name": "", "numbering": "roman", "start": 3999 } },
+				{
+					"kind": "single",
+					"pages": 1,
+					"section": { "name": "", "numbering": "roman", "start": 3999 }
+				},
 				{ "kind": "single", "pages": 1 },
-				{ "kind": "single", "pages": 1, "section": { "name": "", "numbering": "arabic", "start": 40 } }
+				{
+					"kind": "single",
+					"pages": 1,
+					"section": { "name": "", "numbering": "arabic", "start": 40 }
+				}
 			],
 			"labels": [[""], ["mmmcmxcix"], ["4000"], ["40"]],
 			"sections": [[""], [""], [""], [""]]
