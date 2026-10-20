@@ -24,6 +24,9 @@ describe('CoverSheetDialog', () => {
 				onSave={() => undefined}
 				onNotes={() => undefined}
 				onPickPicture={async () => null}
+				onFrameBoxes={() => undefined}
+				onFrameText={() => undefined}
+				onFrameDelete={() => undefined}
 			/>,
 		);
 		expect(
@@ -46,6 +49,9 @@ describe('CoverSheetDialog', () => {
 				onSave={() => undefined}
 				onNotes={() => undefined}
 				onPickPicture={async () => null}
+				onFrameBoxes={() => undefined}
+				onFrameText={() => undefined}
+				onFrameDelete={() => undefined}
 			/>,
 		);
 		expect(fake.calls.some((c) => c.startsWith('previewCoverSheet'))).toBe(false);
@@ -65,6 +71,9 @@ describe('CoverSheetDialog', () => {
 				onSave={() => undefined}
 				onNotes={() => undefined}
 				onPickPicture={async () => null}
+				onFrameBoxes={() => undefined}
+				onFrameText={() => undefined}
+				onFrameDelete={() => undefined}
 			/>,
 		);
 		expect(await screen.findByTestId('cover-guides')).toBeInTheDocument();
@@ -87,6 +96,9 @@ describe('CoverSheetDialog', () => {
 				onSave={onSave}
 				onNotes={() => undefined}
 				onPickPicture={async () => null}
+				onFrameBoxes={() => undefined}
+				onFrameText={() => undefined}
+				onFrameDelete={() => undefined}
 			/>,
 		);
 		const update = await screen.findByRole('button', { name: 'Update the cover' });
@@ -120,6 +132,9 @@ describe('CoverSheetDialog', () => {
 				onSave={() => undefined}
 				onNotes={onNotes}
 				onPickPicture={async () => null}
+				onFrameBoxes={() => undefined}
+				onFrameText={() => undefined}
+				onFrameDelete={() => undefined}
 			/>,
 		);
 		await userEvent.click(
@@ -165,6 +180,9 @@ describe('CoverSheetDialog', () => {
 				onSave={() => undefined}
 				onNotes={onNotes}
 				onPickPicture={async () => 'assets/images/otter.png'}
+				onFrameBoxes={() => undefined}
+				onFrameText={() => undefined}
+				onFrameDelete={() => undefined}
 			/>,
 		);
 		await userEvent.click(
@@ -172,6 +190,39 @@ describe('CoverSheetDialog', () => {
 		);
 		expect(onNotes).toHaveBeenCalledWith([
 			expect.objectContaining({ id: 'n1', text: '', picture: 'assets/images/otter.png' }),
+		]);
+	});
+
+	it('draws on the sheet as a page, where words, pictures and shapes can be added', async () => {
+		const fake = createFakeBooksClient();
+		const made = await fake.client.newBook({});
+		const onNotes = vi.fn();
+		render(
+			<CoverSheetDialog
+				open
+				onClose={() => undefined}
+				client={fake.client}
+				id={made.summary.id}
+				revision={0}
+				book={made.book}
+				onSave={() => undefined}
+				onNotes={onNotes}
+				onPickPicture={async () => 'assets/images/otter.png'}
+				onFrameBoxes={() => undefined}
+				onFrameText={() => undefined}
+				onFrameDelete={() => undefined}
+			/>,
+		);
+		await userEvent.click(await screen.findByRole('button', { name: 'Draw on the sheet' }));
+		expect(await screen.findByRole('group', { name: 'The cover sheet' })).toBeInTheDocument();
+		await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Shape' }), 'ellipse');
+		await userEvent.click(screen.getByRole('button', { name: 'Add the shape' }));
+		expect(onNotes).toHaveBeenLastCalledWith([
+			expect.objectContaining({ id: 'n1', shape: 'ellipse', fill: '#e8833a' }),
+		]);
+		await userEvent.click(screen.getByRole('button', { name: 'Add a picture to the back cover' }));
+		expect(onNotes).toHaveBeenLastCalledWith([
+			expect.objectContaining({ picture: 'assets/images/otter.png' }),
 		]);
 	});
 });

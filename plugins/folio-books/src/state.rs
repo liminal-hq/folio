@@ -25,11 +25,11 @@ use crate::error::Error;
 use crate::recovery::{self, Recovery};
 use crate::spelling::Spelling;
 use crate::wire::{
-    BookSnapshot, BookSpelling, BookSummary, BooksChanged, CoverSheetPreview, ExportColour,
-    ExportProgress, ExportReport, ExportTarget, ExportedFile, FontChoice, FontLicence, FontOrigin,
-    FontSkip, FontUse, KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, PreviewChapter,
-    PreviewImage, ProofColour, ProofPage, ProofSpread, ReaderPreview, Recoverable, SkippedFont,
-    SpellCheck, SpreadLayoutResult, StoryChapter,
+    BookSnapshot, BookSpelling, BookSummary, BooksChanged, CoverCanvas, CoverSheetPreview,
+    ExportColour, ExportProgress, ExportReport, ExportTarget, ExportedFile, FontChoice,
+    FontLicence, FontOrigin, FontSkip, FontUse, KeepFontsReport, Misspelling, MisspeltWord,
+    PatchEvent, PreviewChapter, PreviewImage, ProofColour, ProofPage, ProofSpread, ReaderPreview,
+    Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult, StoryChapter,
 };
 use crate::{CHANGED_EVENT, EXPORT_PROGRESS_EVENT, PATCH_EVENT};
 
@@ -1226,6 +1226,41 @@ impl<R: Runtime> Books<R> {
             spine: maths.spine.0,
             spine_text: maths.spine_text_allowed,
             barcode: maths.barcode,
+        }))
+    }
+
+    /// The cover sheet as a one-spread book with its layout, for the canvas to draw and edit.
+    /// `None` when the book has no cover.
+    pub fn cover_sheet_canvas(&self, id: &str) -> Result<Option<CoverCanvas>, Error> {
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, paper, layered) = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            (
+                open.session.book().clone(),
+                open.paper_in_use(),
+                open.font_book(base),
+            )
+        };
+        let fonts = layered.as_deref().unwrap_or(base);
+        let Some(sheet) = folio_export::cover::cover_sheet(&book, paper) else {
+            return Ok(None);
+        };
+        let styles = style_sheet(&sheet.styles);
+        let layout = Layouter::new(&sheet, &styles, fonts)
+            .layout_spread(&sheet.spreads[0].id)
+            .map_err(|e| Error::Export(e.to_string()))?
+            .ok_or_else(|| Error::Export("the cover sheet has no page".into()))?;
+        let maths = folio_model::paperback_cover(book.trim, folio_model::spine_pages(&book), paper);
+        Ok(Some(CoverCanvas {
+            book: sheet,
+            layout,
+            cover: book.trim.w.0,
+            spine: maths.spine.0,
         }))
     }
 

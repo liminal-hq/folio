@@ -308,6 +308,8 @@ fn words_put_on_the_back_cover_are_drawn_on_the_sheet() {
         },
         size: 11.0,
         picture: None,
+        shape: None,
+        fill: None,
     }];
     let sheet = cover_sheet(&book, Paper::White).unwrap();
     let found = sheet.spreads[0].frames.iter().any(|f| match f {
@@ -336,6 +338,8 @@ fn a_picture_put_on_the_back_cover_is_an_image_frame_of_the_sheet() {
         },
         size: 12.0,
         picture: Some("assets/images/otter.png".into()),
+        shape: None,
+        fill: None,
     }];
     let sheet = cover_sheet(&book, Paper::White).unwrap();
     let found = sheet.spreads[0].frames.iter().any(|f| match f {

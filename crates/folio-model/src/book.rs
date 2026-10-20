@@ -263,6 +263,11 @@ pub struct BackNote {
     /// A picture in the box, by its asset path, instead of words.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub picture: Option<String>,
+    /// A shape in the box instead of words, with its fill.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shape: Option<crate::Shape>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fill: Option<crate::Colour>,
 }
 
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, TS)]
