@@ -97,6 +97,9 @@ pub enum TableEdit {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(tag = "type")]
+// `AddFrame` carries a whole frame and the rest are small. Intents are made one at a time and
+// passed along, never kept in bulk, so the extra bytes cost nothing worth a `Box` in every frame.
+#[allow(clippy::large_enum_variant)]
 pub enum Intent {
     MoveFrame {
         on: Surface,
