@@ -24,6 +24,12 @@ const LABELS: Record<WizardStep, string> = {
 export function NewBookWizard() {
 	const controls = useWindowControls();
 	const [index, setIndex] = useState(0);
+	// The furthest step met: a step already seen can be returned to by clicking it.
+	const [reached, setReached] = useState(0);
+	const go = (to: number) => {
+		setIndex(to);
+		setReached((far) => Math.max(far, to));
+	};
 	const step = WIZARD_STEPS[index] as WizardStep;
 	const last = index === WIZARD_STEPS.length - 1;
 	return (
@@ -36,14 +42,21 @@ export function NewBookWizard() {
 							{WIZARD_STEPS.map((id, at) => (
 								<li
 									key={id}
-									className={styles.step}
+									className={styles.item}
 									aria-current={at === index ? 'step' : undefined}
 									data-done={at < index || undefined}
 								>
-									<span className={styles.number}>{at + 1}</span>
-									<span className={styles.label} data-text={LABELS[id]}>
-										{LABELS[id]}
-									</span>
+									<button
+										type="button"
+										className={styles.step}
+										disabled={at > reached}
+										onClick={() => go(at)}
+									>
+										<span className={styles.number}>{at + 1}</span>
+										<span className={styles.label} data-text={LABELS[id]}>
+											{LABELS[id]}
+										</span>
+									</button>
 								</li>
 							))}
 						</ol>
@@ -62,7 +75,7 @@ export function NewBookWizard() {
 						type="button"
 						className={styles.button}
 						disabled={index === 0}
-						onClick={() => setIndex(index - 1)}
+						onClick={() => go(index - 1)}
 					>
 						{t('wizard.back')}
 					</button>
@@ -70,7 +83,7 @@ export function NewBookWizard() {
 						type="button"
 						className={styles.primary}
 						disabled={last}
-						onClick={() => setIndex(index + 1)}
+						onClick={() => go(index + 1)}
 					>
 						{t('wizard.next')}
 					</button>
