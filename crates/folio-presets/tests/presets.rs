@@ -302,3 +302,40 @@ fn no_two_parts_of_a_book_share_an_id_and_a_counter_makes_them_repeatable() {
         }
     }
 }
+
+#[test]
+fn a_size_of_the_authors_own_is_used_when_kdp_prints_it_and_refused_when_not() {
+    use folio_presets::CustomTrim;
+    let made = new_book(&NewBookSpec {
+        custom_trim: Some(CustomTrim {
+            width: 5.25,
+            height: 8.0,
+        }),
+        ..spec(BookKind::Novel)
+    })
+    .unwrap()
+    .book;
+    assert!(
+        (made.trim.w.0 - 5.25 * 72.0).abs() < 1e-9 && (made.trim.h.0 - 8.0 * 72.0).abs() < 1e-9
+    );
+    for (width, height) in [(3.0, 8.0), (5.0, 12.5), (9.0, 9.0)] {
+        let refused = new_book(&NewBookSpec {
+            custom_trim: Some(CustomTrim { width, height }),
+            ..spec(BookKind::Novel)
+        });
+        assert!(
+            matches!(refused, Err(folio_presets::PresetError::BadCustomTrim(..))),
+            "{width} × {height}"
+        );
+    }
+}
+
+#[test]
+fn each_kind_says_how_thick_its_spine_is_on_each_paper() {
+    for info in folio_presets::kind_infos() {
+        assert_eq!(info.spines.len(), 3);
+        let white = info.spines[0].inches;
+        assert!((white - f64::from(info.default_pages) * 0.002252).abs() < 1e-9);
+        assert!(info.spines[1].inches > white);
+    }
+}

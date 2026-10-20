@@ -97,6 +97,13 @@ export const FAKE_KINDS: KindInfo[] = [
 	trims: (trims as string[]).map((t) => ({ label: t, width: 612, height: 612 })),
 	defaultPages: pages as number,
 	sampleTitle: `Sample ${label as string}`,
+	spines: (
+		[
+			['white', 0.002252],
+			['cream', 0.0025],
+			['colour', 0.002347],
+		] as const
+	).map(([paper, factor]) => ({ paper, inches: (pages as number) * factor })),
 }));
 
 interface Held {

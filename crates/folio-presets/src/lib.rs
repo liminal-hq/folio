@@ -18,9 +18,9 @@ mod spec;
 pub mod textures;
 
 pub use data::preset_styles;
-pub use data::{kind_infos, KindInfo, TrimChoice};
+pub use data::{kind_infos, KindInfo, SpineChoice, TrimChoice};
 pub use isbn::is_valid_isbn13;
 pub use make::{new_book, new_book_with_ids, NewBook};
 pub use paints::{paint_presets, GradientPreset, PaintPresets, Swatch};
 pub use paths::suggest_save_path;
-pub use spec::{Look, NewBookSpec, Paper, PresetError, Words};
+pub use spec::{CustomTrim, Look, NewBookSpec, Paper, PresetError, Words};
