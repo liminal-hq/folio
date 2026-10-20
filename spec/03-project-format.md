@@ -15,7 +15,7 @@ text/
   flow-<id>.md                   # long text flows as CommonMark + Folio attributes (see below)
 assets/
   images/<sha256>.<ext>          # original files, deduped by content hash
-  fonts/<family>/<file>.ttf      # only when the user chose "Keep fonts with the book"
+  fonts/<sha256>.<ttf|otf|ttc|otc>  # fonts the book keeps (D-30): named by hash so a file is stored once; `book.json`'s `fonts` says each one's family, weight, slant and face
   icc/<name>.icc                 # output intents used by the book
 thumbnails/
   cover.png                      # 512 px, for file managers (Waypoint, Nautilus, Dolphin, Explorer)

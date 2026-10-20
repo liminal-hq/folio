@@ -448,6 +448,50 @@ fn the_autosave_journal_is_not_carried_into_a_saved_book() {
 }
 
 #[test]
+fn a_font_the_book_keeps_is_stored_once_by_its_hash_and_listed_with_its_media_type() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("otter.folio");
+    let mut package = Package::new(book());
+    let one = package.add_font(vec![1, 2, 3], "TTF");
+    let two = package.add_font(vec![1, 2, 3], ".ttf");
+    let cff = package.add_font(vec![9, 9], "otf");
+    let odd = package.add_font(vec![7], "woff2");
+    assert_eq!(one, two);
+    assert!(one.starts_with("assets/fonts/") && one.ends_with(".ttf"));
+    assert!(cff.ends_with(".otf"));
+    assert!(odd.ends_with(".ttf"), "an unknown extension is called ttf");
+
+    package.book_mut().fonts = vec![folio_model::BookFont {
+        family: "Zed Sans".into(),
+        weight: 400,
+        italic: false,
+        path: one.clone(),
+        index: 0,
+    }];
+    package.save(&file, &SaveOptions::default()).unwrap();
+
+    let mut archive = ZipArchive::new(fs::File::open(&file).unwrap()).unwrap();
+    let mut text = String::new();
+    archive
+        .by_name("META-INF/manifest.json")
+        .unwrap()
+        .read_to_string(&mut text)
+        .unwrap();
+    let manifest: Manifest = serde_json::from_str(&text).unwrap();
+    let listed = |path: &str| manifest.files.iter().find(|f| f.path == path).unwrap();
+    assert_eq!(listed(&one).role, FileRole::Font);
+    assert_eq!(listed(&one).media_type, "font/ttf");
+    assert_eq!(listed(&cff).media_type, "font/otf");
+
+    let mut reopened = Package::open(&file).unwrap();
+    assert_eq!(reopened.book().fonts[0].family, "Zed Sans");
+    assert_eq!(reopened.asset_bytes(&one).unwrap(), vec![1, 2, 3]);
+    assert!(reopened.remove_asset(&one));
+    assert!(!reopened.remove_asset(&one));
+    assert!(reopened.asset_bytes(&one).is_err());
+}
+
+#[test]
 fn the_styles_are_the_books_in_memory_but_their_own_file_in_the_package() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("otter.folio");
