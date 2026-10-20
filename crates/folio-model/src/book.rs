@@ -78,6 +78,9 @@ pub struct Book {
     /// Who makes the barcode on the paperback cover.
     #[serde(default, skip_serializing_if = "is_default_barcode")]
     pub barcode: BarcodeChoice,
+    /// Words the person has put on the back cover, over the blurb.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub back_notes: Vec<BackNote>,
     /// Preflight issues the person has said to leave alone, each by its key (D-31).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub preflight_ignore: Vec<String>,
@@ -247,6 +250,18 @@ pub struct BookMetadata {
     #[serde(default)]
     pub keywords: Vec<String>,
 }
+/// Some words the person has put on the back cover: where they sit, from the top-left of the back
+/// cover's trim, and what they say.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct BackNote {
+    pub id: String,
+    pub text: String,
+    pub rect: crate::Rect,
+    /// The size of the words, in points.
+    pub size: f64,
+}
+
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Isbns {

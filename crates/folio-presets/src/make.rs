@@ -159,6 +159,7 @@ pub fn new_book_with_ids(
             Paper::Cream => folio_model::Paper::Cream,
             Paper::Colour => folio_model::Paper::Colour,
         },
+        back_notes: Vec::new(),
         preflight_ignore: Vec::new(),
         proofing: folio_model::Proofing::default(),
         styles: style_file(spec.look, data, &used),

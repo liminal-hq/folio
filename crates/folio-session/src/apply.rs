@@ -793,6 +793,14 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 merge: None,
             })
         }
+        Intent::SetBackNotes { .. } => Ok(Plan {
+            touched: Vec::new(),
+            new_spread: None,
+            flows: Vec::new(),
+            new_flow: None,
+            fresh: Vec::new(),
+            merge: None,
+        }),
         Intent::SetBarcode { choice } => {
             if let BarcodeChoice::Own { addon: Some(addon) } = choice {
                 if !BarcodeChoice::addon_is_valid(addon) {
@@ -1610,6 +1618,7 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             renumber(book, &flow_id);
         }
         Intent::SetBarcode { choice } => book.barcode = choice,
+        Intent::SetBackNotes { notes } => book.back_notes = notes,
         Intent::SetPaper { paper } => book.paper = paper,
         Intent::SetSwatch { mut swatch } => {
             if let Some(ink) = swatch.ink {
