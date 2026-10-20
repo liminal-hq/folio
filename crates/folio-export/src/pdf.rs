@@ -10,7 +10,7 @@ use folio_layout::scene::{focused_rect, SceneItem, SceneKind, SceneLine, SceneRe
 use folio_layout::wire::LayoutRun;
 use folio_layout::{FontBook, Layouter, StyleSheet};
 use folio_model::{Background, Book, Colour, Fit, Shape};
-use krilla::color::rgb;
+use krilla::color::{cmyk, rgb};
 use krilla::geom::{PathBuilder, Point, Rect as KRect, Size, Transform};
 use krilla::image::Image;
 use krilla::metadata::Metadata;
@@ -20,6 +20,8 @@ use krilla::paint::{Fill, FillRule, LinearGradient, SpreadMethod, Stop, Stroke};
 use krilla::surface::Surface;
 use krilla::text::{Font, GlyphId, KrillaGlyph, Tag};
 use krilla::{Data, SerializeSettings};
+
+use folio_colour::Separator;
 
 use crate::error::ExportError;
 
@@ -46,11 +48,26 @@ pub enum PdfTarget {
     /// Print-ready for Kindle Direct Publishing: single pages, nothing but the title and author in
     /// the file's information, no bookmarks or links.
     Print,
+    /// For a print shop: every page, with the bleed all round, the trim marked, optional crop marks
+    /// and the file made PDF/X-4 with an output intent.
+    PrintShop,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct PdfOptions {
     pub target: PdfTarget,
+    /// Write colours as ink rather than sRGB, through this CMYK profile when there is one and by a
+    /// plain separation when there is not.
+    pub ink: Option<InkOptions>,
+    /// Crop marks and room for them, for a print shop.
+    pub crop_marks: bool,
+}
+
+/// Print colour for a file.
+#[derive(Debug, Clone, Default)]
+pub struct InkOptions {
+    /// The ICC bytes of the press's CMYK profile, when the author or Folio has one.
+    pub profile: Option<Vec<u8>>,
 }
 
 /// Draws every page of `book` into a PDF.
@@ -68,7 +85,19 @@ pub fn export_pdf(
         ..SerializeSettings::default()
     };
     let mut document = krilla::Document::new_with(settings);
-    let mut drawing = Drawing::new(fonts, assets);
+    let separator = match &options.ink {
+        None => None,
+        Some(ink) => Some(match &ink.profile {
+            Some(bytes) => {
+                let profile = folio_colour::Profile::from_icc(bytes)
+                    .map_err(|e| ExportError::Pdf(e.to_string()))?;
+                Separator::through(&profile, folio_colour::Intent::Perceptual)
+                    .map_err(|e| ExportError::Pdf(e.to_string()))?
+            }
+            None => Separator::plain(),
+        }),
+    };
+    let mut drawing = Drawing::new(fonts, assets, separator);
 
     // A print PDF is the interior only: the cover is made for the cover file.
     let skip = usize::from(
@@ -88,9 +117,17 @@ pub fn export_pdf(
         return Err(ExportError::NoPages);
     }
     let print = options.target == PdfTarget::Print;
-    // Bleed is for a print file, and when anything bleeds every page is set up with it.
-    let bleed = if print && book.bleed.0 > 0.0 && scenes.iter().any(spills) {
-        book.bleed.0
+    let shop = options.target == PdfTarget::PrintShop;
+    // Bleed is for a print file. A print shop wants it all round whenever the book has one; KDP
+    // wants it only when something bleeds, and then on the outer edge of each page.
+    let bleed = if (print && scenes.iter().any(spills)) || shop {
+        book.bleed.0.max(0.0)
+    } else {
+        0.0
+    };
+    // Room outside the bleed for crop marks.
+    let slug = if shop && options.crop_marks {
+        SLUG
     } else {
         0.0
     };
@@ -101,38 +138,53 @@ pub fn export_pdf(
         let page = scenes.get(number);
         let (width, height) = page.map_or((book.trim.w.0, book.trim.h.0), |p| (p.width, p.height));
         let recto = page.map_or(number % 2 == 0, |p| p.recto);
-        // The outer edge, away from the fold, is where the picture runs on into the bleed.
-        let (left, right) = if recto { (0.0, bleed) } else { (bleed, 0.0) };
+        // KDP's bleed is on the outer edge, away from the fold; a print shop's is on every side.
+        let (left, right) = match (shop, recto) {
+            (true, _) => (bleed, bleed),
+            (false, true) => (0.0, bleed),
+            (false, false) => (bleed, 0.0),
+        };
         let area = SceneRect {
             x: -left,
             y: -bleed,
             w: width + left + right,
             h: height + 2.0 * bleed,
         };
-        let size = Size::from_wh(area.w as f32, area.h as f32)
+        let (media_w, media_h) = (area.w + 2.0 * slug, area.h + 2.0 * slug);
+        let size = Size::from_wh(media_w as f32, media_h as f32)
             .ok_or_else(|| ExportError::Pdf("a page has no size".into()))?;
         let mut settings = PageSettings::new(size);
-        if bleed > 0.0 {
+        let (origin_x, origin_y) = (left + slug, bleed + slug);
+        if bleed > 0.0 || shop {
             settings = settings
                 .with_trim_box(KRect::from_xywh(
-                    left as f32,
-                    bleed as f32,
+                    origin_x as f32,
+                    origin_y as f32,
                     width as f32,
                     height as f32,
                 ))
-                .with_bleed_box(KRect::from_xywh(0.0, 0.0, area.w as f32, area.h as f32));
+                .with_bleed_box(KRect::from_xywh(
+                    slug as f32,
+                    slug as f32,
+                    area.w as f32,
+                    area.h as f32,
+                ));
         }
         let mut pdf_page = document.start_page_with(settings);
         let mut surface = pdf_page.surface();
-        if bleed > 0.0 {
-            surface.push_transform(&Transform::from_translate(left as f32, bleed as f32));
+        let moved = origin_x != 0.0 || origin_y != 0.0;
+        if moved {
+            surface.push_transform(&Transform::from_translate(origin_x as f32, origin_y as f32));
         }
         if let Some(page) = page {
             for item in &page.items {
                 drawing.item(&mut surface, item, &area);
             }
         }
-        if bleed > 0.0 {
+        if slug > 0.0 {
+            drawing.crop_marks(&mut surface, width, height, bleed);
+        }
+        if moved {
             surface.pop();
         }
         surface.finish();
@@ -147,12 +199,29 @@ pub fn export_pdf(
         metadata = metadata.language(book.language.clone());
     }
     document.set_metadata(metadata);
-    document
+    let bytes = document
         .finish()
-        .map_err(|e| ExportError::Pdf(format!("{e:?}")))
+        .map_err(|e| ExportError::Pdf(format!("{e:?}")))?;
+    if shop {
+        // The colours are sRGB, so that is the condition the file declares; a press profile
+        // changes it when the book is made for ink.
+        let srgb = folio_colour::Profile::srgb();
+        return crate::pdfx::make_pdf_x4(
+            &bytes,
+            &book.title,
+            &crate::pdfx::OutputCondition {
+                identifier: "sRGB IEC61966-2.1",
+                profile: srgb.icc(),
+                components: 3,
+            },
+        );
+    }
+    Ok(bytes)
 }
 
 struct Drawing<'a> {
+    /// Set for a file whose colours are ink: each one is separated, the page's ink as black alone.
+    separator: Option<Separator>,
     fonts: &'a FontBook,
     assets: &'a dyn Assets,
     /// The krilla fonts made so far, by file key, weight and size, since each variable instance is
@@ -175,24 +244,13 @@ fn spills(page: &folio_layout::scene::PageScene) -> bool {
     })
 }
 
-fn colour(c: &Colour) -> rgb::Color {
-    let hex = c.0.trim_start_matches('#');
-    let byte = |at: usize| u8::from_str_radix(hex.get(at..at + 2).unwrap_or("00"), 16).unwrap_or(0);
-    rgb::Color::new(byte(0), byte(2), byte(4))
-}
-
 /// The share of a radius a cubic curve's handles take to draw a quarter circle.
 const KAPPA: f32 = 0.552_284_8;
 
-const INK: &str = "#1c1b20";
+/// The room round the bleed for crop marks, in points.
+const SLUG: f64 = 24.0;
 
-fn fill_of(c: &Colour, opacity: f32) -> Fill {
-    Fill {
-        paint: colour(c).into(),
-        opacity: NormalizedF32::new(opacity).unwrap_or(NormalizedF32::ONE),
-        rule: FillRule::default(),
-    }
-}
+const INK: &str = "#1c1b20";
 
 fn krect(r: &SceneRect) -> Option<KRect> {
     KRect::from_xywh(
@@ -204,8 +262,9 @@ fn krect(r: &SceneRect) -> Option<KRect> {
 }
 
 impl<'a> Drawing<'a> {
-    fn new(fonts: &'a FontBook, assets: &'a dyn Assets) -> Self {
+    fn new(fonts: &'a FontBook, assets: &'a dyn Assets, separator: Option<Separator>) -> Self {
         Self {
+            separator,
             fonts,
             assets,
             faces: HashMap::new(),
@@ -215,6 +274,30 @@ impl<'a> Drawing<'a> {
 
     /// Draws `item` into `area`: the page and the bleed beyond its outer edge, which is as far as
     /// anything goes. A frame across the gutter shows only its own side.
+    /// A colour as the file holds it: sRGB, or ink when the file is for print.
+    fn color(&self, c: &Colour) -> krilla::color::Color {
+        let hex = c.0.trim_start_matches('#');
+        let byte =
+            |at: usize| u8::from_str_radix(hex.get(at..at + 2).unwrap_or("00"), 16).unwrap_or(0);
+        let rgb = (byte(0), byte(2), byte(4));
+        match &self.separator {
+            None => rgb::Color::new(rgb.0, rgb.1, rgb.2).into(),
+            Some(separator) => {
+                let ink = separator.cmyk(rgb);
+                let plate = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+                cmyk::Color::new(plate(ink.c), plate(ink.m), plate(ink.y), plate(ink.k)).into()
+            }
+        }
+    }
+
+    fn fill_of(&self, c: &Colour, opacity: f32) -> Fill {
+        Fill {
+            paint: self.color(c).into(),
+            opacity: NormalizedF32::new(opacity).unwrap_or(NormalizedF32::ONE),
+            rule: FillRule::default(),
+        }
+    }
+
     fn item(&mut self, surface: &mut Surface, item: &SceneItem, area: &SceneRect) {
         let clip = *area;
         if let Some(rect) = krect(&clip) {
@@ -247,10 +330,9 @@ impl<'a> Drawing<'a> {
                         let mut pb = PathBuilder::new();
                         pb.push_rect(r);
                         if let Some(path) = pb.finish() {
-                            surface.set_fill(Some(fill_of(
-                                &Colour("#14110f".into()),
-                                *opacity as f32,
-                            )));
+                            surface.set_fill(Some(
+                                self.fill_of(&Colour("#14110f".into()), *opacity as f32),
+                            ));
                             surface.set_stroke(None);
                             surface.draw_path(&path);
                         }
@@ -287,6 +369,41 @@ impl<'a> Drawing<'a> {
         surface.pop();
     }
 
+    /// Crop marks at the four corners of the trim, starting a little outside the bleed, in the
+    /// registration colour (all the ink there is).
+    fn crop_marks(&mut self, surface: &mut Surface, width: f64, height: f64, bleed: f64) {
+        let (gap, length) = (bleed + 3.0, 18.0);
+        let mark = |surface: &mut Surface, x1: f64, y1: f64, x2: f64, y2: f64| {
+            let mut pb = PathBuilder::new();
+            pb.move_to(x1 as f32, y1 as f32);
+            pb.line_to(x2 as f32, y2 as f32);
+            if let Some(path) = pb.finish() {
+                surface.set_fill(None);
+                surface.set_stroke(Some(Stroke {
+                    paint: self.registration().into(),
+                    width: 0.25,
+                    ..Stroke::default()
+                }));
+                surface.draw_path(&path);
+            }
+        };
+        for (x, dx) in [(0.0, -1.0), (width, 1.0)] {
+            for (y, dy) in [(0.0, -1.0), (height, 1.0)] {
+                mark(surface, x + dx * gap, y, x + dx * (gap + length), y);
+                mark(surface, x, y + dy * gap, x, y + dy * (gap + length));
+            }
+        }
+    }
+
+    /// The colour of a mark every plate prints: all the ink in a file of ink, black in sRGB.
+    fn registration(&self) -> krilla::color::Color {
+        if self.separator.is_some() {
+            cmyk::Color::new(255, 255, 255, 255).into()
+        } else {
+            rgb::Color::new(0, 0, 0).into()
+        }
+    }
+
     fn rule(&mut self, surface: &mut Surface, rule: &SceneLine) {
         let mut pb = PathBuilder::new();
         pb.move_to(rule.x1 as f32, rule.y1 as f32);
@@ -294,7 +411,7 @@ impl<'a> Drawing<'a> {
         if let Some(path) = pb.finish() {
             surface.set_fill(None);
             surface.set_stroke(Some(Stroke {
-                paint: colour(&Colour("#14110f".into())).into(),
+                paint: self.color(&Colour("#14110f".into())).into(),
                 width: rule.width as f32,
                 opacity: NormalizedF32::new(0.7).unwrap_or(NormalizedF32::ONE),
                 ..Stroke::default()
@@ -312,7 +429,9 @@ impl<'a> Drawing<'a> {
     ) {
         let whole = *area;
         match bg {
-            Background::Colour { colour: c } => self.fill_rect(surface, &whole, fill_of(c, 1.0)),
+            Background::Colour { colour: c } => {
+                self.fill_rect(surface, &whole, self.fill_of(c, 1.0))
+            }
             Background::Gradient { angle, stops } => {
                 let r = across.copied().unwrap_or(whole);
                 let radians = angle.to_radians();
@@ -331,7 +450,7 @@ impl<'a> Drawing<'a> {
                         .iter()
                         .map(|s| Stop {
                             offset: NormalizedF32::new(s.at as f32).unwrap_or(NormalizedF32::ZERO),
-                            color: colour(&s.colour).into(),
+                            color: self.color(&s.colour),
                             opacity: NormalizedF32::ONE,
                         })
                         .collect(),
@@ -350,7 +469,7 @@ impl<'a> Drawing<'a> {
             // A texture is drawn as its tint, flat, until the pattern tiles are shared with the page.
             Background::Texture { tint, .. } => {
                 let c = tint.clone().unwrap_or_else(|| Colour("#ebe5d6".into()));
-                self.fill_rect(surface, &whole, fill_of(&c, 1.0));
+                self.fill_rect(surface, &whole, self.fill_of(&c, 1.0));
             }
             Background::Picture { asset, fit, focus } => {
                 let r = across.copied().unwrap_or(whole);
@@ -396,7 +515,7 @@ impl<'a> Drawing<'a> {
         match image {
             None => {
                 // A frame still waiting for its picture, or one that cannot be found: a quiet box.
-                self.fill_rect(surface, rect, fill_of(&Colour("#e0ddd4".into()), 0.6));
+                self.fill_rect(surface, rect, self.fill_of(&Colour("#e0ddd4".into()), 0.6));
             }
             Some(image) => {
                 let (nw, nh) = image.size();
@@ -468,9 +587,9 @@ impl<'a> Drawing<'a> {
                 (rect.y + rect.h / 2.0) as f32,
             ));
         }
-        let fill_paint = fill.as_ref().map(|c| fill_of(c, 1.0));
+        let fill_paint = fill.as_ref().map(|c| self.fill_of(c, 1.0));
         let stroke_paint = stroke.as_ref().map(|c| Stroke {
-            paint: colour(c).into(),
+            paint: self.color(c).into(),
             width: stroke_width.unwrap_or(1.0) as f32,
             ..Stroke::default()
         });
@@ -491,7 +610,7 @@ impl<'a> Drawing<'a> {
                         .unwrap_or_else(|| Colour("#14110f".into()));
                     surface.set_fill(None);
                     surface.set_stroke(Some(Stroke {
-                        paint: colour(&ink).into(),
+                        paint: self.color(&ink).into(),
                         width: stroke_width.unwrap_or(2.0) as f32,
                         ..Stroke::default()
                     }));
@@ -617,7 +736,7 @@ impl<'a> Drawing<'a> {
             .colour
             .clone()
             .unwrap_or_else(|| Colour(INK.to_string()));
-        surface.set_fill(Some(fill_of(&ink, 1.0)));
+        surface.set_fill(Some(self.fill_of(&ink, 1.0)));
         surface.set_stroke(None);
         surface.draw_glyphs(
             Point::from_xy((line_x + run.x) as f32, baseline as f32),

@@ -17,6 +17,8 @@ pub enum Target {
     SharingPdf,
     /// The interior of a paperback, as Kindle Direct Publishing asks for it.
     KdpInterior,
+    /// Every page for a print shop: bleed all round, crop marks, PDF/X-4.
+    PrintShopPdf,
     /// A reflowable EPUB for Kindle Direct Publishing, which converts it for Kindle.
     KindleEpub,
     /// A reflowable EPUB for Kobo Writing Life, and the Kobo flavour of it beside it.
@@ -62,6 +64,7 @@ impl Target {
         match self {
             Self::SharingPdf => vec![format!("{slug}-share.pdf")],
             Self::KdpInterior => vec![format!("{slug}-paperback-interior.pdf")],
+            Self::PrintShopPdf => vec![format!("{slug}-print-pdfx4.pdf")],
             Self::KindleEpub => vec![format!("{slug}-kindle.epub")],
             Self::KoboEpub => vec![format!("{slug}.epub"), format!("{slug}.kepub.epub")],
         }
@@ -76,7 +79,19 @@ pub fn export_target(
     fonts: &FontBook,
     assets: &dyn Assets,
 ) -> Result<Vec<Exported>, ExportError> {
-    let pdf = |kind| export_pdf(book, styles, fonts, assets, &PdfOptions { target: kind });
+    let pdf = |kind| {
+        export_pdf(
+            book,
+            styles,
+            fonts,
+            assets,
+            &PdfOptions {
+                target: kind,
+                ink: None,
+                crop_marks: kind == PdfTarget::PrintShop,
+            },
+        )
+    };
     let epub = |flavour| {
         export_epub(
             book,
@@ -92,6 +107,7 @@ pub fn export_target(
     let made: Vec<Vec<u8>> = match target {
         Target::SharingPdf => vec![pdf(PdfTarget::Sharing)?],
         Target::KdpInterior => vec![pdf(PdfTarget::Print)?],
+        Target::PrintShopPdf => vec![pdf(PdfTarget::PrintShop)?],
         Target::KindleEpub => vec![epub(EpubFlavour::Standard)?],
         Target::KoboEpub => vec![epub(EpubFlavour::Standard)?, epub(EpubFlavour::Kobo)?],
     };

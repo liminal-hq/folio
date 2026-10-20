@@ -1,0 +1,17 @@
+[package]
+name = "folio-colour"
+version = "0.1.0"
+description = "Folio's colour: RGB to CMYK, ICC profiles and soft proofs. Pure Rust API over Little CMS, no Tauri"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+lcms2 = { version = "6", features = ["static"] }
+# Little CMS is built into Folio rather than linked from the system, so a build does not depend on
+# what a computer has installed.
+lcms2-sys = { version = "4", default-features = false, features = ["static"] }
+thiserror = { workspace = true }

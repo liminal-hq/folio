@@ -29,6 +29,11 @@ export const EXPORT_TARGETS: readonly TargetInfo[] = [
 		description: 'export.target.koboEpub.sub',
 	},
 	{
+		id: 'printShopPdf',
+		name: 'export.target.printShopPdf',
+		description: 'export.target.printShopPdf.sub',
+	},
+	{
 		id: 'kdpInterior',
 		name: 'export.target.kdpInterior',
 		description: 'export.target.kdpInterior.sub',
