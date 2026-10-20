@@ -210,3 +210,25 @@ fn a_book_with_no_story_is_an_error() {
     let fonts = FontBook::bundled();
     assert!(export_epub(&book, &fonts, &NoAssets, &EpubOptions::default()).is_err());
 }
+
+#[test]
+fn a_novels_story_is_told_once_in_the_epub_though_it_runs_through_three_frames() {
+    let book = sample(BookKind::Novel);
+    assert_eq!(book.flows.len(), 1, "the sample novel pours into one flow");
+    let bytes = epub(&book, &NoAssets, EpubFlavour::Standard);
+    let (mut zip, names) = files(&bytes);
+    let mut all = String::new();
+    for name in names
+        .iter()
+        .filter(|n| n.ends_with(".xhtml") && !n.ends_with("nav.xhtml"))
+    {
+        all.push_str(&read(&mut zip, name));
+    }
+    for words in [
+        "Mara had kept the light",
+        "She did not open it straight away",
+        "Inside was a single line",
+    ] {
+        assert_eq!(all.matches(words).count(), 1, "{words}");
+    }
+}

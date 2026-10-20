@@ -45,6 +45,9 @@ pub(crate) enum SampleFrame {
         h: f64,
         style: String,
         text: String,
+        /// Sample frames that name the same flow are chained, and their words are one story.
+        #[serde(default)]
+        flow: Option<String>,
     },
     Image {
         x: f64,
