@@ -35,6 +35,7 @@ import {
 	readerPreview,
 	exportBook,
 	proofSpread,
+	previewCoverSheet,
 	onExportProgress,
 	cancelExport,
 	importText,
@@ -127,6 +128,8 @@ export interface BooksClient {
 	spellSuggest(id: string, word: string): Promise<string[]>;
 	/** The book as an e-reader would show it, from the same chapters and CSS the EPUB ships. */
 	readerPreview(id: string): Promise<ReaderPreview>;
+	/** The paperback cover sheet as the exporter would make it, or `null` with no cover. */
+	previewCoverSheet(id: string): Promise<string | null>;
 	/** A spread as a press would print it, through the CMYK ICC profile at `profile`. */
 	proofSpread(id: string, spread: string, profile: string): Promise<ProofPage[]>;
 	/** Hears which file an export has reached. */
@@ -191,6 +194,7 @@ export const tauriBooksClient: BooksClient = {
 	readerPreview,
 	exportBook,
 	proofSpread,
+	previewCoverSheet,
 	onExportProgress,
 	cancelExport,
 	importText,

@@ -166,6 +166,14 @@ export const messages = {
 		'Colours are separated into cyan, magenta, yellow and black; text stays black ink alone. The paperback cover is always in ink.',
 	'export.colour.profile': "The press's CMYK profile (optional)",
 	'export.colour.profile.hint': 'Path to an ICC file, such as the one your printer sends',
+	'coverSheet.title': 'Cover sheet',
+	'coverSheet.hint':
+		'The paperback cover as the KDP file will have it: back, spine and front, with the bleed all round. The back carries the description and the barcode.',
+	'coverSheet.alt': 'The paperback cover sheet',
+	'coverSheet.drawing': 'Drawing the cover sheet…',
+	'coverSheet.failed': 'The cover sheet could not be drawn.',
+	'coverSheet.none': 'This book has no cover.',
+	'coverSheet.done': 'Done',
 	'proof.title': 'Soft proof',
 	'proof.intro':
 		'See the spread as a press would print it. Choose the CMYK profile your printer sent you; Folio does not ship one.',
@@ -810,6 +818,7 @@ export const messages = {
 	'ribbon.item.print': 'Print',
 	'ribbon.item.quickPdf': 'Quick PDF',
 	'ribbon.item.softProof': 'Soft proof',
+	'ribbon.item.coverSheet': 'Cover sheet',
 	'ribbon.item.bookDetails': 'Book details',
 	'ribbon.item.rect': 'Rectangle',
 	'ribbon.item.redo': 'Redo',

@@ -145,6 +145,25 @@ impl OpenBook {
         }
     }
 
+    /// The paper that decides how thick the spine is: the book's own, and for a book made before the
+    /// paper was part of it, the one its settings name.
+    fn paper_in_use(&self) -> folio_model::Paper {
+        let book = self.session.book();
+        if book.paper != folio_model::Paper::default() {
+            return book.paper;
+        }
+        match self
+            .package
+            .settings()
+            .get("paper")
+            .and_then(|p| p.as_str())
+        {
+            Some("cream") => folio_model::Paper::Cream,
+            Some("colour") => folio_model::Paper::Colour,
+            _ => folio_model::Paper::White,
+        }
+    }
+
     /// The font book to lay this book out with: `base` with the fonts the book keeps added, or
     /// `None` when it keeps none. A file that cannot be read is left out, so the family falls back
     /// as it would if it were missing.
@@ -1054,6 +1073,45 @@ impl<R: Runtime> Books<R> {
             .collect())
     }
 
+    /// The paperback cover sheet as the exporter would make it (back, spine and front), as a
+    /// `data:image/png` URI. `None` when the book has no cover.
+    pub fn preview_cover_sheet(&self, id: &str) -> Result<Option<String>, Error> {
+        use base64::Engine as _;
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, assets, paper, layered) = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let book = open.session.book().clone();
+            let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
+            for path in used_assets(&book) {
+                if let Ok(bytes) = open.package.asset_bytes(&path) {
+                    assets.insert(path, bytes);
+                }
+            }
+            (book, assets, open.paper_in_use(), open.font_book(base))
+        };
+        let fonts = layered.as_deref().unwrap_or(base);
+        let Some(sheet) = folio_export::cover::cover_sheet(&book, paper) else {
+            return Ok(None);
+        };
+        let styles = style_sheet(&sheet.styles);
+        let scene = Layouter::new(&sheet, &styles, fonts)
+            .scene_spread(&sheet.spreads[0].id)
+            .map_err(|e| Error::Export(e.to_string()))?
+            .and_then(|s| s.pages.into_iter().next())
+            .ok_or_else(|| Error::Export("the cover sheet has no page".into()))?;
+        let png = folio_export::raster::page_to_png(&scene, fonts, &MemoryAssets(assets), 1400)
+            .map_err(|e| Error::Export(e.to_string()))?;
+        Ok(Some(format!(
+            "data:image/png;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(png)
+        )))
+    }
+
     /// The book as an e-reader would show it, from the same chapters and CSS the EPUB ships.
     pub fn reader_preview(&self, id: &str) -> Result<ReaderPreview, Error> {
         use base64::Engine as _;
@@ -1141,22 +1199,7 @@ impl<R: Runtime> Books<R> {
                     assets.insert(path, bytes);
                 }
             }
-            // The paper decides how thick the spine is: the book's own, and for a book made before
-            // the paper was part of it, the one its settings name.
-            let paper = if book.paper != folio_model::Paper::default() {
-                book.paper
-            } else {
-                match open
-                    .package
-                    .settings()
-                    .get("paper")
-                    .and_then(|p| p.as_str())
-                {
-                    Some("cream") => folio_model::Paper::Cream,
-                    Some("colour") => folio_model::Paper::Colour,
-                    _ => folio_model::Paper::White,
-                }
-            };
+            let paper = open.paper_in_use();
             let folder = match &open.path {
                 Some(path) => path.parent().map(Path::to_path_buf).unwrap_or_default(),
                 None => self

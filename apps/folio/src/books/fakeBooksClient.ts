@@ -544,6 +544,11 @@ export function createFakeBooksClient(): FakeBooks {
 			};
 			return preview;
 		},
+		async previewCoverSheet(id) {
+			await call('previewCoverSheet', [id]);
+			find(id);
+			return 'data:image/png;base64,AAAA';
+		},
 		async proofSpread(id, spread, profile) {
 			await call('proofSpread', [id, spread, profile]);
 			find(id);

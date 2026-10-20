@@ -254,6 +254,11 @@ export function proofSpread(id: string, spread: string, profile: string): Promis
 	return cmd<ProofPage[]>('proof_spread', { id, spread, profile });
 }
 
+/** The paperback cover sheet as the exporter would make it, as a PNG data URI; `null` with no cover. */
+export function previewCoverSheet(id: string): Promise<string | null> {
+	return cmd<string | null>('preview_cover_sheet', { id });
+}
+
 /** Makes the files for `targets` and writes them into the book's `exports` folder. */
 export function exportBook(
 	id: string,
