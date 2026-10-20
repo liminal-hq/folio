@@ -62,6 +62,7 @@ export type EditorAction =
 	| { kind: 'stretch'; frame: string }
 	| { kind: 'fit'; frame: string; fit: 'fill' | 'fit' }
 	| { kind: 'checkBook' }
+	| { kind: 'exportBook'; quick: boolean }
 	| { kind: 'editMaster' }
 	| { kind: 'pageBackground' };
 
@@ -128,6 +129,8 @@ export function editorState(input: EditorInput): EditorState {
 	if (input.master) active.master = true;
 	available.add('master');
 	available.add('preflight');
+	available.add('export');
+	available.add('quickPdf');
 	// A master page has no spread to paint; its background is set from the pages that use it.
 	if (!input.master) available.add('pageBg');
 	if (selected.length > 0) available.add('lock');
@@ -191,6 +194,10 @@ export function editorAction(
 	switch (id) {
 		case 'preflight':
 			return { kind: 'checkBook' };
+		case 'export':
+			return { kind: 'exportBook', quick: false };
+		case 'quickPdf':
+			return { kind: 'exportBook', quick: true };
 		case 'text':
 			return { kind: 'add', shape: 'text' };
 		case 'image':

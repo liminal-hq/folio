@@ -18,6 +18,7 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
 import { applyPatch } from './applyPatch';
@@ -496,6 +497,22 @@ export function createFakeBooksClient(): FakeBooks {
 			await call('removeDictionary', [id]);
 			downloaded.delete(id);
 			return listing();
+		},
+		async exportBook(id, targets) {
+			await call('exportBook', [id, targets]);
+			find(id);
+			const report: ExportReport = {
+				folder: '/home/mom/Books/Pip/exports',
+				files: targets.map((target) => ({
+					target,
+					path: `/home/mom/Books/Pip/exports/pip-${target === 'sharingPdf' ? 'share' : 'paperback-interior'}.pdf`,
+					bytes: 123456,
+				})),
+			};
+			return report;
+		},
+		async revealPath(path) {
+			await call('revealPath', [path]);
 		},
 		async preflightBook(id) {
 			await call('preflightBook', [id]);

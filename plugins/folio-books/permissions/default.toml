@@ -27,6 +27,8 @@ permissions = [
   "allow-spell-check",
   "allow-spell-suggest",
   "allow-spell-check-book",
+  "allow-export-book",
+  "allow-reveal-path",
   "allow-preflight-book",
   "allow-list-fonts",
   "allow-keep-fonts",

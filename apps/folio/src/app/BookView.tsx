@@ -23,6 +23,7 @@ import { guideIntents } from '../canvas/guides';
 import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../canvas/marksModel';
 import { keepWords } from '../canvas/editCheckpoint';
 import { CheckBookDialog } from './CheckBookDialog';
+import { ExportDialog } from './ExportDialog';
 import { PageBackgroundDialog } from '../canvas/PageBackgroundDialog';
 import { Stage, type ZoomApi } from '../canvas/Stage';
 import type { Speller } from '../canvas/TextEditor';
@@ -312,6 +313,8 @@ export function BookView({
 
 	// The Check book dialog, and the frame to select once "Show me" has gone to its spread.
 	const [checking, setChecking] = useState(false);
+	// The Export dialog; `quick` makes the Sharing PDF the moment it opens.
+	const [exporting, setExporting] = useState<{ quick: boolean } | null>(null);
 	const [reveal, setReveal] = useState<{ spread: string; frame: string } | null>(null);
 	useEffect(() => {
 		if (reveal && spread?.id === reveal.spread) {
@@ -451,6 +454,9 @@ export function BookView({
 				break;
 			case 'checkBook':
 				setChecking(true);
+				break;
+			case 'exportBook':
+				setExporting({ quick: action.quick });
 				break;
 			case 'editMaster': {
 				if (editing !== null) setEditing(null);
@@ -717,6 +723,14 @@ export function BookView({
 					// Nothing goes in front of a cover, and the selection follows the spread.
 					setSpreadIndex(Math.max(book.spreads[0]?.kind === 'cover' ? 1 : 0, to));
 				}}
+			/>
+			<ExportDialog
+				open={exporting !== null}
+				onClose={() => setExporting(null)}
+				client={client}
+				id={id}
+				autoStart={exporting?.quick ? ['sharingPdf'] : null}
+				onCheck={() => setChecking(true)}
 			/>
 			<CheckBookDialog
 				open={checking}

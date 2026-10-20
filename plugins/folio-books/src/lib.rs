@@ -6,6 +6,7 @@
 mod commands;
 mod error;
 mod recovery;
+mod reveal;
 mod spelling;
 mod state;
 #[cfg(test)]
@@ -61,6 +62,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::spell_check,
             commands::spell_suggest,
             commands::spell_check_book,
+            commands::export_book,
+            commands::reveal_path,
             commands::preflight_book,
             commands::list_fonts,
             commands::keep_fonts,

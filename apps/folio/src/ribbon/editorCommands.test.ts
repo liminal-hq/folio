@@ -391,3 +391,18 @@ describe('the Check book button', () => {
 		expect(editorAction('preflight', undefined, input())).toEqual({ kind: 'checkBook' });
 	});
 });
+
+describe('the Export buttons', () => {
+	it('are always available and ask for the dialog, quickly for Quick PDF', () => {
+		const state = editorState(input());
+		expect(state.available.has('export') && state.available.has('quickPdf')).toBe(true);
+		expect(editorAction('export', undefined, input())).toEqual({
+			kind: 'exportBook',
+			quick: false,
+		});
+		expect(editorAction('quickPdf', undefined, input())).toEqual({
+			kind: 'exportBook',
+			quick: true,
+		});
+	});
+});

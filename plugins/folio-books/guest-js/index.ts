@@ -12,6 +12,8 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { DictionaryOffer } from '@liminal-hq/folio-protocol/generated/DictionaryOffer';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
+import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
 import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
@@ -198,6 +200,8 @@ export type {
 	BookSpelling,
 	DictionaryOffer,
 	DictionaryStatus,
+	ExportReport,
+	ExportTarget,
 	FontChoice,
 	KeepFontsReport,
 	Misspelling,
@@ -214,6 +218,16 @@ export type {
 	PluginStatus,
 	Recoverable,
 };
+
+/** Makes the files for `targets` and writes them into the book's `exports` folder. */
+export function exportBook(id: string, targets: ExportTarget[]): Promise<ExportReport> {
+	return cmd<ExportReport>('export_book', { id, targets });
+}
+
+/** Shows a file in the system's file manager. */
+export function revealPath(path: string): Promise<void> {
+	return cmd<void>('reveal_path', { path });
+}
 
 /** What preflight finds in the whole book, the issues that wait on the person first. */
 export function preflightBook(id: string): Promise<PreflightItem[]> {
