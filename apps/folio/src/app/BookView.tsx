@@ -995,6 +995,10 @@ export function BookView({
 					});
 				}}
 				onFrameText={(frame, text) => apply({ type: 'SetText', frame, text })}
+				onFrameTurn={(frame, degrees) => {
+					const cover = book.spreads[0];
+					if (cover) apply({ type: 'RotateFrame', on: { spread: cover.id }, frame, degrees });
+				}}
 				onFrameDelete={(frames) => {
 					const cover = book.spreads[0];
 					if (!cover) return;

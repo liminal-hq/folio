@@ -36,6 +36,8 @@ interface CoverCanvasProps {
 	): void;
 	/** New words for a frame of the front. */
 	onFrameText(frame: string, text: string): void;
+	/** A frame of the front turned, in degrees clockwise. */
+	onFrameTurn(frame: string, degrees: number): void;
 	/** Takes frames of the front away. */
 	onFrameDelete(frames: string[]): void;
 	/** Asks for a picture and brings it into the book; its path, or `null` if none was chosen. */
@@ -57,6 +59,7 @@ export function CoverCanvas({
 	onNotes,
 	onFrameBoxes,
 	onFrameText,
+	onFrameTurn,
 	onFrameDelete,
 	onPickPicture,
 }: CoverCanvasProps) {
@@ -201,6 +204,12 @@ export function CoverCanvas({
 					selection={selection}
 					onSelect={setSelection}
 					onMove={moveBoxes}
+					onTurn={async (frame, degrees) => {
+						const note = noteOf(frame);
+						if (note !== null) {
+							onNotes(notes.map((n) => (n.id === note ? { ...n, rotation: degrees } : n)));
+						} else if (!frame.startsWith('cover_')) onFrameTurn(frame, degrees);
+					}}
 					onEditText={(frame, text) => {
 						const note = noteOf(frame);
 						if (note !== null) onNotes(notes.map((n) => (n.id === note ? { ...n, text } : n)));
