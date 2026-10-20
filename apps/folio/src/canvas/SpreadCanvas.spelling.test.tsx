@@ -95,6 +95,32 @@ describe('misspelt words on the canvas', () => {
 	});
 });
 
+describe('the colour of the words', () => {
+	it('draws a run in its own colour and the others in the ink of the page', () => {
+		const coloured = {
+			...layout,
+			frames: [
+				{
+					...layout.frames[0]!,
+					lines: [
+						{
+							...layout.frames[0]!.lines[0]!,
+							runs: [run('A', 0), { ...run('red', 12), colour: '#b91c1c' }],
+						},
+					],
+				},
+			],
+		} as unknown as SpreadLayout;
+		render(<SpreadCanvas book={book} spread={spread} layout={coloured} zoom={1} label="Page" />);
+		const fill = (text: string) =>
+			[...document.querySelectorAll('text')]
+				.find((node) => node.textContent === text)
+				?.getAttribute('fill');
+		expect(fill('red')).toBe('#b91c1c');
+		expect(fill('A')).toBe('#1c1b20');
+	});
+});
+
 describe('squiggle', () => {
 	it('goes up and down along the length and ends where it should', () => {
 		expect(squiggle(0, 6, 2, 1.5)).toBe('M0 2L3 0.5L6 3.5');

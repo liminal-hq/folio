@@ -62,6 +62,8 @@ fn text_frame(id: &str, style: &str, x: f64, y: f64, w: f64, h: f64, text: &str)
                 style: None,
                 bold: false,
                 italic: false,
+                font: None,
+                colour: None,
             }],
         }),
         flow: None,
@@ -624,6 +626,8 @@ fn shape_frame(id: &str, shape: folio_model::Shape, w: f64, h: f64, text: Option
                 style: None,
                 bold: false,
                 italic: false,
+                font: None,
+                colour: None,
             }],
         }),
         overrides: None,
@@ -918,6 +922,8 @@ fn table_frame(id: &str, w: f64, h: f64, words: &[&[&str]]) -> Frame {
                     style: None,
                     bold: false,
                     italic: false,
+                    font: None,
+                    colour: None,
                 }],
             });
         }
@@ -1342,4 +1348,36 @@ fn the_words_in_shapes_and_table_cells_are_marked_too() {
     assert_eq!(marked_runs(&layout, "tb#0.1").len(), 1);
     assert_eq!(marked_runs(&layout, "tb#1.1").len(), 1);
     assert!(marked_runs(&layout, "tb#0.0").is_empty());
+}
+
+#[test]
+fn a_run_can_have_its_own_typeface_and_colour_and_the_others_keep_the_styles() {
+    let mut frame = text_frame("mixed", "body", 60.0, 60.0, 300.0, 80.0, "plain");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    text.content.as_mut().unwrap().inline.push(Run {
+        text: " fancy".into(),
+        style: None,
+        bold: false,
+        italic: false,
+        font: Some("Inter".into()),
+        colour: Some(folio_model::Colour("#b91c1c".into())),
+    });
+    let (_, layout) = laid_with(frame);
+    let runs: Vec<_> = layout
+        .frames
+        .iter()
+        .find(|f| f.frame.0 == "mixed")
+        .unwrap()
+        .lines
+        .iter()
+        .flat_map(|l| &l.runs)
+        .collect();
+    let plain = runs.iter().find(|r| r.text.contains("plain")).unwrap();
+    let fancy = runs.iter().find(|r| r.text.contains("fancy")).unwrap();
+    assert_eq!(fancy.family, "Inter");
+    assert_eq!(fancy.colour.as_ref().map(|c| c.0.as_str()), Some("#b91c1c"));
+    assert_ne!(plain.family, "Inter");
+    assert_eq!(plain.colour, None);
 }

@@ -1098,6 +1098,8 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                     style: None,
                     bold: false,
                     italic: false,
+                    font: None,
+                    colour: None,
                 }],
             };
             match locate_mut(book, &frame) {
@@ -1312,6 +1314,8 @@ fn edit_table(table: &mut TableFrame, edit: &TableEdit) {
                         style: None,
                         bold: false,
                         italic: false,
+                        font: None,
+                        colour: None,
                     }],
                 });
             }
