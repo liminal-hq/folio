@@ -5,7 +5,7 @@
 
 use folio_model::{
     BarcodeChoice, BookFont, Details, Flow, FlowId, Grid, Margins, Master, MasterId, PageNumbers,
-    Paper, Proofing, Pt, Size, Spread, SpreadId,
+    Paper, Proofing, Pt, Size, Spread, SpreadId, Styles,
 };
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -37,6 +37,8 @@ pub enum PatchOp {
     SetFlow { flow: Flow },
     /// A flow that is gone.
     RemoveFlow { id: FlowId },
+    /// The book's styles and swatches, whole.
+    SetStyles { styles: Styles },
     /// The title, authors, description and ISBNs.
     SetDetails { details: Details },
     /// The preflight issues the book leaves alone.

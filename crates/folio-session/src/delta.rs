@@ -5,7 +5,7 @@
 
 use folio_model::{
     BarcodeChoice, Book, BookFont, Details, Flow, FlowId, Grid, Margins, Master, MasterId,
-    PageNumbers, Paper, Proofing, Pt, Size, Spread, SpreadId,
+    PageNumbers, Paper, Proofing, Pt, Size, Spread, SpreadId, Styles,
 };
 
 use crate::patch::PatchOp;
@@ -88,6 +88,7 @@ pub struct Delta {
     pub proofing: Proofing,
     pub language: String,
     pub details: Details,
+    pub styles: Styles,
     pub paper: Paper,
     pub barcode: BarcodeChoice,
     pub fonts: Vec<BookFont>,
@@ -107,6 +108,7 @@ impl Delta {
             proofing: book.proofing.clone(),
             language: book.language.clone(),
             details: Details::of(book),
+            styles: book.styles.clone(),
             paper: book.paper,
             barcode: book.barcode.clone(),
             fonts: book.fonts.clone(),
@@ -171,6 +173,7 @@ impl Delta {
         let was_proofing = book.proofing.clone();
         let was_language = book.language.clone();
         let was_details = Details::of(book);
+        let was_styles = book.styles.clone();
         let was_paper = book.paper;
         let was_barcode = book.barcode.clone();
         let was_fonts = book.fonts.clone();
@@ -229,6 +232,12 @@ impl Delta {
         if was_paper != self.paper {
             book.paper = self.paper;
             ops.push(PatchOp::SetPaper { paper: self.paper });
+        }
+        if was_styles != self.styles {
+            book.styles = self.styles.clone();
+            ops.push(PatchOp::SetStyles {
+                styles: self.styles.clone(),
+            });
         }
         if was_details != self.details {
             self.details.apply(book);

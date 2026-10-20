@@ -731,6 +731,13 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
     record("undo the heading", &mut s, &|s| s.undo().unwrap());
     record("undo the split", &mut s, &|s| s.undo().unwrap());
     record("undo the typing", &mut s, &|s| s.undo().unwrap());
+    record("add a swatch with ink", &mut s, &|s| {
+        s.apply(Intent::SetSwatch {
+            swatch: swatch("brand", "Brand red", "#000000", Some((0, 100, 90, 10))),
+        })
+        .unwrap()
+    });
+    record("undo the swatch", &mut s, &|s| s.undo().unwrap());
     record("set the details", &mut s, &|s| {
         s.apply(Intent::SetDetails {
             details: details("A New Title", Some("A subtitle"), "9780306406157"),
@@ -3809,4 +3816,112 @@ fn frames_a_story_no_longer_needs_leave_with_the_spreads_they_empty_in_one_undo_
             Err(SessionError::BadStory(_))
         ));
     }
+}
+
+/// A swatch for the tests, with its ink as percents of cyan, magenta, yellow and black.
+fn swatch(
+    id: &str,
+    name: &str,
+    display: &str,
+    ink: Option<(u8, u8, u8, u8)>,
+) -> folio_model::BookSwatch {
+    folio_model::BookSwatch {
+        id: folio_model::SwatchId(id.into()),
+        name: name.into(),
+        display: folio_model::Colour(display.into()),
+        ink: ink.map(|(c, m, y, k)| folio_model::Ink { c, m, y, k }),
+    }
+}
+
+#[test]
+fn a_swatch_is_added_edited_and_taken_out_with_every_use_keeping_its_colour() {
+    let mut s = session_with_shape();
+    // The display colour of a swatch with ink is worked out from the ink.
+    s.apply(Intent::SetSwatch {
+        swatch: swatch("brand", "Brand red", "#000000", Some((0, 100, 90, 10))),
+    })
+    .unwrap();
+    let shown = s.book().styles.swatches[0].display.0.clone();
+    assert_eq!(shown, "#e60017", "{shown}");
+    // A shape and a page background can refer to it.
+    s.apply(shape_set(
+        Some(folio_model::Paint::Colour {
+            colour: folio_model::Colour("swatch:brand".into()),
+        }),
+        None,
+        None,
+    ))
+    .unwrap();
+    s.apply(Intent::SetBackground {
+        target: folio_model::BackgroundTarget::Span {
+            spread: spread("sp_2"),
+        },
+        bg: Some(folio_model::Background::Colour {
+            colour: folio_model::Colour("swatch:brand".into()),
+        }),
+    })
+    .unwrap();
+    s.apply(Intent::SetBackground {
+        target: folio_model::BackgroundTarget::Page {
+            spread: spread("sp_2"),
+            page: folio_model::PageId("pg_2".into()),
+        },
+        bg: Some(folio_model::Background::Colour {
+            colour: folio_model::Colour("swatch:brand".into()),
+        }),
+    })
+    .unwrap();
+    // Editing the swatch keeps the references.
+    s.apply(Intent::SetSwatch {
+        swatch: swatch("brand", "Brand red", "#000000", Some((0, 100, 100, 0))),
+    })
+    .unwrap();
+    assert_eq!(s.book().styles.swatches.len(), 1);
+    assert_eq!(s.book().styles.swatches[0].display.0, "#ff0000");
+    // Taking it out turns every use into the colour it showed as, in one undo step.
+    s.apply(Intent::RemoveSwatch {
+        id: folio_model::SwatchId("brand".into()),
+    })
+    .unwrap();
+    assert!(s.book().styles.swatches.is_empty());
+    let uses_reference = |s: &Session| {
+        serde_json::to_string(s.book())
+            .unwrap()
+            .contains("swatch:brand")
+    };
+    assert!(!uses_reference(&s));
+    assert!(serde_json::to_string(s.book()).unwrap().contains("#ff0000"));
+    s.undo().unwrap();
+    assert_eq!(s.book().styles.swatches.len(), 1);
+    assert!(uses_reference(&s));
+}
+
+#[test]
+fn a_reference_to_a_swatch_the_book_lacks_and_a_bad_swatch_are_refused() {
+    let mut s = session_with_shape();
+    let missing = folio_model::Paint::Colour {
+        colour: folio_model::Colour("swatch:nope".into()),
+    };
+    assert!(matches!(
+        s.apply(shape_set(Some(missing), None, None)),
+        Err(SessionError::BadShape(_))
+    ));
+    for bad in [
+        swatch("", "x", "#000000", None),
+        swatch("Brand", "x", "#000000", None),
+        swatch("ok", " ", "#000000", None),
+        swatch("ok", "x", "red", None),
+        swatch("ok", "x", "#000000", Some((101, 0, 0, 0))),
+    ] {
+        assert!(matches!(
+            s.apply(Intent::SetSwatch { swatch: bad }),
+            Err(SessionError::BadSwatch(_))
+        ));
+    }
+    assert!(matches!(
+        s.apply(Intent::RemoveSwatch {
+            id: folio_model::SwatchId("nope".into())
+        }),
+        Err(SessionError::BadSwatch(_))
+    ));
 }
