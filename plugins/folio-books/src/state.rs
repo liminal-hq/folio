@@ -28,8 +28,8 @@ use crate::wire::{
     BookSnapshot, BookSpelling, BookSummary, BooksChanged, CoverSheetPreview, ExportColour,
     ExportProgress, ExportReport, ExportTarget, ExportedFile, FontChoice, FontLicence, FontOrigin,
     FontSkip, FontUse, KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, PreviewChapter,
-    PreviewImage, ProofPage, ReaderPreview, Recoverable, SkippedFont, SpellCheck,
-    SpreadLayoutResult,
+    PreviewImage, ProofColour, ProofPage, ProofSpread, ReaderPreview, Recoverable, SkippedFont,
+    SpellCheck, SpreadLayoutResult,
 };
 use crate::{CHANGED_EVENT, EXPORT_PROGRESS_EVENT, PATCH_EVENT};
 
@@ -1045,7 +1045,7 @@ impl<R: Runtime> Books<R> {
         id: &str,
         spread: &str,
         profile: &str,
-    ) -> Result<Vec<ProofPage>, Error> {
+    ) -> Result<ProofSpread, Error> {
         use base64::Engine as _;
         let press = std::fs::read(profile).map_err(|e| Error::Export(format!("{profile}: {e}")))?;
         let base = self.fonts.get_or_init(FontBook::with_system_fonts);
@@ -1078,20 +1078,33 @@ impl<R: Runtime> Books<R> {
         )
         .map_err(|e| Error::Export(format!("{profile}: {e}")))?
         .ok_or_else(|| Error::Export(format!("no spread {spread}")))?;
+        let colours = folio_export::proof::proof_colours(&book, &press)
+            .map_err(|e| Error::Export(format!("{profile}: {e}")))?
+            .into_iter()
+            .map(|c| ProofColour {
+                name: c.name,
+                display: c.display,
+                proofed: c.proofed,
+                outside: c.outside,
+            })
+            .collect();
         let uri = |png: Vec<u8>| {
             format!(
                 "data:image/png;base64,{}",
                 base64::engine::general_purpose::STANDARD.encode(png)
             )
         };
-        Ok(pages
-            .into_iter()
-            .map(|p| ProofPage {
-                original: uri(p.original),
-                proofed: uri(p.proofed),
-                outside: p.outside,
-            })
-            .collect())
+        Ok(ProofSpread {
+            pages: pages
+                .into_iter()
+                .map(|p| ProofPage {
+                    original: uri(p.original),
+                    proofed: uri(p.proofed),
+                    outside: p.outside,
+                })
+                .collect(),
+            colours,
+        })
     }
 
     /// The paperback cover sheet as the exporter would make it (back, spine and front), as a

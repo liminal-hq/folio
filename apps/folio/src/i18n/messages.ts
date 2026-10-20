@@ -210,6 +210,9 @@ export const messages = {
 	'coverSheet.failed': 'The cover sheet could not be drawn.',
 	'coverSheet.none': 'This book has no cover.',
 	'coverSheet.done': 'Done',
+	'proof.colours': 'Your swatches: as drawn, then as printed',
+	'proof.colourOutside': 'The press cannot reproduce this one',
+	'proof.colourInside': 'Prints as shown',
 	'proof.title': 'Soft proof',
 	'proof.intro':
 		'See the spread as a press would print it. Choose the CMYK profile your printer sent you; Folio does not ship one.',

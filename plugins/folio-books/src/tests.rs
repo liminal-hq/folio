@@ -1314,10 +1314,22 @@ fn a_spread_is_proofed_through_a_press_profile_and_a_bad_path_is_refused() {
     assert!(books(&app).proof_spread(&id, &spread, "/nope.icc").is_err());
     let press = "/usr/share/ghostscript/iccprofiles/default_cmyk.icc";
     if std::path::Path::new(press).exists() {
-        let pages = books(&app).proof_spread(&id, &spread, press).unwrap();
+        let proof = books(&app).proof_spread(&id, &spread, press).unwrap();
+        let pages = proof.pages;
         assert!(!pages.is_empty());
         assert!(pages[0].proofed.starts_with("data:image/png;base64,"));
         assert_ne!(pages[0].original, pages[0].proofed);
+        // The book's swatches are listed beside the pages, however many it has.
+        assert_eq!(
+            proof.colours.len(),
+            books(&app)
+                .snapshot(&id)
+                .unwrap()
+                .book
+                .styles
+                .swatches
+                .len()
+        );
     }
 }
 
