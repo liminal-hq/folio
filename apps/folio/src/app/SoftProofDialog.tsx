@@ -5,7 +5,7 @@
 
 import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
-import type { ProofPage } from '@liminal-hq/folio-protocol/generated/ProofPage';
+import type { ProofSpread } from '@liminal-hq/folio-protocol/generated/ProofSpread';
 import { useEffect, useState } from 'react';
 import type { BooksClient } from '../books/booksClient';
 import { t } from '../i18n/messages';
@@ -23,7 +23,7 @@ interface SoftProofDialogProps {
 type Stage =
 	| { kind: 'choose' }
 	| { kind: 'working' }
-	| { kind: 'done'; pages: ProofPage[] }
+	| { kind: 'done'; proof: ProofSpread }
 	| { kind: 'failed'; message: string };
 
 export function SoftProofDialog({ open, onClose, client, id, spread }: SoftProofDialogProps) {
@@ -39,7 +39,7 @@ export function SoftProofDialog({ open, onClose, client, id, spread }: SoftProof
 		setStage({ kind: 'working' });
 		client
 			.proofSpread(id, spread, profile.trim())
-			.then((pages) => setStage({ kind: 'done', pages }))
+			.then((proof) => setStage({ kind: 'done', proof }))
 			.catch((reason: unknown) =>
 				setStage({
 					kind: 'failed',
@@ -96,7 +96,7 @@ export function SoftProofDialog({ open, onClose, client, id, spread }: SoftProof
 						{t('proof.original')}
 					</label>
 					<div className={styles.pages}>
-						{stage.pages.map((page, index) => (
+						{stage.proof.pages.map((page, index) => (
 							<figure key={index} className={styles.page}>
 								<img
 									src={asDrawn ? page.original : page.proofed}
@@ -110,6 +110,23 @@ export function SoftProofDialog({ open, onClose, client, id, spread }: SoftProof
 							</figure>
 						))}
 					</div>
+					{stage.proof.colours.length > 0 && (
+						<table className={styles.colours}>
+							<caption>{t('proof.colours')}</caption>
+							<tbody>
+								{stage.proof.colours.map((colour) => (
+									<tr key={colour.name}>
+										<th scope="row">{colour.name}</th>
+										<td>
+											<span className={styles.chip} style={{ background: colour.display }} />
+											<span className={styles.chip} style={{ background: colour.proofed }} />
+										</td>
+										<td>{colour.outside ? t('proof.colourOutside') : t('proof.colourInside')}</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					)}
 				</section>
 			)}
 		</Dialog>

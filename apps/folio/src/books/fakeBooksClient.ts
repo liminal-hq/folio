@@ -551,7 +551,10 @@ export function createFakeBooksClient(): FakeBooks {
 			await call('proofSpread', [id, spread, profile]);
 			find(id);
 			const png = 'data:image/png;base64,AAAA';
-			return [{ original: png, proofed: `${png}B`, outside: 12.5 }];
+			return {
+				pages: [{ original: png, proofed: `${png}B`, outside: 12.5 }],
+				colours: [{ name: 'Moss', display: '#336633', proofed: '#406040', outside: false }],
+			};
 		},
 		async importText(id, path) {
 			await call('importText', [id, path]);

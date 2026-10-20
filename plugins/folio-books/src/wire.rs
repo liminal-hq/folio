@@ -267,6 +267,27 @@ pub struct ProofPage {
     pub outside: f64,
 }
 
+/// A swatch of the book as drawn and as a press would print it, each as `#rrggbb`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ProofColour {
+    pub name: String,
+    pub display: String,
+    pub proofed: String,
+    /// The press cannot reproduce it.
+    pub outside: bool,
+}
+
+/// A spread's pages through a press, and the book's swatches through it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ProofSpread {
+    pub pages: Vec<ProofPage>,
+    pub colours: Vec<ProofColour>,
+}
+
 /// The paperback cover sheet drawn, and where its parts are, in points from the sheet's top-left
 /// corner (the bleed included).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]

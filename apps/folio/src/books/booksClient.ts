@@ -7,7 +7,7 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
-import type { ProofPage } from '@liminal-hq/folio-protocol/generated/ProofPage';
+import type { ProofSpread } from '@liminal-hq/folio-protocol/generated/ProofSpread';
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
 import type { ExportColour } from '@liminal-hq/folio-protocol/generated/ExportColour';
 import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
@@ -129,7 +129,7 @@ export interface BooksClient {
 	/** The paperback cover sheet as the exporter would make it, or `null` with no cover. */
 	previewCoverSheet(id: string): Promise<CoverSheetPreview | null>;
 	/** A spread as a press would print it, through the CMYK ICC profile at `profile`. */
-	proofSpread(id: string, spread: string, profile: string): Promise<ProofPage[]>;
+	proofSpread(id: string, spread: string, profile: string): Promise<ProofSpread>;
 	/** Hears which file an export has reached. */
 	onExportProgress(listener: (progress: ExportProgress) => void): Promise<() => void>;
 	/** Stops the export in progress after the file it is making; what was made is kept. */

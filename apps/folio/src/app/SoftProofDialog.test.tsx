@@ -28,6 +28,8 @@ describe('SoftProofDialog', () => {
 		await userEvent.click(show);
 		expect(await screen.findByText(/About 12.5% of this page/)).toBeInTheDocument();
 		expect(fake.calls).toContain(`proofSpread("${made.summary.id}", "sp1", "/tmp/press.icc")`);
+		expect(screen.getByRole('rowheader', { name: 'Moss' })).toBeInTheDocument();
+		expect(screen.getByText('Prints as shown')).toBeInTheDocument();
 		await userEvent.click(screen.getByRole('checkbox', { name: 'As drawn' }));
 		expect(screen.getByRole('img', { name: /As drawn/ })).toBeInTheDocument();
 	});

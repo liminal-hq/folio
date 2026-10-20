@@ -21,7 +21,7 @@ import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTa
 import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
 import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
-import type { ProofPage } from '@liminal-hq/folio-protocol/generated/ProofPage';
+import type { ProofSpread } from '@liminal-hq/folio-protocol/generated/ProofSpread';
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
 import type { Misspelling } from '@liminal-hq/folio-protocol/generated/Misspelling';
@@ -246,8 +246,8 @@ export function readerPreview(id: string): Promise<ReaderPreview> {
 }
 
 /** A spread as a press would print it, through the CMYK ICC profile at `profile`. */
-export function proofSpread(id: string, spread: string, profile: string): Promise<ProofPage[]> {
-	return cmd<ProofPage[]>('proof_spread', { id, spread, profile });
+export function proofSpread(id: string, spread: string, profile: string): Promise<ProofSpread> {
+	return cmd<ProofSpread>('proof_spread', { id, spread, profile });
 }
 
 /** The cover of the book `spec` would make, as a `data:image/png` URI. */
