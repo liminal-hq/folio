@@ -11,8 +11,9 @@ import type { Pt } from "./Pt";
 import type { Size } from "./Size";
 import type { Spread } from "./Spread";
 import type { SpreadId } from "./SpreadId";
+import type { Styles } from "./Styles";
 
 /**
  * One change to the UI's copy of the book.
  */
-export type PatchOp = { "op": "setSpread", spread: Spread, } | { "op": "removeSpread", id: SpreadId, } | { "op": "setOrder", order: Array<SpreadId>, } | { "op": "setMasters", masters: Array<Master>, ids: Array<MasterId>, numbers: PageNumbers, } | { "op": "setLanguage", language: string, } | { "op": "setDetails", details: Details, } | { "op": "setPreflightIgnore", keys: Array<string>, } | { "op": "setFonts", fonts: Array<BookFont>, } | { "op": "setProofing", proofing: Proofing, } | { "op": "setGeometry", trim: Size, margins: Margins, bleed: Pt, grid: Grid, };
+export type PatchOp = { "op": "setSpread", spread: Spread, } | { "op": "removeSpread", id: SpreadId, } | { "op": "setOrder", order: Array<SpreadId>, } | { "op": "setMasters", masters: Array<Master>, ids: Array<MasterId>, numbers: PageNumbers, } | { "op": "setLanguage", language: string, } | { "op": "setStyles", styles: Styles, } | { "op": "setDetails", details: Details, } | { "op": "setPreflightIgnore", keys: Array<string>, } | { "op": "setFonts", fonts: Array<BookFont>, } | { "op": "setProofing", proofing: Proofing, } | { "op": "setGeometry", trim: Size, margins: Margins, bleed: Pt, grid: Grid, };

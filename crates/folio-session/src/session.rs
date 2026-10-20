@@ -223,6 +223,11 @@ fn ops_between(before: &Delta, after: &Delta) -> Vec<PatchOp> {
             language: after.language.clone(),
         });
     }
+    if before.styles != after.styles {
+        ops.push(PatchOp::SetStyles {
+            styles: after.styles.clone(),
+        });
+    }
     if before.details != after.details {
         ops.push(PatchOp::SetDetails {
             details: after.details.clone(),

@@ -39,6 +39,16 @@ function applyOp(book: Book, op: PatchOp): Book {
 				...(op.numbers !== 'none' ? { pageNumbers: op.numbers } : {}),
 			};
 		}
+		case 'setStyles': {
+			// Rust leaves empty styles out of the book, and so does the copy.
+			const { styles: _styles, ...rest } = book;
+			const empty =
+				op.styles.look === '' &&
+				op.styles.fontFamily === '' &&
+				Object.keys(op.styles.styles).length === 0 &&
+				(op.styles.swatches ?? []).length === 0;
+			return empty ? rest : { ...rest, styles: op.styles };
+		}
 		case 'setDetails': {
 			// Rust leaves a missing subtitle out of the book, and so does the copy.
 			const { subtitle: _subtitle, ...rest } = book;

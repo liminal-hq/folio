@@ -5,7 +5,7 @@
 
 use folio_model::{
     Book, BookFont, Details, Grid, Margins, Master, MasterId, PageNumbers, Proofing, Pt, Size,
-    Spread, SpreadId,
+    Spread, SpreadId, Styles,
 };
 
 use crate::patch::PatchOp;
@@ -88,6 +88,7 @@ pub struct Delta {
     pub proofing: Proofing,
     pub language: String,
     pub details: Details,
+    pub styles: Styles,
     pub fonts: Vec<BookFont>,
     pub preflight_ignore: Vec<String>,
     pub spreads: Vec<(SpreadId, Option<Spread>)>,
@@ -103,6 +104,7 @@ impl Delta {
             proofing: book.proofing.clone(),
             language: book.language.clone(),
             details: Details::of(book),
+            styles: book.styles.clone(),
             fonts: book.fonts.clone(),
             preflight_ignore: book.preflight_ignore.clone(),
             spreads: touched
@@ -126,6 +128,7 @@ impl Delta {
         let was_proofing = book.proofing.clone();
         let was_language = book.language.clone();
         let was_details = Details::of(book);
+        let was_styles = book.styles.clone();
         let was_fonts = book.fonts.clone();
         let was_ignore = book.preflight_ignore.clone();
 
@@ -171,6 +174,12 @@ impl Delta {
             book.language = self.language.clone();
             ops.push(PatchOp::SetLanguage {
                 language: self.language.clone(),
+            });
+        }
+        if was_styles != self.styles {
+            book.styles = self.styles.clone();
+            ops.push(PatchOp::SetStyles {
+                styles: self.styles.clone(),
             });
         }
         if was_details != self.details {
