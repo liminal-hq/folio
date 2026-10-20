@@ -65,6 +65,48 @@ pub fn ean13(isbn: &str) -> Option<[bool; 95]> {
     modules.try_into().ok()
 }
 
+/// How the five digits of an add-on are coded, by the check digit worked out from them: `true` is
+/// the G set, `false` the L set.
+const ADDON_PARITY: [[bool; 5]; 10] = [
+    [true, true, false, false, false],
+    [true, false, true, false, false],
+    [true, false, false, true, false],
+    [true, false, false, false, true],
+    [false, true, true, false, false],
+    [false, false, true, true, false],
+    [false, false, false, true, true],
+    [false, true, false, true, false],
+    [false, true, false, false, true],
+    [false, false, true, false, true],
+];
+
+/// The 47 modules of the EAN-5 price add-on for five digits: `90000` for no price, `5` and four
+/// digits of US dollars, `6` and four of Canadian. `None` unless it is five digits.
+pub fn ean5(digits: &str) -> Option<[bool; 47]> {
+    let d: Vec<usize> = digits
+        .chars()
+        .map(|c| c.to_digit(10).map(|n| n as usize))
+        .collect::<Option<_>>()?;
+    if d.len() != 5 {
+        return None;
+    }
+    let check = (3 * (d[0] + d[2] + d[4]) + 9 * (d[1] + d[3])) % 10;
+    let mut modules = Vec::with_capacity(47);
+    modules.extend([true, false, true, true]);
+    for (i, &digit) in d.iter().enumerate() {
+        if i > 0 {
+            modules.extend([false, true]);
+        }
+        let mut m = bits(L[digit]);
+        if ADDON_PARITY[check][i] {
+            m = bits(!L[digit] & 0x7f);
+            m.reverse();
+        }
+        modules.extend(m);
+    }
+    modules.try_into().ok()
+}
+
 /// The runs of bars in `modules` as `(first module, how many)`.
 pub fn bars(modules: &[bool]) -> Vec<(usize, usize)> {
     let mut runs = Vec::new();
@@ -137,6 +179,24 @@ mod tests {
             let plain: String = isbn.chars().filter(|c| c.is_ascii_digit()).collect();
             assert_eq!(decode(&m), plain, "{isbn}");
         }
+    }
+
+    #[test]
+    fn a_price_addon_is_47_modules_with_its_digits_coded_by_the_check_digit() {
+        let m = ean5("90000").unwrap();
+        assert_eq!(&m[..4], &[true, false, true, true]);
+        // Digits are seven modules wide with a 01 between them: 4 + 7 + 5 * ... = 47.
+        assert_eq!(m.len(), 47);
+        // 5 + 1999: the check digit is (3 * (5 + 9 + 9) + 9 * (1 + 9)) % 10 = 9, coded LLGLG.
+        let us = ean5("51999").unwrap();
+        let digit = |at: usize| -> [bool; 7] { us[4 + at * 9..4 + at * 9 + 7].try_into().unwrap() };
+        assert_eq!(digit(0), bits(L[5]));
+        assert_eq!(digit(1), bits(L[1]));
+        let mut g = bits(!L[9] & 0x7f);
+        g.reverse();
+        assert_eq!(digit(2), g);
+        assert!(ean5("9000").is_none());
+        assert!(ean5("9000a").is_none());
     }
 
     #[test]

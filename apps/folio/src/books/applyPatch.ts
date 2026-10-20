@@ -39,6 +39,11 @@ function applyOp(book: Book, op: PatchOp): Book {
 				...(op.numbers !== 'none' ? { pageNumbers: op.numbers } : {}),
 			};
 		}
+		case 'setBarcode': {
+			// Rust leaves the automatic barcode out of the book, and so does the copy.
+			const { barcode: _barcode, ...rest } = book;
+			return op.choice.kind !== 'auto' ? { ...rest, barcode: op.choice } : rest;
+		}
 		case 'setPaper': {
 			// Rust leaves the default, white paper out of the book, and so does the copy.
 			const { paper: _paper, ...rest } = book;

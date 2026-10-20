@@ -71,6 +71,7 @@ export type EditorAction =
 	| { kind: 'checkBook' }
 	| { kind: 'softProof' }
 	| { kind: 'coverSheet' }
+	| { kind: 'barcode' }
 	| { kind: 'bookDetails' }
 	| { kind: 'exportBook'; quick: boolean }
 	| { kind: 'editMaster' }
@@ -181,6 +182,7 @@ export function editorState(input: EditorInput): EditorState {
 	available.add('preflight');
 	available.add('softProof');
 	available.add('coverSheet');
+	available.add('barcode');
 	available.add('bookDetails');
 	for (const id of ['print', 'kindle', 'kobo']) available.add(id);
 	active[input.preview ?? 'print'] = true;
@@ -259,6 +261,8 @@ export function editorAction(
 			return { kind: 'softProof' };
 		case 'coverSheet':
 			return { kind: 'coverSheet' };
+		case 'barcode':
+			return { kind: 'barcode' };
 		case 'bookDetails':
 			return { kind: 'bookDetails' };
 		case 'export':
