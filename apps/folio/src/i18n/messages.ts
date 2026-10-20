@@ -532,6 +532,14 @@ export const messages = {
 	'inspector.words': 'Words',
 	'inspector.words.flow':
 		'These words flow from one frame to the next. Edit the story to change them.',
+	'import.styles': 'The document used these styles. Change what each one becomes:',
+	'import.style.body': 'Body text',
+	'import.style.h1': 'Chapter title',
+	'import.style.h2': 'Subheading',
+	'import.style.epigraph': 'Quotation',
+	'import.style.apply': 'Bring it in again',
+	'import.style.count': '{count} paragraphs',
+	'import.style.for': 'What {name} becomes',
 	'import.title': 'Import text',
 	'import.brought':
 		'Brought in {paragraphs} paragraphs, including {headings} headings and {breaks} scene breaks.',

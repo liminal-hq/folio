@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { RibbonCommand } from '@liminal-hq/folio-ribbon/types';
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { usePaintPresets } from './usePaintPresets';
 import { useFontChoices } from './useFontChoices';
 import { useFontsInUse } from './useFontsInUse';
@@ -345,26 +345,35 @@ export function BookView({
 	const [linking, setLinking] = useState<string | null>(null);
 	/** What the last text import did, or why it could not. */
 	const [imported, setImported] = useState<ImportOutcome | null>(null);
+	/** The file last brought in, so it can be brought in again with other choices of style. */
+	const importedPath = useRef<string | null>(null);
+	const bringIn = useCallback(
+		async (path: string, mapping?: Record<string, string>) => {
+			try {
+				setImported({ report: await client.importText(id, path, mapping) });
+			} catch (reason) {
+				setImported({
+					problem:
+						typeof reason === 'object' && reason !== null && 'message' in reason
+							? String((reason as { message: unknown }).message)
+							: String(reason),
+				});
+			}
+		},
+		[client, id],
+	);
 	useEffect(() => {
 		const run = () => {
 			void (async () => {
 				const path = await dialogs.pickText();
 				if (path === null) return;
-				try {
-					setImported({ report: await client.importText(id, path) });
-				} catch (reason) {
-					setImported({
-						problem:
-							typeof reason === 'object' && reason !== null && 'message' in reason
-								? String((reason as { message: unknown }).message)
-								: String(reason),
-					});
-				}
+				importedPath.current = path;
+				await bringIn(path);
 			})();
 		};
 		window.addEventListener(IMPORT_TEXT_EVENT, run);
 		return () => window.removeEventListener(IMPORT_TEXT_EVENT, run);
-	}, [client, dialogs, id]);
+	}, [bringIn, dialogs]);
 	/** The flow whose story is open in the story editor. */
 	const [storyFlow, setStoryFlow] = useState<string | null>(null);
 	/** The paragraph the story editor opens at, when it was opened from a frame of the story. */
@@ -909,7 +918,13 @@ export function BookView({
 				autoStart={exporting?.quick ? ['sharingPdf'] : null}
 				onCheck={() => setChecking(true)}
 			/>
-			<ImportReportDialog outcome={imported} onClose={() => setImported(null)} />
+			<ImportReportDialog
+				outcome={imported}
+				onClose={() => setImported(null)}
+				onRemap={(mapping) => {
+					if (importedPath.current !== null) void bringIn(importedPath.current, mapping);
+				}}
+			/>
 			<StoryEditorDialog
 				open={storyFlow !== null}
 				onClose={() => setStoryFlow(null)}

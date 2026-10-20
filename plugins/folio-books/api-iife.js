@@ -146,8 +146,8 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
         return cmd('export_book', { id, targets, colour });
     }
     /** Brings the words of a Markdown or plain text file in as the book's story, in one undo step. */
-    function importText(id, path) {
-        return cmd('import_text', { id, path });
+    function importText(id, path, mapping) {
+        return cmd('import_text', { id, path, mapping: mapping ?? null });
     }
     /** Shows a file in the system's file manager. */
     function revealPath(path) {
