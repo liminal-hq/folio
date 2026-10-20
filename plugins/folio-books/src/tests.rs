@@ -1636,3 +1636,44 @@ fn a_story_that_shrinks_gives_back_the_pages_it_no_longer_needs_with_one_undo() 
         grown.flows[0].paragraphs.len()
     );
 }
+
+#[test]
+fn the_chapters_of_a_story_say_which_spread_they_begin_on() {
+    let app = app();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("story.md");
+    std::fs::write(
+        &file,
+        "# One\n\nFirst words.\n\n# Two\n\nSecond words.\n\n# Three\n\nThird.\n",
+    )
+    .unwrap();
+    let novel = books(&app)
+        .new_book(&NewBookSpec {
+            kind: folio_model::BookKind::Novel,
+            ..NewBookSpec::default()
+        })
+        .unwrap()
+        .summary
+        .id;
+    books(&app)
+        .import_text(&novel, &file.to_string_lossy())
+        .unwrap();
+    let chapters = books(&app).story_chapters(&novel).unwrap();
+    let titles: Vec<&str> = chapters.iter().map(|c| c.title.as_str()).collect();
+    assert_eq!(titles, vec!["One", "Two", "Three"]);
+    let book = books(&app).snapshot(&novel).unwrap().book;
+    let spreads: Vec<&str> = book.spreads.iter().map(|s| s.id.0.as_str()).collect();
+    // Each is on a spread of the book, and a later chapter is never on an earlier spread.
+    let places: Vec<usize> = chapters
+        .iter()
+        .map(|c| spreads.iter().position(|s| *s == c.spread).unwrap())
+        .collect();
+    assert!(places.windows(2).all(|w| w[0] <= w[1]), "{places:?}");
+    // A book with no story has no chapters.
+    let picture = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    assert!(books(&app).story_chapters(&picture).unwrap().is_empty());
+}

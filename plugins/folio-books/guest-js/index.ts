@@ -21,6 +21,7 @@ import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTa
 import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
 import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
+import type { StoryChapter } from '@liminal-hq/folio-protocol/generated/StoryChapter';
 import type { ProofSpread } from '@liminal-hq/folio-protocol/generated/ProofSpread';
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
@@ -276,6 +277,11 @@ export function importText(
 	mapping?: Record<string, string>,
 ): Promise<ImportReport> {
 	return cmd<ImportReport>('import_text', { id, path, mapping: mapping ?? null });
+}
+
+/** The chapters of the book's stories and the spread each begins on. */
+export function storyChapters(id: string): Promise<StoryChapter[]> {
+	return cmd<StoryChapter[]>('story_chapters', { id });
 }
 
 /** Shows a file in the system's file manager. */
