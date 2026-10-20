@@ -267,6 +267,28 @@ pub struct ProofPage {
     pub outside: f64,
 }
 
+/// The paperback cover sheet drawn, and where its parts are, in points from the sheet's top-left
+/// corner (the bleed included).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct CoverSheetPreview {
+    /// The sheet as a `data:image/png` URI.
+    pub image: String,
+    /// The whole sheet, bleed included.
+    pub width: f64,
+    pub height: f64,
+    /// The bleed all round.
+    pub edge: f64,
+    /// The width of one cover (the trim width) and of the spine.
+    pub cover: f64,
+    pub spine: f64,
+    /// Whether the spine is thick enough for text.
+    pub spine_text: bool,
+    /// The box KDP keeps for its barcode.
+    pub barcode: folio_model::Rect,
+}
+
 /// What an export wrote, and where.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

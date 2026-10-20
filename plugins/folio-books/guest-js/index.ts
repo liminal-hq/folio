@@ -14,6 +14,7 @@ import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/Di
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import type { ExportColour } from '@liminal-hq/folio-protocol/generated/ExportColour';
 import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
+import type { CoverSheetPreview } from '@liminal-hq/folio-protocol/generated/CoverSheetPreview';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
 import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
 import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
@@ -254,8 +255,8 @@ export function previewNewBook(spec: NewBookSpec): Promise<string> {
 }
 
 /** The paperback cover sheet as the exporter would make it, as a PNG data URI; `null` with no cover. */
-export function previewCoverSheet(id: string): Promise<string | null> {
-	return cmd<string | null>('preview_cover_sheet', { id });
+export function previewCoverSheet(id: string): Promise<CoverSheetPreview | null> {
+	return cmd<CoverSheetPreview | null>('preview_cover_sheet', { id });
 }
 
 /** Makes the files for `targets` and writes them into the book's `exports` folder. */
