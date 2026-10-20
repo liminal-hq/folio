@@ -1800,9 +1800,11 @@ fn small_words_in_a_rich_black_are_warned_about_and_large_ones_are_not() {
         };
         let style = format!("s{size}");
         t.style = StyleId(style.clone());
-        let mut def = StyleDef::default();
-        def.size_pt = Some(size);
-        def.colour = Some(Colour("swatch:rich".into()));
+        let def = StyleDef {
+            size_pt: Some(size),
+            colour: Some(Colour("swatch:rich".into())),
+            ..StyleDef::default()
+        };
         book.styles.styles.insert(style, def);
         book.spreads[1].frames.push(Frame::Text(t));
     };
