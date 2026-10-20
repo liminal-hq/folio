@@ -9,6 +9,7 @@ import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
+import type { TextSelection } from '../canvas/textSelection';
 import type { Marks } from '../canvas/marksModel';
 import { surfaceOf } from '../canvas/masterView';
 import type { NewFrameKind } from '../canvas/newFrames';
@@ -35,6 +36,8 @@ export interface EditorInput {
 	cell?: { row: number; col: number } | null;
 	/** Whether `spread` is a master page being edited, not one of the book's spreads. */
 	master?: boolean;
+	/** The words selected in the open text editor: bold, italic and the font apply to just those. */
+	selection?: TextSelection | null;
 }
 
 /** What the controls show: which can be used now, which are pressed, the numbers, the extra tabs. */
@@ -80,6 +83,33 @@ const ALIGNS: Record<string, 'left' | 'center' | 'right' | 'justify'> = {
 
 const texts = (frames: Frame[]) =>
 	frames.flatMap((f) => (f.type === 'text' && !f.locked && !f.fromMaster ? [f] : []));
+/** The selected stretch of words, when it is in one of the selected text frames or shapes. */
+function wordsSelected(input: EditorInput) {
+	const { selection } = input;
+	if (!selection || selection.end <= selection.start) return null;
+	const frame = input.selected.find((f) => f.id === selection.frame);
+	return frame && (frame.type === 'text' || frame.type === 'shape') && !frame.locked
+		? { frame, selection }
+		: null;
+}
+
+/** Whether every character of `start..end` is in a run where `has` is true. */
+function allRuns(
+	frame: Extract<Frame, { type: 'text' | 'shape' }>,
+	start: number,
+	end: number,
+	has: (run: { bold: boolean; italic: boolean }) => boolean,
+): boolean {
+	let at = 0;
+	for (const run of frame.content?.inline ?? []) {
+		const length = [...run.text].length;
+		const overlaps = at < end && at + length > start;
+		if (overlaps && !has(run)) return false;
+		at += length;
+	}
+	return true;
+}
+
 const free = (frames: Frame[]) => frames.filter((f) => !f.locked && !f.fromMaster);
 
 export function editorState(input: EditorInput): EditorState {
@@ -289,6 +319,23 @@ export function editorAction(
 		}
 		case 'bold':
 		case 'italic': {
+			const picked = wordsSelected(input);
+			if (picked) {
+				const { frame, selection } = picked;
+				const on = allRuns(frame, selection.start, selection.end, (r) => r[id]);
+				return {
+					kind: 'intents',
+					intents: [
+						{
+							type: 'StyleRange',
+							frame: frame.id,
+							start: selection.start,
+							end: selection.end,
+							change: { [id]: !on },
+						},
+					],
+				};
+			}
 			const words = texts(selected);
 			const turnOn = words[0]?.overrides?.[id] !== true;
 			return {
@@ -315,6 +362,23 @@ export function editorAction(
 		case 'font': {
 			const family = typeof value === 'string' ? value : '';
 			const origin = input.fonts?.find((f) => f.family === family)?.origin;
+			const picked = wordsSelected(input);
+			if (picked) {
+				const { frame, selection } = picked;
+				return {
+					kind: 'font',
+					keep: origin === 'system' ? family : null,
+					intents: [
+						{
+							type: 'StyleRange',
+							frame: frame.id,
+							start: selection.start,
+							end: selection.end,
+							change: { font: family },
+						},
+					],
+				};
+			}
 			return {
 				kind: 'font',
 				// An installed font is kept with the book, so it opens the same elsewhere.

@@ -164,10 +164,10 @@ describe('with a text frame selected', () => {
 		});
 	});
 
-	it('says why words with emphasis or a flow are not edited here', () => {
+	it('edits words with emphasis, since the look of what is left alone is kept', () => {
 		setup([text({ content: { inline: [{ text: 'Bold', bold: true }] } })]);
-		expect(screen.getByRole('textbox', { name: 'Words' })).toBeDisabled();
-		expect(screen.getByText(/bold or italic/)).toBeInTheDocument();
+		expect(screen.getByRole('textbox', { name: 'Words' })).toBeEnabled();
+		expect(screen.getByRole('textbox', { name: 'Words' })).toHaveValue('Bold');
 	});
 
 	it('changes nothing about a locked frame', () => {

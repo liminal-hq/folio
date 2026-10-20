@@ -8,6 +8,7 @@ import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { getTextSelection } from './textSelection';
 import { SpreadCanvas } from './SpreadCanvas';
 
 const book = {
@@ -105,7 +106,6 @@ describe('editing words in place', () => {
 	});
 
 	it.each([
-		['words with emphasis', [text('b', [{ text: 'Bold', bold: true }])]],
 		['a locked frame', [text('b', [{ text: 'Plain' }], { locked: true })]],
 		[
 			'a frame whose words come from a flow',
@@ -115,6 +115,14 @@ describe('editing words in place', () => {
 		render(<Harness frames={list} onEditText={() => {}} />);
 		fireEvent.doubleClick(hit('b'));
 		expect(screen.queryByRole('textbox')).toBeNull();
+	});
+});
+
+describe('editing words with emphasis', () => {
+	it('opens on them, because editing keeps the look of the stretches left alone', () => {
+		render(<Harness frames={[text('b', [{ text: 'Bold', bold: true }])]} onEditText={() => {}} />);
+		fireEvent.doubleClick(hit('b'));
+		expect(screen.getByRole('textbox')).toHaveValue('Bold');
 	});
 });
 
@@ -165,5 +173,18 @@ describe('editing the words of a shape', () => {
 		render(<Harness frames={[shape({ locked: true })]} onEditText={vi.fn()} />);
 		fireEvent.doubleClick(hit('b'));
 		expect(screen.queryByRole('textbox')).toBeNull();
+	});
+});
+
+describe('selecting words in the editor', () => {
+	it('tells the ribbon which stretch, in characters, and forgets it when the editor closes', () => {
+		render(<Harness frames={[text('b', [{ text: 'Hello brave world' }])]} onEditText={() => {}} />);
+		fireEvent.doubleClick(hit('b'));
+		const box = screen.getByRole('textbox') as HTMLTextAreaElement;
+		box.setSelectionRange(6, 11);
+		fireEvent.select(box);
+		expect(getTextSelection()).toEqual({ frame: 'b', start: 6, end: 11 });
+		fireEvent.keyDown(box, { key: 'Escape' });
+		expect(getTextSelection()).toBeNull();
 	});
 });
