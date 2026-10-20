@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { usePaintPresets } from './usePaintPresets';
 import { useFontChoices } from './useFontChoices';
 import { useFontsInUse } from './useFontsInUse';
+import { resolveSwatches, swatchDisplays } from '../books/swatches';
 import { shelfLabels } from '../books/shelfLabels';
 import type { OpenBookCopy } from '../books/booksStore';
 import { useBooks } from '../books/useBooks';
@@ -139,6 +140,13 @@ export function BookView({
 		const drawn = onSheet?.frames.some((f) => f.id.startsWith('cover_bar_'));
 		return box && !drawn ? { box, text: t('cover.barcodeHint') } : undefined;
 	}, [onSheet]);
+	// What is drawn has each reference to a swatch turned into the colour the swatch shows as.
+	const displays = useMemo(() => swatchDisplays(book), [book.styles]);
+	const drawn = useMemo(() => resolveSwatches(book, displays), [book, displays]);
+	const drawnSpread = useMemo(
+		() => (onSheet ? resolveSwatches(onSheet, displays) : onSheet),
+		[onSheet, displays],
+	);
 	const spreadLayout = useSpreadLayout(
 		client,
 		id,
@@ -654,8 +662,8 @@ export function BookView({
 					)}
 					{preview === 'print' ? (
 						<Stage
-							book={book}
-							spread={spread}
+							book={drawn}
+							spread={drawnSpread ?? spread}
 							label={master ? t('master.page', { name: masterName }) : (labels[shown] ?? '')}
 							heading={master ? t('master.editing', { name: masterName }) : undefined}
 							layout={layout}
@@ -782,10 +790,10 @@ export function BookView({
 						<ReaderView
 							client={client}
 							id={id}
-							book={book}
+							book={drawn}
 							revision={copy.revision}
 							device={preview}
-							spread={spread}
+							spread={drawnSpread ?? spread}
 							layout={layout}
 							images={images}
 						/>
@@ -907,7 +915,7 @@ export function BookView({
 			<div className={rowStyles.row}>
 				<div className={rowStyles.slot}>
 					<Shelf
-						book={book}
+						book={drawn}
 						images={images}
 						labels={labels}
 						selected={shown}

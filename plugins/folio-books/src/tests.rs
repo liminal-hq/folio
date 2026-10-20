@@ -1646,3 +1646,71 @@ fn the_cover_sheet_canvas_is_the_sheet_as_one_laid_out_spread_with_what_was_put_
         .iter()
         .any(|f| f.frame.0 == "blurb" && !f.lines.is_empty()));
 }
+
+#[test]
+fn a_swatch_is_drawn_as_the_colour_it_shows_as() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let book = books(&app).snapshot(&id).unwrap().book;
+    let (spread, frame) = book
+        .spreads
+        .iter()
+        .find_map(|s| {
+            s.frames.iter().find_map(|f| match f {
+                folio_model::Frame::Text(t) if t.content.is_some() => {
+                    Some((s.id.0.clone(), t.base.id.clone()))
+                }
+                _ => None,
+            })
+        })
+        .expect("a text frame");
+    books(&app)
+        .apply(
+            &id,
+            folio_model::Intent::SetSwatch {
+                swatch: folio_model::BookSwatch {
+                    id: folio_model::SwatchId("brand".into()),
+                    name: "Brand".into(),
+                    display: folio_model::Colour("#000000".into()),
+                    ink: Some(folio_model::Ink {
+                        c: 0,
+                        m: 100,
+                        y: 100,
+                        k: 0,
+                    }),
+                },
+            },
+        )
+        .unwrap();
+    books(&app)
+        .apply(
+            &id,
+            folio_model::Intent::StyleRange {
+                frame,
+                start: 0,
+                end: 3,
+                change: folio_model::RunChange {
+                    colour: Some("swatch:brand".into()),
+                    ..Default::default()
+                },
+            },
+        )
+        .unwrap();
+    let laid = books(&app)
+        .layout_spread(&id, &spread, None)
+        .unwrap()
+        .layout;
+    let colours: Vec<String> = laid
+        .frames
+        .iter()
+        .flat_map(|f| &f.lines)
+        .flat_map(|l| &l.runs)
+        .filter_map(|r| r.colour.as_ref().map(|c| c.0.clone()))
+        .collect();
+    assert!(colours.contains(&"#ff0000".to_string()), "{colours:?}");
+    assert!(!colours.iter().any(|c| c.starts_with("swatch:")));
+}
