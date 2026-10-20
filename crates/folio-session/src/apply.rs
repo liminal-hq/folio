@@ -5,9 +5,9 @@
 
 use folio_model::{
     clean_language, BackgroundTarget, BarcodeChoice, Book, BookFont, Colour, FlowId, Frame,
-    FrameId, Guide, InlineContent, Intent, Master, MasterId, Page, Paint, Proofing, Pt, ReorderTo,
-    Run, Spread, SpreadId, SpreadKind, StoryPara, Surface, TableCell, TableEdit, TableFrame,
-    MAX_IGNORED_WORDS,
+    FrameId, Guide, InlineContent, Intent, Master, MasterId, Page, Paint, Proofing, Pt, Rect,
+    ReorderTo, Run, Spread, SpreadId, SpreadKind, StoryPara, Surface, TableCell, TableEdit,
+    TableFrame, MAX_IGNORED_WORDS,
 };
 
 /// The most preflight issues a book can leave alone.
@@ -80,6 +80,8 @@ pub struct Plan {
     pub flows: Vec<FlowId>,
     /// The id the flow a `LinkFrame` starts will have.
     pub new_flow: Option<FlowId>,
+    /// Ids the intent will use for what it makes, in the order it uses them.
+    pub fresh: Vec<String>,
     /// Intents that repeat on one frame (a drag, a nudge, typing) merge into one undo step.
     pub merge: Option<MergeKey>,
 }
@@ -357,7 +359,10 @@ pub fn plan(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
     // all and every spread is part of the change.
     let restructures = matches!(
         intent,
-        Intent::AddSpread { .. } | Intent::DeleteSpread { .. } | Intent::MoveSpread { .. }
+        Intent::AddSpread { .. }
+            | Intent::DeleteSpread { .. }
+            | Intent::MoveSpread { .. }
+            | Intent::AddFlowPages { .. }
     );
     if restructures && (!book.page_numbers.is_none() || !book.master_pages.is_empty()) {
         for spread in &book.spreads {
@@ -375,6 +380,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         new_spread: None,
         flows: Vec::new(),
         new_flow: None,
+        fresh: Vec::new(),
         merge,
     };
     // The spreads a change on `on` touches: a master page is captured for every change.
@@ -386,6 +392,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         new_spread: None,
         flows: Vec::new(),
         new_flow: None,
+        fresh: Vec::new(),
         merge,
     };
     match intent {
@@ -434,6 +441,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: focus.is_some().then(|| MergeKey::Focus(frame.clone())),
             })
         }
@@ -444,6 +452,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -454,6 +463,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -470,6 +480,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: vec![flow.clone()],
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: Some(MergeKey::Paragraph(flow.clone(), *para)),
             })
         }
@@ -494,6 +505,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: vec![flow.clone()],
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -510,6 +522,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: vec![flow.clone()],
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -529,6 +542,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: vec![flow.clone()],
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -553,6 +567,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: vec![flow.clone()],
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -590,6 +605,46 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: vec![flow.clone()],
                 new_flow: None,
+                fresh: Vec::new(),
+                merge: None,
+            })
+        }
+        Intent::AddFlowPages { flow, count } => {
+            const MOST: usize = 2000;
+            let found = book
+                .flows
+                .iter()
+                .find(|f| &f.id == flow)
+                .ok_or_else(|| SessionError::NoSuchFlow(flow.0.clone()))?;
+            let last = found.frames.last().ok_or_else(|| {
+                SessionError::BadStory("that flow has no frame to continue".into())
+            })?;
+            if !matches!(locate(book, last), Some(Frame::Text(_))) {
+                return Err(SessionError::NotText(last.0.clone()));
+            }
+            if *count == 0 || *count > MOST {
+                return Err(SessionError::BadStory(format!(
+                    "{count} frames is not between 1 and {MOST}"
+                )));
+            }
+            // A spread, its two pages and a frame for each frame asked for, at most.
+            let mut fresh: Vec<String> = Vec::with_capacity(count * 4);
+            for _ in 0..*count {
+                for prefix in ["sp", "pg", "pg", "fr"] {
+                    fresh.push(ids(prefix));
+                }
+            }
+            let mut touched: Vec<SpreadId> = fresh
+                .chunks(4)
+                .map(|ids| SpreadId(ids[0].clone()))
+                .collect();
+            touched.extend(touched_by(book, last)?);
+            Ok(Plan {
+                touched,
+                new_spread: None,
+                flows: vec![flow.clone()],
+                new_flow: None,
+                fresh,
                 merge: None,
             })
         }
@@ -639,6 +694,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: vec![flow],
                 new_flow,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -665,6 +721,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: vec![slot.id],
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -681,6 +738,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -689,6 +747,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             new_spread: None,
             flows: Vec::new(),
             new_flow: None,
+            fresh: Vec::new(),
             merge: None,
         }),
         Intent::SetDetails { details } => {
@@ -698,6 +757,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -714,6 +774,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -722,6 +783,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             new_spread: None,
             flows: Vec::new(),
             new_flow: None,
+            fresh: Vec::new(),
             merge: None,
         }),
         Intent::EnsureMasters => Ok(Plan {
@@ -729,6 +791,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             new_spread: None,
             flows: Vec::new(),
             new_flow: None,
+            fresh: Vec::new(),
             merge: None,
         }),
         Intent::IgnoreWord { word } => {
@@ -746,6 +809,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -758,6 +822,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -787,6 +852,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             new_spread: None,
             flows: Vec::new(),
             new_flow: None,
+            fresh: Vec::new(),
             merge: None,
         }),
         Intent::SetBackground { target, bg } => {
@@ -818,6 +884,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                     new_spread: None,
                     flows: Vec::new(),
                     new_flow: None,
+                    fresh: Vec::new(),
                     merge,
                 }),
             }
@@ -901,6 +968,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: trying.then(|| MergeKey::Shape(frame.clone())),
             })
         }
@@ -952,6 +1020,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                     new_spread: None,
                     flows: Vec::new(),
                     new_flow: None,
+                    fresh: Vec::new(),
                     merge: None,
                 });
             }
@@ -984,6 +1053,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -994,6 +1064,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: Some(MergeKey::Text(frame.clone())),
             })
         }
@@ -1024,6 +1095,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -1058,6 +1130,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: match edit {
                     TableEdit::SetCell { row, col, .. } => {
                         Some(MergeKey::Cell(frame.clone(), *row, *col))
@@ -1081,6 +1154,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -1095,6 +1169,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: Some(MergeKey::Style(frame.clone())),
             })
         }
@@ -1171,6 +1246,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: Some(id),
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -1193,6 +1269,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -1208,6 +1285,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
+                fresh: Vec::new(),
                 merge: None,
             })
         }
@@ -1232,7 +1310,10 @@ fn renew(frame: &mut Frame, ids: &mut IdSource) {
 pub fn run(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
     let restructures = matches!(
         intent,
-        Intent::AddSpread { .. } | Intent::DeleteSpread { .. } | Intent::MoveSpread { .. }
+        Intent::AddSpread { .. }
+            | Intent::DeleteSpread { .. }
+            | Intent::MoveSpread { .. }
+            | Intent::AddFlowPages { .. }
     );
     run_one(book, intent, plan, ids);
     if restructures {
@@ -1381,6 +1462,9 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 p.inline =
                     folio_model::style_range(&p.inline, start as usize, end as usize, &change);
             }
+        }
+        Intent::AddFlowPages { flow, count } => {
+            add_flow_pages(book, &flow, count, &plan.fresh);
         }
         Intent::LinkFrame { frame, to } => {
             // The frame's own words go to the end of the story.
@@ -2010,5 +2094,92 @@ fn renumber(book: &mut Book, flow: &FlowId) {
                 index: index as u32,
             });
         }
+    }
+}
+
+/// Adds `count` text frames to a flow, each like the last and after it, using `fresh` for the ids
+/// of the spreads, pages and frames it makes (a spread, two pages and a frame for each).
+fn add_flow_pages(book: &mut Book, flow: &FlowId, count: usize, fresh: &[String]) {
+    let page_w = book.trim.w.0;
+    let mut next = fresh.chunks(4);
+    for _ in 0..count {
+        let Some(ids) = next.next() else { return };
+        let Some(last_id) = book
+            .flows
+            .iter()
+            .find(|f| &f.id == flow)
+            .and_then(|f| f.frames.last().cloned())
+        else {
+            return;
+        };
+        let Some(at) = book
+            .spreads
+            .iter()
+            .position(|s| find(&s.frames, &last_id).is_some())
+        else {
+            return;
+        };
+        let Some(Frame::Text(last)) = find(&book.spreads[at].frames, &last_id).cloned() else {
+            return;
+        };
+        let rect = last.base.rect;
+        let on_left = rect.x.0 + rect.w.0 / 2.0 < page_w;
+        // The frame's twin on the other page, as the pages face each other across the gutter.
+        let mirrored = Rect {
+            x: Pt(2.0 * page_w - rect.x.0 - rect.w.0),
+            ..rect
+        };
+        let twin_free = |spread: &Spread| {
+            !spread.frames.iter().any(|f| {
+                let r = f.base().rect;
+                r.x.0 < mirrored.x.0 + mirrored.w.0
+                    && mirrored.x.0 < r.x.0 + r.w.0
+                    && r.y.0 < mirrored.y.0 + mirrored.h.0
+                    && mirrored.y.0 < r.y.0 + r.h.0
+            })
+        };
+        let make = |rect: Rect| {
+            let mut frame = last.clone();
+            frame.base.id = FrameId(ids[3].clone());
+            frame.base.rect = rect;
+            frame.content = None;
+            frame.flow = None;
+            frame
+        };
+        let (target, rect) =
+            if on_left && book.spreads[at].pages.len() == 2 && twin_free(&book.spreads[at]) {
+                (at, mirrored)
+            } else {
+                book.spreads.insert(
+                    at + 1,
+                    Spread {
+                        id: SpreadId(ids[0].clone()),
+                        kind: folio_model::SpreadKind::Spread,
+                        pages: ids[1..3]
+                            .iter()
+                            .map(|id| Page {
+                                id: folio_model::PageId(id.clone()),
+                                master: None,
+                                bg: None,
+                            })
+                            .collect(),
+                        frames: Vec::new(),
+                        guides: Vec::new(),
+                        master_overrides: Vec::new(),
+                        bg_span: None,
+                        section: None,
+                    },
+                );
+                // The first frame of a new spread is on its left page: like the last when that was on
+                // the left, and its twin when that was on the right.
+                (at + 1, if on_left { rect } else { mirrored })
+            };
+        let frame = make(rect);
+        let id = frame.base.id.clone();
+        book.spreads[target].frames.push(Frame::Text(frame));
+        if let Some(f) = flow_mut(book, flow) {
+            f.frames.push(id);
+        }
+        renumber(book, flow);
     }
 }

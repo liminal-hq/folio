@@ -13840,6 +13840,1774 @@
           "autoAddPages": true,
           "frames": [
             "fr_flowed",
+            "fr_new11",
+            "fr_new15",
+            "fr_new19"
+          ],
+          "id": "fl_main",
+          "paragraphs": [
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "A chapter"
+                }
+              ],
+              "style": "h1"
+            },
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "The otter"
+                }
+              ]
+            },
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": " slept well."
+                }
+              ]
+            },
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "M"
+                },
+                {
+                  "bold": true,
+                  "italic": false,
+                  "style": null,
+                  "text": "ornin"
+                },
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "g came."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "grid": {
+        "baseline": null,
+        "columns": 12,
+        "gutter": 6.0
+      },
+      "id": "bk_t",
+      "kind": "picture",
+      "language": "en-CA",
+      "layout": "fixed",
+      "margins": {
+        "bottom": 36.0,
+        "inside": 36.0,
+        "outside": 36.0,
+        "top": 36.0
+      },
+      "masters": [],
+      "metadata": {
+        "description": "",
+        "isbn": {
+          "ebook": null,
+          "hardcover": null,
+          "paperback": null
+        },
+        "keywords": []
+      },
+      "schema": 1,
+      "spreads": [
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_cover",
+          "kind": "cover",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_c",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_2",
+          "kind": "spread",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_2",
+              "master": null
+            },
+            {
+              "id": "pg_3",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_new1",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_new2",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [
+            {
+              "box": {
+                "h": 100.0,
+                "w": 100.0,
+                "x": 40.0,
+                "y": 0.0
+              },
+              "id": "fr_pic",
+              "image": {
+                "asset": null,
+                "crop": null,
+                "fit": "fill",
+                "focus": [
+                  0.5,
+                  0.5
+                ]
+              },
+              "locked": false,
+              "rotation": 0.0,
+              "type": "image"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 40.0,
+                "w": 200.0,
+                "x": 10.0,
+                "y": 120.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "Once upon a time"
+                  }
+                ]
+              },
+              "id": "fr_text",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 0.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 0
+              },
+              "id": "fr_flowed",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
+          "guides": [],
+          "id": "sp_1",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_1",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 0.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 1
+              },
+              "id": "fr_new11",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 958.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 2
+              },
+              "id": "fr_new15",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
+          "guides": [],
+          "id": "sp_new8",
+          "kind": "spread",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_new9",
+              "master": null
+            },
+            {
+              "id": "pg_new10",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 0.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 3
+              },
+              "id": "fr_new19",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
+          "guides": [],
+          "id": "sp_new16",
+          "kind": "spread",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_new17",
+              "master": null
+            },
+            {
+              "id": "pg_new18",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [
+            {
+              "box": {
+                "h": 100.0,
+                "w": 100.0,
+                "x": 40.0,
+                "y": 0.0
+              },
+              "id": "fr_new5",
+              "image": {
+                "asset": null,
+                "crop": null,
+                "fit": "fill",
+                "focus": [
+                  0.5,
+                  0.5
+                ]
+              },
+              "locked": false,
+              "rotation": 0.0,
+              "type": "image"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 40.0,
+                "w": 200.0,
+                "x": 10.0,
+                "y": 120.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "Once upon a time"
+                  }
+                ]
+              },
+              "id": "fr_new6",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 0.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 0
+              },
+              "id": "fr_new7",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
+          "guides": [],
+          "id": "sp_new3",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_new4",
+              "master": null
+            }
+          ]
+        }
+      ],
+      "title": "T",
+      "trim": {
+        "h": 504.0,
+        "w": 504.0
+      }
+    },
+    "before": {
+      "adjustGutterForPageCount": false,
+      "authors": [],
+      "bleed": 0.0,
+      "flows": [
+        {
+          "autoAddPages": true,
+          "frames": [
+            "fr_flowed"
+          ],
+          "id": "fl_main",
+          "paragraphs": [
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "A chapter"
+                }
+              ],
+              "style": "h1"
+            },
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "The otter"
+                }
+              ]
+            },
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": " slept well."
+                }
+              ]
+            },
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "M"
+                },
+                {
+                  "bold": true,
+                  "italic": false,
+                  "style": null,
+                  "text": "ornin"
+                },
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "g came."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "grid": {
+        "baseline": null,
+        "columns": 12,
+        "gutter": 6.0
+      },
+      "id": "bk_t",
+      "kind": "picture",
+      "language": "en-CA",
+      "layout": "fixed",
+      "margins": {
+        "bottom": 36.0,
+        "inside": 36.0,
+        "outside": 36.0,
+        "top": 36.0
+      },
+      "masters": [],
+      "metadata": {
+        "description": "",
+        "isbn": {
+          "ebook": null,
+          "hardcover": null,
+          "paperback": null
+        },
+        "keywords": []
+      },
+      "schema": 1,
+      "spreads": [
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_cover",
+          "kind": "cover",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_c",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_2",
+          "kind": "spread",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_2",
+              "master": null
+            },
+            {
+              "id": "pg_3",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_new1",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_new2",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [
+            {
+              "box": {
+                "h": 100.0,
+                "w": 100.0,
+                "x": 40.0,
+                "y": 0.0
+              },
+              "id": "fr_pic",
+              "image": {
+                "asset": null,
+                "crop": null,
+                "fit": "fill",
+                "focus": [
+                  0.5,
+                  0.5
+                ]
+              },
+              "locked": false,
+              "rotation": 0.0,
+              "type": "image"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 40.0,
+                "w": 200.0,
+                "x": 10.0,
+                "y": 120.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "Once upon a time"
+                  }
+                ]
+              },
+              "id": "fr_text",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 0.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 0
+              },
+              "id": "fr_flowed",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
+          "guides": [],
+          "id": "sp_1",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_1",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [
+            {
+              "box": {
+                "h": 100.0,
+                "w": 100.0,
+                "x": 40.0,
+                "y": 0.0
+              },
+              "id": "fr_new5",
+              "image": {
+                "asset": null,
+                "crop": null,
+                "fit": "fill",
+                "focus": [
+                  0.5,
+                  0.5
+                ]
+              },
+              "locked": false,
+              "rotation": 0.0,
+              "type": "image"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 40.0,
+                "w": 200.0,
+                "x": 10.0,
+                "y": 120.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "Once upon a time"
+                  }
+                ]
+              },
+              "id": "fr_new6",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 0.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 0
+              },
+              "id": "fr_new7",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
+          "guides": [],
+          "id": "sp_new3",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_new4",
+              "master": null
+            }
+          ]
+        }
+      ],
+      "title": "T",
+      "trim": {
+        "h": 504.0,
+        "w": 504.0
+      }
+    },
+    "name": "add pages for a story that grew",
+    "patch": {
+      "ops": [
+        {
+          "op": "setSpread",
+          "spread": {
+            "frames": [
+              {
+                "baselineLock": false,
+                "box": {
+                  "h": 50.0,
+                  "w": 50.0,
+                  "x": 0.0,
+                  "y": 200.0
+                },
+                "columns": 1,
+                "flow": {
+                  "id": "fl_main",
+                  "index": 1
+                },
+                "id": "fr_new11",
+                "locked": false,
+                "rotation": 0.0,
+                "style": "body",
+                "type": "text"
+              },
+              {
+                "baselineLock": false,
+                "box": {
+                  "h": 50.0,
+                  "w": 50.0,
+                  "x": 958.0,
+                  "y": 200.0
+                },
+                "columns": 1,
+                "flow": {
+                  "id": "fl_main",
+                  "index": 2
+                },
+                "id": "fr_new15",
+                "locked": false,
+                "rotation": 0.0,
+                "style": "body",
+                "type": "text"
+              }
+            ],
+            "guides": [],
+            "id": "sp_new8",
+            "kind": "spread",
+            "masterOverrides": [],
+            "pages": [
+              {
+                "id": "pg_new9",
+                "master": null
+              },
+              {
+                "id": "pg_new10",
+                "master": null
+              }
+            ]
+          }
+        },
+        {
+          "op": "setSpread",
+          "spread": {
+            "frames": [
+              {
+                "baselineLock": false,
+                "box": {
+                  "h": 50.0,
+                  "w": 50.0,
+                  "x": 0.0,
+                  "y": 200.0
+                },
+                "columns": 1,
+                "flow": {
+                  "id": "fl_main",
+                  "index": 3
+                },
+                "id": "fr_new19",
+                "locked": false,
+                "rotation": 0.0,
+                "style": "body",
+                "type": "text"
+              }
+            ],
+            "guides": [],
+            "id": "sp_new16",
+            "kind": "spread",
+            "masterOverrides": [],
+            "pages": [
+              {
+                "id": "pg_new17",
+                "master": null
+              },
+              {
+                "id": "pg_new18",
+                "master": null
+              }
+            ]
+          }
+        },
+        {
+          "op": "setOrder",
+          "order": [
+            "sp_cover",
+            "sp_2",
+            "sp_new1",
+            "sp_1",
+            "sp_new8",
+            "sp_new16",
+            "sp_new3"
+          ]
+        },
+        {
+          "flow": {
+            "autoAddPages": true,
+            "frames": [
+              "fr_flowed",
+              "fr_new11",
+              "fr_new15",
+              "fr_new19"
+            ],
+            "id": "fl_main",
+            "paragraphs": [
+              {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "A chapter"
+                  }
+                ],
+                "style": "h1"
+              },
+              {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "The otter"
+                  }
+                ]
+              },
+              {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": " slept well."
+                  }
+                ]
+              },
+              {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "M"
+                  },
+                  {
+                    "bold": true,
+                    "italic": false,
+                    "style": null,
+                    "text": "ornin"
+                  },
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "g came."
+                  }
+                ]
+              }
+            ]
+          },
+          "op": "setFlow"
+        }
+      ],
+      "revision": 24
+    }
+  },
+  {
+    "after": {
+      "adjustGutterForPageCount": false,
+      "authors": [],
+      "bleed": 0.0,
+      "flows": [
+        {
+          "autoAddPages": true,
+          "frames": [
+            "fr_flowed"
+          ],
+          "id": "fl_main",
+          "paragraphs": [
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "A chapter"
+                }
+              ],
+              "style": "h1"
+            },
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "The otter"
+                }
+              ]
+            },
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": " slept well."
+                }
+              ]
+            },
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "M"
+                },
+                {
+                  "bold": true,
+                  "italic": false,
+                  "style": null,
+                  "text": "ornin"
+                },
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "g came."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "grid": {
+        "baseline": null,
+        "columns": 12,
+        "gutter": 6.0
+      },
+      "id": "bk_t",
+      "kind": "picture",
+      "language": "en-CA",
+      "layout": "fixed",
+      "margins": {
+        "bottom": 36.0,
+        "inside": 36.0,
+        "outside": 36.0,
+        "top": 36.0
+      },
+      "masters": [],
+      "metadata": {
+        "description": "",
+        "isbn": {
+          "ebook": null,
+          "hardcover": null,
+          "paperback": null
+        },
+        "keywords": []
+      },
+      "schema": 1,
+      "spreads": [
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_cover",
+          "kind": "cover",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_c",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_2",
+          "kind": "spread",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_2",
+              "master": null
+            },
+            {
+              "id": "pg_3",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_new1",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_new2",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [
+            {
+              "box": {
+                "h": 100.0,
+                "w": 100.0,
+                "x": 40.0,
+                "y": 0.0
+              },
+              "id": "fr_pic",
+              "image": {
+                "asset": null,
+                "crop": null,
+                "fit": "fill",
+                "focus": [
+                  0.5,
+                  0.5
+                ]
+              },
+              "locked": false,
+              "rotation": 0.0,
+              "type": "image"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 40.0,
+                "w": 200.0,
+                "x": 10.0,
+                "y": 120.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "Once upon a time"
+                  }
+                ]
+              },
+              "id": "fr_text",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 0.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 0
+              },
+              "id": "fr_flowed",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
+          "guides": [],
+          "id": "sp_1",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_1",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [
+            {
+              "box": {
+                "h": 100.0,
+                "w": 100.0,
+                "x": 40.0,
+                "y": 0.0
+              },
+              "id": "fr_new5",
+              "image": {
+                "asset": null,
+                "crop": null,
+                "fit": "fill",
+                "focus": [
+                  0.5,
+                  0.5
+                ]
+              },
+              "locked": false,
+              "rotation": 0.0,
+              "type": "image"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 40.0,
+                "w": 200.0,
+                "x": 10.0,
+                "y": 120.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "Once upon a time"
+                  }
+                ]
+              },
+              "id": "fr_new6",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 0.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 0
+              },
+              "id": "fr_new7",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
+          "guides": [],
+          "id": "sp_new3",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_new4",
+              "master": null
+            }
+          ]
+        }
+      ],
+      "title": "T",
+      "trim": {
+        "h": 504.0,
+        "w": 504.0
+      }
+    },
+    "before": {
+      "adjustGutterForPageCount": false,
+      "authors": [],
+      "bleed": 0.0,
+      "flows": [
+        {
+          "autoAddPages": true,
+          "frames": [
+            "fr_flowed",
+            "fr_new11",
+            "fr_new15",
+            "fr_new19"
+          ],
+          "id": "fl_main",
+          "paragraphs": [
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "A chapter"
+                }
+              ],
+              "style": "h1"
+            },
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "The otter"
+                }
+              ]
+            },
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": " slept well."
+                }
+              ]
+            },
+            {
+              "inline": [
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "M"
+                },
+                {
+                  "bold": true,
+                  "italic": false,
+                  "style": null,
+                  "text": "ornin"
+                },
+                {
+                  "bold": false,
+                  "italic": false,
+                  "style": null,
+                  "text": "g came."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "grid": {
+        "baseline": null,
+        "columns": 12,
+        "gutter": 6.0
+      },
+      "id": "bk_t",
+      "kind": "picture",
+      "language": "en-CA",
+      "layout": "fixed",
+      "margins": {
+        "bottom": 36.0,
+        "inside": 36.0,
+        "outside": 36.0,
+        "top": 36.0
+      },
+      "masters": [],
+      "metadata": {
+        "description": "",
+        "isbn": {
+          "ebook": null,
+          "hardcover": null,
+          "paperback": null
+        },
+        "keywords": []
+      },
+      "schema": 1,
+      "spreads": [
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_cover",
+          "kind": "cover",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_c",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_2",
+          "kind": "spread",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_2",
+              "master": null
+            },
+            {
+              "id": "pg_3",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [],
+          "guides": [],
+          "id": "sp_new1",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_new2",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [
+            {
+              "box": {
+                "h": 100.0,
+                "w": 100.0,
+                "x": 40.0,
+                "y": 0.0
+              },
+              "id": "fr_pic",
+              "image": {
+                "asset": null,
+                "crop": null,
+                "fit": "fill",
+                "focus": [
+                  0.5,
+                  0.5
+                ]
+              },
+              "locked": false,
+              "rotation": 0.0,
+              "type": "image"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 40.0,
+                "w": 200.0,
+                "x": 10.0,
+                "y": 120.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "Once upon a time"
+                  }
+                ]
+              },
+              "id": "fr_text",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 0.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 0
+              },
+              "id": "fr_flowed",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
+          "guides": [],
+          "id": "sp_1",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_1",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 0.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 1
+              },
+              "id": "fr_new11",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 958.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 2
+              },
+              "id": "fr_new15",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
+          "guides": [],
+          "id": "sp_new8",
+          "kind": "spread",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_new9",
+              "master": null
+            },
+            {
+              "id": "pg_new10",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 0.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 3
+              },
+              "id": "fr_new19",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
+          "guides": [],
+          "id": "sp_new16",
+          "kind": "spread",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_new17",
+              "master": null
+            },
+            {
+              "id": "pg_new18",
+              "master": null
+            }
+          ]
+        },
+        {
+          "frames": [
+            {
+              "box": {
+                "h": 100.0,
+                "w": 100.0,
+                "x": 40.0,
+                "y": 0.0
+              },
+              "id": "fr_new5",
+              "image": {
+                "asset": null,
+                "crop": null,
+                "fit": "fill",
+                "focus": [
+                  0.5,
+                  0.5
+                ]
+              },
+              "locked": false,
+              "rotation": 0.0,
+              "type": "image"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 40.0,
+                "w": 200.0,
+                "x": 10.0,
+                "y": 120.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "Once upon a time"
+                  }
+                ]
+              },
+              "id": "fr_new6",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            },
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 50.0,
+                "w": 50.0,
+                "x": 0.0,
+                "y": 200.0
+              },
+              "columns": 1,
+              "flow": {
+                "id": "fl_main",
+                "index": 0
+              },
+              "id": "fr_new7",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
+          "guides": [],
+          "id": "sp_new3",
+          "kind": "opener",
+          "masterOverrides": [],
+          "pages": [
+            {
+              "id": "pg_new4",
+              "master": null
+            }
+          ]
+        }
+      ],
+      "title": "T",
+      "trim": {
+        "h": 504.0,
+        "w": 504.0
+      }
+    },
+    "name": "undo adding the pages",
+    "patch": {
+      "ops": [
+        {
+          "id": "sp_new8",
+          "op": "removeSpread"
+        },
+        {
+          "id": "sp_new12",
+          "op": "removeSpread"
+        },
+        {
+          "id": "sp_new16",
+          "op": "removeSpread"
+        },
+        {
+          "op": "setSpread",
+          "spread": {
+            "frames": [
+              {
+                "box": {
+                  "h": 100.0,
+                  "w": 100.0,
+                  "x": 40.0,
+                  "y": 0.0
+                },
+                "id": "fr_pic",
+                "image": {
+                  "asset": null,
+                  "crop": null,
+                  "fit": "fill",
+                  "focus": [
+                    0.5,
+                    0.5
+                  ]
+                },
+                "locked": false,
+                "rotation": 0.0,
+                "type": "image"
+              },
+              {
+                "baselineLock": false,
+                "box": {
+                  "h": 40.0,
+                  "w": 200.0,
+                  "x": 10.0,
+                  "y": 120.0
+                },
+                "columns": 1,
+                "content": {
+                  "inline": [
+                    {
+                      "bold": false,
+                      "italic": false,
+                      "style": null,
+                      "text": "Once upon a time"
+                    }
+                  ]
+                },
+                "id": "fr_text",
+                "locked": false,
+                "rotation": 0.0,
+                "style": "body",
+                "type": "text"
+              },
+              {
+                "baselineLock": false,
+                "box": {
+                  "h": 50.0,
+                  "w": 50.0,
+                  "x": 0.0,
+                  "y": 200.0
+                },
+                "columns": 1,
+                "flow": {
+                  "id": "fl_main",
+                  "index": 0
+                },
+                "id": "fr_flowed",
+                "locked": false,
+                "rotation": 0.0,
+                "style": "body",
+                "type": "text"
+              }
+            ],
+            "guides": [],
+            "id": "sp_1",
+            "kind": "opener",
+            "masterOverrides": [],
+            "pages": [
+              {
+                "id": "pg_1",
+                "master": null
+              }
+            ]
+          }
+        },
+        {
+          "op": "setOrder",
+          "order": [
+            "sp_cover",
+            "sp_2",
+            "sp_new1",
+            "sp_1",
+            "sp_new3"
+          ]
+        },
+        {
+          "flow": {
+            "autoAddPages": true,
+            "frames": [
+              "fr_flowed"
+            ],
+            "id": "fl_main",
+            "paragraphs": [
+              {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "A chapter"
+                  }
+                ],
+                "style": "h1"
+              },
+              {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "The otter"
+                  }
+                ]
+              },
+              {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": " slept well."
+                  }
+                ]
+              },
+              {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "M"
+                  },
+                  {
+                    "bold": true,
+                    "italic": false,
+                    "style": null,
+                    "text": "ornin"
+                  },
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "g came."
+                  }
+                ]
+              }
+            ]
+          },
+          "op": "setFlow"
+        }
+      ],
+      "revision": 25
+    }
+  },
+  {
+    "after": {
+      "adjustGutterForPageCount": false,
+      "authors": [],
+      "bleed": 0.0,
+      "flows": [
+        {
+          "autoAddPages": true,
+          "frames": [
+            "fr_flowed",
             "fr_text"
           ],
           "id": "fl_main",
@@ -14598,7 +16366,7 @@
           "op": "setFlow"
         }
       ],
-      "revision": 24
+      "revision": 26
     }
   },
   {
@@ -15364,7 +17132,7 @@
           "op": "setFlow"
         }
       ],
-      "revision": 25
+      "revision": 27
     }
   },
   {
@@ -16135,7 +17903,7 @@
           "op": "setFlow"
         }
       ],
-      "revision": 26
+      "revision": 28
     }
   },
   {
@@ -16901,7 +18669,7 @@
           "op": "setFlow"
         }
       ],
-      "revision": 27
+      "revision": 29
     }
   },
   {
@@ -17556,7 +19324,7 @@
           "op": "setFlow"
         }
       ],
-      "revision": 28
+      "revision": 30
     }
   },
   {
@@ -18197,7 +19965,7 @@
           "op": "setFlow"
         }
       ],
-      "revision": 29
+      "revision": 31
     }
   },
   {
@@ -18817,7 +20585,7 @@
           "op": "setFlow"
         }
       ],
-      "revision": 30
+      "revision": 32
     }
   },
   {
@@ -19427,7 +21195,7 @@
           "op": "setFlow"
         }
       ],
-      "revision": 31
+      "revision": 33
     }
   },
   {
@@ -20020,7 +21788,7 @@
           "op": "setDetails"
         }
       ],
-      "revision": 32
+      "revision": 34
     }
   },
   {
@@ -20608,7 +22376,7 @@
           "op": "setDetails"
         }
       ],
-      "revision": 33
+      "revision": 35
     }
   },
   {
@@ -21200,7 +22968,7 @@
           "op": "setDetails"
         }
       ],
-      "revision": 34
+      "revision": 36
     }
   },
   {
@@ -21860,7 +23628,7 @@
           }
         }
       ],
-      "revision": 35
+      "revision": 37
     }
   },
   {
@@ -22544,7 +24312,7 @@
           }
         }
       ],
-      "revision": 36
+      "revision": 38
     }
   },
   {
@@ -23240,7 +25008,7 @@
           }
         }
       ],
-      "revision": 37
+      "revision": 39
     }
   },
   {
@@ -23855,7 +25623,7 @@
           }
         }
       ],
-      "revision": 38
+      "revision": 40
     }
   }
 ]

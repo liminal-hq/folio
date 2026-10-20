@@ -1476,4 +1476,42 @@ fn a_markdown_file_becomes_the_books_story_in_one_undo_step_and_a_book_without_o
         .to_string()
         .contains("Markdown"));
 }
+
+#[test]
+fn a_story_that_outgrows_its_frames_gets_pages_and_one_undo_takes_both_back() {
+    let app = app();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("long.md");
+    let para = "The otter counted the stars over the river and then the pebbles under it.\n\n";
+    std::fs::write(&file, para.repeat(60)).unwrap();
+    let id = books(&app)
+        .new_book(&NewBookSpec {
+            kind: folio_model::BookKind::Novel,
+            ..NewBookSpec::default()
+        })
+        .unwrap()
+        .summary
+        .id;
+    let before = books(&app).snapshot(&id).unwrap().book;
+    books(&app)
+        .import_text(&id, &file.to_string_lossy())
+        .unwrap();
+    let after = books(&app).snapshot(&id).unwrap().book;
+    assert!(after.spreads.len() > before.spreads.len());
+    assert!(after.flows[0].frames.len() > before.flows[0].frames.len());
+    // Nothing is left over: every flowed frame is on a spread of the book.
+    let on_spreads: usize = after
+        .spreads
+        .iter()
+        .flat_map(|s| &s.frames)
+        .filter(|f| matches!(f, folio_model::Frame::Text(t) if t.flow.is_some()))
+        .count();
+    assert_eq!(on_spreads, after.flows[0].frames.len());
+    books(&app).undo(&id).unwrap();
+    let undone = books(&app).snapshot(&id).unwrap().book;
+    assert_eq!(undone.spreads.len(), before.spreads.len());
+    assert_eq!(
+        undone.flows[0].paragraphs.len(),
+        before.flows[0].paragraphs.len()
+    );
 }
