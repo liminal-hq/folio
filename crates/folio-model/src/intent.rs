@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::background::Background;
-use crate::book::{BookFont, Grid, PageNumbers};
+use crate::book::{BookFont, Details, Grid, PageNumbers};
 use crate::colour::Colour;
 use crate::frame::{Fit, Frame, Shape, StyleOverrides, TableLook};
 use crate::ids::{FrameId, MasterId, PageId, SpreadId, StyleId};
@@ -174,6 +174,10 @@ pub enum Intent {
     /// files and sends this; it is one undo step.
     SetFonts {
         fonts: Vec<BookFont>,
+    },
+    /// Sets the title, subtitle, authors, description and ISBNs together. One undo step.
+    SetDetails {
+        details: Details,
     },
     /// Sets the preflight issues to leave alone, each by its key. One undo step.
     SetPreflightIgnore {

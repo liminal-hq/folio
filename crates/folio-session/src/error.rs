@@ -38,6 +38,8 @@ pub enum SessionError {
     BadWord(String),
     #[error("those issues cannot be left alone: {0}")]
     BadIgnore(String),
+    #[error("those details cannot be used: {0}")]
+    BadDetails(String),
     #[error("those fonts cannot be kept: {0}")]
     BadFont(String),
     #[error("that language cannot be used: {0}")]

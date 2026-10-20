@@ -643,6 +643,19 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
         .unwrap()
     });
     record("undo leaving it alone", &mut s, &|s| s.undo().unwrap());
+    record("set the details", &mut s, &|s| {
+        s.apply(Intent::SetDetails {
+            details: details("A New Title", Some("A subtitle"), "9780306406157"),
+        })
+        .unwrap()
+    });
+    record("undo the details", &mut s, &|s| s.undo().unwrap());
+    record("clear the subtitle and the ISBN", &mut s, &|s| {
+        s.apply(Intent::SetDetails {
+            details: details("Plain", None, ""),
+        })
+        .unwrap()
+    });
     record("ignore a word", &mut s, &|s| {
         s.apply(Intent::IgnoreWord {
             word: "Zorblat".into(),
@@ -3052,5 +3065,70 @@ fn leaving_issues_alone_is_one_undo_step_and_a_list_that_cannot_be_kept_is_refus
     assert!(matches!(
         s.apply(Intent::SetPreflightIgnore { keys: many }),
         Err(SessionError::BadIgnore(_))
+    ));
+}
+
+/// Details for the tests: a title, an optional subtitle, one author and a paperback ISBN.
+fn details(title: &str, subtitle: Option<&str>, isbn: &str) -> folio_model::Details {
+    folio_model::Details {
+        title: title.into(),
+        subtitle: subtitle.map(str::to_owned),
+        authors: vec![folio_model::Contributor {
+            name: "Mom".into(),
+            role: folio_model::ContributorRole::Author,
+        }],
+        description: "About an otter.".into(),
+        isbn: folio_model::Isbns {
+            paperback: Some(isbn.to_owned()).filter(|s| !s.is_empty()),
+            hardcover: None,
+            ebook: None,
+        },
+    }
+}
+
+#[test]
+fn the_details_are_one_undo_step_and_details_a_book_cannot_have_are_refused() {
+    let mut s = Session::new(book());
+    let was = folio_model::Details::of(s.book());
+    let new = details("Tea at the Lighthouse", Some("A tale"), "978-0-306-40615-7");
+    let patch = s
+        .apply(Intent::SetDetails {
+            details: new.clone(),
+        })
+        .unwrap();
+    assert_eq!(
+        patch.ops,
+        vec![PatchOp::SetDetails {
+            details: new.clone()
+        }]
+    );
+    assert_eq!(s.book().title, "Tea at the Lighthouse");
+    assert_eq!(
+        s.book().metadata.isbn.paperback.as_deref(),
+        Some("978-0-306-40615-7")
+    );
+    let undone = s.undo().unwrap();
+    assert_eq!(
+        undone.ops,
+        vec![PatchOp::SetDetails {
+            details: was.clone()
+        }]
+    );
+    assert_eq!(folio_model::Details::of(s.book()), was);
+    for bad in [
+        details("  ", None, ""),
+        details("Fine", None, "978-0-306-40615-8"),
+        details(&"x".repeat(301), None, ""),
+    ] {
+        assert!(matches!(
+            s.apply(Intent::SetDetails { details: bad }),
+            Err(SessionError::BadDetails(_))
+        ));
+    }
+    let mut nameless = details("Fine", None, "");
+    nameless.authors[0].name = " ".into();
+    assert!(matches!(
+        s.apply(Intent::SetDetails { details: nameless }),
+        Err(SessionError::BadDetails(_))
     ));
 }
