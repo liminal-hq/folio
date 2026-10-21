@@ -7,13 +7,13 @@ use std::path::Path;
 use std::sync::Arc;
 
 use base64::Engine as _;
-use folio_engine::Books;
+use folio_engine::{Books, ExportColour, ExportTarget};
 use folio_model::Intent;
 use folio_presets::NewBookSpec;
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
-    CallToolResult, ContentBlock, ListResourcesResult, PaginatedRequestParams,
+    CallToolResult, ContentBlock, Implementation, ListResourcesResult, PaginatedRequestParams,
     ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult, Resource,
     ResourceContents, ServerCapabilities, ServerConfig,
 };
@@ -26,7 +26,13 @@ use serde_json::{json, Value};
 /// The URI of the schema of the intents `apply_intents` takes.
 pub const INTENT_SCHEMA_URI: &str = "folio://schema/intent";
 
-const INSTRUCTIONS: &str = "Folio lays out books. Start with `list_kinds`, make a book with `new_book` or open one with `open_book`, look at it with `get_book` and `render_page`, and check it with `preflight`. Every book tool takes the `id` that `new_book` or `open_book` returned.";
+/// The URI of the guide to the intents used most, with examples.
+pub const INTENT_GUIDE_URI: &str = "folio://guide/intents";
+
+/// The guide to the intents used most. Its examples are checked against `Intent` by a test.
+pub const INTENT_GUIDE: &str = include_str!("guide.md");
+
+const INSTRUCTIONS: &str = "Folio lays out books. Start with `list_kinds`, make a book with `new_book` or open one with `open_book`, bring a manuscript in with `import_manuscript`, change it with `apply_intents` (read the `folio://guide/intents` resource first), look at it with `get_book` and `render_page`, check it with `preflight`, and make files with `export`. Every book tool takes the `id` that `new_book` or `open_book` returned. The person may have the same book open in Folio: their window follows your changes, and they can undo them.";
 
 /// Names a book that is open.
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -64,6 +70,55 @@ pub struct SpreadRef {
     pub id: String,
     /// The spread's id, from `get_book`.
     pub spread: String,
+}
+
+/// Changes to make to a book.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ApplyIntents {
+    /// The id `new_book` or `open_book` returned.
+    pub id: String,
+    /// The intents, in order: JSON objects each with a `type` (see the `folio://guide/intents`
+    /// and `folio://schema/intent` resources). All are applied as one undo step, or none are.
+    pub intents: Vec<Value>,
+}
+
+/// A book to save, and where.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SaveBook {
+    /// The id `new_book` or `open_book` returned.
+    pub id: String,
+    /// Where to save it, a `.folio` path. Left out, the book goes back to where it came from; a
+    /// book made with `new_book` needs one.
+    #[serde(default)]
+    pub path: Option<String>,
+}
+
+/// A file to bring into a book.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ImportFile {
+    /// The id `new_book` or `open_book` returned.
+    pub id: String,
+    /// The path of the file: Markdown, plain text, Word (`.docx`), OpenDocument (`.odt`) or Rich
+    /// Text (`.rtf`) for a manuscript, a PNG, JPEG, GIF, WebP or SVG for a picture.
+    pub path: String,
+    /// For a manuscript from Word or OpenDocument: the Folio style (`h1`, `h2`, `epigraph`, or
+    /// `body`) to give each of the document's styles, by the style's name. The report that comes
+    /// back lists the styles found.
+    #[serde(default)]
+    pub styles: Option<std::collections::BTreeMap<String, String>>,
+}
+
+/// Files to make from a book.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ExportBook {
+    /// The id `new_book` or `open_book` returned. The book must have been saved: the files are
+    /// written to an `exports` folder beside it.
+    pub id: String,
+    /// What to make, in this order.
+    pub targets: Vec<ExportTarget>,
+    /// How print files hold colour; left out, sRGB as drawn.
+    #[serde(default)]
+    pub colour: ExportColour,
 }
 
 /// Folio's tools for an agent, over the books of one `Books`.
@@ -300,6 +355,148 @@ impl FolioServer {
     }
 
     #[tool(
+        description = "Changes a book: applies a list of intents (see the `folio://guide/intents` resource) as one step the person can undo, or none of them if one is refused. Answers with the new revision. Look at the result with `render_page`.",
+        annotations(read_only_hint = false, destructive_hint = false)
+    )]
+    async fn apply_intents(
+        &self,
+        Parameters(ApplyIntents { id, intents }): Parameters<ApplyIntents>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let mut parsed = Vec::with_capacity(intents.len());
+        for (index, value) in intents.into_iter().enumerate() {
+            match serde_json::from_value::<Intent>(value) {
+                Ok(intent) => parsed.push(intent),
+                Err(e) => {
+                    return Ok(failed(format!(
+                        "intent {index} (counting from 0) is not one Folio knows, so nothing was applied: {e}"
+                    )))
+                }
+            }
+        }
+        let applied = self
+            .blocking(move |books| books.apply_batch(&id, parsed))
+            .await?;
+        Ok(match applied {
+            Ok(outcome) => text(&outcome),
+            Err(e) => failed(e.to_string()),
+        })
+    }
+
+    #[tool(
+        description = "Undoes the last step, which may be the person's or an earlier batch of yours.",
+        annotations(read_only_hint = false, destructive_hint = false)
+    )]
+    async fn undo(
+        &self,
+        Parameters(BookRef { id }): Parameters<BookRef>,
+    ) -> Result<CallToolResult, ErrorData> {
+        Ok(match self.books.undo(&id) {
+            Ok(patch) => text(&json!({ "undone": patch.is_some() })),
+            Err(e) => failed(e.to_string()),
+        })
+    }
+
+    #[tool(
+        description = "Redoes the last undone step.",
+        annotations(read_only_hint = false, destructive_hint = false)
+    )]
+    async fn redo(
+        &self,
+        Parameters(BookRef { id }): Parameters<BookRef>,
+    ) -> Result<CallToolResult, ErrorData> {
+        Ok(match self.books.redo(&id) {
+            Ok(patch) => text(&json!({ "redone": patch.is_some() })),
+            Err(e) => failed(e.to_string()),
+        })
+    }
+
+    #[tool(
+        description = "Saves a book to a `.folio` file, which overwrites the file if there is one.",
+        annotations(read_only_hint = false, destructive_hint = true)
+    )]
+    async fn save_book(
+        &self,
+        Parameters(SaveBook { id, path }): Parameters<SaveBook>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let saved = self
+            .blocking(move |books| books.save(&id, path.as_deref().map(Path::new)))
+            .await?;
+        Ok(match saved {
+            Ok(summary) => text(&summary),
+            Err(e) => failed(e.to_string()),
+        })
+    }
+
+    #[tool(
+        description = "Closes a book without saving it. Unsaved changes are lost.",
+        annotations(read_only_hint = false, destructive_hint = true)
+    )]
+    async fn close_book(
+        &self,
+        Parameters(BookRef { id }): Parameters<BookRef>,
+    ) -> Result<CallToolResult, ErrorData> {
+        Ok(match self.books.close(&id) {
+            Ok(()) => text(&json!({ "closed": id })),
+            Err(e) => failed(e.to_string()),
+        })
+    }
+
+    #[tool(
+        description = "Brings a manuscript (Markdown, plain text, Word, OpenDocument or Rich Text) in as the story of the book's first text flow, as one undo step. Answers with a report of the chapters found, what was left out, and the document's styles and the Folio style each got.",
+        annotations(read_only_hint = false, destructive_hint = false)
+    )]
+    async fn import_manuscript(
+        &self,
+        Parameters(ImportFile { id, path, styles }): Parameters<ImportFile>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let imported = self
+            .blocking(move |books| books.import_text_with(&id, &path, &styles.unwrap_or_default()))
+            .await?;
+        Ok(match imported {
+            Ok(report) => text(&report),
+            Err(e) => failed(e.to_string()),
+        })
+    }
+
+    #[tool(
+        description = "Brings a picture into the book and answers with its asset path, to give to a `SetImage` intent.",
+        annotations(read_only_hint = false, destructive_hint = false)
+    )]
+    async fn import_picture(
+        &self,
+        Parameters(ImportFile { id, path, .. }): Parameters<ImportFile>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let imported = self
+            .blocking(move |books| books.import_image(&id, Path::new(&path)))
+            .await?;
+        Ok(match imported {
+            Ok(asset) => text(&json!({ "asset": asset })),
+            Err(e) => failed(e.to_string()),
+        })
+    }
+
+    #[tool(
+        description = "Makes files from a book: a sharing PDF, a KDP interior or cover PDF, an EPUB and so on, written to an `exports` folder beside the saved book. Answers with the files made.",
+        annotations(read_only_hint = false, destructive_hint = false)
+    )]
+    async fn export(
+        &self,
+        Parameters(ExportBook {
+            id,
+            targets,
+            colour,
+        }): Parameters<ExportBook>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let made = self
+            .blocking(move |books| books.export(&id, &targets, colour))
+            .await?;
+        Ok(match made {
+            Ok(report) => text(&report),
+            Err(e) => failed(e.to_string()),
+        })
+    }
+
+    #[tool(
         description = "The chapters of the book's story: each heading and where it starts.",
         annotations(read_only_hint = true)
     )]
@@ -323,6 +520,7 @@ impl ServerHandler for FolioServer {
                 .enable_resources()
                 .build(),
         )
+        .with_server_info(Implementation::new("folio-mcp", env!("CARGO_PKG_VERSION")))
         .with_instructions(INSTRUCTIONS)
     }
 
@@ -338,8 +536,14 @@ impl ServerHandler for FolioServer {
                 .into(),
         );
         intents.mime_type = Some("application/schema+json".into());
+        let mut guide = Resource::new(INTENT_GUIDE_URI, "intent-guide");
+        guide.title = Some("Changing a book with intents".into());
+        guide.description = Some(
+            "The intents used most, each with an example. Read this before `apply_intents`.".into(),
+        );
+        guide.mime_type = Some("text/markdown".into());
         Ok(ListResourcesResult {
-            resources: vec![intents],
+            resources: vec![guide, intents],
             ..Default::default()
         })
     }
@@ -349,6 +553,17 @@ impl ServerHandler for FolioServer {
         request: ReadResourceRequestParams,
         _context: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResponse, ErrorData> {
+        if request.uri == INTENT_GUIDE_URI {
+            return Ok(
+                ReadResourceResult::new(vec![ResourceContents::TextResourceContents {
+                    uri: INTENT_GUIDE_URI.into(),
+                    mime_type: Some("text/markdown".into()),
+                    text: INTENT_GUIDE.into(),
+                    meta: None,
+                }])
+                .into(),
+            );
+        }
         if request.uri != INTENT_SCHEMA_URI {
             return Err(ErrorData::invalid_params(
                 format!("no resource {}", request.uri),

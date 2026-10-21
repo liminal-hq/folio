@@ -42,6 +42,13 @@ pub enum Error {
     /// The book is already open somewhere else: in another Folio window, or held by an agent.
     #[error("`{0}` is already open in another window or program, so it cannot be opened here too")]
     Locked(String),
+    /// One intent of a batch was refused, and the batch was taken back whole.
+    #[error("intent {index} (counting from 0) was refused, so none of the {total} were applied: {message}")]
+    Batch {
+        index: usize,
+        total: usize,
+        message: String,
+    },
     /// A window asked for a spread the book does not have.
     #[error("the book has no spread `{0}`")]
     NoSuchSpread(String),
@@ -57,6 +64,7 @@ impl Error {
             Error::NoSuchBook(_) => "noSuchBook",
             Error::NeedsPath => "needsPath",
             Error::Locked(_) => "locked",
+            Error::Batch { .. } => "batch",
             Error::Preset(_) => "preset",
             Error::Package(PackageError::NotFolio(_)) => "notFolio",
             Error::Package(PackageError::NewerFormat { .. } | PackageError::NewerSchema { .. }) => {

@@ -104,3 +104,95 @@ async fn the_intent_schema_is_a_resource() {
     assert!(json.contains("MoveFrame"), "the schema names the intents");
     client.cancel().await.unwrap();
 }
+
+#[test]
+fn every_example_in_the_intent_guide_is_an_intent() {
+    let mut seen = 0;
+    let mut rest = folio_mcp::server::INTENT_GUIDE;
+    while let Some(start) = rest.find("```json\n") {
+        let body = &rest[start + 8..];
+        let end = body.find("```").expect("a closed block");
+        let example = &body[..end];
+        if let Err(e) = serde_json::from_str::<folio_model::Intent>(example) {
+            panic!("this example is not an intent: {e}\n{example}");
+        }
+        seen += 1;
+        rest = &body[end..];
+    }
+    assert!(seen >= 8, "the guide has its examples: {seen}");
+}
+
+#[tokio::test]
+async fn an_agent_changes_a_book_in_one_undoable_step_and_exports_it() {
+    let client = connect().await;
+    let made = client.call_tool(call("new_book", json!({}))).await.unwrap();
+    let made: Value = serde_json::from_str(&first_text(&made.content)).unwrap();
+    let id = made["id"].as_str().unwrap().to_owned();
+    let cover = made["book"]["spreads"][0]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let frame = made["book"]["spreads"][0]["frames"][0]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let moved = |x: f64| {
+        json!({"type": "MoveFrame", "on": {"spread": cover}, "frame": frame,
+               "box": {"x": x, "y": 0, "w": 100, "h": 100}})
+    };
+
+    // Two intents, one step.
+    let applied = client
+        .call_tool(call(
+            "apply_intents",
+            json!({"id": id, "intents": [moved(10.0), moved(20.0)]}),
+        ))
+        .await
+        .unwrap();
+    assert_ne!(applied.is_error, Some(true), "{:?}", applied.content);
+    let applied: Value = serde_json::from_str(&first_text(&applied.content)).unwrap();
+    assert_eq!(applied["applied"], 2);
+
+    // An intent Folio does not know is refused with the reason, and nothing is applied.
+    let unknown = client
+        .call_tool(call(
+            "apply_intents",
+            json!({"id": id, "intents": [moved(30.0), {"type": "Teleport"}]}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(unknown.is_error, Some(true));
+    assert!(first_text(&unknown.content).contains("intent 1"));
+
+    // One undo takes the whole batch back.
+    client
+        .call_tool(call("undo", json!({"id": id})))
+        .await
+        .unwrap();
+    let book = client
+        .call_tool(call("get_book", json!({"id": id})))
+        .await
+        .unwrap();
+    let book: Value = serde_json::from_str(&first_text(&book.content)).unwrap();
+    assert_eq!(book["canUndo"], false);
+
+    // Saved, it exports a PDF.
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("Pip").join("Pip.folio");
+    client
+        .call_tool(call(
+            "save_book",
+            json!({"id": id, "path": file.to_string_lossy()}),
+        ))
+        .await
+        .unwrap();
+    let exported = client
+        .call_tool(call("export", json!({"id": id, "targets": ["sharingPdf"]})))
+        .await
+        .unwrap();
+    assert_ne!(exported.is_error, Some(true), "{:?}", exported.content);
+    let report: Value = serde_json::from_str(&first_text(&exported.content)).unwrap();
+    let pdf = std::fs::read(report["files"][0]["path"].as_str().unwrap()).unwrap();
+    assert!(pdf.starts_with(b"%PDF-"));
+    client.cancel().await.unwrap();
+}
