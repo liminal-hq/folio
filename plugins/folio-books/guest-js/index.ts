@@ -44,6 +44,9 @@ const PREFIX = 'plugin:folio-books|';
 /** Sent to every window after a change to an open book; the payload is a `PatchEvent`. */
 export const PATCH_EVENT = 'folio-books://patch';
 
+/** Sent to every window when the main window shows another book; the payload is its id or `null`. */
+export const ACTIVE_EVENT = 'folio-books://active';
+
 /** Sent to every window when books open, close, save or become changed or clean; a `BooksChanged`. */
 export const CHANGED_EVENT = 'folio-books://changed';
 
@@ -279,6 +282,21 @@ export function importText(
 	mapping?: Record<string, string>,
 ): Promise<ImportReport> {
 	return cmd<ImportReport>('import_text', { id, path, mapping: mapping ?? null });
+}
+
+/** Says which book the main window is showing, so other windows can follow it. */
+export function setActiveBook(id: string | null): Promise<void> {
+	return cmd<void>('set_active_book', { id });
+}
+
+/** The book the main window is showing; `null` when none is. */
+export function activeBook(): Promise<string | null> {
+	return cmd<string | null>('active_book');
+}
+
+/** Called when the main window shows another book. */
+export function onActiveBook(listener: (id: string | null) => void): Promise<UnlistenFn> {
+	return listen<string | null>(ACTIVE_EVENT, (e) => listener(e.payload));
 }
 
 /** The spread templates a book can add, each drawn at the book's size. */

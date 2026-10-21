@@ -56,6 +56,9 @@ import {
 	previewNewBook,
 	templateGallery,
 	applyTemplate,
+	setActiveBook,
+	activeBook,
+	onActiveBook,
 	onBooksChanged,
 	onPatch,
 	openBook,
@@ -89,6 +92,8 @@ import {
 export interface BooksListener {
 	onPatch(event: PatchEvent): void;
 	onChanged(event: BooksChanged): void;
+	/** The main window showed another book (or none). Only a window that follows it listens. */
+	onActive?(id: string | null): void;
 }
 
 /** What the page needs from the books: Rust owns them, so every call goes through it. */
@@ -102,6 +107,10 @@ export interface BooksClient {
 	previewNewBook(spec: NewBookSpec): Promise<string>;
 	/** The spread templates a book can add, each drawn at the book's size. */
 	templateGallery(id: string): Promise<TemplateGallery>;
+	/** Says which book the main window is showing, so other windows can follow it. */
+	setActiveBook(id: string | null): Promise<void>;
+	/** The book the main window is showing, for a window that opens after it was chosen. */
+	activeBook(): Promise<string | null>;
 	/** Adds a spread template after a spread, as one undo step. */
 	applyTemplate(id: string, template: string, after: string): Promise<Patch>;
 	openBook(path: string): Promise<BookSnapshot>;
@@ -188,6 +197,8 @@ export const tauriBooksClient: BooksClient = {
 	previewNewBook,
 	templateGallery,
 	applyTemplate,
+	setActiveBook,
+	activeBook,
 	openBook,
 	saveBook,
 	closeBook,
@@ -229,9 +240,11 @@ export const tauriBooksClient: BooksClient = {
 	removeDictionary,
 	onDictionaryProgress,
 	async subscribe(listener) {
+		const { onActive } = listener;
 		const stops = await Promise.all([
 			onPatch((event) => listener.onPatch(event)),
 			onBooksChanged((event) => listener.onChanged(event)),
+			...(onActive ? [onActiveBook((id) => onActive(id))] : []),
 		]);
 		return () => stops.forEach((stop) => stop());
 	},

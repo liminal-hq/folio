@@ -120,7 +120,12 @@ export interface FakeBooks {
 	/** Everything the page called, in order, as `name(args)`. */
 	calls: string[];
 	/** Sends an event as if another window had changed a book. */
-	emit: { patch(event: PatchEvent): void; changed(): void };
+	emit: {
+		patch(event: PatchEvent): void;
+		changed(): void;
+		/** The main window showed another book. */
+		active(id: string | null): void;
+	};
 	/** Makes the next call named `name` fail with a refusal. */
 	refuseNext(name: string, kind: string, message: string): void;
 	/** Holds each export at the file it has reached until the returned function is called. */
@@ -143,6 +148,8 @@ export function createFakeBooksClient(): FakeBooks {
 	const calls: string[] = [];
 	const refusals = new Map<string, { kind: string; message: string }>();
 	let counter = 0;
+	/** The book the main window says it is showing. */
+	let shown: string | null = null;
 	const misspelt: string[] = [];
 	const installedFonts: string[] = [];
 	const preflightItems: PreflightItem[] = [];
@@ -251,6 +258,15 @@ export function createFakeBooksClient(): FakeBooks {
 		async previewNewBook(spec: NewBookSpec) {
 			await call('previewNewBook', [spec]);
 			return `data:image/png;base64,${btoa(spec.coverColour)}`;
+		},
+		async setActiveBook(id) {
+			await call('setActiveBook', [id]);
+			shown = id;
+			listeners.forEach((l) => l.onActive?.(id));
+		},
+		async activeBook() {
+			await call('activeBook');
+			return shown;
 		},
 		async templateGallery(id) {
 			await call('templateGallery', [id]);
@@ -765,6 +781,10 @@ export function createFakeBooksClient(): FakeBooks {
 		emit: {
 			patch: (event) => listeners.forEach((l) => l.onPatch(event)),
 			changed,
+			active: (id) => {
+				shown = id;
+				listeners.forEach((l) => l.onActive?.(id));
+			},
 		},
 		refuseNext: (name, kind, message) => refusals.set(name, { kind, message }),
 		holdExport: () => {

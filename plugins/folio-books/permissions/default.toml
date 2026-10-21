@@ -6,6 +6,8 @@ permissions = [
   "allow-preview-new-book",
   "allow-template-gallery",
   "allow-apply-template",
+  "allow-set-active-book",
+  "allow-active-book",
   "allow-paint-presets",
   "allow-default-save-path",
   "allow-new-book",
