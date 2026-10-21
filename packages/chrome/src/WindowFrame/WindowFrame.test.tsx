@@ -6,6 +6,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import type { WindowControls } from '../TitleBar/windowControls';
 import { describe, expect, it, vi } from 'vitest';
+import { Dialog } from '../Dialog/Dialog';
 import { WindowChromeProvider } from '../WindowChromeProvider/WindowChromeProvider';
 import { WindowFrame } from './WindowFrame';
 
@@ -117,5 +118,24 @@ describe('WindowFrame', () => {
 		);
 		const frame = screen.getByText('inside').parentElement!.parentElement!;
 		expect(frame.getAttribute('data-focused')).toBe('true');
+	});
+
+	it('dims its own surface while a dialog is open, and says so to dialogs', () => {
+		const view = (open: boolean) => (
+			<WindowChromeProvider controls={controls(false)}>
+				<WindowFrame>
+					<p>inside</p>
+					<Dialog open={open} onClose={() => {}} title="Question" />
+				</WindowFrame>
+			</WindowChromeProvider>
+		);
+		const { rerender } = render(view(false));
+		const frame = screen.getByText('inside').parentElement!.parentElement!;
+		expect(frame.getAttribute('data-dimmed')).toBe('false');
+		expect(document.documentElement.dataset.framedWindow).toBe('true');
+		rerender(view(true));
+		expect(frame.getAttribute('data-dimmed')).toBe('true');
+		rerender(view(false));
+		expect(frame.getAttribute('data-dimmed')).toBe('false');
 	});
 });
