@@ -187,4 +187,26 @@ describe('createBooksStore', () => {
 		expect(store.state.getState().error).toBeNull();
 		expect(activeBook(store.state.getState())?.summary.dirty).toBe(false);
 	});
+
+	it('tells the other windows which book it shows, and a follower shows that one', async () => {
+		const fake = createFakeBooksClient();
+		const main = createBooksStore(fake.client);
+		await main.start();
+		const first = await main.newBook({ title: 'First' });
+		const second = await main.newBook({ title: 'Second' });
+		await new Promise((r) => setTimeout(r, 0));
+		expect(fake.calls).toContain(`setActiveBook("${second!.summary.id}")`);
+		// A window that opens late asks for the book and shows it.
+		const tools = createBooksStore(fake.client, 'follow');
+		await tools.start();
+		expect(tools.state.getState().activeId).toBe(second!.summary.id);
+		// And it moves when the main window moves.
+		await main.setActive(first!.summary.id);
+		await new Promise((r) => setTimeout(r, 0));
+		expect(tools.state.getState().activeId).toBe(first!.summary.id);
+		// A follower never says anything of its own.
+		const before = fake.calls.filter((c) => c.startsWith('setActiveBook')).length;
+		await tools.setActive(second!.summary.id);
+		expect(fake.calls.filter((c) => c.startsWith('setActiveBook')).length).toBe(before);
+	});
 });

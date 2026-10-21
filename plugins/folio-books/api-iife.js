@@ -9,6 +9,8 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     const PREFIX = 'plugin:folio-books|';
     /** Sent to every window after a change to an open book; the payload is a `PatchEvent`. */
     const PATCH_EVENT = 'folio-books://patch';
+    /** Sent to every window when the main window shows another book; the payload is its id or `null`. */
+    const ACTIVE_EVENT = 'folio-books://active';
     /** Sent to every window when books open, close, save or become changed or clean; a `BooksChanged`. */
     const CHANGED_EVENT = 'folio-books://changed';
     /** Sent to every window while a dictionary downloads. */
@@ -149,6 +151,18 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function importText(id, path, mapping) {
         return cmd('import_text', { id, path, mapping: mapping ?? null });
     }
+    /** Says which book the main window is showing, so other windows can follow it. */
+    function setActiveBook(id) {
+        return cmd('set_active_book', { id });
+    }
+    /** The book the main window is showing; `null` when none is. */
+    function activeBook() {
+        return cmd('active_book');
+    }
+    /** Called when the main window shows another book. */
+    function onActiveBook(listener) {
+        return event.listen(ACTIVE_EVENT, (e) => listener(e.payload));
+    }
     /** The spread templates a book can add, each drawn at the book's size. */
     function templateGallery(id) {
         return cmd('template_gallery', { id });
@@ -222,10 +236,12 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
         return cmd('spell_check_book', { id, personal });
     }
 
+    exports.ACTIVE_EVENT = ACTIVE_EVENT;
     exports.CHANGED_EVENT = CHANGED_EVENT;
     exports.DICTIONARY_PROGRESS_EVENT = DICTIONARY_PROGRESS_EVENT;
     exports.EXPORT_PROGRESS_EVENT = EXPORT_PROGRESS_EVENT;
     exports.PATCH_EVENT = PATCH_EVENT;
+    exports.activeBook = activeBook;
     exports.applyIntent = applyIntent;
     exports.applyTemplate = applyTemplate;
     exports.assetData = assetData;
@@ -249,6 +265,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.listBooks = listBooks;
     exports.listFonts = listFonts;
     exports.newBook = newBook;
+    exports.onActiveBook = onActiveBook;
     exports.onBooksChanged = onBooksChanged;
     exports.onDictionaryProgress = onDictionaryProgress;
     exports.onExportProgress = onExportProgress;
@@ -268,6 +285,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.revealPath = revealPath;
     exports.rewindHistory = rewindHistory;
     exports.saveBook = saveBook;
+    exports.setActiveBook = setActiveBook;
     exports.snapshot = snapshot;
     exports.spellCheck = spellCheck;
     exports.spellCheckBook = spellCheckBook;

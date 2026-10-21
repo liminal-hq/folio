@@ -13,16 +13,19 @@ import { BooksContext } from './useBooks';
 export function BooksProvider({
 	client,
 	dialogs,
+	follow = false,
 	children,
 }: {
 	client: BooksClient;
 	dialogs: FileDialogs;
+	/** Show the book the main window shows, rather than choosing one (the Book tools window). */
+	follow?: boolean;
 	children: ReactNode;
 }) {
 	const value = useMemo(() => {
-		const store = createBooksStore(client);
+		const store = createBooksStore(client, follow ? 'follow' : 'main');
 		return { store, client, dialogs, actions: createBookActions(store, client, dialogs) };
-	}, [client, dialogs]);
+	}, [client, dialogs, follow]);
 
 	useEffect(() => {
 		let active = true;

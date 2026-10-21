@@ -73,6 +73,35 @@ pub async fn apply_template<R: Runtime>(
     books.apply_template(&id, &template, &after)
 }
 
+/// Says which book the main window is showing, and tells every window.
+#[tauri::command]
+pub async fn set_active_book<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: Option<String>,
+) -> Result<(), Error> {
+    *app.state::<crate::ActiveBook>()
+        .0
+        .lock()
+        .expect("the active book is not poisoned") = id.clone();
+    let _ = app.emit(crate::ACTIVE_EVENT, id);
+    Ok(())
+}
+
+/// The book the main window is showing, for a window that opens after it was chosen.
+#[tauri::command]
+pub async fn active_book<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+) -> Result<Option<String>, Error> {
+    Ok(app
+        .state::<crate::ActiveBook>()
+        .0
+        .lock()
+        .expect("the active book is not poisoned")
+        .clone())
+}
+
 /// The colours and gradients the pickers offer.
 #[tauri::command]
 pub async fn paint_presets<R: Runtime>(_window: WebviewWindow<R>) -> Result<PaintPresets, Error> {
