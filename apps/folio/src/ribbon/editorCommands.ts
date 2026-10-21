@@ -71,6 +71,7 @@ export type EditorAction =
 	| { kind: 'fit'; frame: string; fit: 'fill' | 'fit' }
 	| { kind: 'preview'; mode: 'print' | 'kindle' | 'kobo' }
 	| { kind: 'checkBook' }
+	| { kind: 'templates' }
 	| { kind: 'softProof' }
 	| { kind: 'coverSheet' }
 	| { kind: 'barcode' }
@@ -182,6 +183,7 @@ export function editorState(input: EditorInput): EditorState {
 	if (input.master) active.master = true;
 	available.add('master');
 	available.add('preflight');
+	if (!input.master) available.add('templates');
 	available.add('softProof');
 	available.add('coverSheet');
 	available.add('barcode');
@@ -262,6 +264,8 @@ export function editorAction(
 			return { kind: 'preview', mode: id };
 		case 'preflight':
 			return { kind: 'checkBook' };
+		case 'templates':
+			return { kind: 'templates' };
 		case 'softProof':
 			return { kind: 'softProof' };
 		case 'coverSheet':

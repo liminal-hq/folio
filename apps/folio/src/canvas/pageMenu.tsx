@@ -14,6 +14,7 @@ export type PageCommand =
 	| 'addPicture'
 	| 'addNote'
 	| 'addPages'
+	| 'addTemplate'
 	| 'duplicateSpread'
 	| 'toggleMargins'
 	| 'toggleGrid'
@@ -52,6 +53,12 @@ export function pageMenuItems(
 		: [
 				{ type: 'separator' },
 				{ type: 'action', id: 'addPages', label: t('page.addPages'), icon: <AddPagesIcon /> },
+				{
+					type: 'action',
+					id: 'addTemplate',
+					label: t('page.addTemplate'),
+					icon: <AddPagesIcon />,
+				},
 				{
 					type: 'action',
 					id: 'duplicateSpread',
