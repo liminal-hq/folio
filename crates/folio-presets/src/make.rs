@@ -26,7 +26,8 @@ pub struct NewBook {
     pub settings: Value,
 }
 
-fn random_id(prefix: &str) -> String {
+/// A new id: the prefix, an underscore and twelve hex digits.
+pub fn random_id(prefix: &str) -> String {
     let id = uuid::Uuid::new_v4().simple().to_string();
     format!("{prefix}_{}", &id[..12])
 }
