@@ -441,8 +441,9 @@ fn a_picture_at_the_fold_of_an_opener_needs_no_bleed_there() {
     spread.frames.push(Frame::Image(ImageFrame {
         base: FrameBase {
             id: FrameId("pic".into()),
+            // From the fold (the page's own left edge) out past the right edge into the bleed.
             rect: Rect {
-                x: Pt(w),
+                x: Pt(0.0),
                 y: Pt(-bleed),
                 w: Pt(w + bleed),
                 h: Pt(h + bleed * 2.0),
