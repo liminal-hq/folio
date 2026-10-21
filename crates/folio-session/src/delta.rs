@@ -92,6 +92,7 @@ pub struct Delta {
     pub styles: Styles,
     pub barcode: BarcodeChoice,
     pub fonts: Vec<BookFont>,
+    pub keywords: Vec<String>,
     pub preflight_ignore: Vec<String>,
     /// The flows a step touched, each as it was (or `None` where it did not exist).
     pub flows: Vec<(FlowId, Option<Flow>)>,
@@ -112,6 +113,7 @@ impl Delta {
             styles: book.styles.clone(),
             barcode: book.barcode.clone(),
             fonts: book.fonts.clone(),
+            keywords: book.metadata.keywords.clone(),
             preflight_ignore: book.preflight_ignore.clone(),
             flows: flows
                 .iter()
@@ -174,6 +176,7 @@ impl Delta {
         let was_language = book.language.clone();
         let was_details = Details::of(book);
         let was_paper = book.paper;
+        let was_keywords = book.metadata.keywords.clone();
         let was_styles = book.styles.clone();
         let was_barcode = book.barcode.clone();
         let was_fonts = book.fonts.clone();
@@ -227,6 +230,12 @@ impl Delta {
             book.barcode = self.barcode.clone();
             ops.push(PatchOp::SetBarcode {
                 choice: self.barcode.clone(),
+            });
+        }
+        if was_keywords != self.keywords {
+            book.metadata.keywords = self.keywords.clone();
+            ops.push(PatchOp::SetKeywords {
+                keywords: self.keywords.clone(),
             });
         }
         if was_paper != self.paper {
