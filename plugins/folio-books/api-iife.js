@@ -149,6 +149,14 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function importText(id, path, mapping) {
         return cmd('import_text', { id, path, mapping: mapping ?? null });
     }
+    /** The spread templates a book can add, each drawn at the book's size. */
+    function templateGallery(id) {
+        return cmd('template_gallery', { id });
+    }
+    /** Adds a spread template after a spread, as one undo step. */
+    function applyTemplate(id, template, after) {
+        return cmd('apply_template', { id, template, after });
+    }
     /** The cover sheet as a one-spread book with its layout, for the canvas; `null` with no cover. */
     function coverSheetCanvas(id) {
         return cmd('cover_sheet_canvas', { id });
@@ -219,6 +227,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.EXPORT_PROGRESS_EVENT = EXPORT_PROGRESS_EVENT;
     exports.PATCH_EVENT = PATCH_EVENT;
     exports.applyIntent = applyIntent;
+    exports.applyTemplate = applyTemplate;
     exports.assetData = assetData;
     exports.autosaveBooks = autosaveBooks;
     exports.cancelExport = cancelExport;
@@ -264,6 +273,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.spellCheckBook = spellCheckBook;
     exports.spellSuggest = spellSuggest;
     exports.storyChapters = storyChapters;
+    exports.templateGallery = templateGallery;
     exports.undo = undo;
     exports.unkeepFonts = unkeepFonts;
 

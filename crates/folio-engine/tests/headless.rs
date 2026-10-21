@@ -174,3 +174,31 @@ fn a_batch_with_a_refused_intent_changes_nothing() {
     assert!(!snapshot.can_undo);
     assert!(!snapshot.can_redo);
 }
+
+#[test]
+fn the_template_gallery_draws_every_template_and_adding_one_is_one_undo_step() {
+    let books = Books::new(Arc::new(Recorder::default()));
+    let made = books.new_book(&NewBookSpec::default()).unwrap();
+    let id = made.summary.id.clone();
+    let gallery = books.template_gallery(&id).unwrap();
+    assert_eq!(gallery.home, "Picture book");
+    assert!(gallery.templates.len() >= 20);
+    assert!(gallery
+        .templates
+        .iter()
+        .all(|t| t.image.starts_with("data:image/png;base64,")));
+    // A template goes after the last spread, and one undo takes it away.
+    let spreads = made.book.spreads.len();
+    let last = made.book.spreads.last().unwrap().id.0.clone();
+    books.apply_template(&id, "pb-split", &last).unwrap();
+    let after = books.snapshot(&id).unwrap().book;
+    assert_eq!(after.spreads.len(), spreads + 1);
+    assert!(!after.spreads.last().unwrap().frames.is_empty());
+    books.undo(&id).unwrap().unwrap();
+    assert_eq!(books.snapshot(&id).unwrap().book.spreads.len(), spreads);
+    // A template that does not exist is refused, and so is one after the cover.
+    assert!(books.apply_template(&id, "no-such", &last).is_err());
+    assert!(books
+        .apply_template(&id, "pb-split", &made.book.spreads[0].id.0)
+        .is_err());
+}
