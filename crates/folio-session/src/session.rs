@@ -324,6 +324,11 @@ fn ops_between(before: &Delta, after: &Delta) -> Vec<PatchOp> {
             choice: after.barcode.clone(),
         });
     }
+    if before.keywords != after.keywords {
+        ops.push(PatchOp::SetKeywords {
+            keywords: after.keywords.clone(),
+        });
+    }
     if before.paper != after.paper {
         ops.push(PatchOp::SetPaper { paper: after.paper });
     }

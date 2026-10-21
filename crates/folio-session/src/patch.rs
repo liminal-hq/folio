@@ -35,9 +35,10 @@ pub enum PatchOp {
     RemoveFlow { id: FlowId },
     /// Who makes the barcode on the paperback cover.
     SetBarcode { choice: BarcodeChoice },
-    /// The words on the back cover, whole.
     /// The paper a printed copy is on.
     SetPaper { paper: Paper },
+    /// The keywords a store is told about the book.
+    SetKeywords { keywords: Vec<String> },
     /// The book's styles and swatches, whole.
     SetStyles { styles: Styles },
     /// The title, authors, description and ISBNs.

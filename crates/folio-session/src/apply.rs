@@ -94,6 +94,7 @@ pub enum MergeKey {
     Paragraph(FlowId, usize),
     Style(FrameId),
     Description(FrameId),
+    Keywords,
     Shape(FrameId),
     Focus(FrameId),
     Section(SpreadId),
@@ -352,6 +353,10 @@ fn ensure_free(frame: &Frame) -> Result<(), SessionError> {
     }
     Ok(())
 }
+
+/// How many keywords a book tells a store, and how long each can be.
+const MAX_KEYWORDS: usize = 7;
+const MAX_KEYWORD_LENGTH: usize = 50;
 
 /// The most characters a frame's description can have.
 const MAX_FRAME_DESCRIPTION: usize = 500;
@@ -1318,6 +1323,25 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             }
             Ok(plan)
         }
+        Intent::SetKeywords { keywords } => {
+            if keywords.len() > MAX_KEYWORDS
+                || keywords
+                    .iter()
+                    .any(|k| k.trim().is_empty() || k.chars().count() > MAX_KEYWORD_LENGTH)
+            {
+                return Err(SessionError::BadDetails(format!(
+                    "at most {MAX_KEYWORDS} keywords, each of 1 to {MAX_KEYWORD_LENGTH} characters"
+                )));
+            }
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                flows: Vec::new(),
+                new_flow: None,
+                fresh: Vec::new(),
+                merge: Some(MergeKey::Keywords),
+            })
+        }
         Intent::SetFrameDescription {
             on,
             frame,
@@ -1992,6 +2016,9 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                     frames.push(copy);
                 }
             }
+        }
+        Intent::SetKeywords { keywords } => {
+            book.metadata.keywords = keywords.into_iter().map(|k| k.trim().to_owned()).collect();
         }
         Intent::SetFrameDescription {
             on,

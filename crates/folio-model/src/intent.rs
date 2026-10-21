@@ -133,6 +133,11 @@ pub enum Intent {
         frame: FrameId,
         locked: bool,
     },
+    /// Sets the keywords a store is told about the book, whole: at most seven, each a phrase of at
+    /// most fifty characters. One undo step, merging while they are typed.
+    SetKeywords {
+        keywords: Vec<String>,
+    },
     /// Sets what a frame is, in words, for a reader who cannot see it (a picture's alt text), or
     /// takes it away with `None`. One undo step, merging with the next change of the same frame's
     /// description while it is typed.
