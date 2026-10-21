@@ -1,0 +1,13 @@
+{
+	"name": "folio",
+	"owner": {
+		"name": "Liminal HQ"
+	},
+	"plugins": [
+		{
+			"name": "folio",
+			"source": "./packaging/claude-code",
+			"description": "Make, edit, check and export books in Folio, the local-first book layout app"
+		}
+	]
+}
