@@ -64,9 +64,12 @@ pub fn run() {
             agent::agent_install,
             agent::agent_status,
             app_info::app_info,
-            windows::open_window
+            windows::open_window,
+            windows::open_book_tools,
+            windows::book_tools_area
         ])
         .setup(|app| {
+            tauri::Manager::manage(app, windows::ToolsArea::default());
             recents::wire(app.handle());
             agent::serve(app.handle());
             windows::open_or_focus(app.handle(), WindowKind::Main)?;

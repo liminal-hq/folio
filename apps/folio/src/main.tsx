@@ -38,7 +38,13 @@ function screenFor(kind: WindowKind | null) {
 		case 'Preferences':
 			return <PreferencesScreen />;
 		case 'BookTools':
-			return <BookToolsScreen />;
+			return (
+				<BooksProvider client={tauriBooksClient} dialogs={tauriFileDialogs} follow>
+					<BookToolsScreen />
+				</BooksProvider>
+			);
+		case 'WizardNew':
+			return <NewBookWizard />;
 		case null:
 			return null;
 	}

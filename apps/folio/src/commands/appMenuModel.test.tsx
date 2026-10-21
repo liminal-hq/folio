@@ -90,12 +90,13 @@ describe('the app menu', () => {
 		expect(some?.type === 'submenu' && some.items[0]).not.toHaveProperty('disabled');
 	});
 
-	it('gives the menu bar File, Edit, View and Help, matching the mnemonic ids', () => {
+	it('gives the menu bar File, Edit, View, Tools and Help, matching the mnemonic ids', () => {
 		const bar = buildMenuBar(DEFAULT_SETTINGS, available);
 		expect(bar.map((menu) => ('id' in menu ? menu.id : ''))).toEqual([
 			'menu:file',
 			'menu:edit',
 			'menu:view',
+			'menu:tools',
 			'menu:help',
 		]);
 	});

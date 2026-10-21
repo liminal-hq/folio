@@ -34,6 +34,11 @@ export const messages = {
 	'command.expertMode': 'Expert mode',
 	'command.jax': 'Jax',
 	'command.bookTools': 'Book tools',
+	'command.tools.structure': 'Book structure…',
+	'command.tools.typesetting': 'Typesetting checks…',
+	'command.tools.pictures': 'Pictures…',
+	'command.tools.publishing': 'Publishing helpers…',
+	'menu.tools': 'Tools',
 	'command.preferences': 'Preferences…',
 	'command.shortcuts': 'Keyboard shortcuts',
 	'command.about': 'About Folio',
@@ -60,9 +65,20 @@ export const messages = {
 	'about.details': 'Folio {version} ({identifier}) on {platform}',
 
 	// Book tools
-	'bookTools.heading': 'Book tools',
-	'bookTools.empty':
-		'The workbenches for structure, typesetting, pictures and publishing will open here.',
+	'tools.nav': 'Book tools',
+	'tools.areas': 'Kinds of tool',
+	'tools.area.structure': 'Book structure',
+	'tools.area.typesetting': 'Typesetting checks',
+	'tools.area.pictures': 'Pictures',
+	'tools.area.publishing': 'Publishing helpers',
+	'tools.area.proofing': 'Proofing and review',
+	'tools.area.series': 'Series and editions',
+	'tools.area.accessibility': 'Accessibility',
+	'tools.area.pictureBook': 'Picture-book extras',
+	'tools.later': 'Not built yet',
+	'tools.about': '{title} · {pages} pages',
+	'tools.noBook': 'Open a book in the main window to use these tools on it.',
+	'tools.noTools': 'There is nothing in this group yet.',
 
 	// Check book
 	'preflight.title': 'Check book',
