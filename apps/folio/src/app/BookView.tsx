@@ -137,6 +137,12 @@ export function BookView({
 				: spread,
 		[spread, sheet],
 	);
+	// A barcode box with no barcode in it says it can be made, in grey, and never prints.
+	const barcodeHint = useMemo(() => {
+		const box = onSheet?.frames.find((f) => f.id === 'cover_barcode')?.box;
+		const drawn = onSheet?.frames.some((f) => f.id.startsWith('cover_bar_'));
+		return box && !drawn ? { box, text: t('cover.barcodeHint') } : undefined;
+	}, [onSheet]);
 	const drawnSpread = useMemo(
 		() => (onSheet ? resolveSwatches(onSheet, displays) : onSheet),
 		[onSheet, displays],
@@ -693,6 +699,15 @@ export function BookView({
 							onTurn={(frame, degrees) =>
 								store.apply({ type: 'RotateFrame', on: surface, frame, degrees })
 							}
+							onActivate={(frame) => {
+								// What Folio draws on the cover, the barcode, is made in the barcode dialog.
+								const generated = ['cover_bar', 'cover_isbn', 'cover_addon'];
+								if (!generated.some((p) => frame.startsWith(p)) || spread?.kind !== 'cover')
+									return false;
+								setBarcodeOpen(true);
+								return true;
+							}}
+							hint={barcodeHint}
 							onEditText={(frame, text) => keepAsStep({ type: 'SetText', frame, text })}
 							onEditTable={(frame, edit) => keepAsStep({ type: 'EditTable', frame, edit })}
 							onEditStory={(flow, paragraph) => {
@@ -1005,6 +1020,29 @@ export function BookView({
 				revision={copy.revision}
 				book={book}
 				onSave={(details) => apply({ type: 'SetDetails', details })}
+				onPutDescription={(text) => {
+					const cover = book.spreads[0];
+					if (!cover) return;
+					if (cover.frames.some((f) => f.id === 'blurb')) {
+						apply({ type: 'SetText', frame: 'blurb', text });
+						return;
+					}
+					// The back cover's own page, from its top-left: half an inch in from each edge.
+					const frame = newFrame(
+						'text',
+						{ x: 36, y: 54, w: book.trim.w - 72, h: book.trim.h - 144 },
+						'body',
+					);
+					apply({
+						type: 'AddFrame',
+						on: { spread: cover.id },
+						frame: {
+							...frame,
+							id: 'blurb',
+							content: { inline: [{ text }] },
+						} as unknown as Frame,
+					});
+				}}
 			/>
 			<SoftProofDialog
 				open={proofOpen}
