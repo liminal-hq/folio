@@ -45,7 +45,12 @@ fn every_spread_of_every_kind_has_a_scene_with_a_page_for_each_page() {
         for (scene, spread) in scenes.iter().zip(&book.spreads) {
             assert_eq!(scene.pages.len(), spread.pages.len(), "{kind:?}");
             for page in &scene.pages {
-                assert_eq!(page.width, book.trim.w.0);
+                // The cover is the printed sheet: the back, the spine and the front.
+                if spread.kind == folio_model::SpreadKind::Cover {
+                    assert_eq!(page.width, folio_model::cover_width(&book).0);
+                } else {
+                    assert_eq!(page.width, book.trim.w.0);
+                }
                 assert_eq!(page.height, book.trim.h.0);
             }
         }

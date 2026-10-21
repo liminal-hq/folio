@@ -45,6 +45,7 @@ import { Stage, type ZoomApi } from '../canvas/Stage';
 import type { Speller } from '../canvas/TextEditor';
 import { useSelection } from '../canvas/useSelection';
 import { useAssetUrls } from '../canvas/useAssetUrls';
+import { useCoverSheet } from '../canvas/useCoverSheet';
 import { useSpreadLayout } from '../canvas/useSpreadLayout';
 import type { CommandId } from '../commands/appMenuModel';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
@@ -116,11 +117,31 @@ export function BookView({
 	// What is drawn has each reference to a swatch turned into the colour the swatch shows as.
 	const displays = useMemo(() => swatchDisplays(book), [book.styles]);
 	const drawn = useMemo(() => resolveSwatches(book, displays), [book, displays]);
-	const drawnSpread = useMemo(
-		() => (spread ? resolveSwatches(spread, displays) : spread),
-		[spread, displays],
+	// The cover is the printed sheet: what Folio draws on it (the barcode, the spine) goes over the
+	// frames the book holds, and the folds and safe areas are guides after the person's own.
+	const sheet = useCoverSheet(
+		client,
+		id,
+		copy.revision,
+		master === null && spread?.kind === 'cover',
+		useMemo(() => new Set(spread?.frames.map((f) => f.id)), [spread]),
 	);
-	const layout = useSpreadLayout(
+	const onSheet = useMemo(
+		() =>
+			sheet && spread
+				? {
+						...spread,
+						frames: [...spread.frames, ...sheet.frames],
+						guides: [...spread.guides, ...sheet.guides],
+					}
+				: spread,
+		[spread, sheet],
+	);
+	const drawnSpread = useMemo(
+		() => (onSheet ? resolveSwatches(onSheet, displays) : onSheet),
+		[onSheet, displays],
+	);
+	const spreadLayout = useSpreadLayout(
 		client,
 		id,
 		master ? editing : (spread?.id ?? null),
@@ -128,6 +149,7 @@ export function BookView({
 		master !== null,
 		settings.spelling.enabled ? settings.spelling.personal : null,
 	);
+	const layout = sheet?.layout ?? spreadLayout;
 	// What the stage shows: the pages as printed, or as a Kindle or a Kobo shows them.
 	const [preview, setPreview] = useState<'print' | 'kindle' | 'kobo'>('print');
 	const [selection, select] = useSelection(
@@ -983,28 +1005,6 @@ export function BookView({
 				revision={copy.revision}
 				book={book}
 				onSave={(details) => apply({ type: 'SetDetails', details })}
-				onNotes={(notes) => apply({ type: 'SetBackNotes', notes })}
-				onPickPicture={pickBackgroundPicture}
-				onFrameBoxes={(moves) => {
-					const cover = book.spreads[0];
-					if (!cover) return;
-					apply({
-						type: 'MoveFrames',
-						on: { spread: cover.id },
-						moves: moves.map((m) => ({ frame: m.frame, box: m.box })),
-					});
-				}}
-				onFrameText={(frame, text) => apply({ type: 'SetText', frame, text })}
-				onFrameTurn={(frame, degrees) => {
-					const cover = book.spreads[0];
-					if (cover) apply({ type: 'RotateFrame', on: { spread: cover.id }, frame, degrees });
-				}}
-				onFrameDelete={(frames) => {
-					const cover = book.spreads[0];
-					if (!cover) return;
-					for (const frame of frames)
-						apply({ type: 'DeleteFrame', on: { spread: cover.id }, frame });
-				}}
 			/>
 			<SoftProofDialog
 				open={proofOpen}

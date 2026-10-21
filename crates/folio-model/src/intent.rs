@@ -256,10 +256,6 @@ pub enum Intent {
     SetBarcode {
         choice: BarcodeChoice,
     },
-    /// Sets the words on the back cover, whole. One undo step.
-    SetBackNotes {
-        notes: Vec<crate::BackNote>,
-    },
     /// Sets the paper a printed copy is on. One undo step.
     SetPaper {
         paper: Paper,
