@@ -1133,6 +1133,34 @@ impl Books {
     /// The chapters of the book's stories (paragraphs in the heading style) and the spread each
     /// begins on, in the order of the stories.
     pub fn story_chapters(&self, id: &str) -> Result<Vec<StoryChapter>, Error> {
+        Ok(self
+            .chapter_places(id)?
+            .into_iter()
+            .map(|(title, spread, _)| StoryChapter { title, spread })
+            .collect())
+    }
+
+    /// The chapters of the book with the label of the page each begins on, as the contents lists them.
+    fn contents_entries(&self, id: &str) -> Result<Vec<crate::frontmatter::ContentsEntry>, Error> {
+        let book = self.snapshot(id)?.book;
+        let labels = folio_model::page_labels(&book.spreads);
+        Ok(self
+            .chapter_places(id)?
+            .into_iter()
+            .map(|(title, spread, page)| {
+                let at = book.spreads.iter().position(|s| s.id.0 == spread);
+                let label = at
+                    .and_then(|i| labels.get(i))
+                    .and_then(|pages| pages.get(page).or_else(|| pages.first()))
+                    .map(|l| l.label.clone())
+                    .unwrap_or_default();
+                crate::frontmatter::ContentsEntry { title, page: label }
+            })
+            .collect())
+    }
+
+    /// The first words of each chapter: its title, the spread they are on and which page of it.
+    fn chapter_places(&self, id: &str) -> Result<Vec<(String, String, usize)>, Error> {
         let book = {
             let inner = locked(&self.inner);
             let open = inner
@@ -1142,7 +1170,7 @@ impl Books {
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
             open.session.book().clone()
         };
-        let mut out = Vec::new();
+        let mut out: Vec<(String, String, usize)> = Vec::new();
         for flow in &book.flows {
             let chapters: Vec<(usize, String)> = flow
                 .paragraphs
@@ -1161,26 +1189,36 @@ impl Books {
                 continue;
             }
             // The first spread each of the story's paragraphs is seen on.
-            let mut first_seen: HashMap<u32, String> = HashMap::new();
+            let mut first_seen: HashMap<u32, (String, usize)> = HashMap::new();
             for spread in &book.spreads {
                 let laid = self.layout_spread(id, &spread.id.0, None)?;
                 for frame in &laid.layout.frames {
                     if !flow.frames.iter().any(|f| f.0 == frame.frame.0) {
                         continue;
                     }
+                    // The frame is on the right-hand page when its middle is past the first page.
+                    let page = spread
+                        .frames
+                        .iter()
+                        .find(|f| f.base().id.0 == frame.frame.0)
+                        .map_or(0, |f| {
+                            let r = f.base().rect;
+                            usize::from(
+                                spread.pages.len() > 1 && r.x.0 + r.w.0 / 2.0 > book.trim.w.0,
+                            )
+                        });
                     for line in &frame.lines {
                         if let Some(p) = line.paragraph {
-                            first_seen.entry(p).or_insert_with(|| spread.id.0.clone());
+                            first_seen
+                                .entry(p)
+                                .or_insert_with(|| (spread.id.0.clone(), page));
                         }
                     }
                 }
             }
             for (index, title) in chapters {
-                if let Some(spread) = first_seen.get(&(index as u32)) {
-                    out.push(StoryChapter {
-                        title: title.trim().to_owned(),
-                        spread: spread.clone(),
-                    });
+                if let Some((spread, page)) = first_seen.get(&(index as u32)) {
+                    out.push((title.trim().to_owned(), spread.clone(), *page));
                 }
             }
         }
@@ -1359,17 +1397,25 @@ impl Books {
         request: &crate::tools::ToolRequest,
     ) -> Result<crate::tools::ToolReport, Error> {
         // What layout finds is asked for first, as it takes the books' lock itself.
-        let findings = if matches!(request, crate::tools::ToolRequest::Checklist) {
-            let errors = self
-                .preflight(id)?
-                .iter()
-                .filter(|item| {
-                    item.severity == folio_layout::wire::Severity::Error && !item.ignored
-                })
-                .count();
-            crate::tools::Findings { errors }
-        } else {
-            crate::tools::Findings::default()
+        let findings = match request {
+            crate::tools::ToolRequest::Checklist => {
+                let errors = self
+                    .preflight(id)?
+                    .iter()
+                    .filter(|item| {
+                        item.severity == folio_layout::wire::Severity::Error && !item.ignored
+                    })
+                    .count();
+                crate::tools::Findings {
+                    errors,
+                    ..Default::default()
+                }
+            }
+            crate::tools::ToolRequest::Contents => crate::tools::Findings {
+                contents: self.contents_entries(id)?,
+                ..Default::default()
+            },
+            _ => crate::tools::Findings::default(),
         };
         let (book, facts) = {
             let mut inner = locked(&self.inner);
@@ -1396,7 +1442,15 @@ impl Books {
         fix: &crate::tools::ToolFix,
     ) -> Result<crate::tools::ToolFixed, Error> {
         let book = self.snapshot(id)?.book;
-        let intents = crate::tools::fix_intents(&book, fix);
+        let findings = crate::tools::Findings {
+            contents: if matches!(fix, crate::tools::ToolFix::ContentsPage) {
+                self.contents_entries(id)?
+            } else {
+                Vec::new()
+            },
+            ..Default::default()
+        };
+        let intents = crate::tools::fix_intents(&book, fix, &template_metrics(&book), &findings);
         let changed = intents.len() as u32;
         if changed > 0 {
             self.apply_batch_by(id, intents, None)?;

@@ -7,6 +7,7 @@
 // reach the people looking at them and where the person's folders are, through `Host`.
 
 mod error;
+mod frontmatter;
 mod host;
 mod punctuation;
 mod recovery;
@@ -16,6 +17,7 @@ mod tools;
 mod wire;
 
 pub use error::Error;
+pub use frontmatter::{ContentsEntry, CopyrightFields};
 pub use host::Host;
 pub use punctuation::PunctuationRule;
 pub use recovery::Recovery;

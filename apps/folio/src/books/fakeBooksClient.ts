@@ -281,6 +281,23 @@ export function createFakeBooksClient(): FakeBooks {
 						: [],
 				),
 			);
+			if (request.tool === 'copyright') {
+				return {
+					tool: 'copyright' as const,
+					text: `Copyright © ${request.fields.year} ${request.fields.holder}\n${request.fields.rights}`,
+					present: false,
+				};
+			}
+			if (request.tool === 'contents') {
+				return {
+					tool: 'contents' as const,
+					entries: [
+						{ title: 'The pumpkin', page: '3' },
+						{ title: 'The cat', page: '9' },
+					],
+					present: false,
+				};
+			}
 			if (request.tool === 'punctuation') {
 				return {
 					tool: 'punctuation' as const,
@@ -347,7 +364,9 @@ export function createFakeBooksClient(): FakeBooks {
 			h.future = 0;
 			patch(id, h, h.snapshot.book.bleed + 1);
 			changed();
-			return { changed: fix.tool === 'punctuation' ? 5 : fix.frames.length };
+			if (fix.tool === 'punctuation') return { changed: 5 };
+			if (fix.tool === 'resetStyles') return { changed: fix.frames.length };
+			return { changed: 1 };
 		},
 		async setActiveBook(id) {
 			await call('setActiveBook', [id]);
