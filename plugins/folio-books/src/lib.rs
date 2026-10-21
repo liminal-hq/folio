@@ -29,6 +29,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::get_status,
             commands::presets,
             commands::preview_new_book,
+            commands::template_gallery,
+            commands::apply_template,
             commands::paint_presets,
             commands::default_save_path,
             commands::new_book,

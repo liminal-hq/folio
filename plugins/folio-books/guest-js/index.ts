@@ -21,6 +21,7 @@ import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTa
 import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
 import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
+import type { TemplateGallery } from '@liminal-hq/folio-protocol/generated/TemplateGallery';
 import type { CoverCanvas } from '@liminal-hq/folio-protocol/generated/CoverCanvas';
 import type { StoryChapter } from '@liminal-hq/folio-protocol/generated/StoryChapter';
 import type { ProofSpread } from '@liminal-hq/folio-protocol/generated/ProofSpread';
@@ -278,6 +279,16 @@ export function importText(
 	mapping?: Record<string, string>,
 ): Promise<ImportReport> {
 	return cmd<ImportReport>('import_text', { id, path, mapping: mapping ?? null });
+}
+
+/** The spread templates a book can add, each drawn at the book's size. */
+export function templateGallery(id: string): Promise<TemplateGallery> {
+	return cmd<TemplateGallery>('template_gallery', { id });
+}
+
+/** Adds a spread template after a spread, as one undo step. */
+export function applyTemplate(id: string, template: string, after: string): Promise<Patch> {
+	return cmd<Patch>('apply_template', { id, template, after });
 }
 
 /** The cover sheet as a one-spread book with its layout, for the canvas; `null` with no cover. */

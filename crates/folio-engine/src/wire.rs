@@ -469,3 +469,26 @@ pub struct BookSpelling {
     /// There were more than are listed.
     pub truncated: bool,
 }
+
+/// The spread templates a book can add, the group to show first, and a picture of each as it would
+/// be laid out at this book's size.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct TemplateGallery {
+    /// The group of the book's own kind.
+    pub home: String,
+    pub templates: Vec<TemplateCard>,
+}
+
+/// One template in the gallery.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct TemplateCard {
+    pub id: String,
+    pub group: String,
+    pub name: String,
+    /// A `data:image/png` URI of the spread.
+    pub image: String,
+}
