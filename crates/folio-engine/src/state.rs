@@ -29,6 +29,7 @@ use crate::wire::{
     FontChoice, FontLicence, FontOrigin, FontSkip, FontUse, KeepFontsReport, Misspelling,
     MisspeltWord, PatchEvent, PreviewChapter, PreviewImage, ProofColour, ProofPage, ProofSpread,
     ReaderPreview, Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult, StoryChapter,
+    TemplateCard, TemplateGallery,
 };
 use crate::Host;
 
@@ -1351,6 +1352,91 @@ impl Books {
         }))
     }
 
+    /// The spread templates a book can add, each drawn at this book's size, with the group of the
+    /// book's own kind to show first.
+    pub fn template_gallery(&self, id: &str) -> Result<TemplateGallery, Error> {
+        use base64::Engine as _;
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, layered) = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            (open.session.book().clone(), open.font_book(base))
+        };
+        let fonts = layered.as_deref().unwrap_or(base);
+        let metrics = template_metrics(&book);
+        let styles = style_sheet(&book.styles);
+        let mut cards = Vec::new();
+        for info in folio_presets::templates::list() {
+            let mut ids = folio_presets::random_id;
+            let Some(frames) = folio_presets::templates::build(&info.id, &metrics, &mut ids) else {
+                continue;
+            };
+            // The spread as one page twice as wide, so a single picture shows both pages.
+            let mut shown = book.clone();
+            shown.master_pages.clear();
+            shown.flows.clear();
+            shown.trim.w = folio_model::Pt(book.trim.w.0 * 2.0);
+            shown.spreads = vec![folio_model::Spread {
+                id: SpreadId("sp_template".into()),
+                kind: folio_model::SpreadKind::Single,
+                pages: vec![folio_model::Page {
+                    id: folio_model::PageId("pg_template".into()),
+                    master: None,
+                    bg: None,
+                }],
+                frames,
+                guides: Vec::new(),
+                master_overrides: Vec::new(),
+                bg_span: None,
+                section: None,
+            }];
+            let scene = Layouter::new(&shown, &styles, fonts)
+                .scene_spread(&shown.spreads[0].id)
+                .map_err(|e| Error::Export(e.to_string()))?
+                .and_then(|s| s.pages.into_iter().next())
+                .ok_or_else(|| Error::Export("the template has no page".into()))?;
+            let png = folio_export::raster::page_to_png(
+                &scene,
+                fonts,
+                &MemoryAssets(HashMap::new()),
+                320,
+            )
+            .map_err(|e| Error::Export(e.to_string()))?;
+            cards.push(TemplateCard {
+                id: info.id,
+                group: info.group,
+                name: info.name,
+                image: format!(
+                    "data:image/png;base64,{}",
+                    base64::engine::general_purpose::STANDARD.encode(png)
+                ),
+            });
+        }
+        Ok(TemplateGallery {
+            home: folio_presets::templates::home_group(book.kind).to_owned(),
+            templates: cards,
+        })
+    }
+
+    /// Adds spread template `template` after spread `after` of a book, as one undo step.
+    pub fn apply_template(&self, id: &str, template: &str, after: &str) -> Result<Patch, Error> {
+        let book = self.snapshot(id)?.book;
+        let mut ids = folio_presets::random_id;
+        let frames = folio_presets::templates::build(template, &template_metrics(&book), &mut ids)
+            .ok_or_else(|| Error::Export(format!("there is no spread template `{template}`")))?;
+        self.apply(
+            id,
+            Intent::AddSpreadWith {
+                after: SpreadId(after.into()),
+                frames,
+            },
+        )
+    }
+
     /// The cover sheet as a one-spread book with its layout, for the canvas to draw and edit.
     /// `None` when the book has no cover.
     pub fn cover_sheet_canvas(&self, id: &str) -> Result<Option<CoverCanvas>, Error> {
@@ -1980,4 +2066,15 @@ fn edits_a_story(intent: &Intent) -> bool {
             | Intent::SplitParagraph { .. }
             | Intent::JoinParagraphs { .. }
     )
+}
+
+/// The size of `book` for a spread template, in inches: its page, the margin to keep inside, and
+/// the bleed a picture runs off by.
+fn template_metrics(book: &folio_model::Book) -> folio_presets::templates::Metrics {
+    folio_presets::templates::Metrics {
+        w: book.trim.w.to_in(),
+        h: book.trim.h.to_in(),
+        m: book.margins.outside.to_in().max(0.25),
+        b: book.bleed.to_in(),
+    }
 }

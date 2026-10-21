@@ -13,7 +13,6 @@ use folio_protocol::PluginStatus;
 use folio_session::Patch;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow};
 
-use folio_engine::Error;
 use folio_engine::DICTIONARY_PROGRESS_EVENT;
 use folio_engine::{
     BookSnapshot, BookSpelling, BookSummary, Books, CoverCanvas, CoverSheetPreview,
@@ -21,6 +20,7 @@ use folio_engine::{
     FontUse, KeepFontsReport, ProofSpread, ReaderPreview, Recoverable, SpellCheck,
     SpreadLayoutResult, StoryChapter,
 };
+use folio_engine::{Error, TemplateGallery};
 use folio_import::ImportReport;
 
 /// Reports that books work. They need nothing from the system, so this is always available.
@@ -46,6 +46,31 @@ pub async fn preview_new_book<R: Runtime>(
     spec: NewBookSpec,
 ) -> Result<String, Error> {
     books.preview_new_book(&spec)
+}
+
+/// The spread templates a book can add, each drawn at the book's size.
+#[tauri::command]
+pub async fn template_gallery<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+) -> Result<TemplateGallery, Error> {
+    // Drawing every template is work for a blocking thread, not the async runtime.
+    tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().template_gallery(&id))
+        .await
+        .expect("the gallery task does not panic")
+}
+
+/// Adds a spread template after a spread, as one undo step, and answers with the patch.
+#[tauri::command]
+pub async fn apply_template<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Arc<Books>>,
+    id: String,
+    template: String,
+    after: String,
+) -> Result<Patch, Error> {
+    books.apply_template(&id, &template, &after)
 }
 
 /// The colours and gradients the pickers offer.
