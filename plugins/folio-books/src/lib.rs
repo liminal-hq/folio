@@ -22,6 +22,14 @@ pub use folio_engine::{
 };
 pub use host::TauriHost;
 
+/// Sent to every window when the main window shows another book; the payload is the book's id, or
+/// `null` when none is shown.
+pub const ACTIVE_EVENT: &str = "folio-books://active";
+
+/// The book the main window is showing, so another window (Book tools) can follow it.
+#[derive(Default)]
+pub struct ActiveBook(pub std::sync::Mutex<Option<String>>);
+
 /// Registers the plugin.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("folio-books")
@@ -30,6 +38,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::presets,
             commands::preview_new_book,
             commands::template_gallery,
+            commands::set_active_book,
+            commands::active_book,
             commands::apply_template,
             commands::paint_presets,
             commands::default_save_path,
@@ -81,6 +91,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                 books.recovery.keep_in(dir.join("recovery"));
             }
             app.manage(books);
+            app.manage(ActiveBook::default());
             Ok(())
         })
         .build()
