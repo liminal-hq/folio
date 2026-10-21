@@ -31,8 +31,8 @@ fn app() -> App {
     app
 }
 
-fn books(app: &App) -> tauri::State<'_, Books> {
-    app.state::<Books>()
+fn books(app: &App) -> tauri::State<'_, Arc<Books>> {
+    app.state::<Arc<Books>>()
 }
 
 fn hear<T: serde::de::DeserializeOwned + Send + 'static>(
@@ -1371,7 +1371,7 @@ fn an_export_says_which_file_it_has_reached_and_stops_when_asked() {
     app.listen(EXPORT_PROGRESS_EVENT, move |e| {
         let p: ExportProgress = serde_json::from_str(e.payload()).unwrap();
         if p.done == 1 {
-            handle.state::<Books>().cancel_export();
+            handle.state::<Arc<Books>>().cancel_export();
         }
     });
     let stopped = books(&app)
