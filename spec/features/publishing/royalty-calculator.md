@@ -1,6 +1,6 @@
 # Print cost and royalty calculator
 
-**Area:** Publishing helpers · **Prototype:** `Folio Publishing.dc.html` · **Status:** artboard → merge into Folio
+**Area:** Publishing helpers · **Prototype:** `Folio Publishing.dc.html` · **Status:** partly built — Book tools → Publishing → **Print cost and royalties** (Rust: `ToolRequest::Royalty`) works out the printing cost from the page count, then the royalty on Amazon.com (60%) and expanded distribution (40%), the lowest price that does not lose money, and the ebook royalty (70% from $2.99 to $9.99 less $0.15, else 35%). The printing costs are a dated **estimate** (`PrintCosts::estimate`, 2026-10-21): KDP's own pages disagree about the fixed cost, so Expert can enter the figures KDP's calculator gives ⚠ — check every figure against KDP's live pages before a release. Other markets and currencies are not built
 
 ## What it does
 Estimates printing cost and royalty per sale for paperback/hardcover/eBook across markets.

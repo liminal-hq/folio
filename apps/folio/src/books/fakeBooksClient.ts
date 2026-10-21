@@ -274,6 +274,37 @@ export function createFakeBooksClient(): FakeBooks {
 						: [],
 				),
 			);
+			if (request.tool === 'checklist') {
+				return {
+					tool: 'checklist' as const,
+					items: [
+						{ id: 'title' as const, status: 'done' as const, value: book.title },
+						{ id: 'description' as const, status: 'todo' as const, value: null },
+						{ id: 'keywords' as const, status: 'warning' as const, value: 'otter' },
+					],
+				};
+			}
+			if (request.tool === 'royalty') {
+				const printCost = 1 + 24 * 0.012;
+				return {
+					tool: 'royalty' as const,
+					pages: 24,
+					printCost,
+					costs: { fixed: 1, perPage: 0.012, asOf: '2026-10-21' },
+					sales: [
+						{
+							market: 'amazonCom' as const,
+							royalty: Math.max(0, request.listPrice * 0.6 - printCost),
+						},
+						{
+							market: 'expandedDistribution' as const,
+							royalty: Math.max(0, request.listPrice * 0.4 - printCost),
+						},
+					],
+					minimumPrice: printCost / 0.6,
+					ebookRoyalty: request.ebookPrice * 0.35,
+				};
+			}
 			return { tool: 'pictures' as const, rows };
 		},
 		async setActiveBook(id) {

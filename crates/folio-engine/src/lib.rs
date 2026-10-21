@@ -19,7 +19,10 @@ pub use host::Host;
 pub use recovery::Recovery;
 pub use spelling::Spelling;
 pub use state::{BookEvent, BookHook, Books};
-pub use tools::{PictureRow, PictureStatus, ToolReport, ToolRequest};
+pub use tools::{
+    ChecklistId, ChecklistItem, ChecklistStatus, Findings, Market, PictureRow, PictureStatus,
+    PrintCosts, SaleRoyalty, ToolReport, ToolRequest,
+};
 pub use wire::*;
 
 /// Sent to every window after a change to an open book, with a `PatchEvent`.

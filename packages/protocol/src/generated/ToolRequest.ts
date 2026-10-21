@@ -3,4 +3,8 @@
 /**
  * What a tool is asked for.
  */
-export type ToolRequest = { "tool": "pictures" };
+export type ToolRequest = { "tool": "pictures" } | { "tool": "checklist" } | { "tool": "royalty", hardcover: boolean, colour: boolean, 
+/**
+ * The list price of the printed book, and of the ebook, in dollars.
+ */
+listPrice: number, ebookPrice: number, fixedCost: number | null, perPageCost: number | null, };
