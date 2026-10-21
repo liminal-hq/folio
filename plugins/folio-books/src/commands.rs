@@ -20,7 +20,7 @@ use folio_engine::{
     FontUse, KeepFontsReport, ProofSpread, ReaderPreview, Recoverable, SpellCheck,
     SpreadLayoutResult, StoryChapter,
 };
-use folio_engine::{Error, TemplateGallery};
+use folio_engine::{Error, TemplateGallery, ToolReport, ToolRequest};
 use folio_import::ImportReport;
 
 /// Reports that books work. They need nothing from the system, so this is always available.
@@ -71,6 +71,19 @@ pub async fn apply_template<R: Runtime>(
     after: String,
 ) -> Result<Patch, Error> {
     books.apply_template(&id, &template, &after)
+}
+
+/// Answers a Book tool's request for a book.
+#[tauri::command]
+pub async fn book_tool<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    request: ToolRequest,
+) -> Result<ToolReport, Error> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().book_tool(&id, &request))
+        .await
+        .expect("the tool task does not panic")
 }
 
 /// Says which book the main window is showing, and tells every window.

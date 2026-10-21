@@ -6,7 +6,8 @@
 import { useState } from 'react';
 import { t } from '../i18n/messages';
 import styles from './ToolShell.module.css';
-import { AREAS, LATER_AREAS, toolsIn, type ToolArea, type ToolProps } from './tools';
+import { toolsIn } from './registry';
+import { AREAS, LATER_AREAS, type ToolArea, type ToolProps } from './tools';
 
 interface ToolShellProps {
 	area: ToolArea;
