@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 pub mod host;
+pub mod install;
 pub mod live;
 pub mod server;
 
