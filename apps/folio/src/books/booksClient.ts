@@ -7,6 +7,7 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { TemplateGallery } from '@liminal-hq/folio-protocol/generated/TemplateGallery';
 import type { CoverCanvas } from '@liminal-hq/folio-protocol/generated/CoverCanvas';
 import type { StoryChapter } from '@liminal-hq/folio-protocol/generated/StoryChapter';
 import type { ProofSpread } from '@liminal-hq/folio-protocol/generated/ProofSpread';
@@ -53,6 +54,8 @@ import {
 	listBooks,
 	newBook,
 	previewNewBook,
+	templateGallery,
+	applyTemplate,
 	onBooksChanged,
 	onPatch,
 	openBook,
@@ -97,6 +100,10 @@ export interface BooksClient {
 	newBook(spec: Partial<NewBookSpec>): Promise<BookSnapshot>;
 	/** The cover of the book `spec` would make, as a `data:image/png` URI. */
 	previewNewBook(spec: NewBookSpec): Promise<string>;
+	/** The spread templates a book can add, each drawn at the book's size. */
+	templateGallery(id: string): Promise<TemplateGallery>;
+	/** Adds a spread template after a spread, as one undo step. */
+	applyTemplate(id: string, template: string, after: string): Promise<Patch>;
 	openBook(path: string): Promise<BookSnapshot>;
 	saveBook(id: string, path?: string): Promise<BookSummary>;
 	closeBook(id: string): Promise<void>;
@@ -179,6 +186,8 @@ export const tauriBooksClient: BooksClient = {
 	defaultSavePath,
 	newBook,
 	previewNewBook,
+	templateGallery,
+	applyTemplate,
 	openBook,
 	saveBook,
 	closeBook,

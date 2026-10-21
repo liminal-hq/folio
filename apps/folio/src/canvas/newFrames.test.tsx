@@ -68,6 +68,12 @@ describe('pageMenuItems', () => {
 			pageMenuItems(DEFAULT_MARKS, true, [item]).some((i) => i.id === 'hideMaster:p1:fr_pn_a'),
 		).toBe(true);
 	});
+	it('offers a template with the other ways to add a spread, but not on a master page', () => {
+		expect(pageMenuItems(DEFAULT_MARKS, true).some((i) => i.id === 'addTemplate')).toBe(true);
+		expect(pageMenuItems(DEFAULT_MARKS, true, [], true).some((i) => i.id === 'addTemplate')).toBe(
+			false,
+		);
+	});
 	it('does not offer to duplicate the cover', () => {
 		expect(
 			pageMenuItems(DEFAULT_MARKS, false).find((i) => i.id === 'duplicateSpread'),
