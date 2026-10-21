@@ -62,6 +62,7 @@ export function BookToolsScreen({ client = tauriToolsClient }: { client?: ToolsC
 									client: books,
 									id: active.summary.id,
 									book,
+									revision: active.copy.revision,
 									expert: settings.mode === 'expert',
 									apply: (intent) => store.apply(intent),
 								}

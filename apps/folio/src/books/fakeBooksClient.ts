@@ -259,6 +259,30 @@ export function createFakeBooksClient(): FakeBooks {
 			await call('previewNewBook', [spec]);
 			return `data:image/png;base64,${btoa(spec.coverColour)}`;
 		},
+		async bookTool(id, request) {
+			await call('bookTool', [id, request]);
+			const book = find(id).snapshot.book;
+			const rows = book.spreads.flatMap((spread) =>
+				spread.frames.flatMap((frame) =>
+					frame.type === 'image'
+						? [
+								{
+									spread: spread.id,
+									frame: frame.id,
+									asset: frame.image.asset ?? null,
+									width: frame.image.asset ? 1200 : null,
+									height: frame.image.asset ? 900 : null,
+									ppi: frame.image.asset ? 250 : null,
+									fit: frame.image.fit,
+									description: frame.description ?? null,
+									status: frame.image.asset ? ('low' as const) : ('empty' as const),
+								},
+							]
+						: [],
+				),
+			);
+			return { tool: 'pictures' as const, rows };
+		},
 		async setActiveBook(id) {
 			await call('setActiveBook', [id]);
 			shown = id;

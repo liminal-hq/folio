@@ -196,3 +196,27 @@ async fn an_agent_changes_a_book_in_one_undoable_step_and_exports_it() {
     assert!(pdf.starts_with(b"%PDF-"));
     client.cancel().await.unwrap();
 }
+
+#[tokio::test]
+async fn an_agent_asks_a_book_tool_what_it_finds() {
+    let client = connect().await;
+    let made = client.call_tool(call("new_book", json!({}))).await.unwrap();
+    let made: Value = serde_json::from_str(&first_text(&made.content)).unwrap();
+    let id = made["id"].as_str().unwrap().to_owned();
+    let found = client
+        .call_tool(call(
+            "book_report",
+            json!({ "id": id, "request": { "tool": "pictures" } }),
+        ))
+        .await
+        .unwrap();
+    assert_ne!(found.is_error, Some(true), "{found:?}");
+    let report: Value = serde_json::from_str(&first_text(&found.content)).unwrap();
+    assert_eq!(report["tool"], "pictures");
+    // The sample cover has its picture frame with nothing put in it yet.
+    assert!(report["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|row| row["status"] == "empty"));
+}
