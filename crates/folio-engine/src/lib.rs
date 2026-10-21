@@ -8,6 +8,7 @@
 
 mod error;
 mod host;
+mod punctuation;
 mod recovery;
 mod spelling;
 mod state;
@@ -16,12 +17,14 @@ mod wire;
 
 pub use error::Error;
 pub use host::Host;
+pub use punctuation::PunctuationRule;
 pub use recovery::Recovery;
 pub use spelling::Spelling;
 pub use state::{BookEvent, BookHook, Books};
 pub use tools::{
     ChecklistId, ChecklistItem, ChecklistStatus, Findings, Market, PictureRow, PictureStatus,
-    PrintCosts, SaleRoyalty, ToolReport, ToolRequest,
+    PrintCosts, PunctuationExample, PunctuationFound, SaleRoyalty, StyleStray, ToolFix, ToolFixed,
+    ToolReport, ToolRequest,
 };
 pub use wire::*;
 

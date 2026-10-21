@@ -1,6 +1,6 @@
 # Consistent styles check
 
-**Area:** Typesetting quality · **Prototype:** `Folio Typesetting.dc.html` · **Status:** artboard → merge into Folio
+**Area:** Typesetting quality · **Prototype:** `Folio Typesetting.dc.html` · **Status:** partly built — Book tools → Typesetting checks → **Consistent styles** (Rust: `ToolRequest::Styles`, `ToolFix::ResetStyles`) lists text boxes that set their own size, alignment, weight, slant or typeface over the style they name, and puts one or all back in one undo step; making a new style from what the boxes share and run-level differences are not built
 
 ## What it does
 Finds local formatting that drifts from the paragraph style (e.g. one chapter in 11.5 pt), and offers to reset or turn it into a style.

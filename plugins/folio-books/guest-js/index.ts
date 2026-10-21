@@ -21,6 +21,8 @@ import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTa
 import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
 import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
+import type { ToolFix } from '@liminal-hq/folio-protocol/generated/ToolFix';
+import type { ToolFixed } from '@liminal-hq/folio-protocol/generated/ToolFixed';
 import type { ToolReport } from '@liminal-hq/folio-protocol/generated/ToolReport';
 import type { ToolRequest } from '@liminal-hq/folio-protocol/generated/ToolRequest';
 import type { TemplateGallery } from '@liminal-hq/folio-protocol/generated/TemplateGallery';
@@ -289,6 +291,11 @@ export function importText(
 /** Asks a Book tool about a book; the answer is worked out in Rust. */
 export function bookTool(id: string, request: ToolRequest): Promise<ToolReport> {
 	return cmd<ToolReport>('book_tool', { id, request });
+}
+
+/** Makes a Book tool's change to a book as one undo step. */
+export function bookToolFix(id: string, fix: ToolFix): Promise<ToolFixed> {
+	return cmd<ToolFixed>('book_tool_fix', { id, fix });
 }
 
 /** Says which book the main window is showing, so other windows can follow it. */

@@ -2,12 +2,14 @@
 import type { ChecklistItem } from "./ChecklistItem";
 import type { PictureRow } from "./PictureRow";
 import type { PrintCosts } from "./PrintCosts";
+import type { PunctuationFound } from "./PunctuationFound";
 import type { SaleRoyalty } from "./SaleRoyalty";
+import type { StyleStray } from "./StyleStray";
 
 /**
  * What a tool found.
  */
-export type ToolReport = { "tool": "pictures", rows: Array<PictureRow>, } | { "tool": "checklist", items: Array<ChecklistItem>, } | { "tool": "royalty", pages: number, 
+export type ToolReport = { "tool": "pictures", rows: Array<PictureRow>, } | { "tool": "checklist", items: Array<ChecklistItem>, } | { "tool": "punctuation", found: Array<PunctuationFound>, } | { "tool": "styles", frames: Array<StyleStray>, } | { "tool": "royalty", pages: number, 
 /**
  * What one printed copy costs, and the figures that made it.
  */

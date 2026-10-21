@@ -202,3 +202,122 @@ fn the_template_gallery_draws_every_template_and_adding_one_is_one_undo_step() {
         .apply_template(&id, "pb-split", &made.book.spreads[0].id.0)
         .is_err());
 }
+
+#[test]
+fn the_punctuation_tool_finds_what_it_would_tidy_and_tidies_it_in_one_undo_step() {
+    use folio_engine::{PunctuationRule, ToolFix, ToolReport, ToolRequest};
+    let books = Books::new(Arc::new(Recorder::default()));
+    let made = books.new_book(&NewBookSpec::default()).unwrap();
+    let id = made.summary.id.clone();
+    let cover = &made.book.spreads[0];
+    let frame = cover
+        .frames
+        .iter()
+        .find(|f| matches!(f, folio_model::Frame::Text(_)))
+        .unwrap()
+        .base()
+        .id
+        .clone();
+    let words = |books: &Books| {
+        let book = books.snapshot(&id).unwrap().book;
+        let folio_model::Frame::Text(text) = book.spreads[0]
+            .frames
+            .iter()
+            .find(|f| f.base().id == frame)
+            .unwrap()
+        else {
+            panic!("a text frame")
+        };
+        folio_model::text_of(&text.content.as_ref().unwrap().inline)
+    };
+    books
+        .apply(
+            &id,
+            Intent::SetText {
+                frame: frame.clone(),
+                text: "\"Wait--what...\"  she said".into(),
+            },
+        )
+        .unwrap();
+    let ToolReport::Punctuation { found } =
+        books.book_tool(&id, &ToolRequest::Punctuation).unwrap()
+    else {
+        panic!("a punctuation report")
+    };
+    let count = |rule: PunctuationRule| found.iter().find(|f| f.rule == rule).map(|f| f.count);
+    assert_eq!(count(PunctuationRule::Quotes), Some(2));
+    assert_eq!(count(PunctuationRule::Dashes), Some(1));
+    assert_eq!(count(PunctuationRule::Ellipses), Some(1));
+    assert_eq!(count(PunctuationRule::Spaces), Some(1));
+    assert!(!found[0].examples.is_empty());
+    // Only the rules asked for are applied, and all of it undoes as one step.
+    let fixed = books
+        .book_tool_fix(
+            &id,
+            &ToolFix::Punctuation {
+                rules: vec![PunctuationRule::Quotes, PunctuationRule::Ellipses],
+            },
+        )
+        .unwrap();
+    assert_eq!(fixed.changed, 1);
+    assert_eq!(words(&books), "“Wait--what…”  she said");
+    books.undo(&id).unwrap().unwrap();
+    assert_eq!(words(&books), "\"Wait--what...\"  she said");
+    // With nothing to do, nothing is changed and nothing is added to the history.
+    let none = books
+        .book_tool_fix(&id, &ToolFix::Punctuation { rules: Vec::new() })
+        .unwrap();
+    assert_eq!(none.changed, 0);
+}
+
+#[test]
+fn the_styles_tool_finds_boxes_that_differ_from_their_style_and_puts_them_back() {
+    use folio_engine::{ToolFix, ToolReport, ToolRequest};
+    let books = Books::new(Arc::new(Recorder::default()));
+    let made = books.new_book(&NewBookSpec::default()).unwrap();
+    let id = made.summary.id.clone();
+    let cover = made.book.spreads[0].id.clone();
+    let frame = made.book.spreads[0]
+        .frames
+        .iter()
+        .find(|f| matches!(f, folio_model::Frame::Text(_)))
+        .unwrap()
+        .base()
+        .id
+        .clone();
+    let strays = |books: &Books| {
+        let ToolReport::Styles { frames } = books.book_tool(&id, &ToolRequest::Styles).unwrap()
+        else {
+            panic!("a styles report")
+        };
+        frames
+    };
+    let _ = cover;
+    assert!(strays(&books).is_empty());
+    books
+        .apply(
+            &id,
+            Intent::OverrideStyle {
+                frame: frame.clone(),
+                overrides: folio_model::StyleOverrides {
+                    size: Some(Pt(30.0)),
+                    bold: Some(true),
+                    ..Default::default()
+                },
+            },
+        )
+        .unwrap();
+    let found = strays(&books);
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].changes, vec!["size".to_owned(), "bold".to_owned()]);
+    let fixed = books
+        .book_tool_fix(
+            &id,
+            &ToolFix::ResetStyles {
+                frames: vec![frame.0.clone()],
+            },
+        )
+        .unwrap();
+    assert_eq!(fixed.changed, 1);
+    assert!(strays(&books).is_empty());
+}
