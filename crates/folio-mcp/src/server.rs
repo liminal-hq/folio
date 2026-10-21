@@ -375,7 +375,7 @@ impl FolioServer {
 
     #[tool(
         name = "book_report",
-        description = "What one of the app's Book tools finds in the book, as the tools window shows it. The request is `{\"tool\": \"pictures\"}` for every picture with its pixels per inch where it is set, its status for print and its description.",
+        description = "What one of the app's Book tools finds in the book, as the tools window shows it. The request is `{\"tool\": \"pictures\"}` for every picture with its pixels per inch where it is set, its status for print and its description; `{\"tool\": \"checklist\"}` for what a store will still ask for; or `{\"tool\": \"royalty\", \"hardcover\": false, \"colour\": false, \"listPrice\": 12.99, \"ebookPrice\": 4.99}` for printing cost and royalties (an estimate).",
         annotations(read_only_hint = true)
     )]
     async fn book_report(

@@ -3,11 +3,35 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import { ChecklistTool } from './publishing/ChecklistTool';
+import { KeywordsTool } from './publishing/KeywordsTool';
+import { RoyaltyTool } from './publishing/RoyaltyTool';
 import { AltTextTool } from './pictures/AltTextTool';
 import { PicturesTool } from './pictures/PicturesTool';
 import type { ToolArea, ToolDef } from './tools';
 
 export const TOOLS: ToolDef[] = [
+	{
+		id: 'publishing.checklist',
+		area: 'publishing',
+		titleKey: 'tools.checklist.title',
+		descKey: 'tools.checklist.desc',
+		Component: ChecklistTool,
+	},
+	{
+		id: 'publishing.keywords',
+		area: 'publishing',
+		titleKey: 'tools.keywords.title',
+		descKey: 'tools.keywords.desc',
+		Component: KeywordsTool,
+	},
+	{
+		id: 'publishing.royalty',
+		area: 'publishing',
+		titleKey: 'tools.royalty.title',
+		descKey: 'tools.royalty.desc',
+		Component: RoyaltyTool,
+	},
 	{
 		id: 'pictures.list',
 		area: 'pictures',
