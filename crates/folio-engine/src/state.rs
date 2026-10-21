@@ -19,7 +19,6 @@ use folio_package::{Package, SaveOptions};
 use folio_presets::{kind_infos, new_book, suggest_save_path, KindInfo, NewBookSpec};
 use folio_session::{Patch, Session};
 use folio_spell::{find_misspellings, Checker};
-use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::error::Error;
 use crate::recovery::{self, Recovery};
@@ -31,7 +30,7 @@ use crate::wire::{
     PatchEvent, PreviewChapter, PreviewImage, ProofColour, ProofPage, ProofSpread, ReaderPreview,
     Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult, StoryChapter,
 };
-use crate::{CHANGED_EVENT, EXPORT_PROGRESS_EVENT, PATCH_EVENT};
+use crate::Host;
 
 /// What happened to the open books, for the app to react to (the recents list, for one).
 #[derive(Debug, Clone)]
@@ -269,26 +268,26 @@ fn locked<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 
 /// The books every window can see. Rust owns them: a window asks for a change and hears the answer
 /// as an event.
-pub struct Books<R: Runtime> {
-    app: AppHandle<R>,
+pub struct Books {
+    host: Arc<dyn Host>,
     inner: Mutex<Inner>,
     hooks: Mutex<Vec<BookHook>>,
     generator: String,
     /// The bundled fonts and the system's, found the first time a spread is laid out.
     fonts: OnceLock<FontBook>,
     /// The dictionaries: the one that comes with Folio, and those downloaded.
-    pub(crate) spelling: Spelling,
+    pub spelling: Spelling,
     /// Copies of books with changes, for coming back after a crash.
-    pub(crate) recovery: Recovery,
+    pub recovery: Recovery,
     /// Set to stop the export in progress before its next file.
     cancel_export: AtomicBool,
 }
 
-impl<R: Runtime> Books<R> {
-    pub fn new(app: AppHandle<R>) -> Self {
-        let generator = format!("Folio {} (Liminal HQ)", app.package_info().version);
+impl Books {
+    pub fn new(host: Arc<dyn Host>) -> Self {
+        let generator = format!("Folio {} (Liminal HQ)", host.version());
         Self {
-            app,
+            host,
             inner: Mutex::new(Inner::default()),
             hooks: Mutex::new(Vec::new()),
             generator,
@@ -414,9 +413,7 @@ impl<R: Runtime> Books<R> {
 
     fn announce(&self, inner: &Inner) {
         let books = inner.books.iter().map(OpenBook::summary).collect();
-        if let Err(e) = self.app.emit(CHANGED_EVENT, BooksChanged { books }) {
-            log::warn!("could not announce the open books: {e}");
-        }
+        self.host.books_changed(&BooksChanged { books });
     }
 
     fn announce_patch(&self, book: &OpenBook, patch: &Patch) {
@@ -426,9 +423,7 @@ impl<R: Runtime> Books<R> {
             can_undo: book.session.can_undo(),
             can_redo: book.session.can_redo(),
         };
-        if let Err(e) = self.app.emit(PATCH_EVENT, event) {
-            log::warn!("could not announce a change to a book: {e}");
-        }
+        self.host.patched(&event);
     }
 
     /// The cover of the book `spec` would make, as a `data:image/png` URI.
@@ -463,11 +458,10 @@ impl<R: Runtime> Books<R> {
     /// Where Save as… starts for a book called `title`: `<Books>/<Title>/<Title>.folio`, with
     /// `Books` in the home folder (in Documents on Windows).
     pub fn default_save_path(&self, title: &str) -> PathBuf {
-        let paths = self.app.path();
         let base = if cfg!(windows) {
-            paths.document_dir()
+            self.host.document_dir()
         } else {
-            paths.home_dir()
+            self.host.home_dir()
         };
         let books = base.unwrap_or_default().join("Books");
         suggest_save_path(title, &books)
@@ -1374,9 +1368,7 @@ impl<R: Runtime> Books<R> {
                 done: done as u32,
                 total: targets.len() as u32,
             };
-            if let Err(e) = self.app.emit(EXPORT_PROGRESS_EVENT, progress) {
-                log::warn!("could not send the export's progress: {e}");
-            }
+            self.host.export_progress(&progress);
             if self.cancel_export.swap(false, Ordering::SeqCst) {
                 report.cancelled = true;
                 break;

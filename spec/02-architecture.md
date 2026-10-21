@@ -13,6 +13,7 @@ folio/
 │  ├─ folio-layout/            # text shaping + line breaking + flow, snapping maths, preflight geometry (built: D-20) (built: D-20)
 │  ├─ folio-export/            # EPUB 3 / KEPUB writer, PDF writer (PDF/X), cover builder
 │  ├─ folio-import/            # docx, odt, rtf, md, html-paste, sla, idml, epub → model
+│  ├─ folio-engine/            # the open books: sessions, packages, layout, import, export behind one writer; hosted through a `Host` trait (D-44)
 │  ├─ folio-colour/             # ICC handling (lcms2), RGB→CMYK, output intents
 │  └─ folio-jax/               # help library index + ONNX runtime (ort) inference
 ├─ packages/
@@ -20,6 +21,7 @@ folio/
 │  ├─ chrome/                  # @liminal-hq/folio-chrome (copied from Waypoint): TitleBar, AppMenuButton, MenuBar, ContextMenu, WindowMenu
 │  └─ ribbon/                  # @liminal-hq/folio-ribbon: the data-driven ribbon toolbar (D-19)
 ├─ plugins/
+│  ├─ folio-books/             # domain plugin: a thin Tauri wrapper over folio-engine (windows, events, paths)
 │  ├─ folio-settings/          # domain plugin: typed, versioned app settings (D-11)
 │  ├─ window-tearoff/          # copied until published (D-08)
 │  └─ window-effects/          # copied until published (D-08)
