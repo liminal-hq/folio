@@ -20,7 +20,7 @@ use folio_engine::{
     FontUse, KeepFontsReport, ProofSpread, ReaderPreview, Recoverable, SpellCheck,
     SpreadLayoutResult, StoryChapter,
 };
-use folio_engine::{Error, TemplateGallery, ToolReport, ToolRequest};
+use folio_engine::{Error, TemplateGallery, ToolFix, ToolFixed, ToolReport, ToolRequest};
 use folio_import::ImportReport;
 
 /// Reports that books work. They need nothing from the system, so this is always available.
@@ -82,6 +82,19 @@ pub async fn book_tool<R: Runtime>(
     request: ToolRequest,
 ) -> Result<ToolReport, Error> {
     tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().book_tool(&id, &request))
+        .await
+        .expect("the tool task does not panic")
+}
+
+/// Makes a Book tool's change to a book as one undo step.
+#[tauri::command]
+pub async fn book_tool_fix<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    fix: ToolFix,
+) -> Result<ToolFixed, Error> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().book_tool_fix(&id, &fix))
         .await
         .expect("the tool task does not panic")
 }

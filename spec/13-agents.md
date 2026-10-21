@@ -18,7 +18,7 @@ Folio can be driven by an AI agent through a [Model Context Protocol](https://mo
 | `get_book`, `get_spread` | The book's shape (spreads and their frames), and one spread in full with its layout |
 | `render_page` | A PNG of one page, as drawn, so the agent can look at its work |
 | `preflight`, `story_chapters` | The problems a printer would find; the chapters of the story |
-| `book_report` | What one of the app's Book tools finds (`{"tool": "pictures"}`: every picture with its pixels per inch and status; `{"tool": "checklist"}`: what a store will still ask for; `{"tool": "royalty", …}`: print cost and royalties), the same report the tools window shows (D-49) |
+| `book_report` | What one of the app's Book tools finds (`{"tool": "pictures"}`: every picture with its pixels per inch and status; `{"tool": "checklist"}`: what a store will still ask for; `{"tool": "royalty", …}`: print cost and royalties; `{"tool": "punctuation"}` and `{"tool": "styles"}`: what the typesetting tools would tidy), the same report the tools window shows (D-49) |
 | `apply_intents` | Any change the app can make: a list of intents applied together as one undo step, or not at all |
 | `undo`, `redo` | Step through history |
 | `import_manuscript`, `import_picture` | Bring in Markdown, plain text, Word, OpenDocument or Rich Text as the story; bring in a picture |

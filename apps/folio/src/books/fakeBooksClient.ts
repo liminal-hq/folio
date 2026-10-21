@@ -281,6 +281,32 @@ export function createFakeBooksClient(): FakeBooks {
 						: [],
 				),
 			);
+			if (request.tool === 'punctuation') {
+				return {
+					tool: 'punctuation' as const,
+					found: [
+						{
+							rule: 'quotes' as const,
+							count: 4,
+							examples: [{ before: 'said \"hello\" and', after: 'said “hello” and' }],
+						},
+						{ rule: 'dashes' as const, count: 1, examples: [] },
+					],
+				};
+			}
+			if (request.tool === 'styles') {
+				return {
+					tool: 'styles' as const,
+					frames: [
+						{
+							spread: book.spreads[0]?.id ?? 'sp',
+							frame: 'fr_a',
+							style: 'body',
+							changes: ['size', 'bold'],
+						},
+					],
+				};
+			}
 			if (request.tool === 'checklist') {
 				return {
 					tool: 'checklist' as const,
@@ -313,6 +339,15 @@ export function createFakeBooksClient(): FakeBooks {
 				};
 			}
 			return { tool: 'pictures' as const, rows };
+		},
+		async bookToolFix(id, fix) {
+			await call('bookToolFix', [id, fix]);
+			const h = find(id);
+			h.past += 1;
+			h.future = 0;
+			patch(id, h, h.snapshot.book.bleed + 1);
+			changed();
+			return { changed: fix.tool === 'punctuation' ? 5 : fix.frames.length };
 		},
 		async setActiveBook(id) {
 			await call('setActiveBook', [id]);
