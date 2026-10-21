@@ -895,7 +895,9 @@ fn a_book_a_crash_left_changes_in_comes_back_unsaved_and_a_save_clears_the_copy(
         books(&app).save(&id, Some(&saved_as)).unwrap();
         books(&app).apply(&id, nudge(&app, &id, 40.0)).unwrap();
         assert_eq!(books(&app).autosave(), 1);
-        // The app stops here without closing the book: a crash, or the power going.
+        // The app stops here without closing the book: a crash, or the power going, which also
+        // lets go of the book's lock.
+        books(&app).release_locks();
     }
 
     let app = app_keeping_copies_in(&dir.path().join("recovery"));
