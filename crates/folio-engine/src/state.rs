@@ -1358,6 +1358,19 @@ impl Books {
         id: &str,
         request: &crate::tools::ToolRequest,
     ) -> Result<crate::tools::ToolReport, Error> {
+        // What layout finds is asked for first, as it takes the books' lock itself.
+        let findings = if matches!(request, crate::tools::ToolRequest::Checklist) {
+            let errors = self
+                .preflight(id)?
+                .iter()
+                .filter(|item| {
+                    item.severity == folio_layout::wire::Severity::Error && !item.ignored
+                })
+                .count();
+            crate::tools::Findings { errors }
+        } else {
+            crate::tools::Findings::default()
+        };
         let (book, facts) = {
             let mut inner = locked(&self.inner);
             let open = inner
@@ -1372,7 +1385,7 @@ impl Books {
             }
             (book, AssetFacts(known))
         };
-        Ok(crate::tools::run(&book, &facts, request))
+        Ok(crate::tools::run(&book, &facts, findings, request))
     }
 
     /// The spread templates a book can add, each drawn at this book's size, with the group of the

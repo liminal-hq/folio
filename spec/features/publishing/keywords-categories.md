@@ -1,6 +1,6 @@
 # Keywords and categories helper
 
-**Area:** Publishing helpers · **Prototype:** `Folio Publishing.dc.html` · **Status:** artboard → merge into Folio
+**Area:** Publishing helpers · **Prototype:** `Folio Publishing.dc.html` · **Status:** partly built — Book tools → Publishing → **Keywords** has seven slots with character counters (50 each), kept as `metadata.keywords` by `SetKeywords` (one undo step, merging while typed); the category picker (BISAC) is not built
 
 ## What it does
 Up to 7 keyword phrases and category suggestions, with counters and gentle guidance.

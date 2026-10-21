@@ -18,19 +18,149 @@ use ts_rs::TS;
 /// What a tool is asked for.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
-#[serde(tag = "tool", rename_all = "camelCase")]
+#[serde(
+    tag = "tool",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub enum ToolRequest {
     /// Every picture in the book, how sharp it is where it is set, and what it says it shows.
     Pictures,
+    /// What the book still lacks before it can be sent to a store.
+    Checklist,
+    /// What a copy costs to print and what is earned on a sale, at the prices given. A cost left out
+    /// is the dated estimate (`PrintCosts::estimate`).
+    Royalty {
+        hardcover: bool,
+        colour: bool,
+        /// The list price of the printed book, and of the ebook, in dollars.
+        list_price: f64,
+        ebook_price: f64,
+        fixed_cost: Option<f64>,
+        per_page_cost: Option<f64>,
+    },
 }
 
 /// What a tool found.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
-#[serde(tag = "tool", rename_all = "camelCase")]
+#[serde(
+    tag = "tool",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub enum ToolReport {
-    Pictures { rows: Vec<PictureRow> },
+    Pictures {
+        rows: Vec<PictureRow>,
+    },
+    Checklist {
+        items: Vec<ChecklistItem>,
+    },
+    Royalty {
+        pages: u32,
+        /// What one printed copy costs, and the figures that made it.
+        print_cost: f64,
+        costs: PrintCosts,
+        /// What is earned on a printed copy sold through each way of selling it.
+        sales: Vec<SaleRoyalty>,
+        /// The least list price that does not lose money on a copy sold on Amazon.com.
+        minimum_price: f64,
+        /// What is earned on an ebook at the price given.
+        ebook_royalty: f64,
+    },
+}
+
+/// What a store form asks for, and whether the book has it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub enum ChecklistId {
+    Title,
+    Author,
+    Description,
+    Language,
+    Keywords,
+    Isbn,
+    PageCount,
+    Cover,
+    Problems,
+    Pictures,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub enum ChecklistStatus {
+    Done,
+    /// Not there yet, and a store will ask for it.
+    Todo,
+    /// There, but a store may not like it.
+    Warning,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ChecklistItem {
+    pub id: ChecklistId,
+    pub status: ChecklistStatus,
+    /// What the book has, to show and to copy into the form; a count for the ones that count.
+    pub value: Option<String>,
+}
+
+/// What printing a copy costs. KDP's own pages disagree with each other and change, so these are an
+/// estimate with the date it was made, which the person can replace with the figures KDP's calculator
+/// gives them.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct PrintCosts {
+    /// A cost on every copy, and one for every page, in dollars.
+    pub fixed: f64,
+    pub per_page: f64,
+    /// When the estimate was made. ⚠ Check KDP's calculator before relying on it.
+    pub as_of: String,
+}
+
+impl PrintCosts {
+    /// The estimate Folio starts from. ⚠ Unverified against KDP's current pages (CLAUDE.md): they
+    /// disagree about the fixed cost for black ink, so the person is asked to confirm in KDP's
+    /// calculator, and can enter its figures in place of these.
+    pub fn estimate(hardcover: bool, colour: bool) -> Self {
+        let per_page = if colour { 0.07 } else { 0.012 };
+        Self {
+            fixed: if hardcover { 6.80 } else { 1.00 },
+            per_page,
+            as_of: "2026-10-21".to_owned(),
+        }
+    }
+}
+
+/// What is earned on a printed copy sold one way.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct SaleRoyalty {
+    pub market: Market,
+    pub royalty: f64,
+}
+
+/// The ways of selling a printed copy the calculator shows. Royalty rates ⚠ are KDP's 60% on Amazon
+/// and 40% on expanded distribution, from KDP's help pages; check them before a release.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub enum Market {
+    AmazonCom,
+    ExpandedDistribution,
+}
+
+/// What the checklist needs that only the app can know: how many problems layout found.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Findings {
+    /// Problems that stop a print (preflight errors that are not left alone).
+    pub errors: usize,
 }
 
 /// How a picture stands for print.
@@ -75,11 +205,188 @@ pub struct PictureRow {
 }
 
 /// Answers `request` for `book`, given what is known of its pictures.
-pub fn run(book: &Book, facts: &AssetFacts, request: &ToolRequest) -> ToolReport {
+pub fn run(
+    book: &Book,
+    facts: &AssetFacts,
+    findings: Findings,
+    request: &ToolRequest,
+) -> ToolReport {
     match request {
         ToolRequest::Pictures => ToolReport::Pictures {
             rows: pictures(book, facts),
         },
+        ToolRequest::Checklist => ToolReport::Checklist {
+            items: checklist(book, facts, findings),
+        },
+        ToolRequest::Royalty {
+            hardcover,
+            colour,
+            list_price,
+            ebook_price,
+            fixed_cost,
+            per_page_cost,
+        } => royalty(
+            book,
+            *hardcover,
+            *colour,
+            *list_price,
+            *ebook_price,
+            *fixed_cost,
+            *per_page_cost,
+        ),
+    }
+}
+
+/// KDP's smallest and largest printed book, in pages. ⚠ Check against KDP's pages before a release.
+const KDP_MIN_PAGES: u32 = 24;
+const KDP_MAX_PAGES: u32 = 828;
+
+fn checklist(book: &Book, facts: &AssetFacts, findings: Findings) -> Vec<ChecklistItem> {
+    use ChecklistId::*;
+    use ChecklistStatus::*;
+    let item = |id, ok: bool, value: Option<String>| ChecklistItem {
+        id,
+        status: if ok { Done } else { Todo },
+        value,
+    };
+    let text = |s: &str| (!s.trim().is_empty()).then(|| s.trim().to_owned());
+    let authors = book
+        .authors
+        .iter()
+        .map(|a| a.name.trim())
+        .filter(|n| !n.is_empty())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let keywords = book.metadata.keywords.len();
+    let pages = folio_model::spine_pages(book);
+    let isbn = book
+        .metadata
+        .isbn
+        .paperback
+        .clone()
+        .filter(|i| !i.trim().is_empty());
+    let isbn_ok = isbn.as_deref().is_some_and(folio_model::is_valid_isbn13);
+    let missing = pictures(book, facts)
+        .iter()
+        .filter(|row| {
+            matches!(
+                row.status,
+                PictureStatus::Missing | PictureStatus::Unreadable
+            )
+        })
+        .count();
+    let mut items = vec![
+        item(Title, text(&book.title).is_some(), text(&book.title)),
+        item(Author, !authors.is_empty(), text(&authors)),
+        item(
+            Description,
+            text(&book.metadata.description).is_some(),
+            text(&book.metadata.description),
+        ),
+        item(
+            Language,
+            text(&book.language).is_some(),
+            text(&book.language),
+        ),
+        ChecklistItem {
+            id: Keywords,
+            status: match keywords {
+                0 => Todo,
+                1..=6 => Warning,
+                _ => Done,
+            },
+            value: Some(book.metadata.keywords.join(", ")).filter(|k| !k.is_empty()),
+        },
+        ChecklistItem {
+            id: Isbn,
+            status: match (&isbn, isbn_ok) {
+                (None, _) => Warning,
+                (Some(_), true) => Done,
+                (Some(_), false) => Todo,
+            },
+            value: isbn,
+        },
+    ];
+    items.push(ChecklistItem {
+        id: PageCount,
+        status: if (KDP_MIN_PAGES..=KDP_MAX_PAGES).contains(&pages) {
+            Done
+        } else {
+            Todo
+        },
+        value: Some(pages.to_string()),
+    });
+    items.push(item(
+        Cover,
+        book.spreads
+            .first()
+            .is_some_and(|s| s.kind == folio_model::SpreadKind::Cover),
+        None,
+    ));
+    items.push(ChecklistItem {
+        id: Problems,
+        status: if findings.errors == 0 { Done } else { Todo },
+        value: Some(findings.errors.to_string()),
+    });
+    items.push(ChecklistItem {
+        id: Pictures,
+        status: if missing == 0 { Done } else { Todo },
+        value: Some(missing.to_string()),
+    });
+    items
+}
+
+fn royalty(
+    book: &Book,
+    hardcover: bool,
+    colour: bool,
+    list_price: f64,
+    ebook_price: f64,
+    fixed_cost: Option<f64>,
+    per_page_cost: Option<f64>,
+) -> ToolReport {
+    let pages = folio_model::spine_pages(book);
+    let mut costs = PrintCosts::estimate(hardcover, colour);
+    if let Some(fixed) = fixed_cost.filter(|c| c.is_finite() && *c >= 0.0) {
+        costs.fixed = fixed;
+    }
+    if let Some(per_page) = per_page_cost.filter(|c| c.is_finite() && *c >= 0.0) {
+        costs.per_page = per_page;
+    }
+    let print_cost = costs.fixed + f64::from(pages) * costs.per_page;
+    let list = if list_price.is_finite() {
+        list_price.max(0.0)
+    } else {
+        0.0
+    };
+    let earned = |rate: f64| (list * rate - print_cost).max(0.0);
+    let ebook = if ebook_price.is_finite() {
+        ebook_price.max(0.0)
+    } else {
+        0.0
+    };
+    // ⚠ KDP's ebook bands: 70% from $2.99 to $9.99 less a delivery fee, otherwise 35%.
+    let ebook_royalty = if (2.99..=9.99).contains(&ebook) {
+        (ebook * 0.70 - 0.15).max(0.0)
+    } else {
+        ebook * 0.35
+    };
+    ToolReport::Royalty {
+        pages,
+        print_cost,
+        costs,
+        sales: vec![
+            SaleRoyalty {
+                market: Market::AmazonCom,
+                royalty: earned(0.60),
+            },
+            SaleRoyalty {
+                market: Market::ExpandedDistribution,
+                royalty: earned(0.40),
+            },
+        ],
+        minimum_price: print_cost / 0.60,
+        ebook_royalty,
     }
 }
 
@@ -206,7 +513,11 @@ mod tests {
             ("assets/e.svg".into(), AssetFact::Vector),
             ("assets/f.bin".into(), AssetFact::Unreadable),
         ]));
-        let ToolReport::Pictures { rows } = run(&book, &facts, &ToolRequest::Pictures);
+        let ToolReport::Pictures { rows } =
+            run(&book, &facts, Findings::default(), &ToolRequest::Pictures)
+        else {
+            panic!("a pictures report")
+        };
         let status: Vec<(&str, PictureStatus)> =
             rows.iter().map(|r| (r.frame.as_str(), r.status)).collect();
         assert_eq!(
@@ -224,5 +535,112 @@ mod tests {
         assert!((rows[0].ppi.unwrap() - 600.0).abs() < 1e-9);
         assert_eq!(rows[0].description.as_deref(), Some("An otter"));
         assert_eq!(rows[3].ppi, None);
+    }
+}
+
+#[cfg(test)]
+mod publishing_tests {
+    use super::*;
+    use folio_model::Contributor;
+
+    fn book() -> Book {
+        folio_presets::new_book(&folio_presets::NewBookSpec::default())
+            .unwrap()
+            .book
+    }
+
+    fn status(items: &[ChecklistItem], id: ChecklistId) -> ChecklistStatus {
+        items.iter().find(|i| i.id == id).unwrap().status
+    }
+
+    #[test]
+    fn the_checklist_says_what_a_store_will_still_ask_for() {
+        let mut book = book();
+        book.title = "Pip".into();
+        book.authors = vec![Contributor {
+            name: "Mom".into(),
+            role: folio_model::ContributorRole::Author,
+        }];
+        book.metadata.description = String::new();
+        book.metadata.keywords = vec!["otter".into(), "bedtime".into()];
+        book.metadata.isbn.paperback = Some("978-0-306-40615-8".into());
+        let facts = AssetFacts::default();
+        let ToolReport::Checklist { items } = run(
+            &book,
+            &facts,
+            Findings { errors: 2 },
+            &ToolRequest::Checklist,
+        ) else {
+            panic!("a checklist")
+        };
+        use ChecklistId::*;
+        use ChecklistStatus::*;
+        assert_eq!(status(&items, Title), Done);
+        assert_eq!(status(&items, Author), Done);
+        assert_eq!(status(&items, Description), Todo);
+        assert_eq!(status(&items, Keywords), Warning, "fewer than seven");
+        assert_eq!(status(&items, Isbn), Todo, "a bad check digit");
+        assert_eq!(status(&items, Problems), Todo);
+        assert_eq!(status(&items, Cover), Done);
+        // A good ISBN, seven keywords and no problems are done.
+        book.metadata.isbn.paperback = Some("978-0-306-40615-7".into());
+        book.metadata.keywords = (1..=7).map(|n| format!("keyword {n}")).collect();
+        let ToolReport::Checklist { items } =
+            run(&book, &facts, Findings::default(), &ToolRequest::Checklist)
+        else {
+            panic!("a checklist")
+        };
+        assert_eq!(status(&items, Isbn), Done);
+        assert_eq!(status(&items, Keywords), Done);
+        assert_eq!(status(&items, Problems), Done);
+    }
+
+    #[test]
+    fn a_royalty_is_the_share_of_the_price_less_the_printing_cost_and_never_below_nothing() {
+        let book = book();
+        let ask = |list: f64, ebook: f64, fixed: Option<f64>| {
+            run(
+                &book,
+                &AssetFacts::default(),
+                Findings::default(),
+                &ToolRequest::Royalty {
+                    hardcover: false,
+                    colour: false,
+                    list_price: list,
+                    ebook_price: ebook,
+                    fixed_cost: fixed,
+                    per_page_cost: None,
+                },
+            )
+        };
+        let ToolReport::Royalty {
+            pages,
+            print_cost,
+            sales,
+            minimum_price,
+            ebook_royalty,
+            ..
+        } = ask(10.0, 4.99, None)
+        else {
+            panic!("a royalty")
+        };
+        // The estimate: 1.00 and 0.012 a page, and a book is at least 24 pages.
+        assert_eq!(pages, 24);
+        assert!((print_cost - (1.0 + 24.0 * 0.012)).abs() < 1e-9);
+        assert!((sales[0].royalty - (6.0 - print_cost)).abs() < 1e-9);
+        assert!((sales[1].royalty - (4.0 - print_cost)).abs() < 1e-9);
+        assert!((minimum_price - print_cost / 0.6).abs() < 1e-9);
+        // The 70% band, less delivery, and the 35% one outside it.
+        assert!((ebook_royalty - (4.99 * 0.7 - 0.15)).abs() < 1e-9);
+        let ToolReport::Royalty { ebook_royalty, .. } = ask(10.0, 0.99, None) else {
+            panic!("a royalty")
+        };
+        assert!((ebook_royalty - 0.99 * 0.35).abs() < 1e-9);
+        // A price below the cost earns nothing, and the person's own cost replaces the estimate.
+        let ToolReport::Royalty { sales, costs, .. } = ask(1.0, 0.0, Some(2.30)) else {
+            panic!("a royalty")
+        };
+        assert_eq!(sales[0].royalty, 0.0);
+        assert_eq!(costs.fixed, 2.30);
     }
 }
