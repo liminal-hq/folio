@@ -241,6 +241,38 @@ export function createFakeBooksClient(): FakeBooks {
 			await call('defaultSavePath', [title]);
 			return `/home/mom/Books/${title}/${title}.folio`;
 		},
+		async previewNewBook(spec: NewBookSpec) {
+			await call('previewNewBook', [spec]);
+			return `data:image/png;base64,${btoa(spec.coverColour)}`;
+		},
+		async templateGallery(id) {
+			await call('templateGallery', [id]);
+			find(id);
+			const card = (tid: string, group: string, name: string) => ({
+				id: tid,
+				group,
+				name,
+				image: 'data:image/png;base64,AAAA',
+			});
+			return {
+				home: 'Picture book',
+				templates: [
+					card('pb-bleed', 'Picture book', 'Full-bleed spread'),
+					card('pb-split', 'Picture book', 'Picture and words'),
+					card('lesson', 'Textbook', 'Lesson and worksheet'),
+					card('poem', 'Poetry', 'Poem, centred'),
+				],
+			};
+		},
+		async applyTemplate(id, template, after) {
+			await call('applyTemplate', [id, template, after]);
+			const h = find(id);
+			h.past += 1;
+			h.future = 0;
+			const result = patch(id, h, h.snapshot.book.bleed + 1);
+			changed();
+			return result;
+		},
 		async newBook(spec: Partial<NewBookSpec>) {
 			await call('newBook', [spec]);
 			counter += 1;

@@ -1,0 +1,92 @@
+.problem {
+	margin: 0 0 12px;
+	color: var(--folio-danger);
+}
+
+.waiting {
+	display: grid;
+	place-items: center;
+	min-block-size: 240px;
+	margin: 0;
+	color: var(--folio-text-muted);
+	font-size: 13px;
+}
+
+.chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 14px;
+}
+
+.chip {
+	padding: 4px 12px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 999px;
+	background: var(--folio-control-bg);
+	color: var(--folio-text-secondary);
+	font: inherit;
+	font-size: 13px;
+	cursor: default;
+}
+
+.chip:hover {
+	background: var(--folio-control-bg-hover);
+}
+
+.chip[aria-pressed='true'] {
+	border-color: var(--folio-accent);
+	background: var(--folio-bg-selected);
+	color: var(--folio-accent);
+}
+
+.chip:focus-visible,
+.card:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: 2px;
+}
+
+.grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+	gap: 12px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.card {
+	display: grid;
+	gap: 4px;
+	inline-size: 100%;
+	padding: 8px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 8px;
+	background: var(--folio-bg-raised);
+	color: var(--folio-text-primary);
+	font: inherit;
+	text-align: start;
+	cursor: default;
+}
+
+.card:hover {
+	border-color: var(--folio-accent);
+}
+
+.picture {
+	display: block;
+	inline-size: 100%;
+	block-size: auto;
+	border: 1px solid var(--folio-border-subtle);
+	background: #ffffff;
+}
+
+.name {
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.group {
+	color: var(--folio-text-muted);
+	font-size: 12px;
+}

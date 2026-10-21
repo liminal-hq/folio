@@ -32,6 +32,7 @@ import { StoryEditorDialog } from '../story/StoryEditorDialog';
 import { rangeIntents } from '../story/rangeEdit';
 import { BookDetailsDialog } from './BookDetailsDialog';
 import { BarcodeDialog } from './BarcodeDialog';
+import { SpreadTemplatesDialog } from './SpreadTemplatesDialog';
 import { CoverSheetDialog } from './CoverSheetDialog';
 import { JAX_TOGGLE_EVENT } from '../jax/jaxToggle';
 import { JaxPanel } from '../jax/JaxPanel';
@@ -424,6 +425,14 @@ export function BookView({
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
 	}, [linking]);
+	const [templatesOpen, setTemplatesOpen] = useState(false);
+	/** What the last change from a dialog said, shown over the page for a few seconds. */
+	const [notice, setNotice] = useState<string | null>(null);
+	useEffect(() => {
+		if (notice === null) return;
+		const timer = setTimeout(() => setNotice(null), 6000);
+		return () => clearTimeout(timer);
+	}, [notice]);
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	// The Export dialog; `quick` makes the Sharing PDF the moment it opens.
 	const [exporting, setExporting] = useState<{ quick: boolean } | null>(null);
@@ -577,6 +586,9 @@ export function BookView({
 			case 'checkBook':
 				setChecking(true);
 				break;
+			case 'templates':
+				setTemplatesOpen(true);
+				break;
 			case 'softProof':
 				setProofOpen(true);
 				break;
@@ -630,6 +642,14 @@ export function BookView({
 				}
 			>
 				<div className={styles.stage}>
+					{notice && (
+						<div className={styles.masterBanner} role="status">
+							<span>{notice}</span>
+							<button type="button" onClick={() => setNotice(null)}>
+								{t('templates.dismiss')}
+							</button>
+						</div>
+					)}
 					{master && (
 						<div className={styles.masterBanner} role="status">
 							<span>{t('master.editing', { name: masterName })}</span>
@@ -738,6 +758,7 @@ export function BookView({
 									const on = !(marks.columns || marks.baseline);
 									setMarks({ columns: on, baseline: on });
 								} else if (master) return;
+								else if (command === 'addTemplate') setTemplatesOpen(true);
 								else if (command === 'addPages') {
 									apply({ type: 'AddSpread', after: spread.id, duplicate: false });
 									setSpreadIndex(shown + 1);
@@ -996,6 +1017,23 @@ export function BookView({
 				book={book}
 				onSave={(details) => apply({ type: 'SetDetails', details })}
 				onPaper={(paper) => apply({ type: 'SetPaper', paper })}
+			/>
+			<SpreadTemplatesDialog
+				open={templatesOpen}
+				onClose={() => setTemplatesOpen(false)}
+				client={client}
+				id={id}
+				onChoose={async (template, name) => {
+					// A template goes after the spread on show, and after the first page when the cover is.
+					const index = spread?.kind === 'cover' ? 1 : shown;
+					const after = book.spreads[index];
+					if (!after) throw new Error(t('templates.refused'));
+					await client.applyTemplate(id, template, after.id);
+					setSpreadIndex(index + 1);
+					select([]);
+					setTemplatesOpen(false);
+					setNotice(t('templates.added', { name }));
+				}}
 			/>
 			<BarcodeDialog
 				open={barcodeOpen}
