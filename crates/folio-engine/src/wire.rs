@@ -66,6 +66,25 @@ pub struct PatchEvent {
     pub patch: Patch,
     pub can_undo: bool,
     pub can_redo: bool,
+    /// Who made the change when it was not the person at the window: `agent` for one an AI agent
+    /// made through the MCP server. A window can say so.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub by: Option<String>,
+}
+
+/// What a batch of intents did to a book.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct BatchOutcome {
+    /// The book's revision after the batch.
+    #[ts(type = "number")]
+    pub revision: u64,
+    /// How many intents were applied; all of them, or none.
+    pub applied: usize,
+    pub can_undo: bool,
+    pub can_redo: bool,
 }
 
 /// Sent to every window when books open, close, are saved, or become changed or clean.

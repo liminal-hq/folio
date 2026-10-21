@@ -96,3 +96,81 @@ fn a_book_is_made_changed_saved_reopened_and_exported_without_a_toolkit() {
     let moved = &reopened.book.spreads[0].frames[0].base().rect;
     assert_eq!(moved.x, Pt(12.0));
 }
+
+fn nudge(books: &Books, id: &str, x: f64) -> Intent {
+    let cover = &books.snapshot(id).unwrap().book.spreads[0];
+    Intent::MoveFrame {
+        on: Surface::Spread(SpreadId(cover.id.0.clone())),
+        frame: cover.frames[0].base().id.clone(),
+        rect: Rect {
+            x: Pt(x),
+            y: Pt(0.0),
+            w: Pt(100.0),
+            h: Pt(100.0),
+        },
+    }
+}
+
+fn first_x(books: &Books, id: &str) -> f64 {
+    books.snapshot(id).unwrap().book.spreads[0].frames[0]
+        .base()
+        .rect
+        .x
+        .0
+}
+
+#[test]
+fn an_agents_batch_is_one_undo_step_and_tells_the_window_who_made_it() {
+    let host = Arc::new(Recorder::default());
+    let books = Books::new(host.clone());
+    let id = books.new_book(&NewBookSpec::default()).unwrap().summary.id;
+    let original = first_x(&books, &id);
+
+    let outcome = books
+        .apply_batch(
+            &id,
+            vec![nudge(&books, &id, 10.0), nudge(&books, &id, 20.0)],
+        )
+        .unwrap();
+    assert_eq!(outcome.applied, 2);
+    assert_eq!(first_x(&books, &id), 20.0);
+    assert!(host
+        .patches
+        .lock()
+        .unwrap()
+        .iter()
+        .all(|p| p.by.as_deref() == Some("agent")));
+
+    // Both changes are one step: a single undo takes them back together.
+    books.undo(&id).unwrap();
+    assert_eq!(first_x(&books, &id), original);
+    assert!(!books.snapshot(&id).unwrap().can_undo);
+}
+
+#[test]
+fn a_batch_with_a_refused_intent_changes_nothing() {
+    let books = Books::new(Arc::new(Recorder::default()));
+    let id = books.new_book(&NewBookSpec::default()).unwrap().summary.id;
+    let original = first_x(&books, &id);
+    let mut bad = nudge(&books, &id, 50.0);
+    if let Intent::MoveFrame { frame, .. } = &mut bad {
+        frame.0 = "fr_nobody".into();
+    }
+
+    let refused = books
+        .apply_batch(&id, vec![nudge(&books, &id, 30.0), bad])
+        .unwrap_err();
+    assert!(matches!(
+        refused,
+        Error::Batch {
+            index: 1,
+            total: 2,
+            ..
+        }
+    ));
+    // The first intent was taken back, and cannot be brought back by a redo.
+    assert_eq!(first_x(&books, &id), original);
+    let snapshot = books.snapshot(&id).unwrap();
+    assert!(!snapshot.can_undo);
+    assert!(!snapshot.can_redo);
+}

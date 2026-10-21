@@ -165,6 +165,12 @@ impl Session {
         })
     }
 
+    /// Forgets what could be redone: after steps were taken back to undo a batch that failed,
+    /// redoing them would bring half of it back.
+    pub fn clear_redo(&mut self) {
+        self.redo.clear();
+    }
+
     /// Makes the last `count` undo steps one, so a change and what had to follow from it (pages
     /// added for a story that grew) are taken back together. Does nothing when there are fewer.
     pub fn join_last(&mut self, count: usize) {

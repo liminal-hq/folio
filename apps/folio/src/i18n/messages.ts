@@ -376,6 +376,7 @@ export const messages = {
 	'status.saved.to': 'Saved · {file}',
 	'status.unsaved': 'Unsaved changes',
 	'status.notSaved': 'Not saved yet',
+	'status.agent': 'An agent just changed this book',
 	'stage.spread': 'Spread {label}',
 	'spell.menu': 'Spelling',
 	'spell.ignore': 'Ignore in this book',
