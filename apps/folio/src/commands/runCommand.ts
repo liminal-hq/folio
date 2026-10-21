@@ -5,6 +5,7 @@
 
 import type { Settings, SettingsPatch } from '@liminal-hq/folio-plugin-settings';
 import type { WindowKind } from '@liminal-hq/folio-protocol/generated/WindowKind';
+import { requestAgentDialog } from '../app/agentRequest';
 import { keepWords } from '../canvas/editCheckpoint';
 import { RECENT_PREFIX, type CommandId } from './appMenuModel';
 
@@ -46,6 +47,7 @@ export const ALWAYS_AVAILABLE: ReadonlySet<CommandId> = new Set<CommandId>([
 	'view.jax',
 	'app.bookTools',
 	'app.preferences',
+	'app.agents',
 	'app.about',
 	'app.quit',
 ]);
@@ -97,6 +99,8 @@ export async function runCommand(
 			return context.openWindow('BookTools');
 		case 'app.preferences':
 			return context.openWindow('Preferences');
+		case 'app.agents':
+			return requestAgentDialog();
 		case 'app.about':
 			return context.openWindow('About');
 		case 'app.quit':

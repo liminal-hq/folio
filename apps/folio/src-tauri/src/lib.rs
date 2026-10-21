@@ -61,6 +61,8 @@ pub fn run() {
         .plugin(tauri_plugin_folio_settings::init_with(settings::storage))
         .plugin(tauri_plugin_folio_books::init())
         .invoke_handler(tauri::generate_handler![
+            agent::agent_install,
+            agent::agent_status,
             app_info::app_info,
             windows::open_window
         ])

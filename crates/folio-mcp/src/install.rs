@@ -54,6 +54,21 @@ impl Client {
     }
 }
 
+impl Client {
+    /// The name the program goes by.
+    pub fn label(self) -> &'static str {
+        match self {
+            Client::ClaudeCode => "Claude Code",
+            Client::ClaudeDesktop => "Claude Desktop",
+            Client::Cursor => "Cursor",
+            Client::Vscode => "VS Code",
+            Client::Windsurf => "Windsurf",
+            Client::Codex => "Codex",
+            Client::Gemini => "Gemini CLI",
+        }
+    }
+}
+
 /// Where the person's folders are, so the paths can be worked out (and tested) without the
 /// environment.
 #[derive(Debug, Clone)]

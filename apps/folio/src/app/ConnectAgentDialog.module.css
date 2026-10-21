@@ -1,0 +1,55 @@
+.intro {
+	margin: 0 0 12px;
+	color: var(--folio-text-secondary);
+}
+
+.note {
+	margin: 8px 0;
+	color: var(--folio-text-muted);
+}
+
+.ok {
+	margin: 8px 0;
+	color: var(--folio-text-primary);
+}
+
+.bad {
+	margin: 8px 0;
+	color: var(--folio-danger);
+}
+
+.heading {
+	margin: 16px 0 8px;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--folio-text-secondary);
+}
+
+.list {
+	display: grid;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.row {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	align-items: center;
+	gap: 4px 12px;
+	padding: 10px 12px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 8px;
+	background: var(--folio-bg-raised);
+}
+
+.row > p {
+	grid-column: 1 / -1;
+	margin: 0;
+	font-size: 12px;
+}
+
+.name {
+	font-weight: 500;
+}

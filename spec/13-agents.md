@@ -36,4 +36,6 @@ Folio can be driven by an AI agent through a [Model Context Protocol](https://mo
 
 `folio-mcp install <program> [--print]` adds Folio to the list of MCP servers of Claude Code, Claude Desktop, Cursor, VS Code, Windsurf, Codex or Gemini, changing only its own entry and keeping a copy of the file as it was. `folio-mcp doctor` says what is and is not set up. The paths each program keeps its list at are those it documents ⚠ and are checked against its documentation before a release.
 
+The app has a **Connect an agent…** item in its menu (Help) that says whether agents can reach the open books and adds Folio to any of those programs with one click. It finds `folio-mcp` beside the app: the bundle carries it as a sidecar (`bun run tauri:bundle`, which builds it with `scripts/prepare-sidecar.sh` and merges `tauri.bundle.conf.json`, kept out of `tauri dev` because Tauri insists the sidecar exists).
+
 Beyond that, the files in `packaging/` make the other ways in: an npm package that runs the right binary for the platform (`npx @liminal-hq/folio-mcp`), a one-click bundle for Claude Desktop (`.mcpb`), and a Claude Code plugin with a skill that explains the workflow. Nothing is published yet: the crate is built to be publishable but is not on crates.io, and the release workflow that builds the binaries has not been written.
