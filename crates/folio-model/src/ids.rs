@@ -9,6 +9,7 @@ use ts_rs::TS;
 macro_rules! id {
     ($($(#[$meta:meta])* $name:ident),* $(,)?) => { $(
         $(#[$meta])*
+        #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
         #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, TS)]
         #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
         pub struct $name(pub String);

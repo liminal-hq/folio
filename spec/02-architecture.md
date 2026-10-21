@@ -14,6 +14,7 @@ folio/
 │  ├─ folio-export/            # EPUB 3 / KEPUB writer, PDF writer (PDF/X), cover builder
 │  ├─ folio-import/            # docx, odt, rtf, md, html-paste, sla, idml, epub → model
 │  ├─ folio-engine/            # the open books: sessions, packages, layout, import, export behind one writer; hosted through a `Host` trait (D-44)
+│  ├─ folio-mcp/               # MCP server for agents: tools over folio-engine, stdio (D-45)
 │  ├─ folio-colour/             # ICC handling (lcms2), RGB→CMYK, output intents
 │  └─ folio-jax/               # help library index + ONNX runtime (ort) inference
 ├─ packages/

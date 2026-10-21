@@ -9,6 +9,7 @@ use ts_rs::TS;
 use crate::units::{Pt, Rect, Size};
 
 // ── Export maths ──
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
@@ -28,6 +29,7 @@ pub fn spine_factor(p: Paper) -> f64 {
     }
 }
 
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct CoverMaths {
@@ -40,6 +42,7 @@ pub struct CoverMaths {
 }
 
 /// Who makes the barcode on the back of the paperback cover.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(tag = "kind", rename_all = "camelCase")]

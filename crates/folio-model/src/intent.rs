@@ -19,6 +19,7 @@ use crate::spread::Axis;
 use crate::units::{Margins, Pt, Rect, Size};
 
 /// A frame and the box it is to have.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct FrameMove {
@@ -28,6 +29,7 @@ pub struct FrameMove {
 }
 
 /// Where a frame or a guide lives: on a spread, or on a master page that every page using it shows.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase")]
@@ -37,6 +39,7 @@ pub enum Surface {
 }
 
 /// A fill or an outline colour to set: a colour, or none at all.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -46,6 +49,7 @@ pub enum Paint {
 }
 
 /// What a background is set on.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -59,6 +63,7 @@ pub enum BackgroundTarget {
 }
 
 /// A change to a table's cells, rows, columns or look.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -97,6 +102,7 @@ pub enum TableEdit {
 }
 
 // ── Intents (UI → core) ──
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(tag = "type")]
@@ -418,6 +424,7 @@ pub enum Intent {
         grid: Option<Grid>,
     },
 }
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
