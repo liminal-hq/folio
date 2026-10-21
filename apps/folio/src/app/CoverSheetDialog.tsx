@@ -24,6 +24,8 @@ interface CoverSheetDialogProps {
 	book: Book;
 	/** Keeps new words for the sheet as the book's details (one undo step). */
 	onSave(details: Details): void;
+	/** Puts the book's description on the back cover, in the frame that holds it (one undo step). */
+	onPutDescription(text: string): void;
 }
 
 export function CoverSheetDialog({
@@ -34,7 +36,14 @@ export function CoverSheetDialog({
 	revision,
 	book,
 	onSave,
+	onPutDescription,
 }: CoverSheetDialogProps) {
+	// The back cover follows the description until its words are changed, or the frame is deleted.
+	const description = book.metadata.description.trim();
+	const onCover = book.spreads[0]?.frames.find((f) => f.id === 'blurb');
+	const heldText =
+		onCover?.type === 'text' ? (onCover.content?.inline ?? []).map((r) => r.text).join('') : null;
+	const detached = description !== '' && heldText?.trim() !== description;
 	const [words, setWords] = useState(() => wordsOf(book));
 	useEffect(() => {
 		if (open) setWords(wordsOf(book));
@@ -143,6 +152,13 @@ export function CoverSheetDialog({
 							onChange={(event) => setWords({ ...words, description: event.target.value })}
 						/>
 					</label>
+					{detached && (
+						<div>
+							<DialogButton onClick={() => onPutDescription(description)}>
+								{t('coverSheet.putDescription')}
+							</DialogButton>
+						</div>
+					)}
 					<div>
 						<DialogButton variant="primary" disabled={!changed} onClick={keep}>
 							{t('coverSheet.update')}

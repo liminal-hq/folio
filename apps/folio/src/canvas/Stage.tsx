@@ -78,6 +78,8 @@ export interface StageProps {
 	onMove?(moves: FrameBoxMove[]): Promise<void>;
 	onTurn?(id: string, degrees: number): Promise<void>;
 	onCommand?(command: FrameCommand, ids: string[]): void;
+	onActivate?(id: string): boolean;
+	hint?: { box: { x: number; y: number; w: number; h: number }; text: string };
 	onEditText?(id: string, text: string): void;
 	onEditTable?(id: string, edit: TableEdit): void;
 	onEditStory?(flow: string, paragraph?: number): void;
@@ -116,6 +118,8 @@ export function Stage({
 	onMove,
 	onTurn,
 	onCommand,
+	onActivate,
+	hint,
 	onEditText,
 	onEditTable,
 	onEditStory,
@@ -334,6 +338,8 @@ export function Stage({
 							onMove={onMove}
 							onTurn={onTurn}
 							onCommand={onCommand}
+							onActivate={onActivate}
+							hint={hint}
 							onEditText={onEditText}
 							onEditTable={onEditTable}
 							onEditStory={onEditStory}
