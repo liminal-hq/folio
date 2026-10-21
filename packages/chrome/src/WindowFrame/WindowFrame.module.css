@@ -7,6 +7,8 @@
 
 /* Inner layer: the visible window surface. */
 .surface {
+	position: relative;
+	isolation: isolate;
 	box-sizing: border-box;
 	height: 100%;
 	overflow: hidden;
@@ -16,13 +18,31 @@
 	transition: box-shadow 120ms ease-out;
 }
 
+/* While a dialog is open the surface dims itself, rounded to match, so the shadow margin stays clear. */
+.surface::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	z-index: 2147483647;
+	border-radius: inherit;
+	background: var(--folio-scrim);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var(--folio-dialog-motion) ease-out;
+}
+
+.frame[data-dimmed='true'] .surface::after {
+	opacity: 1;
+}
+
 /* An unfocused window can take a lighter (or no) shadow, as GNOME's own windows do. */
 .frame[data-focused='false'] .surface {
 	box-shadow: var(--folio-window-shadow-unfocused);
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.surface {
+	.surface,
+	.surface::after {
 		transition: none;
 	}
 }

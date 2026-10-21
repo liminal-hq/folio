@@ -35,6 +35,15 @@
 	background: var(--folio-scrim);
 }
 
+/* A window frame dims its own surface (see `dimming.ts`), so the backdrop stays clear. */
+:root[data-framed-window='true'] .dialog::backdrop {
+	background: transparent;
+}
+
+:root[data-framed-window='true'] .fallback {
+	box-shadow: var(--folio-shadow-dialog);
+}
+
 /* Without native modal support there is no top layer or backdrop, so draw both by hand. */
 .fallback {
 	position: fixed;
