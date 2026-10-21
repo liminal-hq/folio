@@ -10,12 +10,12 @@ import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
 import { ContextMenu } from '@liminal-hq/folio-chrome/ContextMenu';
 import type { RulerUnit } from '@liminal-hq/folio-protocol/generated/RulerUnit';
-import { useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import { t } from '../i18n/messages';
 import { frameMenuItems, type FrameCommand } from './frameMenu';
 import { pageMenuItems, type PageCommand } from './pageMenu';
-import { fitZoom, PX_PER_POINT, spreadGeometry } from './geometry';
+import { clampZoom, fitZoom, PX_PER_POINT, spreadGeometry } from './geometry';
 import { guideMenuItems, isGuideCommand } from './guideMenu';
 import type { GuideAxis, GuideCommand } from './guides';
 import { MarksMenu } from './MarksMenu';
@@ -42,6 +42,11 @@ import { usePageOrigin } from './usePageOrigin';
 import { useStageZoom, type StageZoom } from './useStageZoom';
 
 export type ZoomApi = Pick<StageZoom, 'zoomIn' | 'zoomOut' | 'fit'>;
+
+/** How much each pixel of Ctrl-wheel turn changes the zoom: a notch of 100 is about 15%. */
+const WHEEL_ZOOM = 0.0015;
+/** Pixels a wheel turn counts for when the browser reports it in lines. */
+const LINE_PX = 16;
 
 export interface StageProps {
 	book: Book;
@@ -125,6 +130,66 @@ export function Stage({
 	const geometry = spreadGeometry(book, spread);
 	const zoom = useStageZoom(fitZoom(geometry.bounds, size));
 	if (zoomApi) zoomApi.current = zoom;
+	// The spread-space point under the pointer when a wheel zoom began, to put back under it after.
+	const anchor = useRef<{ px: number; py: number; ux: number; uy: number; ratio: number } | null>(
+		null,
+	);
+	const { zoom: level, setZoom } = zoom;
+	// The zoom as the latest wheel turn left it: turns can arrive faster than the stage draws.
+	const latest = useRef(level);
+	latest.current = level;
+	useEffect(() => {
+		const table = ref.current;
+		if (!table) return;
+		const onWheel = (event: WheelEvent) => {
+			const lines = event.deltaMode === 1 ? LINE_PX : 1;
+			if (event.ctrlKey || event.metaKey) {
+				// Ctrl and the wheel (and a trackpad's pinch, which arrives the same way) zoom, about the pointer.
+				event.preventDefault();
+				const from = latest.current;
+				const next = clampZoom(from * Math.exp(-event.deltaY * lines * WHEEL_ZOOM));
+				if (next === from) return;
+				const sheet = table.firstElementChild as HTMLElement | null;
+				if (anchor.current) {
+					// Turns that came before the stage drew carry on from the same point under the pointer.
+					anchor.current.ratio *= next / from;
+				} else if (sheet) {
+					const box = table.getBoundingClientRect();
+					const style = getComputedStyle(sheet);
+					const px = event.clientX - box.left;
+					const py = event.clientY - box.top;
+					anchor.current = {
+						px,
+						py,
+						ux: table.scrollLeft + px - (sheet.offsetLeft + parseFloat(style.paddingLeft || '0')),
+						uy: table.scrollTop + py - (sheet.offsetTop + parseFloat(style.paddingTop || '0')),
+						ratio: next / from,
+					};
+				}
+				latest.current = next;
+				setZoom(next);
+			} else if (event.shiftKey && table.scrollWidth > table.clientWidth) {
+				// Shift and the wheel move across the table, as they do in a browser.
+				event.preventDefault();
+				table.scrollLeft += (event.deltaX || event.deltaY) * lines;
+			}
+		};
+		table.addEventListener('wheel', onWheel, { passive: false });
+		return () => table.removeEventListener('wheel', onWheel);
+	}, [ref, setZoom]);
+	useLayoutEffect(() => {
+		const held = anchor.current;
+		const table = ref.current;
+		if (!held || !table) return;
+		anchor.current = null;
+		const sheet = table.firstElementChild as HTMLElement | null;
+		if (!sheet) return;
+		const style = getComputedStyle(sheet);
+		table.scrollLeft =
+			sheet.offsetLeft + parseFloat(style.paddingLeft || '0') + held.ux * held.ratio - held.px;
+		table.scrollTop =
+			sheet.offsetTop + parseFloat(style.paddingTop || '0') + held.uy * held.ratio - held.py;
+	}, [ref, level]);
 	const percent = Math.round(zoom.zoom * 100);
 	const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 	const [pageMenu, setPageMenu] = useState<{
@@ -246,6 +311,7 @@ export function Stage({
 				<div
 					ref={ref}
 					className={styles.table}
+					data-stage="table"
 					onPointerDown={(event) => {
 						// A press on the bare table, not on the page, lets go of the selection. The words being
 						// edited sit beside the page, so a press in them (placing the caret, picking a word) does not.
