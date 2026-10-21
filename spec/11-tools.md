@@ -81,6 +81,10 @@ See 09. They are collected in Structure → Notes, glossary and index.
 - **Lock** (`lock`) still selects but won't drag or nudge.
 - **Layers panel** (Structure): top-to-bottom list with hide (`hide`), lock, and forward/backward. Clicking selects; Shift-click adds.
 
+## Book tools
+
+The Book tools window (spec 12) hosts the workbenches of `spec/features/`, each working on the open book with its analysis done in Rust and its changes made as ordinary intents (one undo step each). **Built so far:** Book structure (Copyright page, Contents), Typesetting checks (Smart punctuation, Consistent styles), Pictures (Pictures in this book, Alt text) and Publishing helpers (Upload checklist, Keywords, Print cost and royalties); each feature's own page says what of it is built. **Not built yet:** the Front matter checklist, back matter, index and glossary builders, widows, orphans and runts, rivers and loose lines, the hyphenation dictionary, linked and embedded pictures, the launch planner and blurb writer, and the Proofing, Series, Accessibility and Picture-book areas.
+
 ## Spread templates (Insert or Pages → Spread templates)
 
 **Built:** the **Spread templates** button (Insert and Pages), the page menu's **Add from template…** and a dialog of live thumbnails drawn by Rust at *this* book's size. The dialog opens on the group of the book's own kind (picture and illustrated → Picture book, novel → Chapter openers, textbook → Textbook, poetry → Poetry, memoir → Photos) with a chip for each group and **All**. Choosing one adds a two-page spread after the one on show (after the first page when the cover is showing, since nothing follows the cover directly) as **one undo step** (`AddSpreadWith`: the spread, its frames, the page numbers and the spine that follow from its two pages), selects it and says "Added '{name}' after this spread. Swap in your own pictures and words." over the page. It is the same in Easy and Expert, and it is not offered while a master page is being edited.
