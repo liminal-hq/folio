@@ -9,7 +9,11 @@
 // cannot, so the page's window frame draws its own inside a small transparent margin (D-13).
 
 use folio_protocol::WindowKind;
-use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use std::sync::Mutex;
+
+use tauri::{
+    AppHandle, Emitter, Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
+};
 
 /// How a kind of window is made, in logical pixels.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -130,6 +134,50 @@ pub async fn open_window<R: Runtime>(app: AppHandle<R>, kind: WindowKind) -> Res
         .map_err(|e| e.to_string())
 }
 
+/// The areas of the Book tools window, the first being where it opens.
+pub const TOOL_AREAS: [&str; 4] = ["structure", "typesetting", "pictures", "publishing"];
+
+/// Sent to the Book tools window when it is asked to show another area while it is open.
+pub const TOOLS_AREA_EVENT: &str = "book-tools://area";
+
+/// The area the Book tools window was last asked to open on, for a window that is built after it
+/// was asked.
+pub struct ToolsArea(pub Mutex<String>);
+
+impl Default for ToolsArea {
+    fn default() -> Self {
+        Self(Mutex::new(TOOL_AREAS[0].to_owned()))
+    }
+}
+
+/// Opens the Book tools window on `area`, or focuses it and moves it there. An area it does not know
+/// is the first one.
+#[tauri::command]
+pub async fn open_book_tools<R: Runtime>(app: AppHandle<R>, area: String) -> Result<(), String> {
+    let area = if TOOL_AREAS.contains(&area.as_str()) {
+        area
+    } else {
+        TOOL_AREAS[0].to_owned()
+    };
+    *app.state::<ToolsArea>()
+        .0
+        .lock()
+        .expect("the tools area is not poisoned") = area.clone();
+    let window = open_or_focus(&app, WindowKind::BookTools).map_err(|e| e.to_string())?;
+    let _ = app.emit_to(window.label(), TOOLS_AREA_EVENT, area);
+    Ok(())
+}
+
+/// The area the Book tools window was last asked to open on.
+#[tauri::command]
+pub async fn book_tools_area<R: Runtime>(app: AppHandle<R>) -> String {
+    app.state::<ToolsArea>()
+        .0
+        .lock()
+        .expect("the tools area is not poisoned")
+        .clone()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -183,6 +231,25 @@ mod tests {
             assert!(app.get_webview_window(kind.label()).is_some());
         }
         assert_eq!(app.webview_windows().len(), 5);
+    }
+
+    #[test]
+    fn the_tools_window_opens_on_the_area_asked_for_and_an_unknown_one_is_the_first() {
+        let app = tauri::test::mock_app();
+        app.manage(ToolsArea::default());
+        tauri::async_runtime::block_on(open_book_tools(app.handle().clone(), "pictures".into()))
+            .expect("opens");
+        assert_eq!(
+            tauri::async_runtime::block_on(book_tools_area(app.handle().clone())),
+            "pictures"
+        );
+        tauri::async_runtime::block_on(open_book_tools(app.handle().clone(), "nonsense".into()))
+            .expect("focuses");
+        assert_eq!(
+            tauri::async_runtime::block_on(book_tools_area(app.handle().clone())),
+            "structure"
+        );
+        assert_eq!(app.webview_windows().len(), 1);
     }
 
     #[test]

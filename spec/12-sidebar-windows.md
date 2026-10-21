@@ -43,6 +43,12 @@ The **menu bar** stays hidden by default in every layout except "Menu bar + comp
 - Dragging a torn window's tab bar onto another window's tab strip merges it, as in Waypoint.
 - One `BookSession` per book lives in Rust. Windows are views onto sessions, so two windows can show the same book (e.g. cover and interior), with undo shared per book.
 
+### Book tools window (D-49)
+
+- **Built:** one `book-tools` utility window (1180 × 760, minimum 900 × 600, a child of the main window, reopening focuses it). It works on **the book the main window shows**: the main window tells the plugin which book it shows and every window hears it, so the tools window follows when another book is chosen, and a tool's change goes through the same store (one undo step of that book, shown in the main window at once).
+- **Opening:** the app menu's **Book tools** submenu and the menu bar's **Tools** menu list the areas — Book structure, Typesetting checks, Pictures, Publishing helpers — and choosing one opens the window on it or moves the open window there. The window's own switcher also lists Proofing and review, Series and editions, Accessibility and Picture-book extras as not built yet.
+- **Shape:** a sidebar with the area switcher and that area's tools, a header with the tool's title and one line, and the tool itself; one tool at a time. With no book open it says so.
+
 ### Tear-off panels
 
 - Popped-out groups become **utility windows** (`always_on_top` relative to the owner, `skip_taskbar`, Waypoint chrome with only close and a Dock button). Positions are remembered per monitor.
