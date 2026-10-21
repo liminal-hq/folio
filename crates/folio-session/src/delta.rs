@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    BackNote, BarcodeChoice, Book, BookFont, Details, Flow, FlowId, Grid, Margins, Master,
-    MasterId, PageNumbers, Paper, Proofing, Pt, Size, Spread, SpreadId, Styles,
+    BarcodeChoice, Book, BookFont, Details, Flow, FlowId, Grid, Margins, Master, MasterId,
+    PageNumbers, Paper, Proofing, Pt, Size, Spread, SpreadId, Styles,
 };
 
 use crate::patch::PatchOp;
@@ -91,7 +91,6 @@ pub struct Delta {
     pub paper: Paper,
     pub styles: Styles,
     pub barcode: BarcodeChoice,
-    pub back_notes: Vec<BackNote>,
     pub fonts: Vec<BookFont>,
     pub preflight_ignore: Vec<String>,
     /// The flows a step touched, each as it was (or `None` where it did not exist).
@@ -112,7 +111,6 @@ impl Delta {
             paper: book.paper,
             styles: book.styles.clone(),
             barcode: book.barcode.clone(),
-            back_notes: book.back_notes.clone(),
             fonts: book.fonts.clone(),
             preflight_ignore: book.preflight_ignore.clone(),
             flows: flows
@@ -178,7 +176,6 @@ impl Delta {
         let was_paper = book.paper;
         let was_styles = book.styles.clone();
         let was_barcode = book.barcode.clone();
-        let was_notes = book.back_notes.clone();
         let was_fonts = book.fonts.clone();
         let was_ignore = book.preflight_ignore.clone();
 
@@ -230,12 +227,6 @@ impl Delta {
             book.barcode = self.barcode.clone();
             ops.push(PatchOp::SetBarcode {
                 choice: self.barcode.clone(),
-            });
-        }
-        if was_notes != self.back_notes {
-            book.back_notes = self.back_notes.clone();
-            ops.push(PatchOp::SetBackNotes {
-                notes: self.back_notes.clone(),
             });
         }
         if was_paper != self.paper {

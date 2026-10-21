@@ -389,7 +389,7 @@ fn a_book_from_a_newer_schema_is_refused_not_misread() {
         Package::open(&rewritten),
         Err(PackageError::NewerSchema {
             found: 99,
-            supported: 2
+            supported: 3
         })
     ));
 }
@@ -496,6 +496,7 @@ fn the_styles_are_the_books_in_memory_but_their_own_file_in_the_package() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("otter.folio");
     let mut with_styles = book();
+    with_styles.schema = folio_model::SCHEMA_VERSION;
     with_styles.styles = serde_json::from_value(json!({
         "look": "classic",
         "fontFamily": "Literata",

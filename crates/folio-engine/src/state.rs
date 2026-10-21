@@ -107,7 +107,6 @@ fn used_assets(book: &folio_model::Book) -> Vec<String> {
             found.push(asset.clone());
         }
     }
-    found.extend(book.back_notes.iter().filter_map(|n| n.picture.clone()));
     found.sort();
     found.dedup();
     found
@@ -494,12 +493,12 @@ impl Books {
         let made = new_book(spec)?;
         let styles = style_sheet(&made.book.styles);
         let fonts = FontBook::bundled();
-        let cover = made
-            .book
+        let front = folio_model::front_cover_view(&made.book);
+        let cover = front
             .spreads
             .first()
             .ok_or_else(|| Error::Export("the book has no cover".into()))?;
-        let scene = Layouter::new(&made.book, &styles, &fonts)
+        let scene = Layouter::new(&front, &styles, &fonts)
             .scene_spread(&cover.id)
             .map_err(|e| Error::Export(e.to_string()))?
             .and_then(|s| s.pages.into_iter().next())
