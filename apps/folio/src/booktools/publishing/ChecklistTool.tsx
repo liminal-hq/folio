@@ -43,7 +43,9 @@ export function ChecklistTool({ client, id, revision, say }: ToolProps) {
 								{t(
 									item.status === 'done'
 										? `tools.checklist.done.${item.id}`
-										: `tools.checklist.fix.${item.id}`,
+										: item.id === 'isbn' && !item.value
+											? 'tools.checklist.fix.isbnNone'
+											: `tools.checklist.fix.${item.id}`,
 									{ value: item.value ?? '' },
 								)}
 							</span>

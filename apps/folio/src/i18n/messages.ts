@@ -187,6 +187,8 @@ export const messages = {
 	'tools.checklist.fix.keywords': 'Use all seven keyword slots in Keywords.',
 	'tools.checklist.fix.isbn':
 		'Add the ISBN in Book details, or leave it to KDP; this one is not a good ISBN.',
+	'tools.checklist.fix.isbnNone':
+		'No ISBN yet. Add one in Book details, or leave it to KDP, which can give you one.',
 	'tools.checklist.fix.pageCount': '{value} pages is outside what KDP prints (24 to 828).',
 	'tools.checklist.fix.cover': 'The book has no cover page.',
 	'tools.checklist.fix.problems': '{value} problems to put right in Check book.',
