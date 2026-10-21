@@ -4105,3 +4105,39 @@ fn a_frames_description_is_one_undo_step_and_an_empty_one_takes_it_away() {
         })
         .is_err());
 }
+
+#[test]
+fn the_keywords_are_one_undo_step_that_merges_while_typed_and_a_bad_list_is_refused() {
+    let mut s = session();
+    let patch = s
+        .apply(Intent::SetKeywords {
+            keywords: vec!["otter".into(), " bedtime ".into()],
+        })
+        .unwrap();
+    assert_eq!(
+        patch.ops,
+        vec![PatchOp::SetKeywords {
+            keywords: vec!["otter".into(), "bedtime".into()]
+        }]
+    );
+    // The next one, straight away, is the same step.
+    s.apply(Intent::SetKeywords {
+        keywords: vec!["otter".into(), "bedtime".into(), "river".into()],
+    })
+    .unwrap();
+    assert_eq!(s.book().metadata.keywords.len(), 3);
+    s.undo().unwrap();
+    assert!(s.book().metadata.keywords.is_empty());
+    s.redo().unwrap();
+    assert_eq!(s.book().metadata.keywords.len(), 3);
+    for bad in [
+        (0..8).map(|n| format!("k{n}")).collect::<Vec<_>>(),
+        vec!["x".repeat(51)],
+        vec!["  ".into()],
+    ] {
+        assert!(matches!(
+            s.apply(Intent::SetKeywords { keywords: bad }),
+            Err(SessionError::BadDetails(_))
+        ));
+    }
+}

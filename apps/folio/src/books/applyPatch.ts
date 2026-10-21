@@ -44,6 +44,8 @@ function applyOp(book: Book, op: PatchOp): Book {
 			const { barcode: _barcode, ...rest } = book;
 			return op.choice.kind !== 'auto' ? { ...rest, barcode: op.choice } : rest;
 		}
+		case 'setKeywords':
+			return { ...book, metadata: { ...book.metadata, keywords: op.keywords } };
 		case 'setPaper': {
 			// Rust leaves the default, white paper out of the book, and so does the copy.
 			const { paper: _paper, ...rest } = book;

@@ -31,13 +31,14 @@ pub enum PatchOp {
     SetLanguage { language: String },
     /// Who makes the barcode on the paperback cover.
     SetBarcode { choice: BarcodeChoice },
-    /// The words on the back cover, whole.
     /// The paper a printed copy is on.
     SetPaper { paper: Paper },
     /// A flow's story and frames, whole.
     SetFlow { flow: Flow },
     /// A flow that is gone.
     RemoveFlow { id: FlowId },
+    /// The keywords a store is told about the book.
+    SetKeywords { keywords: Vec<String> },
     /// The book's styles and swatches, whole.
     SetStyles { styles: Styles },
     /// The title, authors, description and ISBNs.

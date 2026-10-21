@@ -327,6 +327,11 @@ fn ops_between(before: &Delta, after: &Delta) -> Vec<PatchOp> {
             (None, None) => {}
         }
     }
+    if before.keywords != after.keywords {
+        ops.push(PatchOp::SetKeywords {
+            keywords: after.keywords.clone(),
+        });
+    }
     if before.styles != after.styles {
         ops.push(PatchOp::SetStyles {
             styles: after.styles.clone(),
