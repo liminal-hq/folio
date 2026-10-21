@@ -113,6 +113,57 @@ fn used_assets(book: &folio_model::Book) -> Vec<String> {
     found
 }
 
+/// The hold on a book's file while it is open: an exclusive lock on a small file beside it, which
+/// the system lets go of if the program dies, so no lock is ever left stale. Two programs that
+/// both open the book (the app and an agent's server, say) would each overwrite the other's saves.
+struct BookLock {
+    file: std::fs::File,
+    path: PathBuf,
+}
+
+impl BookLock {
+    /// Takes the lock beside the book at `book`. `None` when it cannot be had for a reason other
+    /// than another program holding it (a folder that cannot be written): the book opens unlocked.
+    fn take(book: &Path) -> Result<Option<Self>, Error> {
+        let Some(name) = book.file_name() else {
+            return Ok(None);
+        };
+        let mut name = name.to_os_string();
+        name.push(".lock");
+        let path = book.with_file_name(name);
+        let file = match std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(&path)
+        {
+            Ok(file) => file,
+            Err(e) => {
+                log::debug!("no lock beside {}: {e}", book.display());
+                return Ok(None);
+            }
+        };
+        match file.try_lock() {
+            Ok(()) => Ok(Some(Self { file, path })),
+            Err(std::fs::TryLockError::WouldBlock) => {
+                Err(Error::Locked(book.to_string_lossy().into_owned()))
+            }
+            Err(std::fs::TryLockError::Error(e)) => {
+                log::debug!("no lock on {}: {e}", book.display());
+                Ok(None)
+            }
+        }
+    }
+}
+
+impl Drop for BookLock {
+    fn drop(&mut self) {
+        // Removed while still held, so no one else can have taken it in between.
+        let _ = std::fs::remove_file(&self.path);
+        let _ = self.file.unlock();
+    }
+}
+
 struct OpenBook {
     id: String,
     session: Session,
@@ -129,6 +180,8 @@ struct OpenBook {
     fonts: Option<(Vec<BookFont>, Arc<FontBook>)>,
     /// The flows laid out at one revision of the book, shared by the spreads laid out at it.
     flow_cache: Option<(u64, Arc<FlowCache>)>,
+    /// Keeps other programs from opening the book's file while it is open here.
+    lock: Option<BookLock>,
 }
 
 impl OpenBook {
@@ -476,7 +529,7 @@ impl Books {
     }
 
     fn add(&self, session: Session, package: Package, path: Option<PathBuf>) -> BookSnapshot {
-        self.add_recovering(session, package, path, None)
+        self.add_recovering(session, package, path, None, None)
     }
 
     /// Adds a book. `recovery_id` is the copy it was brought back from, which it goes on using.
@@ -486,6 +539,7 @@ impl Books {
         package: Package,
         path: Option<PathBuf>,
         recovery_id: Option<String>,
+        lock: Option<BookLock>,
     ) -> BookSnapshot {
         let mut inner = locked(&self.inner);
         inner.next += 1;
@@ -499,6 +553,7 @@ impl Books {
             facts: HashMap::new(),
             fonts: None,
             flow_cache: None,
+            lock,
         };
         let snapshot = book.snapshot();
         inner.books.push(book);
@@ -527,9 +582,10 @@ impl Books {
                 return Ok(open.snapshot());
             }
         }
+        let lock = BookLock::take(&canonical)?;
         let package = Package::open(&canonical)?;
         let session = Session::new(package.book().clone());
-        let snapshot = self.add(session, package, Some(canonical));
+        let snapshot = self.add_recovering(session, package, Some(canonical), None, lock);
         self.fire(BookEvent::Opened(snapshot.summary.clone()));
         Ok(snapshot)
     }
@@ -554,6 +610,14 @@ impl Books {
                     source: e,
                 })?;
             }
+            // Saving somewhere new takes that file's lock, and lets go of the old one's.
+            let canonical = dunce::canonicalize(&target).unwrap_or_else(|_| target.clone());
+            let moved = open.path.as_deref() != Some(canonical.as_path());
+            let taken = if moved || open.lock.is_none() {
+                BookLock::take(&canonical)?
+            } else {
+                None
+            };
             *open.package.book_mut() = open.session.book().clone();
             let options = SaveOptions {
                 generator: self.generator.clone(),
@@ -561,6 +625,9 @@ impl Books {
             };
             open.package.save(&target, &options)?;
             open.session.mark_saved();
+            if taken.is_some() {
+                open.lock = taken;
+            }
             open.path = Some(dunce::canonicalize(&target).unwrap_or(target));
             // What the copy kept is in the file now.
             self.recovery.remove(&open.recovery_id);
@@ -589,6 +656,15 @@ impl Books {
         }
         self.fire(BookEvent::Closed(id.into()));
         Ok(())
+    }
+
+    /// Lets go of every book's lock without closing the books, as the system does when the program
+    /// dies. Tests of recovery use it to stand in for a crash.
+    #[doc(hidden)]
+    pub fn release_locks(&self) {
+        for open in locked(&self.inner).books.iter_mut() {
+            open.lock = None;
+        }
     }
 
     /// Writes a recovery copy of each book that has changes one does not have yet, and says how many
@@ -633,7 +709,11 @@ impl Books {
         let (package, note) = self.recovery.open(id)?;
         let session = Session::recovered(package.book().clone());
         let path = note.path.map(PathBuf::from);
-        let snapshot = self.add_recovering(session, package, path, Some(note.id));
+        let lock = match &path {
+            Some(path) => BookLock::take(path)?,
+            None => None,
+        };
+        let snapshot = self.add_recovering(session, package, path, Some(note.id), lock);
         self.fire(BookEvent::Opened(snapshot.summary.clone()));
         Ok(snapshot)
     }

@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use folio_engine::{
-    Books, BooksChanged, ExportColour, ExportProgress, ExportTarget, Host, PatchEvent,
+    Books, BooksChanged, Error, ExportColour, ExportProgress, ExportTarget, Host, PatchEvent,
 };
 use folio_model::{Intent, Pt, Rect, SpreadId, Surface};
 use folio_presets::NewBookSpec;
@@ -72,14 +72,13 @@ fn a_book_is_made_changed_saved_reopened_and_exported_without_a_toolkit() {
     assert!(heard[0].can_undo);
     drop(heard);
 
-    // It is saved, and a second set of books opens the same file.
+    // It is saved. While it is open here, a second set of books (another program) cannot open
+    // the same file; once it is closed, it can.
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("Otter").join("Otter.folio");
     books.save(&id, Some(file.as_path())).unwrap();
     let again = Books::new(Arc::new(Recorder::default()));
-    let reopened = again.open(&file).unwrap();
-    let moved = &reopened.book.spreads[0].frames[0].base().rect;
-    assert_eq!(moved.x, Pt(12.0));
+    assert!(matches!(again.open(&file), Err(Error::Locked(_))));
 
     // It is exported, and the host hears which file the export reached.
     let report = books
@@ -90,4 +89,10 @@ fn a_book_is_made_changed_saved_reopened_and_exported_without_a_toolkit() {
     assert!(pdf.starts_with(b"%PDF-"));
     assert!(!host.progress.lock().unwrap().is_empty());
     assert!(*host.changes.lock().unwrap() > 0);
+
+    // Closed, the book can be opened by the other program, with the change in it.
+    books.close(&id).unwrap();
+    let reopened = again.open(&file).unwrap();
+    let moved = &reopened.book.spreads[0].frames[0].base().rect;
+    assert_eq!(moved.x, Pt(12.0));
 }
