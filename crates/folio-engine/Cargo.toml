@@ -9,7 +9,12 @@ rust-version = { workspace = true }
 repository = { workspace = true }
 publish = false
 
+[features]
+# Derives JSON Schema for the types an agent sends (used by `folio-mcp`).
+schema = ["dep:schemars", "folio-model/schema", "folio-presets/schema"]
+
 [dependencies]
+schemars = { version = "1", optional = true }
 base64 = "0.22"
 dunce = { workspace = true }
 folio-colour = { path = "../folio-colour" }

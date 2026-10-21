@@ -10,6 +10,7 @@ use ts_rs::TS;
 
 /// A change to the look of some words. A field left out is left as it is; an empty `font` or
 /// `colour` takes the override away.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase", default)]

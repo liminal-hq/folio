@@ -21,6 +21,7 @@ use crate::units::{Margins, Pt, Size};
 pub const SCHEMA_VERSION: u32 = 2;
 
 /// The kind of book, which selects a preset bundle of trim, bleed, grid, styles and export defaults.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
@@ -34,6 +35,7 @@ pub enum BookKind {
 }
 
 /// Whether a book's pages are laid out by hand (`Fixed`) or flow from a story (`Flowing`).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
@@ -42,6 +44,7 @@ pub enum LayoutMode {
     Flowing,
 }
 
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase")]
@@ -108,6 +111,7 @@ pub const MAX_IGNORED_WORDS: usize = 5000;
 
 /// The words spelling leaves alone in this book: names, made-up words, terms of the trade. It
 /// travels with the file and is undone with it (D-25).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Proofing {
@@ -136,6 +140,7 @@ impl Proofing {
 }
 
 /// A font file the book keeps with it.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
@@ -177,6 +182,7 @@ pub fn clean_language(tag: &str) -> Result<String, String> {
 
 /// A master page: frames drawn on every page that uses it, in the page's own coordinates (the
 /// origin is the top-left of its trim). Text in them may hold `{page}` and `{book.title}`.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Master {
@@ -193,6 +199,7 @@ pub struct Master {
 }
 
 /// Where the page numbers go.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
@@ -212,12 +219,14 @@ impl PageNumbers {
     }
 }
 
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Contributor {
     pub name: String,
     pub role: ContributorRole,
 }
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
@@ -228,6 +237,7 @@ pub enum ContributorRole {
     Translator,
 }
 
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Grid {
@@ -235,6 +245,7 @@ pub struct Grid {
     pub gutter: Pt,
     pub baseline: Option<Baseline>,
 }
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Baseline {
@@ -242,6 +253,7 @@ pub struct Baseline {
     pub offset: Pt,
 }
 
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct BookMetadata {
@@ -252,6 +264,7 @@ pub struct BookMetadata {
 }
 /// Some words the person has put on the back cover: where they sit, from the top-left of the back
 /// cover's trim, and what they say.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct BackNote {
@@ -273,6 +286,7 @@ pub struct BackNote {
     pub rotation: Option<f64>,
 }
 
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Isbns {
@@ -283,6 +297,7 @@ pub struct Isbns {
 
 /// What a book says about itself on its cover and in a store: its title, who made it, what it is
 /// about and its ISBNs. They are set together, as one undo step.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase")]

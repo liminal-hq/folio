@@ -9,7 +9,12 @@ homepage.workspace = true
 repository.workspace = true
 publish = false
 
+[features]
+# Derives JSON Schema for the types an agent sends (used by `folio-mcp`).
+schema = ["dep:schemars"]
+
 [dependencies]
+schemars = { version = "1", optional = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
 ts-rs = { workspace = true }
