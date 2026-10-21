@@ -1865,3 +1865,20 @@ fn each_line_of_a_story_names_its_paragraph_and_other_lines_name_none() {
     }
     assert!(story_lines > 0);
 }
+
+#[test]
+fn a_text_frame_says_how_its_style_sets_the_words_so_an_editor_in_place_does_the_same() {
+    use folio_model::Align;
+    let plain = laid_with_fallback(text_frame(
+        "fr_t", "body", 20.0, 20.0, 200.0, 100.0, "Hello",
+    ));
+    let plain = plain.frames.iter().find(|f| f.frame.0 == "fr_t").unwrap();
+    // The body style is justified.
+    assert_eq!(plain.text_align, Some(Align::Justify));
+    // Folio's own bubble style is centred.
+    let centred = laid_with_fallback(text_frame(
+        "fr_t", "bubble", 20.0, 20.0, 200.0, 100.0, "Hello",
+    ));
+    let centred = centred.frames.iter().find(|f| f.frame.0 == "fr_t").unwrap();
+    assert_eq!(centred.text_align, Some(Align::Center));
+}
