@@ -9,6 +9,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { BooksProvider } from '../books/BooksProvider';
+import type { FileDialogs } from '../books/dialogs';
+import { createFakeBooksClient } from '../books/fakeBooksClient';
 import type { AppInfoClient } from '../services/appInfoClient';
 import { createFakeSettingsClient } from '../settings/fakeSettingsClient';
 import { SettingsProvider } from '../settings/SettingsProvider';
@@ -23,6 +26,13 @@ const controls: WindowControls = {
 	setAlwaysOnTop: () => {},
 	isMaximized: () => false,
 	onMaximizedChange: () => () => {},
+};
+
+const noDialogs: FileDialogs = {
+	pickBook: async () => null,
+	pickSavePath: async () => null,
+	pickImage: async () => null,
+	pickText: async () => null,
 };
 
 const info: AppInfoClient = {
@@ -100,8 +110,35 @@ describe('PreferencesScreen', () => {
 });
 
 describe('BookToolsScreen', () => {
-	it('says what will open there', () => {
-		mount(<BookToolsScreen />);
-		expect(screen.getByRole('heading', { name: 'Book tools' })).toBeInTheDocument();
+	it('opens on the group it was asked for, and says when no book is open', async () => {
+		const fake = createFakeBooksClient();
+		const tools = {
+			area: async () => 'pictures',
+			onArea: async () => () => {},
+		};
+		mount(
+			<BooksProvider client={fake.client} dialogs={noDialogs} follow>
+				<BookToolsScreen client={tools} />
+			</BooksProvider>,
+		);
+		expect(
+			await screen.findByRole('tab', { name: 'Pictures', selected: true }),
+		).toBeInTheDocument();
+		expect(screen.getByText(/Open a book in the main window/)).toBeInTheDocument();
+	});
+
+	it('follows the book the main window shows', async () => {
+		const fake = createFakeBooksClient();
+		const made = await fake.client.newBook({ title: 'Pip' });
+		const tools = { area: async () => 'structure', onArea: async () => () => {} };
+		mount(
+			<BooksProvider client={fake.client} dialogs={noDialogs} follow>
+				<BookToolsScreen client={tools} />
+			</BooksProvider>,
+		);
+		await waitFor(() => expect(screen.queryByText(/Open a book in the main window/)).toBeNull());
+		expect(screen.getByRole('tab', { name: 'Book structure', selected: true })).toBeInTheDocument();
+		fake.emit.active(made.summary.id);
+		expect(await screen.findByText(/Pip · /)).toBeInTheDocument();
 	});
 });

@@ -1,6 +1,6 @@
 # Feature specs
 
-**Integration status:** every workbench opens inside Folio today from **Folio menu → Book tools** (or **Tools** in the menu bar) as a tool window. Next step per area: port its logic into `Folio.dc.html` so it works on the open book instead of sample data.
+**Integration status:** the Book tools window opens from **Folio menu → Book tools** and the **Tools** menu on the book the main window shows (spec 12). Structure, Typesetting checks, Pictures and Publishing helpers are the areas being built, each tool working on the open book; the status of each tool is on its own page below.
 
 One file per feature. Each area has a standalone working artboard (`Folio <Area>.dc.html`) on `Folio Features.dc.html`; once refined, its code is ported into `Folio.dc.html`.
 
