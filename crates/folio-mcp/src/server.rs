@@ -93,19 +93,29 @@ pub struct SaveBook {
     pub path: Option<String>,
 }
 
-/// A file to bring into a book.
+/// A manuscript to bring into a book.
 #[derive(Debug, Deserialize, JsonSchema)]
-pub struct ImportFile {
+pub struct ImportManuscript {
     /// The id `new_book` or `open_book` returned.
     pub id: String,
-    /// The path of the file: Markdown, plain text, Word (`.docx`), OpenDocument (`.odt`) or Rich
-    /// Text (`.rtf`) for a manuscript, a PNG, JPEG, GIF, WebP or SVG for a picture.
+    /// The path of a Markdown, plain text, Word (`.docx`), OpenDocument (`.odt`) or Rich Text
+    /// (`.rtf`) file.
     pub path: String,
-    /// For a manuscript from Word or OpenDocument: the Folio style (`h1`, `h2`, `epigraph`, or
-    /// `body`) to give each of the document's styles, by the style's name. The report that comes
-    /// back lists the styles found.
+    /// For a Word or OpenDocument file: the Folio style (`h1`, `h2`, `epigraph`, or `body`) to
+    /// give each of the document's styles, by the style's name. The report that comes back lists
+    /// the styles found.
     #[serde(default)]
     pub styles: Option<std::collections::BTreeMap<String, String>>,
+}
+
+/// A picture to bring into a book.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ImportPicture {
+    /// The id `new_book` or `open_book` returned.
+    pub id: String,
+    /// The path of a PNG, JPEG, GIF, WebP or SVG file. An SVG is kept but drawn as a grey box
+    /// for now, so use a PNG or JPEG for a picture that must show.
+    pub path: String,
 }
 
 /// Files to make from a book.
@@ -447,7 +457,7 @@ impl FolioServer {
     )]
     async fn import_manuscript(
         &self,
-        Parameters(ImportFile { id, path, styles }): Parameters<ImportFile>,
+        Parameters(ImportManuscript { id, path, styles }): Parameters<ImportManuscript>,
     ) -> Result<CallToolResult, ErrorData> {
         let imported = self
             .blocking(move |books| books.import_text_with(&id, &path, &styles.unwrap_or_default()))
@@ -464,7 +474,7 @@ impl FolioServer {
     )]
     async fn import_picture(
         &self,
-        Parameters(ImportFile { id, path, .. }): Parameters<ImportFile>,
+        Parameters(ImportPicture { id, path }): Parameters<ImportPicture>,
     ) -> Result<CallToolResult, ErrorData> {
         let imported = self
             .blocking(move |books| books.import_image(&id, Path::new(&path)))

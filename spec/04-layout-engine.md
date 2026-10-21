@@ -5,6 +5,7 @@
 - Stored in **points** (`Pt(f64)`). Shown in inches (default en-CA/en-US) or millimetres (Preferences, or the in/mm toggle in the Expert inspector).
 - Spread space: origin at the top-left of the **trim** of the left-most page. The x axis runs across both pages, and the gutter sits at `x = trim.w`. The bleed area is `[-bleed, pages·w + bleed] × [-bleed, h + bleed]`.
 - Single-page spreads (cover, title page) have one page. Fixed-layout spreads can be `[left, right]`, `[right]` (opener) or `[left]` (closer).
+- A spread has its own coordinate space: the top-left of its first page's trim is the origin, and each next page starts one trim width on. A page alone (cover, single, opener or closer) starts at the origin whichever side of its spread it is on, so frames, guides and master items on it are placed from the page's own left edge. An opener is a right-hand page and a closer a left-hand one, which decides its margins and its bleed (none at the fold), not where it is.
 
 ## Model
 
