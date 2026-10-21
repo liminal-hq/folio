@@ -10,6 +10,7 @@ const COMMANDS: &[&str] = &[
     "template_gallery",
     "apply_template",
     "book_tool",
+    "book_tool_fix",
     "set_active_book",
     "active_book",
     "paint_presets",

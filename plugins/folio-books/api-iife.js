@@ -155,6 +155,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function bookTool(id, request) {
         return cmd('book_tool', { id, request });
     }
+    /** Makes a Book tool's change to a book as one undo step. */
+    function bookToolFix(id, fix) {
+        return cmd('book_tool_fix', { id, fix });
+    }
     /** Says which book the main window is showing, so other windows can follow it. */
     function setActiveBook(id) {
         return cmd('set_active_book', { id });
@@ -251,6 +255,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.assetData = assetData;
     exports.autosaveBooks = autosaveBooks;
     exports.bookTool = bookTool;
+    exports.bookToolFix = bookToolFix;
     exports.cancelExport = cancelExport;
     exports.closeBook = closeBook;
     exports.coverSheetCanvas = coverSheetCanvas;

@@ -7,6 +7,8 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { ToolFix } from '@liminal-hq/folio-protocol/generated/ToolFix';
+import type { ToolFixed } from '@liminal-hq/folio-protocol/generated/ToolFixed';
 import type { ToolReport } from '@liminal-hq/folio-protocol/generated/ToolReport';
 import type { ToolRequest } from '@liminal-hq/folio-protocol/generated/ToolRequest';
 import type { TemplateGallery } from '@liminal-hq/folio-protocol/generated/TemplateGallery';
@@ -59,6 +61,7 @@ import {
 	templateGallery,
 	applyTemplate,
 	bookTool,
+	bookToolFix,
 	setActiveBook,
 	activeBook,
 	onActiveBook,
@@ -112,6 +115,8 @@ export interface BooksClient {
 	templateGallery(id: string): Promise<TemplateGallery>;
 	/** Asks a Book tool about a book; the answer is worked out in Rust. */
 	bookTool(id: string, request: ToolRequest): Promise<ToolReport>;
+	/** Makes a Book tool's change to a book as one undo step. */
+	bookToolFix(id: string, fix: ToolFix): Promise<ToolFixed>;
 	/** Says which book the main window is showing, so other windows can follow it. */
 	setActiveBook(id: string | null): Promise<void>;
 	/** The book the main window is showing, for a window that opens after it was chosen. */
@@ -203,6 +208,7 @@ export const tauriBooksClient: BooksClient = {
 	templateGallery,
 	applyTemplate,
 	bookTool,
+	bookToolFix,
 	setActiveBook,
 	activeBook,
 	openBook,

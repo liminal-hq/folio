@@ -1388,6 +1388,22 @@ impl Books {
         Ok(crate::tools::run(&book, &facts, findings, request))
     }
 
+    /// Makes a Book tool's change to a book, all of it one undo step, and says how much it changed.
+    /// A change by the person's own tool is not marked as an agent's.
+    pub fn book_tool_fix(
+        &self,
+        id: &str,
+        fix: &crate::tools::ToolFix,
+    ) -> Result<crate::tools::ToolFixed, Error> {
+        let book = self.snapshot(id)?.book;
+        let intents = crate::tools::fix_intents(&book, fix);
+        let changed = intents.len() as u32;
+        if changed > 0 {
+            self.apply_batch_by(id, intents, None)?;
+        }
+        Ok(crate::tools::ToolFixed { changed })
+    }
+
     /// The spread templates a book can add, each drawn at this book's size, with the group of the
     /// book's own kind to show first.
     pub fn template_gallery(&self, id: &str) -> Result<TemplateGallery, Error> {
@@ -1958,16 +1974,25 @@ impl Books {
     /// closed on both sides, so nothing the person was doing merges into it, and a refused intent
     /// takes back what came before it in the batch.
     pub fn apply_batch(&self, id: &str, intents: Vec<Intent>) -> Result<BatchOutcome, Error> {
-        const BY: Option<&str> = Some("agent");
+        self.apply_batch_by(id, intents, Some("agent"))
+    }
+
+    /// As `apply_batch`, saying who is making the change when it is not the person.
+    fn apply_batch_by(
+        &self,
+        id: &str,
+        intents: Vec<Intent>,
+        by: Option<&str>,
+    ) -> Result<BatchOutcome, Error> {
         let total = intents.len();
         let mark = self.history_mark(id)?;
-        self.apply_by(id, Intent::EndUndoStep, BY)?;
+        self.apply_by(id, Intent::EndUndoStep, by)?;
         for (index, intent) in intents.into_iter().enumerate() {
-            if let Err(e) = self.apply_by(id, intent, BY) {
+            if let Err(e) = self.apply_by(id, intent, by) {
                 self.rewind(id, mark)?;
                 self.change(
                     id,
-                    BY,
+                    by,
                     |session| {
                         session.clear_redo();
                         Ok(())
@@ -1983,7 +2008,7 @@ impl Books {
         }
         self.change(
             id,
-            BY,
+            by,
             |session| {
                 // The batch is one step, so one undo takes all of it back.
                 let steps = session.undo_depth().saturating_sub(mark);

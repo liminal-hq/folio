@@ -9,6 +9,7 @@
 //! and what is known of its pictures; changing the book is the tool's own intents, sent the way any
 //! other change is, so every fix is one undo step (D-49).
 
+use crate::punctuation::{self, PunctuationRule};
 use folio_layout::assets::{AssetFact, AssetFacts, ERROR_PPI, WARN_PPI};
 use folio_layout::preflight::picture_ppi;
 use folio_model::{Book, Fit, Frame};
@@ -29,6 +30,10 @@ pub enum ToolRequest {
     Pictures,
     /// What the book still lacks before it can be sent to a store.
     Checklist,
+    /// Where straight quotes, double hyphens, three dots and double spaces are in the words.
+    Punctuation,
+    /// Text boxes whose size, alignment, weight or typeface differ from their style's.
+    Styles,
     /// What a copy costs to print and what is earned on a sale, at the prices given. A cost left out
     /// is the dated estimate (`PrintCosts::estimate`).
     Royalty {
@@ -57,6 +62,12 @@ pub enum ToolReport {
     Checklist {
         items: Vec<ChecklistItem>,
     },
+    Punctuation {
+        found: Vec<PunctuationFound>,
+    },
+    Styles {
+        frames: Vec<StyleStray>,
+    },
     Royalty {
         pages: u32,
         /// What one printed copy costs, and the figures that made it.
@@ -69,6 +80,62 @@ pub enum ToolReport {
         /// What is earned on an ebook at the price given.
         ebook_royalty: f64,
     },
+}
+
+/// A thing the punctuation tool would tidy, how many times, and a few examples of it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct PunctuationFound {
+    pub rule: PunctuationRule,
+    pub count: u32,
+    pub examples: Vec<PunctuationExample>,
+}
+
+/// Some words as they are, and as they would be.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct PunctuationExample {
+    pub before: String,
+    pub after: String,
+}
+
+/// A text box that sets its words differently from the style it names.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct StyleStray {
+    pub spread: String,
+    pub frame: String,
+    pub style: String,
+    /// What it changes, such as `size`, `align`, `bold`, `italic` or `font`.
+    pub changes: Vec<String>,
+}
+
+/// A change a tool makes to the book, all of it one undo step.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[serde(
+    tag = "tool",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub enum ToolFix {
+    /// Tidies the punctuation in every story and text box, by the rules given.
+    Punctuation { rules: Vec<PunctuationRule> },
+    /// Puts text boxes back to their style's size, alignment, weight and typeface.
+    ResetStyles { frames: Vec<String> },
+}
+
+/// What a fix did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ToolFixed {
+    /// How many paragraphs or boxes were changed; none when there was nothing to do.
+    pub changed: u32,
 }
 
 /// What a store form asks for, and whether the book has it.
@@ -218,6 +285,12 @@ pub fn run(
         ToolRequest::Checklist => ToolReport::Checklist {
             items: checklist(book, facts, findings),
         },
+        ToolRequest::Punctuation => ToolReport::Punctuation {
+            found: punctuation_found(book),
+        },
+        ToolRequest::Styles => ToolReport::Styles {
+            frames: style_strays(book),
+        },
         ToolRequest::Royalty {
             hardcover,
             colour,
@@ -234,6 +307,160 @@ pub fn run(
             *fixed_cost,
             *per_page_cost,
         ),
+    }
+}
+
+/// The words a tool may change: each paragraph of a story, and each text box or shape that holds
+/// its own words.
+enum Source {
+    Paragraph {
+        flow: folio_model::FlowId,
+        para: usize,
+        text: String,
+    },
+    Frame {
+        frame: folio_model::FrameId,
+        text: String,
+    },
+}
+
+fn sources(book: &Book) -> Vec<Source> {
+    let mut out = Vec::new();
+    for flow in &book.flows {
+        for (para, p) in flow.paragraphs.iter().enumerate() {
+            out.push(Source::Paragraph {
+                flow: flow.id.clone(),
+                para,
+                text: folio_model::text_of(&p.inline),
+            });
+        }
+    }
+    for spread in &book.spreads {
+        for frame in &spread.frames {
+            match frame {
+                Frame::Text(t) if t.flow.is_none() => {
+                    if let Some(content) = &t.content {
+                        out.push(Source::Frame {
+                            frame: t.base.id.clone(),
+                            text: folio_model::text_of(&content.inline),
+                        });
+                    }
+                }
+                Frame::Shape(s) => {
+                    if let Some(content) = &s.content {
+                        out.push(Source::Frame {
+                            frame: s.base.id.clone(),
+                            text: folio_model::text_of(&content.inline),
+                        });
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    out
+}
+
+fn punctuation_found(book: &Book) -> Vec<PunctuationFound> {
+    let all = sources(book);
+    punctuation::RULES
+        .iter()
+        .filter_map(|&rule| {
+            let mut count = 0;
+            let mut examples = Vec::new();
+            for source in &all {
+                let text = match source {
+                    Source::Paragraph { text, .. } | Source::Frame { text, .. } => text,
+                };
+                let (_, n) = punctuation::apply(text, rule);
+                count += n as u32;
+                if n > 0 && examples.len() < 3 {
+                    if let Some((before, after)) = punctuation::example(text, rule) {
+                        examples.push(PunctuationExample { before, after });
+                    }
+                }
+            }
+            (count > 0).then_some(PunctuationFound {
+                rule,
+                count,
+                examples,
+            })
+        })
+        .collect()
+}
+
+fn style_strays(book: &Book) -> Vec<StyleStray> {
+    let mut out = Vec::new();
+    for spread in &book.spreads {
+        for frame in &spread.frames {
+            let (base, style, overrides) = match frame {
+                Frame::Text(t) => (&t.base, t.style.0.as_str(), t.overrides.as_ref()),
+                Frame::Shape(s) => (
+                    &s.base,
+                    s.style.as_ref().map_or("", |s| s.0.as_str()),
+                    s.overrides.as_ref(),
+                ),
+                _ => continue,
+            };
+            let Some(o) = overrides else { continue };
+            let mut changes = Vec::new();
+            if o.size.is_some() {
+                changes.push("size".to_owned());
+            }
+            if o.align.is_some() {
+                changes.push("align".to_owned());
+            }
+            if o.bold.is_some() {
+                changes.push("bold".to_owned());
+            }
+            if o.italic.is_some() {
+                changes.push("italic".to_owned());
+            }
+            if o.font.is_some() {
+                changes.push("font".to_owned());
+            }
+            if !changes.is_empty() {
+                out.push(StyleStray {
+                    spread: spread.id.0.clone(),
+                    frame: base.id.0.clone(),
+                    style: style.to_owned(),
+                    changes,
+                });
+            }
+        }
+    }
+    out
+}
+
+/// The intents that make `fix` happen, in order; none when there is nothing to change.
+pub fn fix_intents(book: &Book, fix: &ToolFix) -> Vec<folio_model::Intent> {
+    use folio_model::Intent;
+    match fix {
+        ToolFix::Punctuation { rules } => sources(book)
+            .into_iter()
+            .filter_map(|source| match source {
+                Source::Paragraph { flow, para, text } => {
+                    let new = punctuation::smarten(&text, rules);
+                    (new != text).then_some(Intent::SetParagraphText {
+                        flow,
+                        para,
+                        text: new,
+                    })
+                }
+                Source::Frame { frame, text } => {
+                    let new = punctuation::smarten(&text, rules);
+                    (new != text).then_some(Intent::SetText { frame, text: new })
+                }
+            })
+            .collect(),
+        ToolFix::ResetStyles { frames } => style_strays(book)
+            .into_iter()
+            .filter(|stray| frames.contains(&stray.frame))
+            .map(|stray| Intent::OverrideStyle {
+                frame: folio_model::FrameId(stray.frame),
+                overrides: folio_model::StyleOverrides::default(),
+            })
+            .collect(),
     }
 }
 
