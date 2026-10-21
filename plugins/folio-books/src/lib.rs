@@ -72,7 +72,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::remove_dictionary,
         ])
         .setup(|app, _api| {
-            let books = Books::new(Arc::new(TauriHost(app.clone())));
+            // Shared: the commands use it, and the app lends it to the agents' server.
+            let books = Arc::new(Books::new(Arc::new(TauriHost(app.clone()))));
             if let Ok(dir) = app.path().app_data_dir() {
                 books.spelling.keep_in(dir.join("dictionaries"));
                 books.recovery.keep_in(dir.join("recovery"));

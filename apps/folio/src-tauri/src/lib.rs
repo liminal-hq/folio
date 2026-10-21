@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+mod agent;
 mod app_info;
 mod com;
 mod recents;
@@ -65,6 +66,7 @@ pub fn run() {
         ])
         .setup(|app| {
             recents::wire(app.handle());
+            agent::serve(app.handle());
             windows::open_or_focus(app.handle(), WindowKind::Main)?;
             Ok(())
         });
@@ -78,6 +80,11 @@ pub fn run() {
     }
 
     builder
-        .run(tauri::generate_context!())
-        .expect("error while running the Folio application");
+        .build(tauri::generate_context!())
+        .expect("error while building the Folio application")
+        .run(|_app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                agent::stop();
+            }
+        });
 }

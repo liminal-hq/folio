@@ -15,13 +15,19 @@ categories = ["command-line-utilities", "text-processing"]
 # the registry asks for is here, so publishing is a matter of publishing those crates first.
 publish = false
 
+[features]
+default = ["cli"]
+# The command-line program. The app uses the crate without it.
+cli = ["dep:clap"]
+
 [[bin]]
 name = "folio-mcp"
 path = "src/main.rs"
+required-features = ["cli"]
 
 [dependencies]
 base64 = "0.22"
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive"], optional = true }
 folio-engine = { path = "../folio-engine", features = ["schema"] }
 folio-model = { path = "../folio-model", features = ["schema"] }
 folio-presets = { path = "../folio-presets", features = ["schema"] }
@@ -30,7 +36,7 @@ rmcp = { version = "3.6", features = ["server", "macros", "transport-io"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread", "io-std", "time"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "io-std", "io-util", "net", "time"] }
 
 [dev-dependencies]
 rmcp = { version = "3.6", features = ["client", "server", "macros", "transport-io"] }
