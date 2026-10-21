@@ -4,36 +4,23 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 mod commands;
-mod error;
-mod recovery;
+mod host;
 mod reveal;
-mod spelling;
-mod state;
 #[cfg(test)]
 mod tests;
-mod wire;
+
+use std::sync::Arc;
 
 use tauri::{
     plugin::{Builder, TauriPlugin},
     Manager, Runtime,
 };
 
-pub use error::Error;
-pub use state::{BookEvent, BookHook, Books};
-pub use wire::{BookSnapshot, BookSummary, BooksChanged, PatchEvent};
-
-/// Sent to every window after a change to an open book, with a `PatchEvent`.
-pub const PATCH_EVENT: &str = "folio-books://patch";
-
-/// Sent to every window when books open, close, save or become changed or clean, with a
-/// `BooksChanged`.
-pub const CHANGED_EVENT: &str = "folio-books://changed";
-
-/// Sent to every window while a dictionary downloads: how much has arrived.
-pub const DICTIONARY_PROGRESS_EVENT: &str = "folio-books://dictionary-progress";
-
-/// Sent to every window while an export runs: which file it has reached.
-pub const EXPORT_PROGRESS_EVENT: &str = "folio-books://export-progress";
+pub use folio_engine::{
+    BookEvent, BookHook, BookSnapshot, BookSummary, Books, BooksChanged, Error, PatchEvent,
+    CHANGED_EVENT, DICTIONARY_PROGRESS_EVENT, EXPORT_PROGRESS_EVENT, PATCH_EVENT,
+};
+pub use host::TauriHost;
 
 /// Registers the plugin.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
@@ -85,7 +72,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::remove_dictionary,
         ])
         .setup(|app, _api| {
-            let books = Books::new(app.clone());
+            let books = Books::new(Arc::new(TauriHost(app.clone())));
             if let Ok(dir) = app.path().app_data_dir() {
                 books.spelling.keep_in(dir.join("dictionaries"));
                 books.recovery.keep_in(dir.join("recovery"));

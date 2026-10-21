@@ -1209,6 +1209,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "folio-engine"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "dunce",
+ "folio-colour",
+ "folio-export",
+ "folio-import",
+ "folio-layout",
+ "folio-model",
+ "folio-package",
+ "folio-presets",
+ "folio-protocol",
+ "folio-session",
+ "folio-spell",
+ "log",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "ts-rs",
+ "ureq",
+]
+
+[[package]]
 name = "folio-export"
 version = "0.1.0"
 dependencies = [
@@ -4858,10 +4883,7 @@ dependencies = [
 name = "tauri-plugin-folio-books"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
- "dunce",
- "folio-colour",
- "folio-export",
+ "folio-engine",
  "folio-import",
  "folio-layout",
  "folio-model",
@@ -4876,9 +4898,6 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "tempfile",
- "thiserror 2.0.21",
- "ts-rs",
- "ureq",
 ]
 
 [[package]]
