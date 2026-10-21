@@ -107,9 +107,10 @@ export function TextEditor({
 	const initial = plainTextOf(frame);
 	// A shape's words have a room of their own inside it, and the lines are already placed in it.
 	const room = frame.type !== 'text' ? layout?.textBox : undefined;
-	// The words are set as the layout's style sets them, whatever the shape.
-	const align = frame.type !== 'text' ? layout?.textAlign : undefined;
-	const centred = align === 'center';
+	// The words are set as the layout's style sets them, whatever the frame.
+	const align = layout?.textAlign ?? undefined;
+	// Lines set to the middle, the right or both edges start where the box does.
+	const centred = align !== undefined && align !== 'left';
 	const done = useRef(false);
 	/** What is in the box now, kept as it is typed because the box is gone by the time an unmount cleans up. */
 	const typed = useRef(initial);
