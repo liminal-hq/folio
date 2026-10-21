@@ -6,6 +6,7 @@ permissions = [
   "allow-preview-new-book",
   "allow-template-gallery",
   "allow-apply-template",
+  "allow-book-tool",
   "allow-set-active-book",
   "allow-active-book",
   "allow-paint-presets",

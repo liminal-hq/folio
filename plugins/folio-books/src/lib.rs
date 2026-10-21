@@ -38,6 +38,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::presets,
             commands::preview_new_book,
             commands::template_gallery,
+            commands::book_tool,
             commands::set_active_book,
             commands::active_book,
             commands::apply_template,

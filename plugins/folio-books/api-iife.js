@@ -151,6 +151,10 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function importText(id, path, mapping) {
         return cmd('import_text', { id, path, mapping: mapping ?? null });
     }
+    /** Asks a Book tool about a book; the answer is worked out in Rust. */
+    function bookTool(id, request) {
+        return cmd('book_tool', { id, request });
+    }
     /** Says which book the main window is showing, so other windows can follow it. */
     function setActiveBook(id) {
         return cmd('set_active_book', { id });
@@ -246,6 +250,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.applyTemplate = applyTemplate;
     exports.assetData = assetData;
     exports.autosaveBooks = autosaveBooks;
+    exports.bookTool = bookTool;
     exports.cancelExport = cancelExport;
     exports.closeBook = closeBook;
     exports.coverSheetCanvas = coverSheetCanvas;

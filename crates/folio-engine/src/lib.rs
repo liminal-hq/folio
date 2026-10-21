@@ -11,6 +11,7 @@ mod host;
 mod recovery;
 mod spelling;
 mod state;
+mod tools;
 mod wire;
 
 pub use error::Error;
@@ -18,6 +19,7 @@ pub use host::Host;
 pub use recovery::Recovery;
 pub use spelling::Spelling;
 pub use state::{BookEvent, BookHook, Books};
+pub use tools::{PictureRow, PictureStatus, ToolReport, ToolRequest};
 pub use wire::*;
 
 /// Sent to every window after a change to an open book, with a `PatchEvent`.

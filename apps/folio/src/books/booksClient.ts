@@ -7,6 +7,8 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { ToolReport } from '@liminal-hq/folio-protocol/generated/ToolReport';
+import type { ToolRequest } from '@liminal-hq/folio-protocol/generated/ToolRequest';
 import type { TemplateGallery } from '@liminal-hq/folio-protocol/generated/TemplateGallery';
 import type { CoverCanvas } from '@liminal-hq/folio-protocol/generated/CoverCanvas';
 import type { StoryChapter } from '@liminal-hq/folio-protocol/generated/StoryChapter';
@@ -56,6 +58,7 @@ import {
 	previewNewBook,
 	templateGallery,
 	applyTemplate,
+	bookTool,
 	setActiveBook,
 	activeBook,
 	onActiveBook,
@@ -107,6 +110,8 @@ export interface BooksClient {
 	previewNewBook(spec: NewBookSpec): Promise<string>;
 	/** The spread templates a book can add, each drawn at the book's size. */
 	templateGallery(id: string): Promise<TemplateGallery>;
+	/** Asks a Book tool about a book; the answer is worked out in Rust. */
+	bookTool(id: string, request: ToolRequest): Promise<ToolReport>;
 	/** Says which book the main window is showing, so other windows can follow it. */
 	setActiveBook(id: string | null): Promise<void>;
 	/** The book the main window is showing, for a window that opens after it was chosen. */
@@ -197,6 +202,7 @@ export const tauriBooksClient: BooksClient = {
 	previewNewBook,
 	templateGallery,
 	applyTemplate,
+	bookTool,
 	setActiveBook,
 	activeBook,
 	openBook,

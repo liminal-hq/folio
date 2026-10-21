@@ -21,6 +21,8 @@ import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTa
 import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
 import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
+import type { ToolReport } from '@liminal-hq/folio-protocol/generated/ToolReport';
+import type { ToolRequest } from '@liminal-hq/folio-protocol/generated/ToolRequest';
 import type { TemplateGallery } from '@liminal-hq/folio-protocol/generated/TemplateGallery';
 import type { CoverCanvas } from '@liminal-hq/folio-protocol/generated/CoverCanvas';
 import type { StoryChapter } from '@liminal-hq/folio-protocol/generated/StoryChapter';
@@ -282,6 +284,11 @@ export function importText(
 	mapping?: Record<string, string>,
 ): Promise<ImportReport> {
 	return cmd<ImportReport>('import_text', { id, path, mapping: mapping ?? null });
+}
+
+/** Asks a Book tool about a book; the answer is worked out in Rust. */
+export function bookTool(id: string, request: ToolRequest): Promise<ToolReport> {
+	return cmd<ToolReport>('book_tool', { id, request });
 }
 
 /** Says which book the main window is showing, so other windows can follow it. */

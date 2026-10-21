@@ -1352,6 +1352,29 @@ impl Books {
         }))
     }
 
+    /// Answers a Book tool's request for a book (D-49).
+    pub fn book_tool(
+        &self,
+        id: &str,
+        request: &crate::tools::ToolRequest,
+    ) -> Result<crate::tools::ToolReport, Error> {
+        let (book, facts) = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let book = open.session.book().clone();
+            let mut known = HashMap::new();
+            for spread in &book.spreads {
+                known.extend(open.facts_for(&book, &spread.id.0).0);
+            }
+            (book, AssetFacts(known))
+        };
+        Ok(crate::tools::run(&book, &facts, request))
+    }
+
     /// The spread templates a book can add, each drawn at this book's size, with the group of the
     /// book's own kind to show first.
     pub fn template_gallery(&self, id: &str) -> Result<TemplateGallery, Error> {

@@ -34,6 +34,15 @@ pub const INTENT_GUIDE: &str = include_str!("guide.md");
 
 const INSTRUCTIONS: &str = "Folio lays out books. Start with `list_kinds`, make a book with `new_book` or open one with `open_book`, bring a manuscript in with `import_manuscript`, change it with `apply_intents` (read the `folio://guide/intents` resource first), look at it with `get_book` and `render_page`, check it with `preflight`, and make files with `export`. Every book tool takes the `id` that `new_book` or `open_book` returned. The person may have the same book open in Folio: their window follows your changes, and they can undo them.";
 
+/// A Book tool's request about a book.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct BookReport {
+    /// The id `new_book` or `open_book` returned.
+    pub id: String,
+    /// What to ask, such as `{"tool": "pictures"}`.
+    pub request: folio_engine::ToolRequest,
+}
+
 /// Names a book that is open.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct BookRef {
@@ -360,6 +369,24 @@ impl FolioServer {
         let checked = self.blocking(move |books| books.preflight(&id)).await?;
         Ok(match checked {
             Ok(items) => text(&items),
+            Err(e) => failed(e.to_string()),
+        })
+    }
+
+    #[tool(
+        name = "book_report",
+        description = "What one of the app's Book tools finds in the book, as the tools window shows it. The request is `{\"tool\": \"pictures\"}` for every picture with its pixels per inch where it is set, its status for print and its description.",
+        annotations(read_only_hint = true)
+    )]
+    async fn book_report(
+        &self,
+        Parameters(BookReport { id, request }): Parameters<BookReport>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let answered = self
+            .blocking(move |books| books.book_tool(&id, &request))
+            .await?;
+        Ok(match answered {
+            Ok(report) => text(&report),
             Err(e) => failed(e.to_string()),
         })
     }

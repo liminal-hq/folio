@@ -26,6 +26,8 @@ export interface ToolProps {
 	/** The id of the open book. */
 	id: string;
 	book: Book;
+	/** Changes when the book does, so a report is asked for again. */
+	revision: number;
 	/** Plain words in Easy, numbers too in Expert. */
 	expert: boolean;
 	/** Changes the book; every call is one undo step of the book's own history. */
@@ -42,11 +44,4 @@ export interface ToolDef {
 	/** One line under the title saying what the tool is for. */
 	descKey: MessageKey;
 	Component: ComponentType<ToolProps>;
-}
-
-/** Every tool, in the order the sidebar lists them within an area. */
-export const TOOLS: ToolDef[] = [];
-
-export function toolsIn(area: ToolArea): ToolDef[] {
-	return TOOLS.filter((tool) => tool.area === area);
 }

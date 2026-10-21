@@ -156,6 +156,19 @@ fn item(kind: PreflightKind, spread: &Spread, frame: &Frame) -> PreflightItem {
 /// How a picture of `natural` pixels set in a `w` × `h` point box with `fit` is sharp enough:
 /// the problem with it, if it has one.
 fn sharpness(natural: (u32, u32), w: f64, h: f64, fit: Fit) -> Option<PreflightKind> {
+    let ppi = picture_ppi(natural, w, h, fit);
+    if ppi < ERROR_PPI {
+        Some(PreflightKind::VeryLowResolution)
+    } else if ppi < WARN_PPI {
+        Some(PreflightKind::LowResolution)
+    } else {
+        None
+    }
+}
+
+/// How sharp a picture of `natural` pixels is, in pixels per inch, when it is set in a `w` × `h`
+/// point box with `fit`.
+pub fn picture_ppi(natural: (u32, u32), w: f64, h: f64, fit: Fit) -> f64 {
     let (nw, nh) = (f64::from(natural.0), f64::from(natural.1));
     // The points one pixel covers: a fill covers the box with the picture, a fit keeps it all inside,
     // and a stretch pulls each side to the box's.
@@ -170,14 +183,7 @@ fn sharpness(natural: (u32, u32), w: f64, h: f64, fit: Fit) -> Option<PreflightK
             (nw * scale, nh * scale)
         }
     };
-    let ppi = effective_ppi(natural, drawn.0, drawn.1);
-    if ppi < ERROR_PPI {
-        Some(PreflightKind::VeryLowResolution)
-    } else if ppi < WARN_PPI {
-        Some(PreflightKind::LowResolution)
-    } else {
-        None
-    }
+    effective_ppi(natural, drawn.0, drawn.1)
 }
 
 /// The problems with the pictures of `spread`, in its picture frames and in its backgrounds: a

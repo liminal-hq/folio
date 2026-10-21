@@ -1,6 +1,6 @@
 # Real image import and resolution check
 
-**Area:** Pictures · **Prototype:** `Folio Pictures.dc.html` · **Status:** artboard → merge into Folio
+**Area:** Pictures · **Prototype:** `Folio Pictures.dc.html` · **Status:** partly built — Book tools → Pictures → **Pictures in this book** lists every picture frame with its pixels per inch where it is set (Rust: `ToolRequest::Pictures`, using the same 300 and 150 ppi limits as preflight), a status in words (numbers and pixel sizes in Expert) and a **Replace…** button; dropping pictures onto frames, the library and colour mode are not built
 
 ## What it does
 Drop real pictures onto frames; Folio shows effective ppi at the placed size and warns before print.
