@@ -5,11 +5,11 @@
 
 use crate::background::Background;
 use crate::book::Book;
-use crate::colour::Colour;
+use crate::colour::{Colour, Swatches};
 use crate::frame::{Frame, Run};
 use crate::spread::Spread;
 
-/// Calls `visit` on every colour in the book: styles, the words of frames and tables, shape
+/// Calls `visit` on every colour in the book: styles, the words of frames, tables and flows, shape
 /// fills and outlines, and every background (its colour, gradient stops and texture tint). Swatch
 /// definitions are not visited: they are what the references point at.
 pub fn visit_colours(book: &mut Book, visit: &mut dyn FnMut(&mut Colour)) {
@@ -20,6 +20,11 @@ pub fn visit_colours(book: &mut Book, visit: &mut dyn FnMut(&mut Colour)) {
     }
     for spread in &mut book.spreads {
         visit_spread(spread, visit);
+    }
+    for flow in &mut book.flows {
+        for para in &mut flow.paragraphs {
+            visit_runs(&mut para.inline, visit);
+        }
     }
     for master in &mut book.master_pages {
         visit_frames(&mut master.frames, visit);
@@ -102,4 +107,17 @@ pub fn colours_of(bg: &Background) -> Vec<Colour> {
     let mut found = Vec::new();
     visit_background(&mut copy, &mut |c| found.push(c.clone()));
     found
+}
+
+/// Replaces every reference to a swatch with the colour the swatch shows as, for drawing a book on a
+/// screen or writing it as RGB. A reference to a swatch the book lacks becomes mid-grey.
+pub fn resolve_swatches(book: &mut Book) {
+    let swatches = book.styles.swatches.clone();
+    let all = Swatches(&swatches);
+    visit_colours(book, &mut |colour| {
+        if colour.swatch_id().is_some() {
+            let [r, g, b] = all.resolve(colour).rgb;
+            *colour = Colour(format!("#{r:02x}{g:02x}{b:02x}"));
+        }
+    });
 }

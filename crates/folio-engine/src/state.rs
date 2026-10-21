@@ -107,7 +107,6 @@ fn used_assets(book: &folio_model::Book) -> Vec<String> {
             found.push(asset.clone());
         }
     }
-    found.extend(book.back_notes.iter().filter_map(|n| n.picture.clone()));
     found.sort();
     found.dedup();
     found
@@ -202,6 +201,14 @@ impl OpenBook {
             Some("colour") => folio_model::Paper::Colour,
             _ => folio_model::Paper::White,
         }
+    }
+
+    /// The book as it is drawn or written in RGB: with every swatch reference replaced by the colour
+    /// the swatch shows as.
+    fn shown_book(&self) -> folio_model::Book {
+        let mut book = self.session.book().clone();
+        folio_model::resolve_swatches(&mut book);
+        book
     }
 
     /// The cache of laid out flows for the book as it is now: the one kept while the revision stays
@@ -486,12 +493,12 @@ impl Books {
         let made = new_book(spec)?;
         let styles = style_sheet(&made.book.styles);
         let fonts = FontBook::bundled();
-        let cover = made
-            .book
+        let front = folio_model::front_cover_view(&made.book);
+        let cover = front
             .spreads
             .first()
             .ok_or_else(|| Error::Export("the book has no cover".into()))?;
-        let scene = Layouter::new(&made.book, &styles, &fonts)
+        let scene = Layouter::new(&front, &styles, &fonts)
             .scene_spread(&cover.id)
             .map_err(|e| Error::Export(e.to_string()))?
             .and_then(|s| s.pages.into_iter().next())
@@ -758,7 +765,7 @@ impl Books {
                 .iter_mut()
                 .find(|b| b.id == id)
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
-            let book = open.session.book().clone();
+            let book = open.shown_book();
             let facts = open.facts_for(&book, spread);
             let layered = open.font_book(base);
             (
@@ -822,7 +829,7 @@ impl Books {
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
             let layered = open.font_book(base);
             (
-                open.session.book().clone(),
+                open.shown_book(),
                 style_sheet(&open.session.book().styles),
                 open.session.revision(),
                 layered,
@@ -1244,7 +1251,7 @@ impl Books {
                 .iter_mut()
                 .find(|b| b.id == id)
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
-            let book = open.session.book().clone();
+            let book = open.shown_book();
             let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
             for path in used_assets(&book) {
                 if let Ok(bytes) = open.package.asset_bytes(&path) {
@@ -1307,7 +1314,7 @@ impl Books {
                 .iter_mut()
                 .find(|b| b.id == id)
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
-            let book = open.session.book().clone();
+            let book = open.shown_book();
             let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
             for path in used_assets(&book) {
                 if let Ok(bytes) = open.package.asset_bytes(&path) {
@@ -1356,7 +1363,7 @@ impl Books {
                 .find(|b| b.id == id)
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
             (
-                open.session.book().clone(),
+                open.shown_book(),
                 open.paper_in_use(),
                 open.font_book(base),
             )
@@ -1389,7 +1396,7 @@ impl Books {
                 .iter()
                 .find(|b| b.id == id)
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
-            let book = open.session.book().clone();
+            let book = open.shown_book();
             let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
             for path in used_assets(&book) {
                 if let Ok(bytes) = open.package.asset_bytes(&path) {
@@ -1458,7 +1465,7 @@ impl Books {
                 .iter_mut()
                 .find(|b| b.id == id)
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
-            let book = open.session.book().clone();
+            let book = open.shown_book();
             // Pictures are read under the lock and used outside it, so the book stays usable.
             let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
             for path in used_assets(&book) {

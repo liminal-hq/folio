@@ -18,7 +18,7 @@ use crate::styles::Styles;
 use crate::units::{Margins, Pt, Size};
 
 /// The `book.json` schema version this build writes (and the newest it reads).
-pub const SCHEMA_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 3;
 
 /// The kind of book, which selects a preset bundle of trim, bleed, grid, styles and export defaults.
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
@@ -81,8 +81,9 @@ pub struct Book {
     /// Who makes the barcode on the paperback cover.
     #[serde(default, skip_serializing_if = "is_default_barcode")]
     pub barcode: BarcodeChoice,
-    /// Words the person has put on the back cover, over the blurb.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    /// Words put on the back cover before schema 3, read from old books only: the upgrade turns them
+    /// into frames of the cover spread (`upgrade_cover`).
+    #[serde(default, skip_serializing)]
     pub back_notes: Vec<BackNote>,
     /// Preflight issues the person has said to leave alone, each by its key (D-31).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

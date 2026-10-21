@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    BackNote, BarcodeChoice, BookFont, Details, Flow, FlowId, Grid, Margins, Master, MasterId,
-    PageNumbers, Paper, Proofing, Pt, Size, Spread, SpreadId, Styles,
+    BarcodeChoice, BookFont, Details, Flow, FlowId, Grid, Margins, Master, MasterId, PageNumbers,
+    Paper, Proofing, Pt, Size, Spread, SpreadId, Styles,
 };
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -32,7 +32,6 @@ pub enum PatchOp {
     /// Who makes the barcode on the paperback cover.
     SetBarcode { choice: BarcodeChoice },
     /// The words on the back cover, whole.
-    SetBackNotes { notes: Vec<BackNote> },
     /// The paper a printed copy is on.
     SetPaper { paper: Paper },
     /// A flow's story and frames, whole.

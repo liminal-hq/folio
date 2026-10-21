@@ -810,24 +810,24 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched,
                 new_spread: None,
+
                 flows: Vec::new(),
                 new_flow: None,
                 fresh: Vec::new(),
                 merge: None,
             })
         }
-        Intent::SetBackNotes { .. } => Ok(Plan {
-            touched: Vec::new(),
-            new_spread: None,
-            flows: Vec::new(),
-            new_flow: None,
-            fresh: Vec::new(),
-            merge: None,
-        }),
         Intent::SetDetails { details } => {
             check_details(details)?;
+            // The description on the back cover follows the book's, so a change reaches the cover.
+            let cover = book
+                .spreads
+                .first()
+                .filter(|s| s.kind == SpreadKind::Cover)
+                .filter(|_| details.description.trim() != book.metadata.description.trim())
+                .map(|s| s.id.clone());
             Ok(Plan {
-                touched: Vec::new(),
+                touched: cover.into_iter().collect(),
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
@@ -1617,7 +1617,6 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             }
             renumber(book, &flow_id);
         }
-        Intent::SetBackNotes { notes } => book.back_notes = notes,
         Intent::SetSwatch { mut swatch } => {
             if let Some(ink) = swatch.ink {
                 let [r, g, b] = ink.to_rgb();
@@ -1639,7 +1638,11 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 });
             }
         }
-        Intent::SetDetails { details } => details.apply(book),
+        Intent::SetDetails { details } => {
+            let was = book.metadata.description.clone();
+            details.apply(book);
+            folio_model::sync_blurb(book, &was, &details.description);
+        }
         Intent::SetPreflightIgnore { keys } => book.preflight_ignore = keys,
         Intent::EndUndoStep => {}
         Intent::IgnoreWord { word } => {

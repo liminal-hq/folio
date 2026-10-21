@@ -23,7 +23,7 @@ pub struct PageRect {
 
 /// Where the pages of `spread` sit, in the spread's own space: the first page's top-left trim is
 /// the origin, and the next page starts one trim width on. A page alone (an opener, a closer, a
-/// single page or the cover) starts at the origin whichever side of its spread it is on, so the
+/// single page or the cover, which is the wide printed sheet) starts at the origin whichever side of its spread it is on, so the
 /// frames on it are placed from the page's own left edge and agree with the canvas, the masters
 /// and the guides, which all count from there. An opener is a right-hand page and a closer a
 /// left-hand one; that decides its margins and bleed, not where it is.
@@ -31,6 +31,13 @@ pub fn page_rects(book: &Book, spread: &Spread) -> Vec<PageRect> {
     let w = book.trim.w.0;
     let h = book.trim.h.0;
     let count = spread.pages.len();
+    // The cover is the printed sheet: back, spine and front as one page.
+    let cover = spread.kind == SpreadKind::Cover;
+    let wide = if cover {
+        folio_model::cover_width(book).0
+    } else {
+        w
+    };
     (0..count)
         .map(|i| {
             let recto = match spread.kind {
@@ -42,7 +49,7 @@ pub fn page_rects(book: &Book, spread: &Spread) -> Vec<PageRect> {
                 rect: Rect {
                     x: folio_model::Pt(i as f64 * w),
                     y: folio_model::Pt(0.0),
-                    w: folio_model::Pt(w),
+                    w: folio_model::Pt(wide),
                     h: folio_model::Pt(h),
                 },
                 recto,

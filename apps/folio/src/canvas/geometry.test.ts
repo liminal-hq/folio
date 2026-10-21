@@ -37,6 +37,17 @@ describe('spreadGeometry', () => {
 	});
 });
 
+describe('the cover', () => {
+	const cover = { ...book, paper: 'cream', spreads: [spread('cover', 1)] } as unknown as Book;
+
+	it('is the printed sheet: back, spine and front on one page, with the bleed KDP wants', () => {
+		const geometry = spreadGeometry(cover, cover.spreads[0]!);
+		expect(geometry.pages).toHaveLength(1);
+		expect(geometry.width).toBeCloseTo(2 * book.trim.w + 24 * 0.0025 * 72, 9);
+		expect(geometry.bounds.x).toBe(-9);
+	});
+});
+
 describe('zoom', () => {
 	it('fits the bounds in the stage with padding', () => {
 		const zoom = fitZoom({ x: 0, y: 0, w: 96, h: 96 }, { w: 1000, h: 500 });
