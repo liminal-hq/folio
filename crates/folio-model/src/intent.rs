@@ -133,6 +133,14 @@ pub enum Intent {
         frame: FrameId,
         locked: bool,
     },
+    /// Sets what a frame is, in words, for a reader who cannot see it (a picture's alt text), or
+    /// takes it away with `None`. One undo step, merging with the next change of the same frame's
+    /// description while it is typed.
+    SetFrameDescription {
+        on: Surface,
+        frame: FrameId,
+        description: Option<String>,
+    },
     /// Puts a picture in a picture frame (an asset path from the package) and says how it sits in
     /// the frame, including which point of it stays in view when it is cropped (as 0–1 across and
     /// down). A part left out stays as it was, and a drag of the focus point is one undo step.

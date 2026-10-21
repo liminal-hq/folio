@@ -93,6 +93,7 @@ pub enum MergeKey {
     Text(FrameId),
     Paragraph(FlowId, usize),
     Style(FrameId),
+    Description(FrameId),
     Shape(FrameId),
     Focus(FrameId),
     Section(SpreadId),
@@ -351,6 +352,9 @@ fn ensure_free(frame: &Frame) -> Result<(), SessionError> {
     }
     Ok(())
 }
+
+/// The most characters a frame's description can have.
+const MAX_FRAME_DESCRIPTION: usize = 500;
 
 /// Works out what `intent` touches, or says why it cannot be done.
 pub fn plan(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, SessionError> {
@@ -1314,6 +1318,25 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             }
             Ok(plan)
         }
+        Intent::SetFrameDescription {
+            on,
+            frame,
+            description,
+        } => {
+            if description
+                .as_deref()
+                .is_some_and(|d| d.chars().count() > MAX_FRAME_DESCRIPTION)
+            {
+                return Err(SessionError::BadDetails(format!(
+                    "a description is at most {MAX_FRAME_DESCRIPTION} characters"
+                )));
+            }
+            let frames = frames_on(book, on)?;
+            if !frames.iter().any(|f| &f.base().id == frame) {
+                return Err(SessionError::NotOnSpread(frame.0.clone(), named(on)));
+            }
+            Ok(by(on, Some(MergeKey::Description(frame.clone()))))
+        }
         Intent::DuplicateFrame { on, frame } | Intent::LockFrame { on, frame, .. } => {
             let frames = frames_on(book, on)?;
             if !frames.iter().any(|f| &f.base().id == frame) {
@@ -1968,6 +1991,15 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                     }
                     frames.push(copy);
                 }
+            }
+        }
+        Intent::SetFrameDescription {
+            on,
+            frame,
+            description,
+        } => {
+            if let Some(f) = frames_on_mut(book, &on).and_then(|frames| find_mut(frames, &frame)) {
+                f.base_mut().description = description.filter(|d| !d.trim().is_empty());
             }
         }
         Intent::LockFrame { on, frame, locked } => {
