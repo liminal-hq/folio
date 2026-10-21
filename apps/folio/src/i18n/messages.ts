@@ -37,6 +37,7 @@ export const messages = {
 	'command.preferences': 'Preferences…',
 	'command.shortcuts': 'Keyboard shortcuts',
 	'command.about': 'About Folio',
+	'command.agents': 'Connect an agent…',
 	'command.quit': 'Quit',
 	'command.undo': 'Undo',
 	'command.redo': 'Redo',
@@ -447,6 +448,20 @@ export const messages = {
 	'status.unsaved': 'Unsaved changes',
 	'status.notSaved': 'Not saved yet',
 	'status.agent': 'An agent just changed this book',
+	'agents.title': 'Connect an agent',
+	'agents.intro':
+		'An AI agent can work on the books you have open here. You will see what it changes as it goes, and you can undo it.',
+	'agents.checking': 'Checking…',
+	'agents.failed': 'Folio could not find out whether agents can connect.',
+	'agents.listening': 'Folio is open to agents on this computer.',
+	'agents.notListening':
+		'Folio is not open to agents right now, so an agent would work on books of its own.',
+	'agents.noProgram':
+		'The agent program that goes with Folio was not found beside it, so Folio cannot be added to an agent from here.',
+	'agents.addTo': 'Add Folio to',
+	'agents.add': 'Add',
+	'agents.addOne': 'Add Folio to {name}',
+	'agents.done': 'Done',
 	'stage.spread': 'Spread {label}',
 	'spell.menu': 'Spelling',
 	'spell.ignore': 'Ignore in this book',

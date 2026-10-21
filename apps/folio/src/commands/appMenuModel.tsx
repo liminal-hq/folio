@@ -54,6 +54,7 @@ export type CommandId =
 	| 'app.bookTools'
 	| 'app.preferences'
 	| 'app.shortcuts'
+	| 'app.agents'
 	| 'app.about'
 	| 'app.quit';
 
@@ -191,6 +192,7 @@ function interfaceToggles(settings: Settings, available: CommandAvailability): M
 function helpItems(available: CommandAvailability): MenuItem[] {
 	return [
 		action('app.shortcuts', t('command.shortcuts'), <KeyboardIcon />, available, 'Ctrl+?'),
+		action('app.agents', t('command.agents'), <BookToolsIcon />, available),
 		action('app.about', t('command.about'), <AboutIcon />, available),
 	];
 }
