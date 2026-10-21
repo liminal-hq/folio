@@ -128,6 +128,7 @@ impl Session {
         let spine_may_move = matches!(
             intent,
             Intent::AddSpread { .. }
+                | Intent::AddSpreadWith { .. }
                 | Intent::DeleteSpread { .. }
                 | Intent::SetPaper { .. }
                 | Intent::AddFlowPages { .. }
