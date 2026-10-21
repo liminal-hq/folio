@@ -39,6 +39,8 @@ export interface BooksState {
 	kinds: KindInfo[];
 	/** The last refusal, until the next call succeeds. */
 	error: BooksCommandError | null;
+	/** When an AI agent last changed a book, so the window can say so; `null` if none has. */
+	agentEditedAt: number | null;
 }
 
 export interface BooksStore {
@@ -92,6 +94,7 @@ export function createBooksStore(client: BooksClient): BooksStore {
 		activeId: null,
 		kinds: [],
 		error: null,
+		agentEditedAt: null,
 	}));
 
 	const fail = (reason: unknown) => {
@@ -135,6 +138,7 @@ export function createBooksStore(client: BooksClient): BooksStore {
 	};
 
 	const onPatch = (event: PatchEvent) => {
+		if (event.by === 'agent') state.setState({ agentEditedAt: Date.now() });
 		const held = state.getState().copies[event.id];
 		if (!held) return;
 		const revision = event.patch.revision;

@@ -24,11 +24,11 @@ use crate::error::Error;
 use crate::recovery::{self, Recovery};
 use crate::spelling::Spelling;
 use crate::wire::{
-    BookSnapshot, BookSpelling, BookSummary, BooksChanged, CoverCanvas, CoverSheetPreview,
-    ExportColour, ExportProgress, ExportReport, ExportTarget, ExportedFile, FontChoice,
-    FontLicence, FontOrigin, FontSkip, FontUse, KeepFontsReport, Misspelling, MisspeltWord,
-    PatchEvent, PreviewChapter, PreviewImage, ProofColour, ProofPage, ProofSpread, ReaderPreview,
-    Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult, StoryChapter,
+    BatchOutcome, BookSnapshot, BookSpelling, BookSummary, BooksChanged, CoverCanvas,
+    CoverSheetPreview, ExportColour, ExportProgress, ExportReport, ExportTarget, ExportedFile,
+    FontChoice, FontLicence, FontOrigin, FontSkip, FontUse, KeepFontsReport, Misspelling,
+    MisspeltWord, PatchEvent, PreviewChapter, PreviewImage, ProofColour, ProofPage, ProofSpread,
+    ReaderPreview, Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult, StoryChapter,
 };
 use crate::Host;
 
@@ -477,12 +477,13 @@ impl Books {
         self.host.books_changed(&BooksChanged { books });
     }
 
-    fn announce_patch(&self, book: &OpenBook, patch: &Patch) {
+    fn announce_patch(&self, book: &OpenBook, patch: &Patch, by: Option<&str>) {
         let event = PatchEvent {
             id: book.id.clone(),
             patch: patch.clone(),
             can_undo: book.session.can_undo(),
             can_redo: book.session.can_redo(),
+            by: by.map(str::to_owned),
         };
         self.host.patched(&event);
     }
@@ -1750,6 +1751,11 @@ impl Books {
 
     /// Applies an intent to a book, tells every window, and answers with what changed.
     pub fn apply(&self, id: &str, intent: Intent) -> Result<Patch, Error> {
+        self.apply_by(id, intent, None)
+    }
+
+    /// As `apply`, saying who is making the change when it is not the person (`agent`).
+    fn apply_by(&self, id: &str, intent: Intent, by: Option<&str>) -> Result<Patch, Error> {
         // A change to a story may leave it with more words than its frames have room for.
         let refit = changes_a_story(&intent);
         let edits_words = edits_a_story(&intent);
@@ -1766,6 +1772,7 @@ impl Books {
         };
         self.change(
             id,
+            by,
             |session| {
                 let depth = session.undo_depth();
                 let mut patch = session.apply(intent)?;
@@ -1826,10 +1833,57 @@ impl Books {
         )
     }
 
+    /// Applies several intents as one undo step, by an agent: all of them or none. The step is
+    /// closed on both sides, so nothing the person was doing merges into it, and a refused intent
+    /// takes back what came before it in the batch.
+    pub fn apply_batch(&self, id: &str, intents: Vec<Intent>) -> Result<BatchOutcome, Error> {
+        const BY: Option<&str> = Some("agent");
+        let total = intents.len();
+        let mark = self.history_mark(id)?;
+        self.apply_by(id, Intent::EndUndoStep, BY)?;
+        for (index, intent) in intents.into_iter().enumerate() {
+            if let Err(e) = self.apply_by(id, intent, BY) {
+                self.rewind(id, mark)?;
+                self.change(
+                    id,
+                    BY,
+                    |session| {
+                        session.clear_redo();
+                        Ok(())
+                    },
+                    |_: &()| None,
+                )?;
+                return Err(Error::Batch {
+                    index,
+                    total,
+                    message: e.to_string(),
+                });
+            }
+        }
+        self.change(
+            id,
+            BY,
+            |session| {
+                // The batch is one step, so one undo takes all of it back.
+                let steps = session.undo_depth().saturating_sub(mark);
+                session.join_last(steps);
+                session.apply(Intent::EndUndoStep)?;
+                Ok(BatchOutcome {
+                    revision: session.revision(),
+                    applied: total,
+                    can_undo: session.can_undo(),
+                    can_redo: session.can_redo(),
+                })
+            },
+            |_: &BatchOutcome| None,
+        )
+    }
+
     /// Undoes the last step, or `None` when there is nothing to undo.
     pub fn undo(&self, id: &str) -> Result<Option<Patch>, Error> {
         self.change(
             id,
+            None,
             |session| Ok(session.undo()),
             |patch: &Option<Patch>| patch.as_ref(),
         )
@@ -1860,6 +1914,7 @@ impl Books {
     pub fn redo(&self, id: &str) -> Result<Option<Patch>, Error> {
         self.change(
             id,
+            None,
             |session| Ok(session.redo()),
             |patch: &Option<Patch>| patch.as_ref(),
         )
@@ -1870,6 +1925,7 @@ impl Books {
     fn change<T>(
         &self,
         id: &str,
+        by: Option<&str>,
         run: impl FnOnce(&mut Session) -> Result<T, Error>,
         patch_of: impl FnOnce(&T) -> Option<&Patch>,
     ) -> Result<T, Error> {
@@ -1882,7 +1938,7 @@ impl Books {
         let was = open.summary();
         let result = run(&mut open.session)?;
         if let Some(patch) = patch_of(&result).filter(|p| !p.ops.is_empty()) {
-            self.announce_patch(open, patch);
+            self.announce_patch(open, patch, by);
         }
         let now = open.summary();
         if now != was {

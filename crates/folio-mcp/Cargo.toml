@@ -39,5 +39,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "io-std", "io-util", "net", "time"] }
 
 [dev-dependencies]
+folio-model = { path = "../folio-model" }
 rmcp = { version = "3.6", features = ["client", "server", "macros", "transport-io"] }
 tempfile = "3"

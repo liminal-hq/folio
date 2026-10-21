@@ -11,6 +11,7 @@ import { useActiveBook, useBooks, useBooksSelector } from '../books/useBooks';
 import { APP_MENU_MNEMONICS } from '../commands/appMenuModel';
 import { requestJaxToggle } from '../jax/jaxToggle';
 import { t } from '../i18n/messages';
+import { AgentChip } from './AgentChip';
 import { tauriAppInfoClient, type AppInfoClient } from '../services/appInfoClient';
 import { tauriCloseRequests, type CloseRequests } from '../services/closeRequests';
 import { useSettings } from '../settings/useSettings';
@@ -139,6 +140,7 @@ export function MainScreen({
 							: t('status.noBook')}
 					</span>
 					<span className={styles.statusGroup}>
+						<AgentChip />
 						{active && <span>{savedText(active.summary.path, active.summary.dirty)}</span>}
 						{settings.jax !== 'off' &&
 							(active ? (
