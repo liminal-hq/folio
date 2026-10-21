@@ -406,6 +406,13 @@ pub enum Intent {
         after: SpreadId,
         duplicate: bool,
     },
+    /// Adds a two-page spread after `after` (not the cover) holding `frames`, in spread space: the
+    /// right page starts one trim width in. It is one undo step, with the pages it adds, the page
+    /// numbers and the spine that follow from them. Spread templates are added this way.
+    AddSpreadWith {
+        after: SpreadId,
+        frames: Vec<Frame>,
+    },
     DeleteSpread {
         spread: SpreadId,
     },

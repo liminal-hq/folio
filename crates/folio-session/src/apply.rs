@@ -360,6 +360,7 @@ pub fn plan(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
     let restructures = matches!(
         intent,
         Intent::AddSpread { .. }
+            | Intent::AddSpreadWith { .. }
             | Intent::DeleteSpread { .. }
             | Intent::MoveSpread { .. }
             | Intent::AddFlowPages { .. }
@@ -1327,6 +1328,30 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             ensure_free(target)?;
             Ok(by(on, None))
         }
+        Intent::AddSpreadWith { after, frames } => {
+            if spread(book, after)?.kind == SpreadKind::Cover {
+                return Err(SessionError::CoverFixed);
+            }
+            for frame in frames {
+                if let Some(taken) = book
+                    .spreads
+                    .iter()
+                    .flat_map(|s| &s.frames)
+                    .find(|f| f.base().id == frame.base().id)
+                {
+                    return Err(SessionError::DuplicateFrame(taken.base().id.0.clone()));
+                }
+            }
+            let id = SpreadId(ids("sp"));
+            Ok(Plan {
+                touched: vec![id.clone()],
+                new_spread: Some(id),
+                flows: Vec::new(),
+                new_flow: None,
+                fresh: Vec::new(),
+                merge: None,
+            })
+        }
         Intent::AddSpread { after, .. } => {
             spread(book, after)?;
             let id = SpreadId(ids("sp"));
@@ -1400,6 +1425,7 @@ pub fn run(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
     let restructures = matches!(
         intent,
         Intent::AddSpread { .. }
+            | Intent::AddSpreadWith { .. }
             | Intent::DeleteSpread { .. }
             | Intent::MoveSpread { .. }
             | Intent::AddFlowPages { .. }
@@ -2015,6 +2041,34 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 }
             };
             book.spreads.insert(at + 1, made);
+        }
+        Intent::AddSpreadWith { after, frames } => {
+            let Some(at) = book.spreads.iter().position(|sp| sp.id == after) else {
+                return;
+            };
+            let id = plan
+                .new_spread
+                .clone()
+                .unwrap_or_else(|| SpreadId(ids("sp")));
+            book.spreads.insert(
+                at + 1,
+                Spread {
+                    id,
+                    kind: SpreadKind::Spread,
+                    pages: (0..2)
+                        .map(|_| Page {
+                            id: folio_model::PageId(ids("pg")),
+                            master: None,
+                            bg: None,
+                        })
+                        .collect(),
+                    frames,
+                    guides: Vec::new(),
+                    master_overrides: Vec::new(),
+                    bg_span: None,
+                    section: None,
+                },
+            );
         }
         Intent::DeleteSpread { spread: s } => book.spreads.retain(|sp| sp.id != s),
         Intent::MoveSpread { spread: s, to } => {

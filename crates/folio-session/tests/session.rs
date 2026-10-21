@@ -3993,3 +3993,65 @@ fn the_front_of_the_cover_slides_with_the_spine_as_pages_come_in_one_step() {
     assert_eq!(x_of(&s, "fr_front"), before_offset + 10.0);
     assert_eq!(s.book().paper, folio_model::Paper::default());
 }
+
+#[test]
+fn a_spread_with_frames_is_one_undo_step_that_adds_two_pages_and_slides_the_cover() {
+    use folio_model::front_offset;
+    let mut s = Session::new(book());
+    let first = s.book().spreads.len();
+    let after = s.book().spreads.last().unwrap().id.clone();
+    let front = front_offset(s.book()).0;
+    let made = |id: &str| {
+        folio_model::Frame::Shape(folio_model::ShapeFrame {
+            base: folio_model::FrameBase {
+                id: frame(id),
+                rect: folio_model::Rect {
+                    x: folio_model::Pt(10.0),
+                    y: folio_model::Pt(10.0),
+                    w: folio_model::Pt(40.0),
+                    h: folio_model::Pt(20.0),
+                },
+                rotation: 0.0,
+                locked: false,
+                from_master: None,
+                description: None,
+            },
+            shape: folio_model::Shape::Rect,
+            fill: None,
+            style: None,
+            stroke: None,
+            stroke_width: None,
+            radius: None,
+            flip: false,
+            content: None,
+            overrides: None,
+        })
+    };
+    s.apply(Intent::AddSpreadWith {
+        after,
+        frames: vec![made("fr_t1"), made("fr_t2")],
+    })
+    .unwrap();
+    assert_eq!(s.book().spreads.len(), first + 1);
+    let added = s.book().spreads.last().unwrap();
+    assert_eq!(added.pages.len(), 2);
+    assert_eq!(added.frames.len(), 2);
+    // Two more pages make the spine thicker only when the count passes KDP's minimum, so the front
+    // is at or past where it was.
+    assert!(front_offset(s.book()).0 >= front);
+    s.undo().unwrap();
+    assert_eq!(
+        s.book().spreads.len(),
+        first,
+        "one undo takes the spread and its frames"
+    );
+    // A frame id already in the book is refused, and so is a spread after the cover.
+    let cover = s.book().spreads[0].id.clone();
+    assert!(matches!(
+        s.apply(Intent::AddSpreadWith {
+            after: cover,
+            frames: vec![]
+        }),
+        Err(SessionError::CoverFixed)
+    ));
+}
