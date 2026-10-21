@@ -26,6 +26,7 @@ tauri-plugin-store = "2"
 tauri-plugin-system-appearance = "0.1"
 tauri-plugin-window-manager = "0.1"
 folio-protocol = { path = "../../../crates/folio-protocol" }
+folio-mcp = { path = "../../../crates/folio-mcp", default-features = false }
 folio-settings = { path = "../../../crates/folio-settings" }
 tauri-plugin-folio-books = { path = "../../../plugins/folio-books" }
 tauri-plugin-folio-settings = { path = "../../../plugins/folio-settings" }

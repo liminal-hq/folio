@@ -1275,6 +1275,7 @@ name = "folio"
 version = "0.0.0"
 dependencies = [
  "chrono",
+ "folio-mcp",
  "folio-presets",
  "folio-protocol",
  "folio-settings",

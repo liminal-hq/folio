@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use folio_layout::wire::PreflightItem;
 use folio_model::Intent;
@@ -32,7 +33,7 @@ pub async fn get_status() -> PluginStatus {
 #[tauri::command]
 pub async fn presets<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
 ) -> Result<Vec<KindInfo>, Error> {
     Ok(books.presets())
 }
@@ -41,7 +42,7 @@ pub async fn presets<R: Runtime>(
 #[tauri::command]
 pub async fn preview_new_book<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     spec: NewBookSpec,
 ) -> Result<String, Error> {
     books.preview_new_book(&spec)
@@ -57,7 +58,7 @@ pub async fn paint_presets<R: Runtime>(_window: WebviewWindow<R>) -> Result<Pain
 #[tauri::command]
 pub async fn default_save_path<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     title: String,
 ) -> Result<String, Error> {
     Ok(books
@@ -70,7 +71,7 @@ pub async fn default_save_path<R: Runtime>(
 #[tauri::command]
 pub async fn new_book<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     spec: NewBookSpec,
 ) -> Result<BookSnapshot, Error> {
     books.new_book(&spec)
@@ -80,7 +81,7 @@ pub async fn new_book<R: Runtime>(
 #[tauri::command]
 pub async fn open_book<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     path: String,
 ) -> Result<BookSnapshot, Error> {
     books.open(&PathBuf::from(path))
@@ -90,7 +91,7 @@ pub async fn open_book<R: Runtime>(
 #[tauri::command]
 pub async fn save_book<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     id: String,
     path: Option<String>,
 ) -> Result<BookSummary, Error> {
@@ -101,7 +102,7 @@ pub async fn save_book<R: Runtime>(
 #[tauri::command]
 pub async fn close_book<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     id: String,
 ) -> Result<(), Error> {
     books.close(&id)
@@ -111,7 +112,7 @@ pub async fn close_book<R: Runtime>(
 #[tauri::command]
 pub async fn list_books<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
 ) -> Result<Vec<BookSummary>, Error> {
     Ok(books.list())
 }
@@ -120,7 +121,7 @@ pub async fn list_books<R: Runtime>(
 #[tauri::command]
 pub async fn snapshot<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     id: String,
 ) -> Result<BookSnapshot, Error> {
     books.snapshot(&id)
@@ -130,7 +131,7 @@ pub async fn snapshot<R: Runtime>(
 #[tauri::command]
 pub async fn apply_intent<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     id: String,
     intent: Intent,
 ) -> Result<Patch, Error> {
@@ -145,7 +146,7 @@ pub async fn autosave_books<R: Runtime>(
     _window: WebviewWindow<R>,
 ) -> Result<usize, Error> {
     // Writing files is work for a blocking thread, not the async runtime.
-    tauri::async_runtime::spawn_blocking(move || Ok(app.state::<Books>().autosave()))
+    tauri::async_runtime::spawn_blocking(move || Ok(app.state::<Arc<Books>>().autosave()))
         .await
         .expect("the autosave task does not panic")
 }
@@ -154,7 +155,7 @@ pub async fn autosave_books<R: Runtime>(
 #[tauri::command]
 pub async fn recoverable_books<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
 ) -> Result<Vec<Recoverable>, Error> {
     Ok(books.recoverable())
 }
@@ -163,7 +164,7 @@ pub async fn recoverable_books<R: Runtime>(
 #[tauri::command]
 pub async fn restore_book<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     id: String,
 ) -> Result<BookSnapshot, Error> {
     books.restore(&id)
@@ -173,7 +174,7 @@ pub async fn restore_book<R: Runtime>(
 #[tauri::command]
 pub async fn discard_recovered<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     id: String,
 ) -> Result<(), Error> {
     books.discard(&id);
@@ -184,7 +185,7 @@ pub async fn discard_recovered<R: Runtime>(
 #[tauri::command]
 pub async fn undo<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     id: String,
 ) -> Result<Option<Patch>, Error> {
     books.undo(&id)
@@ -194,7 +195,7 @@ pub async fn undo<R: Runtime>(
 #[tauri::command]
 pub async fn history_mark<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     id: String,
 ) -> Result<usize, Error> {
     books.history_mark(&id)
@@ -204,7 +205,7 @@ pub async fn history_mark<R: Runtime>(
 #[tauri::command]
 pub async fn rewind_history<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     id: String,
     mark: usize,
 ) -> Result<(), Error> {
@@ -215,7 +216,7 @@ pub async fn rewind_history<R: Runtime>(
 #[tauri::command]
 pub async fn redo<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     id: String,
 ) -> Result<Option<Patch>, Error> {
     books.redo(&id)
@@ -232,7 +233,7 @@ pub async fn layout_spread<R: Runtime>(
     spelling: Option<Vec<String>>,
 ) -> Result<SpreadLayoutResult, Error> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<Books>()
+        app.state::<Arc<Books>>()
             .layout_spread(&id, &spread, spelling.as_deref())
     })
     .await
@@ -247,9 +248,11 @@ pub async fn layout_master<R: Runtime>(
     id: String,
     master: String,
 ) -> Result<SpreadLayoutResult, Error> {
-    tauri::async_runtime::spawn_blocking(move || app.state::<Books>().layout_master(&id, &master))
-        .await
-        .expect("the layout task does not panic")
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Arc<Books>>().layout_master(&id, &master)
+    })
+    .await
+    .expect("the layout task does not panic")
 }
 
 /// Reads a picture file into a book and answers with its path in the book's package.
@@ -261,7 +264,7 @@ pub async fn import_image<R: Runtime>(
     path: PathBuf,
 ) -> Result<String, Error> {
     // Reading and hashing a large picture is work for a blocking thread, not the async runtime.
-    tauri::async_runtime::spawn_blocking(move || app.state::<Books>().import_image(&id, &path))
+    tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().import_image(&id, &path))
         .await
         .expect("the import task does not panic")
 }
@@ -274,10 +277,11 @@ pub async fn asset_data<R: Runtime>(
     id: String,
     asset: String,
 ) -> Result<tauri::ipc::Response, Error> {
-    let bytes =
-        tauri::async_runtime::spawn_blocking(move || app.state::<Books>().asset_data(&id, &asset))
-            .await
-            .expect("the read task does not panic")?;
+    let bytes = tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Arc<Books>>().asset_data(&id, &asset)
+    })
+    .await
+    .expect("the read task does not panic")?;
     Ok(tauri::ipc::Response::new(bytes))
 }
 
@@ -292,7 +296,7 @@ pub async fn spell_check<R: Runtime>(
 ) -> Result<SpellCheck, Error> {
     // Loading the dictionary the first time is work for a blocking thread, not the async runtime.
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<Books>()
+        app.state::<Arc<Books>>()
             .spell_check(&id, &text, &personal.unwrap_or_default())
     })
     .await
@@ -307,9 +311,11 @@ pub async fn spell_suggest<R: Runtime>(
     id: String,
     word: String,
 ) -> Result<Vec<String>, Error> {
-    tauri::async_runtime::spawn_blocking(move || app.state::<Books>().spell_suggest(&id, &word))
-        .await
-        .expect("the spelling task does not panic")
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Arc<Books>>().spell_suggest(&id, &word)
+    })
+    .await
+    .expect("the spelling task does not panic")
 }
 
 /// The book as an e-reader would show it, from the same chapters and CSS the EPUB ships.
@@ -319,7 +325,7 @@ pub async fn reader_preview<R: Runtime>(
     _window: WebviewWindow<R>,
     id: String,
 ) -> Result<ReaderPreview, Error> {
-    tauri::async_runtime::spawn_blocking(move || app.state::<Books>().reader_preview(&id))
+    tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().reader_preview(&id))
         .await
         .expect("the preview task does not panic")
 }
@@ -335,7 +341,8 @@ pub async fn proof_spread<R: Runtime>(
 ) -> Result<ProofSpread, Error> {
     // Drawing and converting every pixel is work for a blocking thread, not the async runtime.
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<Books>().proof_spread(&id, &spread, &profile)
+        app.state::<Arc<Books>>()
+            .proof_spread(&id, &spread, &profile)
     })
     .await
     .expect("the proof task does not panic")
@@ -348,7 +355,7 @@ pub async fn cover_sheet_canvas<R: Runtime>(
     _window: WebviewWindow<R>,
     id: String,
 ) -> Result<Option<CoverCanvas>, Error> {
-    tauri::async_runtime::spawn_blocking(move || app.state::<Books>().cover_sheet_canvas(&id))
+    tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().cover_sheet_canvas(&id))
         .await
         .expect("the cover task does not panic")
 }
@@ -361,7 +368,7 @@ pub async fn preview_cover_sheet<R: Runtime>(
     _window: WebviewWindow<R>,
     id: String,
 ) -> Result<Option<CoverSheetPreview>, Error> {
-    tauri::async_runtime::spawn_blocking(move || app.state::<Books>().preview_cover_sheet(&id))
+    tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().preview_cover_sheet(&id))
         .await
         .expect("the preview task does not panic")
 }
@@ -377,7 +384,7 @@ pub async fn export_book<R: Runtime>(
 ) -> Result<ExportReport, Error> {
     // Laying out and writing a book is work for a blocking thread, not the async runtime.
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<Books>()
+        app.state::<Arc<Books>>()
             .export(&id, &targets, colour.unwrap_or_default())
     })
     .await
@@ -394,7 +401,7 @@ pub async fn import_text<R: Runtime>(
     mapping: Option<std::collections::BTreeMap<String, String>>,
 ) -> Result<ImportReport, Error> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<Books>()
+        app.state::<Arc<Books>>()
             .import_text_with(&id, &path, &mapping.unwrap_or_default())
     })
     .await
@@ -405,7 +412,7 @@ pub async fn import_text<R: Runtime>(
 #[tauri::command]
 pub async fn cancel_export<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
 ) -> Result<(), Error> {
     books.cancel_export();
     Ok(())
@@ -425,7 +432,7 @@ pub async fn preflight_book<R: Runtime>(
     id: String,
 ) -> Result<Vec<PreflightItem>, Error> {
     // Laying out every spread is work for a blocking thread, not the async runtime.
-    tauri::async_runtime::spawn_blocking(move || app.state::<Books>().preflight(&id))
+    tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().preflight(&id))
         .await
         .expect("the preflight task does not panic")
 }
@@ -438,7 +445,7 @@ pub async fn story_chapters<R: Runtime>(
     id: String,
 ) -> Result<Vec<StoryChapter>, Error> {
     // Laying out every spread is work for a blocking thread, not the async runtime.
-    tauri::async_runtime::spawn_blocking(move || app.state::<Books>().story_chapters(&id))
+    tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().story_chapters(&id))
         .await
         .expect("the chapters task does not panic")
 }
@@ -447,7 +454,7 @@ pub async fn story_chapters<R: Runtime>(
 #[tauri::command]
 pub async fn list_fonts<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     id: String,
 ) -> Result<Vec<FontChoice>, Error> {
     books.font_choices(&id)
@@ -457,7 +464,7 @@ pub async fn list_fonts<R: Runtime>(
 #[tauri::command]
 pub async fn fonts_in_use<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     id: String,
 ) -> Result<Vec<FontUse>, Error> {
     books.fonts_in_use(&id)
@@ -467,7 +474,7 @@ pub async fn fonts_in_use<R: Runtime>(
 #[tauri::command]
 pub async fn unkeep_fonts<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     id: String,
     families: Vec<String>,
 ) -> Result<(), Error> {
@@ -484,16 +491,18 @@ pub async fn keep_fonts<R: Runtime>(
     families: Vec<String>,
 ) -> Result<KeepFontsReport, Error> {
     // Reading font files is work for a blocking thread, not the async runtime.
-    tauri::async_runtime::spawn_blocking(move || app.state::<Books>().keep_fonts(&id, &families))
-        .await
-        .expect("the font task does not panic")
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Arc<Books>>().keep_fonts(&id, &families)
+    })
+    .await
+    .expect("the font task does not panic")
 }
 
 /// Every dictionary there is, and whether it is in place.
 #[tauri::command]
 pub async fn dictionaries<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
 ) -> Result<Vec<DictionaryStatus>, Error> {
     Ok(books.spelling.status())
 }
@@ -507,7 +516,7 @@ pub async fn download_dictionary<R: Runtime>(
 ) -> Result<Vec<DictionaryStatus>, Error> {
     // The download is work for a blocking thread, not the async runtime.
     tauri::async_runtime::spawn_blocking(move || {
-        let books = app.state::<Books>();
+        let books = app.state::<Arc<Books>>();
         let sent = id.clone();
         let tell = |received: u64, total: u64| {
             let event = DictionaryProgress {
@@ -530,7 +539,7 @@ pub async fn download_dictionary<R: Runtime>(
 #[tauri::command]
 pub async fn remove_dictionary<R: Runtime>(
     _window: WebviewWindow<R>,
-    books: State<'_, Books>,
+    books: State<'_, Arc<Books>>,
     id: String,
 ) -> Result<Vec<DictionaryStatus>, Error> {
     books.spelling.remove(&id)?;
@@ -546,7 +555,7 @@ pub async fn spell_check_book<R: Runtime>(
     personal: Option<Vec<String>>,
 ) -> Result<BookSpelling, Error> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<Books>()
+        app.state::<Arc<Books>>()
             .spell_check_book(&id, &personal.unwrap_or_default())
     })
     .await
