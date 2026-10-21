@@ -4055,3 +4055,53 @@ fn a_spread_with_frames_is_one_undo_step_that_adds_two_pages_and_slides_the_cove
         Err(SessionError::CoverFixed)
     ));
 }
+
+#[test]
+fn a_frames_description_is_one_undo_step_and_an_empty_one_takes_it_away() {
+    let mut s = session();
+    let on = folio_model::Surface::Spread(s.book().spreads[1].id.clone());
+    let described = |s: &Session| {
+        s.book().spreads[1]
+            .frames
+            .iter()
+            .find(|f| f.base().id == frame("fr_text"))
+            .unwrap()
+            .base()
+            .description
+            .clone()
+    };
+    s.apply(Intent::SetFrameDescription {
+        on: on.clone(),
+        frame: frame("fr_text"),
+        description: Some("An otter on a log".into()),
+    })
+    .unwrap();
+    assert_eq!(described(&s).as_deref(), Some("An otter on a log"));
+    s.undo().unwrap();
+    assert_eq!(described(&s), None);
+    s.redo().unwrap();
+    s.apply(Intent::EndUndoStep).unwrap();
+    s.apply(Intent::SetFrameDescription {
+        on: on.clone(),
+        frame: frame("fr_text"),
+        description: Some("  ".into()),
+    })
+    .unwrap();
+    assert_eq!(described(&s), None, "words of only spaces take it away");
+    // Too long, or a frame that is not there, is refused.
+    assert!(matches!(
+        s.apply(Intent::SetFrameDescription {
+            on: on.clone(),
+            frame: frame("fr_text"),
+            description: Some("x".repeat(501)),
+        }),
+        Err(SessionError::BadDetails(_))
+    ));
+    assert!(s
+        .apply(Intent::SetFrameDescription {
+            on,
+            frame: frame("fr_none"),
+            description: None,
+        })
+        .is_err());
+}
