@@ -9,6 +9,7 @@
 //! and what is known of its pictures; changing the book is the tool's own intents, sent the way any
 //! other change is, so every fix is one undo step (D-49).
 
+use crate::frontmatter::{self, ContentsEntry, CopyrightFields};
 use crate::punctuation::{self, PunctuationRule};
 use folio_layout::assets::{AssetFact, AssetFacts, ERROR_PPI, WARN_PPI};
 use folio_layout::preflight::picture_ppi;
@@ -34,6 +35,11 @@ pub enum ToolRequest {
     Punctuation,
     /// Text boxes whose size, alignment, weight or typeface differ from their style's.
     Styles,
+    /// What the copyright page would say, and whether the book has one made by this tool.
+    Copyright { fields: CopyrightFields },
+    /// The chapters of the book and the page each begins on, and whether a contents page made by
+    /// this tool is there.
+    Contents,
     /// What a copy costs to print and what is earned on a sale, at the prices given. A cost left out
     /// is the dated estimate (`PrintCosts::estimate`).
     Royalty {
@@ -67,6 +73,14 @@ pub enum ToolReport {
     },
     Styles {
         frames: Vec<StyleStray>,
+    },
+    Copyright {
+        text: String,
+        present: bool,
+    },
+    Contents {
+        entries: Vec<ContentsEntry>,
+        present: bool,
     },
     Royalty {
         pages: u32,
@@ -127,6 +141,10 @@ pub enum ToolFix {
     Punctuation { rules: Vec<PunctuationRule> },
     /// Puts text boxes back to their style's size, alignment, weight and typeface.
     ResetStyles { frames: Vec<String> },
+    /// Adds the copyright page after the title page, or puts the words in the one made before.
+    CopyrightPage { fields: CopyrightFields },
+    /// Adds the contents after the copyright page, or puts the chapters in the one made before.
+    ContentsPage,
 }
 
 /// What a fix did.
@@ -224,10 +242,12 @@ pub enum Market {
 }
 
 /// What the checklist needs that only the app can know: how many problems layout found.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Findings {
     /// Problems that stop a print (preflight errors that are not left alone).
     pub errors: usize,
+    /// The chapters of the book and the page each begins on.
+    pub contents: Vec<ContentsEntry>,
 }
 
 /// How a picture stands for print.
@@ -291,6 +311,14 @@ pub fn run(
         ToolRequest::Styles => ToolReport::Styles {
             frames: style_strays(book),
         },
+        ToolRequest::Copyright { fields } => ToolReport::Copyright {
+            text: frontmatter::copyright_text(book, fields),
+            present: has_frame(book, "copyright"),
+        },
+        ToolRequest::Contents => ToolReport::Contents {
+            entries: findings.contents,
+            present: has_frame(book, "toc_titles"),
+        },
         ToolRequest::Royalty {
             hardcover,
             colour,
@@ -308,6 +336,13 @@ pub fn run(
             *per_page_cost,
         ),
     }
+}
+
+fn has_frame(book: &Book, id: &str) -> bool {
+    book.spreads
+        .iter()
+        .flat_map(|s| &s.frames)
+        .any(|f| f.base().id.0 == id)
 }
 
 /// The words a tool may change: each paragraph of a story, and each text box or shape that holds
@@ -432,10 +467,18 @@ fn style_strays(book: &Book) -> Vec<StyleStray> {
     out
 }
 
-/// The intents that make `fix` happen, in order; none when there is nothing to change.
-pub fn fix_intents(book: &Book, fix: &ToolFix) -> Vec<folio_model::Intent> {
+/// The intents that make `fix` happen, in order; none when there is nothing to change. `k` is the
+/// book's size for what makes a page, and `findings` the chapters a contents is made from.
+pub fn fix_intents(
+    book: &Book,
+    fix: &ToolFix,
+    k: &folio_presets::templates::Metrics,
+    findings: &Findings,
+) -> Vec<folio_model::Intent> {
     use folio_model::Intent;
     match fix {
+        ToolFix::CopyrightPage { fields } => frontmatter::copyright_intents(book, fields, k),
+        ToolFix::ContentsPage => frontmatter::contents_intents(book, &findings.contents, k),
         ToolFix::Punctuation { rules } => sources(book)
             .into_iter()
             .filter_map(|source| match source {
@@ -795,7 +838,10 @@ mod publishing_tests {
         let ToolReport::Checklist { items } = run(
             &book,
             &facts,
-            Findings { errors: 2 },
+            Findings {
+                errors: 2,
+                ..Default::default()
+            },
             &ToolRequest::Checklist,
         ) else {
             panic!("a checklist")

@@ -6,6 +6,8 @@
 import { ChecklistTool } from './publishing/ChecklistTool';
 import { KeywordsTool } from './publishing/KeywordsTool';
 import { RoyaltyTool } from './publishing/RoyaltyTool';
+import { ContentsTool } from './structure/ContentsTool';
+import { CopyrightTool } from './structure/CopyrightTool';
 import { PunctuationTool } from './typesetting/PunctuationTool';
 import { StylesTool } from './typesetting/StylesTool';
 import { AltTextTool } from './pictures/AltTextTool';
@@ -13,6 +15,20 @@ import { PicturesTool } from './pictures/PicturesTool';
 import type { ToolArea, ToolDef } from './tools';
 
 export const TOOLS: ToolDef[] = [
+	{
+		id: 'structure.copyright',
+		area: 'structure',
+		titleKey: 'tools.copyright.title',
+		descKey: 'tools.copyright.desc',
+		Component: CopyrightTool,
+	},
+	{
+		id: 'structure.contents',
+		area: 'structure',
+		titleKey: 'tools.contents.title',
+		descKey: 'tools.contents.desc',
+		Component: ContentsTool,
+	},
 	{
 		id: 'typesetting.punctuation',
 		area: 'typesetting',

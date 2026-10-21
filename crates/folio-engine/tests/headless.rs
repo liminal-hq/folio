@@ -321,3 +321,113 @@ fn the_styles_tool_finds_boxes_that_differ_from_their_style_and_puts_them_back()
     assert_eq!(fixed.changed, 1);
     assert!(strays(&books).is_empty());
 }
+
+#[test]
+fn the_copyright_page_is_added_after_the_title_page_and_refreshed_with_the_same_tool() {
+    use folio_engine::{CopyrightFields, ToolFix, ToolReport, ToolRequest};
+    let books = Books::new(Arc::new(Recorder::default()));
+    let made = books.new_book(&NewBookSpec::default()).unwrap();
+    let id = made.summary.id.clone();
+    let spreads = made.book.spreads.len();
+    let fields = CopyrightFields {
+        year: 2026,
+        holder: "Jane L. Morris".into(),
+        rights: "All rights reserved.".into(),
+        printing: "First edition".into(),
+    };
+    let ToolReport::Copyright { text, present } = books
+        .book_tool(
+            &id,
+            &ToolRequest::Copyright {
+                fields: fields.clone(),
+            },
+        )
+        .unwrap()
+    else {
+        panic!("a copyright report")
+    };
+    assert!(text.starts_with("Copyright © 2026 Jane L. Morris"));
+    assert!(!present);
+    let done = books
+        .book_tool_fix(
+            &id,
+            &ToolFix::CopyrightPage {
+                fields: fields.clone(),
+            },
+        )
+        .unwrap();
+    assert_eq!(done.changed, 1);
+    let after = books.snapshot(&id).unwrap().book;
+    assert_eq!(after.spreads.len(), spreads + 1);
+    // The page is straight after the title page, with the frame the tool names.
+    assert!(after.spreads[2]
+        .frames
+        .iter()
+        .any(|f| f.base().id.0 == "copyright"));
+    let ToolReport::Copyright { present, .. } = books
+        .book_tool(
+            &id,
+            &ToolRequest::Copyright {
+                fields: fields.clone(),
+            },
+        )
+        .unwrap()
+    else {
+        panic!("a copyright report")
+    };
+    assert!(present);
+    // Run again with a new printing: the same page, new words, and no second spread.
+    let again = CopyrightFields {
+        printing: "Second edition".into(),
+        ..fields
+    };
+    books
+        .book_tool_fix(&id, &ToolFix::CopyrightPage { fields: again })
+        .unwrap();
+    let later = books.snapshot(&id).unwrap().book;
+    assert_eq!(later.spreads.len(), spreads + 1);
+    books.undo(&id).unwrap().unwrap();
+    books.undo(&id).unwrap().unwrap();
+    assert_eq!(books.snapshot(&id).unwrap().book.spreads.len(), spreads);
+}
+
+#[test]
+fn the_contents_lists_each_chapter_with_the_page_it_begins_on() {
+    use folio_engine::{ToolFix, ToolReport, ToolRequest};
+    let books = Books::new(Arc::new(Recorder::default()));
+    let made = books
+        .new_book(&NewBookSpec {
+            kind: folio_model::BookKind::Novel,
+            ..NewBookSpec::default()
+        })
+        .unwrap();
+    let id = made.summary.id.clone();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("story.md");
+    std::fs::write(
+        &file,
+        "# One\n\nFirst words.\n\n# Two\n\nSecond words.\n\n# Three\n\nThird.\n",
+    )
+    .unwrap();
+    books.import_text(&id, &file.to_string_lossy()).unwrap();
+    let ToolReport::Contents { entries, present } =
+        books.book_tool(&id, &ToolRequest::Contents).unwrap()
+    else {
+        panic!("a contents report")
+    };
+    // Each chapter of the story is listed, with the label of a page.
+    let titles: Vec<&str> = entries.iter().map(|e| e.title.as_str()).collect();
+    assert_eq!(titles, vec!["One", "Two", "Three"]);
+    assert!(entries
+        .iter()
+        .all(|e| !e.title.is_empty() && !e.page.is_empty()));
+    assert!(!present);
+    books.book_tool_fix(&id, &ToolFix::ContentsPage).unwrap();
+    let after = books.snapshot(&id).unwrap().book;
+    let toc = after
+        .spreads
+        .iter()
+        .find(|s| s.frames.iter().any(|f| f.base().id.0 == "toc_titles"))
+        .expect("the contents page");
+    assert_eq!(toc.frames.len(), 3);
+}
