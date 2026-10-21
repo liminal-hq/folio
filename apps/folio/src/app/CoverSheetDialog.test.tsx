@@ -22,6 +22,7 @@ describe('CoverSheetDialog', () => {
 				revision={0}
 				book={made.book}
 				onSave={() => undefined}
+				onPutDescription={() => undefined}
 			/>,
 		);
 		expect(
@@ -42,6 +43,7 @@ describe('CoverSheetDialog', () => {
 				revision={0}
 				book={made.book}
 				onSave={() => undefined}
+				onPutDescription={() => undefined}
 			/>,
 		);
 		expect(fake.calls.some((c) => c.startsWith('previewCoverSheet'))).toBe(false);
@@ -59,6 +61,7 @@ describe('CoverSheetDialog', () => {
 				revision={0}
 				book={made.book}
 				onSave={() => undefined}
+				onPutDescription={() => undefined}
 			/>,
 		);
 		expect(await screen.findByTestId('cover-guides')).toBeInTheDocument();
@@ -79,6 +82,7 @@ describe('CoverSheetDialog', () => {
 				revision={0}
 				book={made.book}
 				onSave={onSave}
+				onPutDescription={() => undefined}
 			/>,
 		);
 		const update = await screen.findByRole('button', { name: 'Update the cover' });
@@ -89,5 +93,47 @@ describe('CoverSheetDialog', () => {
 		await userEvent.click(update);
 		expect(onSave).toHaveBeenCalledTimes(1);
 		expect(onSave.mock.calls[0]![0]).toMatchObject({ description: 'A cosy tale.' });
+	});
+
+	it('puts the description back on the back cover when the frame no longer holds it', async () => {
+		const fake = createFakeBooksClient();
+		const made = await fake.client.newBook({});
+		const book = { ...made.book, metadata: { ...made.book.metadata, description: 'A cosy tale.' } };
+		const put = vi.fn();
+		const { rerender } = render(
+			<CoverSheetDialog
+				open
+				onClose={() => undefined}
+				client={fake.client}
+				id={made.summary.id}
+				revision={0}
+				book={book}
+				onSave={() => undefined}
+				onPutDescription={put}
+			/>,
+		);
+		await userEvent.click(await screen.findByRole('button', { name: /Put the description/ }));
+		expect(put).toHaveBeenCalledWith('A cosy tale.');
+		// Once the frame holds it, there is nothing to put back.
+		const [cover, ...rest] = book.spreads;
+		const frame = {
+			type: 'text',
+			id: 'blurb',
+			box: { x: 0, y: 0, w: 10, h: 10 },
+			content: { inline: [{ text: 'A cosy tale.' }] },
+		};
+		rerender(
+			<CoverSheetDialog
+				open
+				onClose={() => undefined}
+				client={fake.client}
+				id={made.summary.id}
+				revision={0}
+				book={{ ...book, spreads: [{ ...cover!, frames: [frame as never] }, ...rest] }}
+				onSave={() => undefined}
+				onPutDescription={put}
+			/>,
+		);
+		expect(screen.queryByRole('button', { name: /Put the description/ })).toBeNull();
 	});
 });

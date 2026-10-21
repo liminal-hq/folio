@@ -201,6 +201,7 @@ export const messages = {
 	'barcode.preview': 'The Cover sheet button shows where the barcode goes and how it looks.',
 	'barcode.save': 'Save',
 	'barcode.cancel': 'Cancel',
+	'cover.barcodeHint': 'Double-click to set up the barcode',
 	'coverSheet.title': 'Cover sheet',
 	'coverSheet.hint':
 		'The paperback cover as the KDP file will have it: back, spine and front, with the bleed all round. Edit it on the cover page itself; the barcode and the spine title are drawn for you.',
@@ -214,6 +215,7 @@ export const messages = {
 	'coverSheet.authorField': 'Author (front cover and spine)',
 	'coverSheet.blurbField':
 		'Description (the back cover follows it until you change the words there)',
+	'coverSheet.putDescription': 'Put the description on the back cover',
 	'coverSheet.update': 'Update the cover',
 	'proof.colours': 'Your swatches: as drawn, then as printed',
 	'proof.colourOutside': 'The press cannot reproduce this one',
