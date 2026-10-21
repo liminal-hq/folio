@@ -16,6 +16,15 @@
 	border: 1px solid var(--folio-border-subtle);
 }
 
+.waiting {
+	display: grid;
+	place-items: center;
+	inline-size: 100%;
+	border: 1px solid var(--folio-border-subtle);
+	color: var(--folio-text-muted);
+	font-size: 13px;
+}
+
 .toggle {
 	display: flex;
 	align-items: center;

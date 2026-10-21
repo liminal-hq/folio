@@ -128,7 +128,7 @@ export function CoverSheetDialog({
 	useEffect(() => {
 		if (!open) return;
 		let live = true;
-		setPicture(undefined);
+		// The picture on show stays until the new one is drawn, so a change does not blink the dialog.
 		setFailed(false);
 		client
 			.previewCoverSheet(id)
@@ -160,9 +160,14 @@ export function CoverSheetDialog({
 				</p>
 			)}
 			{picture === undefined && !failed && (
-				<p role="status" className={styles.hint}>
+				// A box the shape of the sheet, so the dialog is its full size before the picture arrives.
+				<div
+					role="status"
+					className={styles.waiting}
+					style={{ aspectRatio: `${2 * book.trim.w + 12} / ${book.trim.h + 18}` }}
+				>
 					{t('coverSheet.drawing')}
-				</p>
+				</div>
 			)}
 			{picture === null && <p className={styles.hint}>{t('coverSheet.none')}</p>}
 			{picture && (
