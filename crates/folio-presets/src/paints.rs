@@ -14,6 +14,7 @@ use ts_rs::TS;
 const PAINTS_JSON: &str = include_str!("../data/paints.json");
 
 /// A named colour.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Swatch {
@@ -23,6 +24,7 @@ pub struct Swatch {
 
 /// A named gradient: `angle` is in degrees clockwise from "up" (0 runs from the bottom to the top,
 /// 180 from the top to the bottom).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct GradientPreset {
@@ -32,6 +34,7 @@ pub struct GradientPreset {
 }
 
 /// A named texture. The id is one of `folio_model::TEXTURE_IDS`.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct TexturePreset {
@@ -40,6 +43,7 @@ pub struct TexturePreset {
 }
 
 /// What the colour and gradient pickers offer.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct PaintPresets {

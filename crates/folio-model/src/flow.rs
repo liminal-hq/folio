@@ -12,6 +12,7 @@ use crate::runs::text_of;
 
 /// One paragraph of a flow's story: its words as runs, in a paragraph style of its own when it has
 /// one and in the style of the flow's first frame when it has not.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase")]
@@ -83,6 +84,7 @@ impl StoryPara {
     }
 }
 
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase", from = "FlowRepr")]
@@ -129,6 +131,7 @@ impl Flow {
 }
 
 /// What a flow is read from: the paragraphs, or the `source` text older books kept instead.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FlowRepr {

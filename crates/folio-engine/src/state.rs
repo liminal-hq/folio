@@ -1098,6 +1098,54 @@ impl Books {
         Ok(out)
     }
 
+    /// A PNG of one page of a spread, `width` pixels wide, as it is drawn: the picture an agent
+    /// looks at to check its work. `page` counts from 0 within the spread.
+    pub fn render_page(
+        &self,
+        id: &str,
+        spread: &str,
+        page: usize,
+        width: u32,
+    ) -> Result<Vec<u8>, Error> {
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, styles, assets, layered) = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let book = open.shown_book();
+            let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
+            for path in used_assets(&book) {
+                if let Ok(bytes) = open.package.asset_bytes(&path) {
+                    assets.insert(path, bytes);
+                }
+            }
+            let styles = style_sheet(&book.styles);
+            (book, styles, assets, open.font_book(base))
+        };
+        let fonts = layered.as_deref().unwrap_or(base);
+        let scene = Layouter::new(&book, &styles, fonts)
+            .scene_spread(&SpreadId(spread.to_owned()))
+            .map_err(|e| Error::Export(e.to_string()))?
+            .ok_or_else(|| Error::Export(format!("no spread {spread}")))?;
+        let pages = scene.pages.len();
+        let page = scene.pages.into_iter().nth(page).ok_or_else(|| {
+            Error::Export(format!(
+                "spread {spread} has {pages} pages, not {}",
+                page + 1
+            ))
+        })?;
+        folio_export::raster::page_to_png(
+            &page,
+            fonts,
+            &MemoryAssets(assets),
+            width.clamp(64, 4000),
+        )
+        .map_err(|e| Error::Export(e.to_string()))
+    }
+
     /// A spread as a press would print it, through the CMYK ICC profile at `profile`.
     pub fn proof_spread(
         &self,

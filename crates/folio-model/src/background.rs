@@ -15,6 +15,7 @@ use crate::spread::Spread;
 pub const TEXTURE_IDS: [&str; 5] = ["linen", "laid-paper", "kraft", "watercolour", "dot-grid"];
 
 /// How a picture fills the page: covering it (and cropped at the edges) or whole inside it.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
@@ -25,6 +26,7 @@ pub enum BgFit {
 
 /// A page's background. A page shows its own, else the one across its spread, else its master's,
 /// else the paper (D-23). It reaches into the bleed on the outer edge of the page.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -58,6 +60,7 @@ fn centre() -> (f64, f64) {
 }
 
 /// Where a page's background came from, nearest first.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
@@ -69,6 +72,7 @@ pub enum BgSource {
 
 /// The background a page shows, and which of the three it is. A `Span` one is drawn once across
 /// both pages and cut at each page's edge, so the page needs to know it is part of it.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct ResolvedBackground {

@@ -1,0 +1,370 @@
+// The server's tools and resources, over the same books the app opens
+//
+// (c) Copyright 2026 Liminal HQ, Scott Morris
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+use std::path::Path;
+use std::sync::Arc;
+
+use base64::Engine as _;
+use folio_engine::Books;
+use folio_model::Intent;
+use folio_presets::NewBookSpec;
+use rmcp::handler::server::router::tool::ToolRouter;
+use rmcp::handler::server::wrapper::Parameters;
+use rmcp::model::{
+    CallToolResult, ContentBlock, ListResourcesResult, PaginatedRequestParams,
+    ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult, Resource,
+    ResourceContents, ServerCapabilities, ServerConfig,
+};
+use rmcp::schemars::{self, JsonSchema};
+use rmcp::service::RequestContext;
+use rmcp::{tool, tool_handler, tool_router, ErrorData, RoleServer, ServerHandler};
+use serde::Deserialize;
+use serde_json::{json, Value};
+
+/// The URI of the schema of the intents `apply_intents` takes.
+pub const INTENT_SCHEMA_URI: &str = "folio://schema/intent";
+
+const INSTRUCTIONS: &str = "Folio lays out books. Start with `list_kinds`, make a book with `new_book` or open one with `open_book`, look at it with `get_book` and `render_page`, and check it with `preflight`. Every book tool takes the `id` that `new_book` or `open_book` returned.";
+
+/// Names a book that is open.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct BookRef {
+    /// The id `new_book` or `open_book` returned.
+    pub id: String,
+}
+
+/// Names a book to open from a file.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct OpenBook {
+    /// The path of a `.folio` file.
+    pub path: String,
+}
+
+/// Names a spread of an open book, and how its picture is drawn.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct PageRef {
+    /// The id `new_book` or `open_book` returned.
+    pub id: String,
+    /// The spread's id, from `get_book`.
+    pub spread: String,
+    /// Which page of the spread, counting from 0. A spread of facing pages has two.
+    #[serde(default)]
+    pub page: usize,
+    /// The picture's width in pixels (64 to 4000); 800 when left out.
+    #[serde(default)]
+    pub width: Option<u32>,
+}
+
+/// Names a spread of an open book.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SpreadRef {
+    /// The id `new_book` or `open_book` returned.
+    pub id: String,
+    /// The spread's id, from `get_book`.
+    pub spread: String,
+}
+
+/// Folio's tools for an agent, over the books of one `Books`.
+#[derive(Clone)]
+pub struct FolioServer {
+    books: Arc<Books>,
+    tool_router: ToolRouter<Self>,
+}
+
+fn text(value: &impl serde::Serialize) -> CallToolResult {
+    match serde_json::to_string_pretty(value) {
+        Ok(json) => CallToolResult::success(vec![ContentBlock::text(json)]),
+        Err(e) => failed(format!("could not write the answer: {e}")),
+    }
+}
+
+fn failed(message: impl Into<String>) -> CallToolResult {
+    CallToolResult::error(vec![ContentBlock::text(message.into())])
+}
+
+impl FolioServer {
+    pub fn new(books: Arc<Books>) -> Self {
+        Self {
+            books,
+            tool_router: Self::tool_router(),
+        }
+    }
+
+    /// Runs `work` on a thread of its own: laying out and drawing a page is slow, and the server
+    /// must go on answering.
+    async fn blocking<T: Send + 'static>(
+        &self,
+        work: impl FnOnce(&Books) -> T + Send + 'static,
+    ) -> Result<T, ErrorData> {
+        let books = self.books.clone();
+        tokio::task::spawn_blocking(move || work(&books))
+            .await
+            .map_err(|e| ErrorData::internal_error(format!("the work stopped: {e}"), None))
+    }
+}
+
+/// A book as a list of spreads, each with the ids and kinds of its frames: enough to know what to
+/// ask `get_spread` for.
+fn outline(book: &Value) -> Value {
+    let spreads: Vec<Value> = book["spreads"]
+        .as_array()
+        .map(|spreads| {
+            spreads
+                .iter()
+                .map(|spread| {
+                    let frames: Vec<Value> = spread["frames"]
+                        .as_array()
+                        .map(|frames| {
+                            frames
+                                .iter()
+                                .map(|f| json!({ "id": f["id"], "type": f["type"] }))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    json!({
+                        "id": spread["id"],
+                        "kind": spread["kind"],
+                        "pages": spread["pages"].as_array().map_or(0, Vec::len),
+                        "frames": frames,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    json!({
+        "trim": book["trim"],
+        "bleed": book["bleed"],
+        "margins": book["margins"],
+        "spreads": spreads,
+        "flows": book["flows"].as_array().map_or(0, Vec::len),
+    })
+}
+
+#[tool_router]
+impl FolioServer {
+    #[tool(
+        description = "The kinds of book Folio makes (picture book, novel and so on), each with the trim sizes it comes in. Use these to fill in `new_book`.",
+        annotations(read_only_hint = true)
+    )]
+    async fn list_kinds(&self) -> Result<CallToolResult, ErrorData> {
+        Ok(text(&self.books.presets()))
+    }
+
+    #[tool(
+        description = "Makes a new book in memory and opens it. Every field is optional; the answer carries the book's `id` for the other tools. Nothing is written to disk until `save_book`.",
+        annotations(read_only_hint = false, destructive_hint = false)
+    )]
+    async fn new_book(
+        &self,
+        Parameters(spec): Parameters<NewBookSpec>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let made = self.blocking(move |books| books.new_book(&spec)).await?;
+        Ok(match made {
+            Ok(snapshot) => text(&json!({
+                "id": snapshot.summary.id,
+                "title": snapshot.summary.title,
+                "revision": snapshot.revision,
+                "book": outline(&serde_json::to_value(&snapshot.book).unwrap_or_default()),
+            })),
+            Err(e) => failed(e.to_string()),
+        })
+    }
+
+    #[tool(
+        description = "Opens a `.folio` file. If it is already open the same id comes back.",
+        annotations(read_only_hint = true)
+    )]
+    async fn open_book(
+        &self,
+        Parameters(OpenBook { path }): Parameters<OpenBook>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let opened = self
+            .blocking(move |books| books.open(Path::new(&path)))
+            .await?;
+        Ok(match opened {
+            Ok(snapshot) => text(&json!({
+                "id": snapshot.summary.id,
+                "title": snapshot.summary.title,
+                "revision": snapshot.revision,
+                "book": outline(&serde_json::to_value(&snapshot.book).unwrap_or_default()),
+            })),
+            Err(e) => failed(e.to_string()),
+        })
+    }
+
+    #[tool(
+        description = "The books that are open: id, title, kind, file and whether there are unsaved changes.",
+        annotations(read_only_hint = true)
+    )]
+    async fn list_books(&self) -> Result<CallToolResult, ErrorData> {
+        Ok(text(&self.books.list()))
+    }
+
+    #[tool(
+        description = "An open book's shape: trim, bleed, margins and its spreads with the ids and kinds of their frames.",
+        annotations(read_only_hint = true)
+    )]
+    async fn get_book(
+        &self,
+        Parameters(BookRef { id }): Parameters<BookRef>,
+    ) -> Result<CallToolResult, ErrorData> {
+        Ok(match self.books.snapshot(&id) {
+            Ok(snapshot) => text(&json!({
+                "id": id,
+                "title": snapshot.summary.title,
+                "revision": snapshot.revision,
+                "canUndo": snapshot.can_undo,
+                "canRedo": snapshot.can_redo,
+                "book": outline(&serde_json::to_value(&snapshot.book).unwrap_or_default()),
+            })),
+            Err(e) => failed(e.to_string()),
+        })
+    }
+
+    #[tool(
+        description = "One spread in full: its frames as the book holds them, and how the words were laid out in them (lines, and whether text overflows a frame).",
+        annotations(read_only_hint = true)
+    )]
+    async fn get_spread(
+        &self,
+        Parameters(SpreadRef { id, spread }): Parameters<SpreadRef>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let wanted = spread.clone();
+        let found = self
+            .blocking(move |books| {
+                let snapshot = books.snapshot(&id)?;
+                let laid = books.layout_spread(&id, &spread, None)?;
+                Ok::<_, folio_engine::Error>((snapshot, laid))
+            })
+            .await?;
+        Ok(match found {
+            Ok((snapshot, laid)) => {
+                let book = serde_json::to_value(&snapshot.book).unwrap_or_default();
+                let held = book["spreads"]
+                    .as_array()
+                    .and_then(|all| all.iter().find(|s| s["id"] == wanted.as_str()))
+                    .cloned();
+                match held {
+                    Some(held) => text(&json!({
+                        "revision": laid.revision,
+                        "spread": held,
+                        "layout": laid.layout,
+                    })),
+                    None => failed(format!("no spread {wanted}")),
+                }
+            }
+            Err(e) => failed(e.to_string()),
+        })
+    }
+
+    #[tool(
+        description = "A picture (PNG) of one page of a spread, as it is drawn, so the result of an edit can be looked at.",
+        annotations(read_only_hint = true)
+    )]
+    async fn render_page(
+        &self,
+        Parameters(PageRef {
+            id,
+            spread,
+            page,
+            width,
+        }): Parameters<PageRef>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let drawn = self
+            .blocking(move |books| books.render_page(&id, &spread, page, width.unwrap_or(800)))
+            .await?;
+        Ok(match drawn {
+            Ok(png) => CallToolResult::success(vec![ContentBlock::image(
+                base64::engine::general_purpose::STANDARD.encode(png),
+                "image/png",
+            )]),
+            Err(e) => failed(e.to_string()),
+        })
+    }
+
+    #[tool(
+        description = "The problems a printer or store would find in the book: low-resolution pictures, text outside the margins, overflowing frames and so on, each with where it is.",
+        annotations(read_only_hint = true)
+    )]
+    async fn preflight(
+        &self,
+        Parameters(BookRef { id }): Parameters<BookRef>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let checked = self.blocking(move |books| books.preflight(&id)).await?;
+        Ok(match checked {
+            Ok(items) => text(&items),
+            Err(e) => failed(e.to_string()),
+        })
+    }
+
+    #[tool(
+        description = "The chapters of the book's story: each heading and where it starts.",
+        annotations(read_only_hint = true)
+    )]
+    async fn story_chapters(
+        &self,
+        Parameters(BookRef { id }): Parameters<BookRef>,
+    ) -> Result<CallToolResult, ErrorData> {
+        Ok(match self.books.story_chapters(&id) {
+            Ok(chapters) => text(&chapters),
+            Err(e) => failed(e.to_string()),
+        })
+    }
+}
+
+#[tool_handler(router = self.tool_router)]
+impl ServerHandler for FolioServer {
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(
+            ServerCapabilities::builder()
+                .enable_tools()
+                .enable_resources()
+                .build(),
+        )
+        .with_instructions(INSTRUCTIONS)
+    }
+
+    async fn list_resources(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ListResourcesResult, ErrorData> {
+        let mut intents = Resource::new(INTENT_SCHEMA_URI, "intent-schema");
+        intents.title = Some("Folio intents".into());
+        intents.description = Some(
+            "The JSON Schema of an intent: one change to a book, as `apply_intents` takes it."
+                .into(),
+        );
+        intents.mime_type = Some("application/schema+json".into());
+        Ok(ListResourcesResult {
+            resources: vec![intents],
+            ..Default::default()
+        })
+    }
+
+    async fn read_resource(
+        &self,
+        request: ReadResourceRequestParams,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ReadResourceResponse, ErrorData> {
+        if request.uri != INTENT_SCHEMA_URI {
+            return Err(ErrorData::invalid_params(
+                format!("no resource {}", request.uri),
+                None,
+            ));
+        }
+        let schema = serde_json::to_string_pretty(&schemars::schema_for!(Intent))
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+        Ok(
+            ReadResourceResult::new(vec![ResourceContents::TextResourceContents {
+                uri: INTENT_SCHEMA_URI.into(),
+                mime_type: Some("application/schema+json".into()),
+                text: schema,
+                meta: None,
+            }])
+            .into(),
+        )
+    }
+}

@@ -9,6 +9,7 @@ use ts_rs::TS;
 use crate::spread::{Spread, SpreadKind};
 
 /// How the pages of a section are numbered.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
@@ -24,6 +25,7 @@ pub enum Numbering {
 
 /// A section starts at the spread that carries it and runs to the next spread that carries one.
 /// Pages before the first are in the book's own implied section: counted from 1 in Arabic.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase")]

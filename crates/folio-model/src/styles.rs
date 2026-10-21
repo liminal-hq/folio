@@ -12,6 +12,7 @@ use ts_rs::TS;
 use crate::colour::{BookSwatch, Colour};
 
 /// One named style as `styles.json` stores it. Every key is optional.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
@@ -66,6 +67,7 @@ fn is_false(value: &bool) -> bool {
 }
 
 /// The book's styles, with the look they started from. It is `styles.json` in the package.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]

@@ -1,0 +1,37 @@
+[package]
+name = "folio-mcp"
+version = "0.1.0"
+description = "A Model Context Protocol server that lets an AI agent make, edit, check and export books in Folio"
+authors = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+readme = "README.md"
+keywords = ["mcp", "book", "layout", "pdf", "epub"]
+categories = ["command-line-utilities", "text-processing"]
+# Not published yet: it depends on workspace crates that are not on crates.io. Everything else
+# the registry asks for is here, so publishing is a matter of publishing those crates first.
+publish = false
+
+[[bin]]
+name = "folio-mcp"
+path = "src/main.rs"
+
+[dependencies]
+base64 = "0.22"
+clap = { version = "4", features = ["derive"] }
+folio-engine = { path = "../folio-engine", features = ["schema"] }
+folio-model = { path = "../folio-model", features = ["schema"] }
+folio-presets = { path = "../folio-presets", features = ["schema"] }
+log = { workspace = true }
+rmcp = { version = "3.6", features = ["server", "macros", "transport-io"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "io-std", "time"] }
+
+[dev-dependencies]
+rmcp = { version = "3.6", features = ["client", "server", "macros", "transport-io"] }
+tempfile = "3"
