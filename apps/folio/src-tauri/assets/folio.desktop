@@ -1,5 +1,5 @@
 [Desktop Entry]
-Categories={{categories}};
+Categories={{categories}}
 Comment={{comment}}
 Exec={{exec}} %U
 Icon={{icon}}
