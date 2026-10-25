@@ -228,6 +228,10 @@ export function createFakeBooksClient(): FakeBooks {
 			await call('defaultSavePath', [title]);
 			return `/home/mom/Books/${title}/${title}.folio`;
 		},
+		async previewNewBook(spec: NewBookSpec) {
+			await call('previewNewBook', [spec]);
+			return `data:image/png;base64,${btoa(spec.coverColour)}`;
+		},
 		async newBook(spec: Partial<NewBookSpec>) {
 			await call('newBook', [spec]);
 			counter += 1;
