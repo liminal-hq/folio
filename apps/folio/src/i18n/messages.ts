@@ -100,6 +100,12 @@ export const messages = {
 	'preflight.missingGlyphs': 'No font has {chars} on {where}',
 	'preflight.missingGlyphs.fix':
 		'These are drawn as empty boxes. Use a font that has them, or take them out.',
+	'preflight.inkOver': '{family} lays down too much ink on {where}',
+	'preflight.inkOver.fix':
+		'Its four plates add up to more than a press holds, so it can dry badly or smear. Lower the percentages; around 300% in all is the most printers allow.',
+	'preflight.swatchMissing': 'A colour on {where} refers to {family}, which is not in the book',
+	'preflight.swatchMissing.fix':
+		'It is drawn as grey. Add the swatch again, or choose another colour.',
 	'preflight.placeholder': 'A picture frame on {where} is still empty',
 	'preflight.placeholder.many': '{count} picture frames are still empty',
 	'preflight.placeholder.fix':
@@ -508,6 +514,26 @@ export const messages = {
 	'sidebar.pages': 'Pages',
 	'sidebar.proofing': 'Proofing',
 	'sidebar.fonts': 'Fonts',
+	'sidebar.swatches': 'Swatches',
+	'swatches.hint':
+		'The colours this book names. A colour with ink prints as exactly that ink in the paperback files made in ink; everything else shows it as the colour on screen. Choose one from any colour list.',
+	'swatches.none': 'This book has no swatches yet.',
+	'swatches.name': 'Name',
+	'swatches.plate.c': 'C %',
+	'swatches.plate.m': 'M %',
+	'swatches.plate.y': 'Y %',
+	'swatches.plate.k': 'K %',
+	'swatches.screenHint':
+		'On screen the ink shows brighter than it prints; the Soft proof shows the press.',
+	'swatches.add': 'Add swatch',
+	'swatches.save': 'Save swatch',
+	'swatches.cancel': 'Cancel',
+	'swatches.formAdd': 'Add a swatch',
+	'swatches.formEdit': 'Change a swatch',
+	'swatches.edit': 'Change {name}',
+	'swatches.editShort': 'Change',
+	'swatches.remove': 'Remove {name}',
+	'swatches.removeShort': 'Remove',
 	'fonts.loading': 'Looking at the fonts…',
 	'fonts.intro':
 		'The typefaces this book uses. A font kept in the book travels with the file, so the pages look the same on a computer that does not have it.',

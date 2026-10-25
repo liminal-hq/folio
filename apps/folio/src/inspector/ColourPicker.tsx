@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { useState } from 'react';
-import type { Swatch } from '@liminal-hq/folio-protocol/generated/Swatch';
+import type { PickerSwatch } from '../books/bookSwatches';
 import { t } from '../i18n/messages';
 import { parseColour } from './colour';
 import styles from './ColourPicker.module.css';
@@ -14,7 +14,7 @@ export interface ColourPickerProps {
 	label: string;
 	/** The colour now, as `#rrggbb`, or `null` for none. */
 	value: string | null;
-	swatches: Swatch[];
+	swatches: PickerSwatch[];
 	/** Offers "None" for a fill that can be cleared. */
 	allowNone?: boolean;
 	/** Called with the colour chosen or typed, or `null` for none. */
@@ -53,7 +53,7 @@ export function ColourPicker({
 						key={swatch.colour}
 						type="button"
 						className={styles.swatch}
-						style={{ background: swatch.colour }}
+						style={{ background: swatch.shown ?? swatch.colour }}
 						aria-label={swatch.name}
 						aria-pressed={swatch.colour === value}
 						title={swatch.name}

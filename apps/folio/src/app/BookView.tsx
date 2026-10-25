@@ -47,7 +47,8 @@ import { PagesPanel } from '../sidebar/PagesPanel';
 import { FontsPanel } from '../sidebar/FontsPanel';
 import { ProofingPanel } from '../sidebar/ProofingPanel';
 import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
-import { Sidebar, type SidebarGroup } from '../sidebar/Sidebar';
+import { EXPERT_GROUPS, Sidebar, type SidebarGroup } from '../sidebar/Sidebar';
+import { SwatchesPanel } from '../sidebar/SwatchesPanel';
 import { t } from '../i18n/messages';
 import {
 	editorAction,
@@ -173,6 +174,7 @@ export function BookView({
 				preview,
 				master: master !== null,
 				cell: editingCell,
+				swatches: (book.styles?.swatches ?? []).map((s) => ({ id: s.id, name: s.name })),
 			}
 		: null;
 	const editor = useMemo(
@@ -188,6 +190,7 @@ export function BookView({
 			snap,
 			rulers.on,
 			editingCell,
+			book.styles,
 		],
 	);
 
@@ -648,8 +651,9 @@ export function BookView({
 					)}
 				</div>
 				<Sidebar
-					group={group}
+					group={group === 'swatches' && settings.mode !== 'expert' ? 'properties' : group}
 					onGroup={setGroup}
+					groups={settings.mode === 'expert' ? EXPERT_GROUPS : undefined}
 					panels={{
 						properties: (
 							<Inspector
@@ -729,6 +733,7 @@ export function BookView({
 								}
 							/>
 						),
+						swatches: <SwatchesPanel book={book} apply={apply} />,
 						fonts: (
 							<FontsPanel
 								uses={fontUses}

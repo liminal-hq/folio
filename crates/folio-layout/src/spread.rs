@@ -108,6 +108,7 @@ impl<'a> Layouter<'a> {
         let mut frames = Vec::new();
         let mut preflight = geometry_checks(self.book, spread);
         preflight.extend(self.font_checks(spread));
+        preflight.extend(crate::preflight::swatch_checks(self.book, spread));
         if let Some(facts) = self.assets {
             preflight.extend(asset_checks(self.book, spread, facts));
         }
