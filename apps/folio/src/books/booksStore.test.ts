@@ -34,6 +34,16 @@ describe('createBooksStore', () => {
 		]);
 	});
 
+	it('shows a book another window made, even with a book already open', async () => {
+		const { fake, store } = await started();
+		await store.newBook({ title: 'First' });
+		const first = store.state.getState().activeId;
+		const made = await fake.client.newBook({ title: 'From the wizard' });
+		expect(store.state.getState().summaries).toHaveLength(2);
+		expect(store.state.getState().activeId).toBe(made.summary.id);
+		expect(store.state.getState().activeId).not.toBe(first);
+	});
+
 	it('starts with no books', async () => {
 		const { store } = await started();
 		expect(store.state.getState().summaries).toEqual([]);
