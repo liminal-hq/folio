@@ -4,11 +4,13 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    page_labels, Book, Colour, Flow, Frame, FrameId, InlineContent, MasterId, PageLabel, Pt,
-    ShapeFrame, Spread, SpreadId, StyleId, TableFrame, TextFrame,
+    page_labels, Book, Colour, Flow, FlowId, Frame, FrameId, InlineContent, MasterId, PageLabel,
+    Pt, ShapeFrame, Spread, SpreadId, StyleId, TableFrame, TextFrame,
 };
 
+use std::collections::HashMap;
 use std::ops::Range;
+use std::sync::{Arc, Mutex};
 
 use crate::assets::AssetFacts;
 use crate::error::LayoutError;
@@ -37,6 +39,19 @@ pub struct Layouter<'a> {
     /// Finds the misspelt words of a paragraph as ranges of bytes, so the lines they are on can say
     /// where to underline. Without it, nothing is marked.
     pub proofing: Option<Proofer<'a>>,
+    /// Flows already laid out for this book as it is, shared between the spreads laid out one after
+    /// another, so a story is poured through its frames once and not once for every spread.
+    flow_cache: Option<(&'a FlowCache, u64)>,
+}
+
+/// The flows laid out for one state of a book. The owner makes a new one whenever the book changes.
+#[derive(Default)]
+pub struct FlowCache(Mutex<HashMap<(String, u64), Arc<FlowLayout>>>);
+
+impl FlowCache {
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 /// Inset of a text frame's text from its edges, in points. Frames carry no padding of their own
@@ -52,7 +67,33 @@ impl<'a> Layouter<'a> {
             optimal: true,
             assets: None,
             proofing: None,
+            flow_cache: None,
         }
+    }
+
+    /// Shares the flows laid out in `cache`. `variant` tells apart layouts of the same book that
+    /// differ in ways the book does not show, such as which words are marked as misspelt.
+    pub fn with_flow_cache(mut self, cache: &'a FlowCache, variant: u64) -> Self {
+        self.flow_cache = Some((cache, variant));
+        self
+    }
+
+    /// A flow laid out, from the cache when it holds it.
+    fn flow_shared(&self, chain: &Flow) -> Result<Arc<FlowLayout>, LayoutError> {
+        let Some((cache, variant)) = self.flow_cache else {
+            return Ok(Arc::new(self.flow_chain(chain)?));
+        };
+        let key = (chain.id.0.clone(), variant);
+        if let Some(hit) = cache.0.lock().expect("the cache is not poisoned").get(&key) {
+            return Ok(Arc::clone(hit));
+        }
+        let made = Arc::new(self.flow_chain(chain)?);
+        cache
+            .0
+            .lock()
+            .expect("the cache is not poisoned")
+            .insert(key, Arc::clone(&made));
+        Ok(made)
     }
 
     /// Marks the misspelt words in the lines it lays out, using `find` to say where they are.
@@ -111,7 +152,7 @@ impl<'a> Layouter<'a> {
         if let Some(facts) = self.assets {
             preflight.extend(asset_checks(self.book, spread, facts));
         }
-        let mut flowed: Vec<FlowLayout> = Vec::new();
+        let mut flowed: Vec<Arc<FlowLayout>> = Vec::new();
         for frame in &spread.frames {
             if let Frame::Shape(shape) = frame {
                 if let Some(laid) = self.shape_text(shape)? {
@@ -167,14 +208,14 @@ impl<'a> Layouter<'a> {
                         continue;
                     };
                     if !flowed.iter().any(|f| f.id == chain.id.0) {
-                        flowed.push(self.flow_chain(chain)?);
+                        flowed.push(self.flow_shared(chain)?);
                     }
                     let FlowLayout {
                         flowed: laid,
                         order,
                         info,
                         ..
-                    } = flowed
+                    } = &**flowed
                         .iter()
                         .find(|f| f.id == chain.id.0)
                         .expect("pushed above");
@@ -644,6 +685,72 @@ impl<'a> Layouter<'a> {
 
     /// A flow's text poured through its chain of frames, and the order of the frames.
     fn flow_chain(&self, chain: &Flow) -> Result<FlowLayout, LayoutError> {
+        self.flow_chain_with(chain, 0)
+    }
+
+    /// How many more frames, each like the last one of the flow, its story needs to be shown whole:
+    /// none when it already fits. The story is laid out once with more frames than it can need, and
+    /// the frames it reaches are counted; if even those are not enough, it is laid out again with
+    /// twice as many.
+    pub fn frames_needed(&self, flow: &FlowId) -> Result<usize, LayoutError> {
+        /// A story that needs more frames than this is not laid out further.
+        const MOST: usize = 1024;
+        let Some(chain) = self.book.flows.iter().find(|f| &f.id == flow) else {
+            return Ok(0);
+        };
+        if chain.frames.is_empty() {
+            return Ok(0);
+        }
+        let own = chain.frames.len();
+        let first = self.flow_chain_with(chain, 0)?;
+        if !first.flowed.overset {
+            return Ok(0);
+        }
+        // A frame holds at least a few hundred characters, so this is more than the story needs.
+        let characters: usize = chain
+            .paragraphs
+            .iter()
+            .map(|p| p.text().chars().count())
+            .sum();
+        let mut extra = (characters / 150 + 2).min(MOST);
+        loop {
+            let laid = self.flow_chain_with(chain, extra)?;
+            if !laid.flowed.overset || extra >= MOST {
+                let reached = laid
+                    .flowed
+                    .lines
+                    .iter()
+                    .map(|l| l.frame + 1)
+                    .max()
+                    .unwrap_or(0);
+                return Ok(reached.saturating_sub(own).max(1));
+            }
+            extra = (extra * 2).min(MOST);
+        }
+    }
+
+    /// How many of the flow's own frames its story reaches: at least one, and the story's frames
+    /// after those hold nothing. `None` when there is no such flow.
+    pub fn frames_used(&self, flow: &FlowId) -> Result<Option<usize>, LayoutError> {
+        let Some(chain) = self.book.flows.iter().find(|f| &f.id == flow) else {
+            return Ok(None);
+        };
+        if chain.frames.is_empty() {
+            return Ok(None);
+        }
+        let laid = self.flow_chain_with(chain, 0)?;
+        let reached = laid
+            .flowed
+            .lines
+            .iter()
+            .map(|l| l.frame + 1)
+            .max()
+            .unwrap_or(0);
+        Ok(Some(reached.max(1)))
+    }
+
+    /// A flow laid out in its own frames and `extra` more like the last of them.
+    fn flow_chain_with(&self, chain: &Flow, extra: usize) -> Result<FlowLayout, LayoutError> {
         let mut boxes = Vec::new();
         let mut order = Vec::new();
         let mut style = StyleId("body".to_string());
@@ -663,6 +770,9 @@ impl<'a> Layouter<'a> {
             b.gutter = self.book.grid.gutter.0;
             boxes.push(b);
             order.push(id.clone());
+        }
+        if let Some(last) = boxes.last().cloned() {
+            boxes.extend(std::iter::repeat_n(last, extra));
         }
         // The story is laid out as the words of a frame are: the paragraphs' runs, a line break
         // between them, and a paragraph's own style given to its runs that have none.

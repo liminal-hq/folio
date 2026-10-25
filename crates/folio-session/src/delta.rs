@@ -123,6 +123,41 @@ impl Delta {
         }
     }
 
+    /// The state before two steps in a row, given the state before the first (`self`) and the state
+    /// before the second (`later`): the first's, and what only the second touched, which the first
+    /// left as it was.
+    pub fn before_both(&self, later: &Delta) -> Delta {
+        let mut both = self.clone();
+        for (id, spread) in &later.spreads {
+            if !both.spreads.iter().any(|(i, _)| i == id) {
+                both.spreads.push((id.clone(), spread.clone()));
+            }
+        }
+        for (id, flow) in &later.flows {
+            if !both.flows.iter().any(|(i, _)| i == id) {
+                both.flows.push((id.clone(), flow.clone()));
+            }
+        }
+        both
+    }
+
+    /// The state after two steps in a row, given the state after the first (`self`) and after the
+    /// second (`later`): the second's, and what only the first touched, which the second left alone.
+    pub fn after_both(&self, later: &Delta) -> Delta {
+        let mut both = later.clone();
+        for (id, spread) in &self.spreads {
+            if !both.spreads.iter().any(|(i, _)| i == id) {
+                both.spreads.push((id.clone(), spread.clone()));
+            }
+        }
+        for (id, flow) in &self.flows {
+            if !both.flows.iter().any(|(i, _)| i == id) {
+                both.flows.push((id.clone(), flow.clone()));
+            }
+        }
+        both
+    }
+
     /// Puts the book back as this snapshot has it, and says what that changed.
     pub fn restore(&self, book: &mut Book) -> Vec<PatchOp> {
         let mut ops = Vec::new();
