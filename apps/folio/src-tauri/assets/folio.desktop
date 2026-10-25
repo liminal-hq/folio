@@ -1,0 +1,11 @@
+[Desktop Entry]
+Categories={{categories}};
+Comment={{comment}}
+Exec={{exec}} %U
+Icon={{icon}}
+Keywords=book;layout;publishing;print;ebook;
+MimeType=application/x-folio;
+Name={{name}}
+StartupNotify=true
+Terminal=false
+Type=Application

@@ -1,6 +1,6 @@
 [package]
 name = "folio"
-version = "0.0.0"
+version = "0.1.0"
 description = "A local-first book layout app"
 edition.workspace = true
 authors.workspace = true
@@ -33,6 +33,7 @@ tauri-plugin-folio-settings = { path = "../../../plugins/folio-settings" }
 serde_json = { workspace = true }
 log = { workspace = true }
 chrono = "0.4"
+tauri-plugin-updater = "2"
 
 [dev-dependencies]
 folio-presets = { path = "../../../crates/folio-presets" }

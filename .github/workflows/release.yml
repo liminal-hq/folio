@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag, for example v0.1.0
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: read
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: release
+        env:
+          MANUAL_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          tag="${MANUAL_TAG:-${GITHUB_REF_NAME}}"
+          [[ "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
+          git fetch origin main --tags
+          target="$(git rev-list -n 1 "${tag}")"
+          git merge-base --is-ancestor "${target}" origin/main
+          git checkout --quiet "${tag}"
+          version="$(bash scripts/check-release-versions.sh --current-version)"
+          [[ "v${version}" == "${tag}" ]]
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: gh release view "${TAG}" >/dev/null 2>&1 || gh release create "${TAG}" --generate-notes --title "Folio ${TAG}"
+
+  build-linux:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    container: ghcr.io/liminal-hq/tauri-ci-desktop:latest
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.FOLIO_TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.FOLIO_TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      - run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run release:version:check
+      - run: bun run tauri build --bundles appimage,deb,rpm
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-release-assets
+          path: target/release/bundle/**
+
+  build-windows:
+    needs: prepare
+    runs-on: windows-latest
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.FOLIO_TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.FOLIO_TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run release:version:check
+      - run: bun run tauri build --bundles msi,nsis
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-release-assets
+          path: target/release/bundle/**
+
+  publish:
+    needs: [prepare, build-linux, build-windows]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: '*-release-assets'
+          path: release-assets
+          merge-multiple: true
+      - run: (cd release-assets && sha256sum ./* > SHA256SUMS)
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release upload "${TAG}" release-assets/* --clobber
