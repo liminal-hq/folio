@@ -347,7 +347,13 @@ impl Layouter<'_> {
         };
         let layout = self.layout_spread(id)?.expect("the spread exists");
         let pages = page_rects(self.book, spread);
-        let (w, h, bleed) = (self.book.trim.w.0, self.book.trim.h.0, self.book.bleed.0);
+        let (w, h) = (self.book.trim.w.0, self.book.trim.h.0);
+        // The cover is the printed sheet, which KDP bleeds by its own 0.125 in all round.
+        let bleed = if spread.kind == SpreadKind::Cover {
+            folio_model::Pt::from_in(0.125).0
+        } else {
+            self.book.bleed.0
+        };
         let backgrounds = folio_model::resolve(&self.book.master_pages, spread);
         let mut out: Vec<PageScene> = pages
             .iter()
@@ -355,7 +361,7 @@ impl Layouter<'_> {
             .map(|(index, _)| PageScene {
                 page: spread.pages[index].id.clone(),
                 index,
-                width: w,
+                width: pages[index].rect.w.0,
                 height: h,
                 recto: pages[index].recto,
                 items: Vec::new(),
@@ -413,7 +419,7 @@ impl Layouter<'_> {
 
         for (index, page) in pages.iter().enumerate() {
             let slot = page.rect.x.0;
-            let clip = clip_of(spread.kind, index, pages.len(), bleed, w, h);
+            let clip = clip_of(spread.kind, index, pages.len(), bleed, page.rect.w.0, h);
             let scene = &mut out[index];
             if let Some(Some(resolved)) = backgrounds.get(index) {
                 let across = (resolved.source == folio_model::BgSource::Span).then(|| {

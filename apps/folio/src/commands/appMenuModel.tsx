@@ -51,9 +51,13 @@ export type CommandId =
 	| 'view.jax'
 	| 'view.zoomIn'
 	| 'view.zoomOut'
-	| 'app.bookTools'
+	| 'tools.structure'
+	| 'tools.typesetting'
+	| 'tools.pictures'
+	| 'tools.publishing'
 	| 'app.preferences'
 	| 'app.shortcuts'
+	| 'app.agents'
 	| 'app.about'
 	| 'app.quit';
 
@@ -65,6 +69,7 @@ export const APP_MENU_MNEMONICS = {
 	f: 'menu:file',
 	e: 'menu:edit',
 	v: 'menu:view',
+	t: 'menu:tools',
 	h: 'menu:help',
 };
 
@@ -188,9 +193,20 @@ function interfaceToggles(settings: Settings, available: CommandAvailability): M
 	];
 }
 
+/** The groups of Book tools, each opening the tools window on it. */
+function toolItems(available: CommandAvailability): MenuItem[] {
+	return [
+		action('tools.structure', t('command.tools.structure'), <BookToolsIcon />, available),
+		action('tools.typesetting', t('command.tools.typesetting'), <BookToolsIcon />, available),
+		action('tools.pictures', t('command.tools.pictures'), <BookToolsIcon />, available),
+		action('tools.publishing', t('command.tools.publishing'), <BookToolsIcon />, available),
+	];
+}
+
 function helpItems(available: CommandAvailability): MenuItem[] {
 	return [
 		action('app.shortcuts', t('command.shortcuts'), <KeyboardIcon />, available, 'Ctrl+?'),
+		action('app.agents', t('command.agents'), <BookToolsIcon />, available),
 		action('app.about', t('command.about'), <AboutIcon />, available),
 	];
 }
@@ -202,7 +218,13 @@ export function buildAppMenu(settings: Settings, available: CommandAvailability)
 		{ type: 'separator' },
 		...interfaceToggles(settings, available),
 		{ type: 'separator' },
-		action('app.bookTools', t('command.bookTools'), <BookToolsIcon />, available),
+		{
+			type: 'submenu',
+			id: 'menu:book-tools',
+			label: t('command.bookTools'),
+			icon: <BookToolsIcon />,
+			items: toolItems(available),
+		},
 		action('app.preferences', t('command.preferences'), <PreferencesIcon />, available, 'Ctrl+,'),
 		...helpItems(available),
 		{ type: 'separator' },
@@ -210,7 +232,7 @@ export function buildAppMenu(settings: Settings, available: CommandAvailability)
 	];
 }
 
-/** The menu bar's menus: File, Edit, View and Help. */
+/** The menu bar's menus: File, Edit, View, Tools and Help. */
 export function buildMenuBar(settings: Settings, available: CommandAvailability): MenuItem[] {
 	return [
 		{
@@ -253,6 +275,13 @@ export function buildMenuBar(settings: Settings, available: CommandAvailability)
 				action('view.zoomIn', t('command.zoomIn'), <ZoomInIcon />, available, 'Ctrl+='),
 				action('view.zoomOut', t('command.zoomOut'), <ZoomOutIcon />, available, 'Ctrl+-'),
 			],
+		},
+		{
+			type: 'submenu',
+			id: 'menu:tools',
+			label: t('menu.tools'),
+			icon: <BookToolsIcon />,
+			items: toolItems(available),
 		},
 		{
 			type: 'submenu',

@@ -19,6 +19,7 @@ import {
 import '../tokens.css';
 import styles from './Dialog.module.css';
 import { DialogContext, type DialogCloseReason } from './dialogContext';
+import { dialogOpened } from './dimming';
 import { defaultFocusTarget, trapTab } from './focus';
 import { lockScroll, unlockScroll } from './scrollLock';
 
@@ -118,6 +119,7 @@ function OpenDialog({
 		stack.push(dialog);
 		setDepth(stack.length - 1);
 		lockScroll();
+		dialogOpened(1);
 
 		// The platform gives the modal behaviour (top layer, inert page, focus trap, Esc). A webview
 		// without `showModal` still gets an open dialog, and the Tab trap below covers focus.
@@ -157,6 +159,7 @@ function OpenDialog({
 			document.removeEventListener('keydown', onKeyDown);
 			const at = stack.indexOf(dialog);
 			if (at >= 0) stack.splice(at, 1);
+			dialogOpened(-1);
 			if (dialog.open && typeof dialog.close === 'function') dialog.close();
 			unlockScroll();
 			const back = live.current.returnFocusTo ?? opener;

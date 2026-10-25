@@ -38,7 +38,8 @@ paper?: Paper,
  */
 barcode?: BarcodeChoice, 
 /**
- * Words the person has put on the back cover, over the blurb.
+ * Words put on the back cover before schema 3, read from old books only: the upgrade turns them
+ * into frames of the cover spread (`upgrade_cover`).
  */
 backNotes?: Array<BackNote>, 
 /**

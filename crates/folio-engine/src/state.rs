@@ -19,19 +19,19 @@ use folio_package::{Package, SaveOptions};
 use folio_presets::{kind_infos, new_book, suggest_save_path, KindInfo, NewBookSpec};
 use folio_session::{Patch, Session};
 use folio_spell::{find_misspellings, Checker};
-use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::error::Error;
 use crate::recovery::{self, Recovery};
 use crate::spelling::Spelling;
 use crate::wire::{
-    BookSnapshot, BookSpelling, BookSummary, BooksChanged, CoverCanvas, CoverSheetPreview,
-    ExportColour, ExportProgress, ExportReport, ExportTarget, ExportedFile, FontChoice,
-    FontLicence, FontOrigin, FontSkip, FontUse, KeepFontsReport, Misspelling, MisspeltWord,
-    PatchEvent, PreviewChapter, PreviewImage, ProofColour, ProofPage, ProofSpread, ReaderPreview,
-    Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult, StoryChapter,
+    BatchOutcome, BookSnapshot, BookSpelling, BookSummary, BooksChanged, CoverCanvas,
+    CoverSheetPreview, ExportColour, ExportProgress, ExportReport, ExportTarget, ExportedFile,
+    FontChoice, FontLicence, FontOrigin, FontSkip, FontUse, KeepFontsReport, Misspelling,
+    MisspeltWord, PatchEvent, PreviewChapter, PreviewImage, ProofColour, ProofPage, ProofSpread,
+    ReaderPreview, Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult, StoryChapter,
+    TemplateCard, TemplateGallery,
 };
-use crate::{CHANGED_EVENT, EXPORT_PROGRESS_EVENT, PATCH_EVENT};
+use crate::Host;
 
 /// What happened to the open books, for the app to react to (the recents list, for one).
 #[derive(Debug, Clone)]
@@ -108,10 +108,60 @@ fn used_assets(book: &folio_model::Book) -> Vec<String> {
             found.push(asset.clone());
         }
     }
-    found.extend(book.back_notes.iter().filter_map(|n| n.picture.clone()));
     found.sort();
     found.dedup();
     found
+}
+
+/// The hold on a book's file while it is open: an exclusive lock on a small file beside it, which
+/// the system lets go of if the program dies, so no lock is ever left stale. Two programs that
+/// both open the book (the app and an agent's server, say) would each overwrite the other's saves.
+struct BookLock {
+    file: std::fs::File,
+    path: PathBuf,
+}
+
+impl BookLock {
+    /// Takes the lock beside the book at `book`. `None` when it cannot be had for a reason other
+    /// than another program holding it (a folder that cannot be written): the book opens unlocked.
+    fn take(book: &Path) -> Result<Option<Self>, Error> {
+        let Some(name) = book.file_name() else {
+            return Ok(None);
+        };
+        let mut name = name.to_os_string();
+        name.push(".lock");
+        let path = book.with_file_name(name);
+        let file = match std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(&path)
+        {
+            Ok(file) => file,
+            Err(e) => {
+                log::debug!("no lock beside {}: {e}", book.display());
+                return Ok(None);
+            }
+        };
+        match file.try_lock() {
+            Ok(()) => Ok(Some(Self { file, path })),
+            Err(std::fs::TryLockError::WouldBlock) => {
+                Err(Error::Locked(book.to_string_lossy().into_owned()))
+            }
+            Err(std::fs::TryLockError::Error(e)) => {
+                log::debug!("no lock on {}: {e}", book.display());
+                Ok(None)
+            }
+        }
+    }
+}
+
+impl Drop for BookLock {
+    fn drop(&mut self) {
+        // Removed while still held, so no one else can have taken it in between.
+        let _ = std::fs::remove_file(&self.path);
+        let _ = self.file.unlock();
+    }
 }
 
 struct OpenBook {
@@ -130,6 +180,8 @@ struct OpenBook {
     fonts: Option<(Vec<BookFont>, Arc<FontBook>)>,
     /// The flows laid out at one revision of the book, shared by the spreads laid out at it.
     flow_cache: Option<(u64, Arc<FlowCache>)>,
+    /// Keeps other programs from opening the book's file while it is open here.
+    lock: Option<BookLock>,
 }
 
 impl OpenBook {
@@ -277,26 +329,26 @@ fn locked<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 
 /// The books every window can see. Rust owns them: a window asks for a change and hears the answer
 /// as an event.
-pub struct Books<R: Runtime> {
-    app: AppHandle<R>,
+pub struct Books {
+    host: Arc<dyn Host>,
     inner: Mutex<Inner>,
     hooks: Mutex<Vec<BookHook>>,
     generator: String,
     /// The bundled fonts and the system's, found the first time a spread is laid out.
     fonts: OnceLock<FontBook>,
     /// The dictionaries: the one that comes with Folio, and those downloaded.
-    pub(crate) spelling: Spelling,
+    pub spelling: Spelling,
     /// Copies of books with changes, for coming back after a crash.
-    pub(crate) recovery: Recovery,
+    pub recovery: Recovery,
     /// Set to stop the export in progress before its next file.
     cancel_export: AtomicBool,
 }
 
-impl<R: Runtime> Books<R> {
-    pub fn new(app: AppHandle<R>) -> Self {
-        let generator = format!("Folio {} (Liminal HQ)", app.package_info().version);
+impl Books {
+    pub fn new(host: Arc<dyn Host>) -> Self {
+        let generator = format!("Folio {} (Liminal HQ)", host.version());
         Self {
-            app,
+            host,
             inner: Mutex::new(Inner::default()),
             hooks: Mutex::new(Vec::new()),
             generator,
@@ -422,21 +474,18 @@ impl<R: Runtime> Books<R> {
 
     fn announce(&self, inner: &Inner) {
         let books = inner.books.iter().map(OpenBook::summary).collect();
-        if let Err(e) = self.app.emit(CHANGED_EVENT, BooksChanged { books }) {
-            log::warn!("could not announce the open books: {e}");
-        }
+        self.host.books_changed(&BooksChanged { books });
     }
 
-    fn announce_patch(&self, book: &OpenBook, patch: &Patch) {
+    fn announce_patch(&self, book: &OpenBook, patch: &Patch, by: Option<&str>) {
         let event = PatchEvent {
             id: book.id.clone(),
             patch: patch.clone(),
             can_undo: book.session.can_undo(),
             can_redo: book.session.can_redo(),
+            by: by.map(str::to_owned),
         };
-        if let Err(e) = self.app.emit(PATCH_EVENT, event) {
-            log::warn!("could not announce a change to a book: {e}");
-        }
+        self.host.patched(&event);
     }
 
     /// The cover of the book `spec` would make, as a `data:image/png` URI.
@@ -445,12 +494,12 @@ impl<R: Runtime> Books<R> {
         let made = new_book(spec)?;
         let styles = style_sheet(&made.book.styles);
         let fonts = FontBook::bundled();
-        let cover = made
-            .book
+        let front = folio_model::front_cover_view(&made.book);
+        let cover = front
             .spreads
             .first()
             .ok_or_else(|| Error::Export("the book has no cover".into()))?;
-        let scene = Layouter::new(&made.book, &styles, &fonts)
+        let scene = Layouter::new(&front, &styles, &fonts)
             .scene_spread(&cover.id)
             .map_err(|e| Error::Export(e.to_string()))?
             .and_then(|s| s.pages.into_iter().next())
@@ -471,18 +520,17 @@ impl<R: Runtime> Books<R> {
     /// Where Save as… starts for a book called `title`: `<Books>/<Title>/<Title>.folio`, with
     /// `Books` in the home folder (in Documents on Windows).
     pub fn default_save_path(&self, title: &str) -> PathBuf {
-        let paths = self.app.path();
         let base = if cfg!(windows) {
-            paths.document_dir()
+            self.host.document_dir()
         } else {
-            paths.home_dir()
+            self.host.home_dir()
         };
         let books = base.unwrap_or_default().join("Books");
         suggest_save_path(title, &books)
     }
 
     fn add(&self, session: Session, package: Package, path: Option<PathBuf>) -> BookSnapshot {
-        self.add_recovering(session, package, path, None)
+        self.add_recovering(session, package, path, None, None)
     }
 
     /// Adds a book. `recovery_id` is the copy it was brought back from, which it goes on using.
@@ -492,6 +540,7 @@ impl<R: Runtime> Books<R> {
         package: Package,
         path: Option<PathBuf>,
         recovery_id: Option<String>,
+        lock: Option<BookLock>,
     ) -> BookSnapshot {
         let mut inner = locked(&self.inner);
         inner.next += 1;
@@ -505,6 +554,7 @@ impl<R: Runtime> Books<R> {
             facts: HashMap::new(),
             fonts: None,
             flow_cache: None,
+            lock,
         };
         let snapshot = book.snapshot();
         inner.books.push(book);
@@ -533,9 +583,10 @@ impl<R: Runtime> Books<R> {
                 return Ok(open.snapshot());
             }
         }
+        let lock = BookLock::take(&canonical)?;
         let package = Package::open(&canonical)?;
         let session = Session::new(package.book().clone());
-        let snapshot = self.add(session, package, Some(canonical));
+        let snapshot = self.add_recovering(session, package, Some(canonical), None, lock);
         self.fire(BookEvent::Opened(snapshot.summary.clone()));
         Ok(snapshot)
     }
@@ -560,6 +611,14 @@ impl<R: Runtime> Books<R> {
                     source: e,
                 })?;
             }
+            // Saving somewhere new takes that file's lock, and lets go of the old one's.
+            let canonical = dunce::canonicalize(&target).unwrap_or_else(|_| target.clone());
+            let moved = open.path.as_deref() != Some(canonical.as_path());
+            let taken = if moved || open.lock.is_none() {
+                BookLock::take(&canonical)?
+            } else {
+                None
+            };
             *open.package.book_mut() = open.session.book().clone();
             let options = SaveOptions {
                 generator: self.generator.clone(),
@@ -567,6 +626,9 @@ impl<R: Runtime> Books<R> {
             };
             open.package.save(&target, &options)?;
             open.session.mark_saved();
+            if taken.is_some() {
+                open.lock = taken;
+            }
             open.path = Some(dunce::canonicalize(&target).unwrap_or(target));
             // What the copy kept is in the file now.
             self.recovery.remove(&open.recovery_id);
@@ -595,6 +657,15 @@ impl<R: Runtime> Books<R> {
         }
         self.fire(BookEvent::Closed(id.into()));
         Ok(())
+    }
+
+    /// Lets go of every book's lock without closing the books, as the system does when the program
+    /// dies. Tests of recovery use it to stand in for a crash.
+    #[doc(hidden)]
+    pub fn release_locks(&self) {
+        for open in locked(&self.inner).books.iter_mut() {
+            open.lock = None;
+        }
     }
 
     /// Writes a recovery copy of each book that has changes one does not have yet, and says how many
@@ -639,7 +710,11 @@ impl<R: Runtime> Books<R> {
         let (package, note) = self.recovery.open(id)?;
         let session = Session::recovered(package.book().clone());
         let path = note.path.map(PathBuf::from);
-        let snapshot = self.add_recovering(session, package, path, Some(note.id));
+        let lock = match &path {
+            Some(path) => BookLock::take(path)?,
+            None => None,
+        };
+        let snapshot = self.add_recovering(session, package, path, Some(note.id), lock);
         self.fire(BookEvent::Opened(snapshot.summary.clone()));
         Ok(snapshot)
     }
@@ -1058,6 +1133,34 @@ impl<R: Runtime> Books<R> {
     /// The chapters of the book's stories (paragraphs in the heading style) and the spread each
     /// begins on, in the order of the stories.
     pub fn story_chapters(&self, id: &str) -> Result<Vec<StoryChapter>, Error> {
+        Ok(self
+            .chapter_places(id)?
+            .into_iter()
+            .map(|(title, spread, _)| StoryChapter { title, spread })
+            .collect())
+    }
+
+    /// The chapters of the book with the label of the page each begins on, as the contents lists them.
+    fn contents_entries(&self, id: &str) -> Result<Vec<crate::frontmatter::ContentsEntry>, Error> {
+        let book = self.snapshot(id)?.book;
+        let labels = folio_model::page_labels(&book.spreads);
+        Ok(self
+            .chapter_places(id)?
+            .into_iter()
+            .map(|(title, spread, page)| {
+                let at = book.spreads.iter().position(|s| s.id.0 == spread);
+                let label = at
+                    .and_then(|i| labels.get(i))
+                    .and_then(|pages| pages.get(page).or_else(|| pages.first()))
+                    .map(|l| l.label.clone())
+                    .unwrap_or_default();
+                crate::frontmatter::ContentsEntry { title, page: label }
+            })
+            .collect())
+    }
+
+    /// The first words of each chapter: its title, the spread they are on and which page of it.
+    fn chapter_places(&self, id: &str) -> Result<Vec<(String, String, usize)>, Error> {
         let book = {
             let inner = locked(&self.inner);
             let open = inner
@@ -1067,7 +1170,7 @@ impl<R: Runtime> Books<R> {
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
             open.session.book().clone()
         };
-        let mut out = Vec::new();
+        let mut out: Vec<(String, String, usize)> = Vec::new();
         for flow in &book.flows {
             let chapters: Vec<(usize, String)> = flow
                 .paragraphs
@@ -1086,30 +1189,88 @@ impl<R: Runtime> Books<R> {
                 continue;
             }
             // The first spread each of the story's paragraphs is seen on.
-            let mut first_seen: HashMap<u32, String> = HashMap::new();
+            let mut first_seen: HashMap<u32, (String, usize)> = HashMap::new();
             for spread in &book.spreads {
                 let laid = self.layout_spread(id, &spread.id.0, None)?;
                 for frame in &laid.layout.frames {
                     if !flow.frames.iter().any(|f| f.0 == frame.frame.0) {
                         continue;
                     }
+                    // The frame is on the right-hand page when its middle is past the first page.
+                    let page = spread
+                        .frames
+                        .iter()
+                        .find(|f| f.base().id.0 == frame.frame.0)
+                        .map_or(0, |f| {
+                            let r = f.base().rect;
+                            usize::from(
+                                spread.pages.len() > 1 && r.x.0 + r.w.0 / 2.0 > book.trim.w.0,
+                            )
+                        });
                     for line in &frame.lines {
                         if let Some(p) = line.paragraph {
-                            first_seen.entry(p).or_insert_with(|| spread.id.0.clone());
+                            first_seen
+                                .entry(p)
+                                .or_insert_with(|| (spread.id.0.clone(), page));
                         }
                     }
                 }
             }
             for (index, title) in chapters {
-                if let Some(spread) = first_seen.get(&(index as u32)) {
-                    out.push(StoryChapter {
-                        title: title.trim().to_owned(),
-                        spread: spread.clone(),
-                    });
+                if let Some((spread, page)) = first_seen.get(&(index as u32)) {
+                    out.push((title.trim().to_owned(), spread.clone(), *page));
                 }
             }
         }
         Ok(out)
+    }
+
+    /// A PNG of one page of a spread, `width` pixels wide, as it is drawn: the picture an agent
+    /// looks at to check its work. `page` counts from 0 within the spread.
+    pub fn render_page(
+        &self,
+        id: &str,
+        spread: &str,
+        page: usize,
+        width: u32,
+    ) -> Result<Vec<u8>, Error> {
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, styles, assets, layered) = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let book = open.shown_book();
+            let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
+            for path in used_assets(&book) {
+                if let Ok(bytes) = open.package.asset_bytes(&path) {
+                    assets.insert(path, bytes);
+                }
+            }
+            let styles = style_sheet(&book.styles);
+            (book, styles, assets, open.font_book(base))
+        };
+        let fonts = layered.as_deref().unwrap_or(base);
+        let scene = Layouter::new(&book, &styles, fonts)
+            .scene_spread(&SpreadId(spread.to_owned()))
+            .map_err(|e| Error::Export(e.to_string()))?
+            .ok_or_else(|| Error::Export(format!("no spread {spread}")))?;
+        let pages = scene.pages.len();
+        let page = scene.pages.into_iter().nth(page).ok_or_else(|| {
+            Error::Export(format!(
+                "spread {spread} has {pages} pages, not {}",
+                page + 1
+            ))
+        })?;
+        folio_export::raster::page_to_png(
+            &page,
+            fonts,
+            &MemoryAssets(assets),
+            width.clamp(64, 4000),
+        )
+        .map_err(|e| Error::Export(e.to_string()))
     }
 
     /// A spread as a press would print it, through the CMYK ICC profile at `profile`.
@@ -1227,6 +1388,159 @@ impl<R: Runtime> Books<R> {
             spine_text: maths.spine_text_allowed,
             barcode: maths.barcode,
         }))
+    }
+
+    /// Answers a Book tool's request for a book (D-49).
+    pub fn book_tool(
+        &self,
+        id: &str,
+        request: &crate::tools::ToolRequest,
+    ) -> Result<crate::tools::ToolReport, Error> {
+        // What layout finds is asked for first, as it takes the books' lock itself.
+        let findings = match request {
+            crate::tools::ToolRequest::Checklist => {
+                let errors = self
+                    .preflight(id)?
+                    .iter()
+                    .filter(|item| {
+                        item.severity == folio_layout::wire::Severity::Error && !item.ignored
+                    })
+                    .count();
+                crate::tools::Findings {
+                    errors,
+                    ..Default::default()
+                }
+            }
+            crate::tools::ToolRequest::Contents => crate::tools::Findings {
+                contents: self.contents_entries(id)?,
+                ..Default::default()
+            },
+            _ => crate::tools::Findings::default(),
+        };
+        let (book, facts) = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let book = open.session.book().clone();
+            let mut known = HashMap::new();
+            for spread in &book.spreads {
+                known.extend(open.facts_for(&book, &spread.id.0).0);
+            }
+            (book, AssetFacts(known))
+        };
+        Ok(crate::tools::run(&book, &facts, findings, request))
+    }
+
+    /// Makes a Book tool's change to a book, all of it one undo step, and says how much it changed.
+    /// A change by the person's own tool is not marked as an agent's.
+    pub fn book_tool_fix(
+        &self,
+        id: &str,
+        fix: &crate::tools::ToolFix,
+    ) -> Result<crate::tools::ToolFixed, Error> {
+        let book = self.snapshot(id)?.book;
+        let findings = crate::tools::Findings {
+            contents: if matches!(fix, crate::tools::ToolFix::ContentsPage) {
+                self.contents_entries(id)?
+            } else {
+                Vec::new()
+            },
+            ..Default::default()
+        };
+        let intents = crate::tools::fix_intents(&book, fix, &template_metrics(&book), &findings);
+        let changed = intents.len() as u32;
+        if changed > 0 {
+            self.apply_batch_by(id, intents, None)?;
+        }
+        Ok(crate::tools::ToolFixed { changed })
+    }
+
+    /// The spread templates a book can add, each drawn at this book's size, with the group of the
+    /// book's own kind to show first.
+    pub fn template_gallery(&self, id: &str) -> Result<TemplateGallery, Error> {
+        use base64::Engine as _;
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, layered) = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            (open.session.book().clone(), open.font_book(base))
+        };
+        let fonts = layered.as_deref().unwrap_or(base);
+        let metrics = template_metrics(&book);
+        let styles = style_sheet(&book.styles);
+        let mut cards = Vec::new();
+        for info in folio_presets::templates::list() {
+            let mut ids = folio_presets::random_id;
+            let Some(frames) = folio_presets::templates::build(&info.id, &metrics, &mut ids) else {
+                continue;
+            };
+            // The spread as one page twice as wide, so a single picture shows both pages.
+            let mut shown = book.clone();
+            shown.master_pages.clear();
+            shown.flows.clear();
+            shown.trim.w = folio_model::Pt(book.trim.w.0 * 2.0);
+            shown.spreads = vec![folio_model::Spread {
+                id: SpreadId("sp_template".into()),
+                kind: folio_model::SpreadKind::Single,
+                pages: vec![folio_model::Page {
+                    id: folio_model::PageId("pg_template".into()),
+                    master: None,
+                    bg: None,
+                }],
+                frames,
+                guides: Vec::new(),
+                master_overrides: Vec::new(),
+                bg_span: None,
+                section: None,
+            }];
+            let scene = Layouter::new(&shown, &styles, fonts)
+                .scene_spread(&shown.spreads[0].id)
+                .map_err(|e| Error::Export(e.to_string()))?
+                .and_then(|s| s.pages.into_iter().next())
+                .ok_or_else(|| Error::Export("the template has no page".into()))?;
+            let png = folio_export::raster::page_to_png(
+                &scene,
+                fonts,
+                &MemoryAssets(HashMap::new()),
+                320,
+            )
+            .map_err(|e| Error::Export(e.to_string()))?;
+            cards.push(TemplateCard {
+                id: info.id,
+                group: info.group,
+                name: info.name,
+                image: format!(
+                    "data:image/png;base64,{}",
+                    base64::engine::general_purpose::STANDARD.encode(png)
+                ),
+            });
+        }
+        Ok(TemplateGallery {
+            home: folio_presets::templates::home_group(book.kind).to_owned(),
+            templates: cards,
+        })
+    }
+
+    /// Adds spread template `template` after spread `after` of a book, as one undo step.
+    pub fn apply_template(&self, id: &str, template: &str, after: &str) -> Result<Patch, Error> {
+        let book = self.snapshot(id)?.book;
+        let mut ids = folio_presets::random_id;
+        let frames = folio_presets::templates::build(template, &template_metrics(&book), &mut ids)
+            .ok_or_else(|| Error::Export(format!("there is no spread template `{template}`")))?;
+        self.apply(
+            id,
+            Intent::AddSpreadWith {
+                after: SpreadId(after.into()),
+                frames,
+            },
+        )
     }
 
     /// The cover sheet as a one-spread book with its layout, for the canvas to draw and edit.
@@ -1382,9 +1696,7 @@ impl<R: Runtime> Books<R> {
                 done: done as u32,
                 total: targets.len() as u32,
             };
-            if let Err(e) = self.app.emit(EXPORT_PROGRESS_EVENT, progress) {
-                log::warn!("could not send the export's progress: {e}");
-            }
+            self.host.export_progress(&progress);
             if self.cancel_export.swap(false, Ordering::SeqCst) {
                 report.cancelled = true;
                 break;
@@ -1630,6 +1942,11 @@ impl<R: Runtime> Books<R> {
 
     /// Applies an intent to a book, tells every window, and answers with what changed.
     pub fn apply(&self, id: &str, intent: Intent) -> Result<Patch, Error> {
+        self.apply_by(id, intent, None)
+    }
+
+    /// As `apply`, saying who is making the change when it is not the person (`agent`).
+    fn apply_by(&self, id: &str, intent: Intent, by: Option<&str>) -> Result<Patch, Error> {
         // A change to a story may leave it with more words than its frames have room for.
         let refit = changes_a_story(&intent);
         let edits_words = edits_a_story(&intent);
@@ -1646,6 +1963,7 @@ impl<R: Runtime> Books<R> {
         };
         self.change(
             id,
+            by,
             |session| {
                 let depth = session.undo_depth();
                 let mut patch = session.apply(intent)?;
@@ -1706,10 +2024,66 @@ impl<R: Runtime> Books<R> {
         )
     }
 
+    /// Applies several intents as one undo step, by an agent: all of them or none. The step is
+    /// closed on both sides, so nothing the person was doing merges into it, and a refused intent
+    /// takes back what came before it in the batch.
+    pub fn apply_batch(&self, id: &str, intents: Vec<Intent>) -> Result<BatchOutcome, Error> {
+        self.apply_batch_by(id, intents, Some("agent"))
+    }
+
+    /// As `apply_batch`, saying who is making the change when it is not the person.
+    fn apply_batch_by(
+        &self,
+        id: &str,
+        intents: Vec<Intent>,
+        by: Option<&str>,
+    ) -> Result<BatchOutcome, Error> {
+        let total = intents.len();
+        let mark = self.history_mark(id)?;
+        self.apply_by(id, Intent::EndUndoStep, by)?;
+        for (index, intent) in intents.into_iter().enumerate() {
+            if let Err(e) = self.apply_by(id, intent, by) {
+                self.rewind(id, mark)?;
+                self.change(
+                    id,
+                    by,
+                    |session| {
+                        session.clear_redo();
+                        Ok(())
+                    },
+                    |_: &()| None,
+                )?;
+                return Err(Error::Batch {
+                    index,
+                    total,
+                    message: e.to_string(),
+                });
+            }
+        }
+        self.change(
+            id,
+            by,
+            |session| {
+                // The batch is one step, so one undo takes all of it back.
+                let steps = session.undo_depth().saturating_sub(mark);
+                session.join_last(steps);
+                session.apply(Intent::EndUndoStep)?;
+                Ok(BatchOutcome {
+                    revision: session.revision(),
+                    applied: total,
+                    can_undo: session.can_undo(),
+                    can_redo: session.can_redo(),
+                })
+            },
+            |_: &BatchOutcome| None,
+        )
+    }
+
     /// Undoes the last step, or `None` when there is nothing to undo.
     pub fn undo(&self, id: &str) -> Result<Option<Patch>, Error> {
         self.change(
             id,
+            None,
             |session| Ok(session.undo()),
             |patch: &Option<Patch>| patch.as_ref(),
         )
@@ -1740,6 +2114,7 @@ impl<R: Runtime> Books<R> {
     pub fn redo(&self, id: &str) -> Result<Option<Patch>, Error> {
         self.change(
             id,
+            None,
             |session| Ok(session.redo()),
             |patch: &Option<Patch>| patch.as_ref(),
         )
@@ -1750,6 +2125,7 @@ impl<R: Runtime> Books<R> {
     fn change<T>(
         &self,
         id: &str,
+        by: Option<&str>,
         run: impl FnOnce(&mut Session) -> Result<T, Error>,
         patch_of: impl FnOnce(&T) -> Option<&Patch>,
     ) -> Result<T, Error> {
@@ -1762,7 +2138,7 @@ impl<R: Runtime> Books<R> {
         let was = open.summary();
         let result = run(&mut open.session)?;
         if let Some(patch) = patch_of(&result).filter(|p| !p.ops.is_empty()) {
-            self.announce_patch(open, patch);
+            self.announce_patch(open, patch, by);
         }
         let now = open.summary();
         if now != was {
@@ -1805,4 +2181,15 @@ fn edits_a_story(intent: &Intent) -> bool {
             | Intent::SplitParagraph { .. }
             | Intent::JoinParagraphs { .. }
     )
+}
+
+/// The size of `book` for a spread template, in inches: its page, the margin to keep inside, and
+/// the bleed a picture runs off by.
+fn template_metrics(book: &folio_model::Book) -> folio_presets::templates::Metrics {
+    folio_presets::templates::Metrics {
+        w: book.trim.w.to_in(),
+        h: book.trim.h.to_in(),
+        m: book.margins.outside.to_in().max(0.25),
+        b: book.bleed.to_in(),
+    }
 }

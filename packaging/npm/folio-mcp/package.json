@@ -1,0 +1,34 @@
+{
+	"name": "@liminal-hq/folio-mcp",
+	"version": "0.1.0",
+	"description": "An MCP server that lets an AI agent make, edit, check and export books in Folio",
+	"license": "Apache-2.0 OR MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/liminal-hq/folio.git",
+		"directory": "packaging/npm/folio-mcp"
+	},
+	"homepage": "https://github.com/liminal-hq/folio",
+	"keywords": [
+		"mcp",
+		"model-context-protocol",
+		"book",
+		"layout",
+		"pdf",
+		"epub"
+	],
+	"bin": {
+		"folio-mcp": "bin/folio-mcp.js"
+	},
+	"files": [
+		"bin"
+	],
+	"engines": {
+		"node": ">=18"
+	},
+	"optionalDependencies": {
+		"@liminal-hq/folio-mcp-linux-x64": "0.1.0",
+		"@liminal-hq/folio-mcp-linux-arm64": "0.1.0",
+		"@liminal-hq/folio-mcp-win32-x64": "0.1.0"
+	}
+}

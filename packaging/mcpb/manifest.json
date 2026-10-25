@@ -1,0 +1,45 @@
+{
+	"manifest_version": "0.2",
+	"name": "folio",
+	"display_name": "Folio",
+	"version": "0.1.0",
+	"description": "Make, edit, check and export books in Folio, the local-first book layout app.",
+	"long_description": "Lets Claude make a book, bring a manuscript in, change its pages, look at them, run preflight and export a PDF or EPUB. If Folio is open, Claude works on the book you have open and you can undo what it does.",
+	"author": {
+		"name": "Liminal HQ",
+		"url": "https://github.com/liminal-hq"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/liminal-hq/folio"
+	},
+	"license": "Apache-2.0 OR MIT",
+	"server": {
+		"type": "binary",
+		"entry_point": "server/folio-mcp",
+		"mcp_config": {
+			"command": "${__dirname}/server/folio-mcp",
+			"args": [],
+			"platform_overrides": {
+				"win32": {
+					"command": "${__dirname}/server/folio-mcp.exe"
+				}
+			}
+		}
+	},
+	"tools": [
+		{ "name": "list_kinds", "description": "The kinds of book Folio makes and their sizes" },
+		{ "name": "new_book", "description": "Make a new book" },
+		{ "name": "open_book", "description": "Open a .folio file" },
+		{ "name": "get_book", "description": "A book's spreads and frames" },
+		{ "name": "get_spread", "description": "One spread in full, with its layout" },
+		{ "name": "render_page", "description": "A picture of a page" },
+		{ "name": "apply_intents", "description": "Change a book" },
+		{ "name": "import_manuscript", "description": "Bring a manuscript in" },
+		{ "name": "preflight", "description": "Check a book for printing problems" },
+		{ "name": "export", "description": "Make a PDF or EPUB" }
+	],
+	"compatibility": {
+		"platforms": ["linux", "win32"]
+	}
+}

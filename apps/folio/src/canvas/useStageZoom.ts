@@ -14,6 +14,8 @@ export interface StageZoom {
 	zoomIn(): void;
 	zoomOut(): void;
 	fit(): void;
+	/** Sets the zoom to `to` (kept within the limits), leaving off following the stage's size. */
+	setZoom(to: number): void;
 }
 
 /** `fitted` is the zoom that fits the spread in the stage, which changes as either resizes. */
@@ -30,6 +32,7 @@ export function useStageZoom(fitted: number, keys = true): StageZoom {
 		[chosen, fitted],
 	);
 	const fit = useCallback(() => setChosen(null), []);
+	const setZoom = useCallback((to: number) => setChosen(clampZoom(to)), []);
 
 	useEffect(() => {
 		if (!keys) return;
@@ -45,5 +48,5 @@ export function useStageZoom(fitted: number, keys = true): StageZoom {
 		return () => window.removeEventListener('keydown', onKey);
 	}, [keys, zoomIn, zoomOut, fit]);
 
-	return { zoom, fitting: chosen === null, zoomIn, zoomOut, fit };
+	return { zoom, fitting: chosen === null, zoomIn, zoomOut, fit, setZoom };
 }

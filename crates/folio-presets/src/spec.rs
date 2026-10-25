@@ -9,6 +9,7 @@ use thiserror::Error;
 use ts_rs::TS;
 
 /// The paper a printed book is on, which decides how thick its spine is.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
@@ -20,6 +21,7 @@ pub enum Paper {
 }
 
 /// Where the book's words come from.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
@@ -32,6 +34,7 @@ pub enum Words {
 }
 
 /// The typeface family the book's styles start in.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
@@ -46,6 +49,7 @@ pub enum Look {
 }
 
 /// Everything the New book wizard asks, and the quick start fills in with defaults.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
@@ -70,6 +74,7 @@ pub struct NewBookSpec {
 }
 
 /// A trim size written by the author, in inches.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct CustomTrim {

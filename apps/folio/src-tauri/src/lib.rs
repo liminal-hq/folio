@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+mod agent;
 mod app_info;
 mod com;
 mod recents;
@@ -60,11 +61,17 @@ pub fn run() {
         .plugin(tauri_plugin_folio_settings::init_with(settings::storage))
         .plugin(tauri_plugin_folio_books::init())
         .invoke_handler(tauri::generate_handler![
+            agent::agent_install,
+            agent::agent_status,
             app_info::app_info,
-            windows::open_window
+            windows::open_window,
+            windows::open_book_tools,
+            windows::book_tools_area
         ])
         .setup(|app| {
+            tauri::Manager::manage(app, windows::ToolsArea::default());
             recents::wire(app.handle());
+            agent::serve(app.handle());
             windows::open_or_focus(app.handle(), WindowKind::Main)?;
             Ok(())
         });
@@ -78,6 +85,11 @@ pub fn run() {
     }
 
     builder
-        .run(tauri::generate_context!())
-        .expect("error while running the Folio application");
+        .build(tauri::generate_context!())
+        .expect("error while building the Folio application")
+        .run(|_app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                agent::stop();
+            }
+        });
 }

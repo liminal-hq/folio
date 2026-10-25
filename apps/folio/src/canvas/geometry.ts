@@ -5,6 +5,7 @@
 
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
+import { COVER_EDGE, coverWidth } from '../books/coverMaths';
 
 export interface PlainRect {
 	x: number;
@@ -39,8 +40,11 @@ function isRecto(spread: Spread, index: number): boolean {
 }
 
 export function spreadGeometry(book: Book, spread: Spread): SpreadGeometry {
-	const { w, h } = book.trim;
-	const bleed = book.bleed;
+	const { h } = book.trim;
+	// The cover is the printed sheet, back, spine and front, with KDP's own bleed round it.
+	const cover = spread.kind === 'cover';
+	const w = cover ? coverWidth(book) : book.trim.w;
+	const bleed = cover ? COVER_EDGE : book.bleed;
 	const { top, bottom, inside, outside } = book.margins;
 	const pages = spread.pages.map((_, index) => {
 		const x = index * w;
