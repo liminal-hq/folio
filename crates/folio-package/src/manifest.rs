@@ -59,10 +59,18 @@ pub(crate) fn classify(path: &str) -> (FileRole, &'static str) {
         "settings.json" => (FileRole::Settings, "application/json"),
         _ if path.starts_with("text/") => (FileRole::Text, "text/markdown"),
         _ if path.starts_with("assets/images/") => (FileRole::Image, image_type(&extension)),
-        _ if path.starts_with("assets/fonts/") => (FileRole::Font, "font/ttf"),
+        _ if path.starts_with("assets/fonts/") => (FileRole::Font, font_type(&extension)),
         _ if path.starts_with("assets/icc/") => (FileRole::Icc, "application/vnd.iccprofile"),
         _ if path.starts_with("thumbnails/") => (FileRole::Thumbnail, image_type(&extension)),
         _ => (FileRole::Other, "application/octet-stream"),
+    }
+}
+
+fn font_type(extension: &str) -> &'static str {
+    match extension {
+        "otf" => "font/otf",
+        "ttc" | "otc" => "font/collection",
+        _ => "font/ttf",
     }
 }
 

@@ -60,7 +60,6 @@ fn every_kind_at_every_size_makes_a_book_that_survives_a_save_and_opens_in_a_ses
             let file = dir.path().join(format!("{:?}-{trim}.folio", info.kind));
             let original = made.book.clone();
             let mut package = Package::new(made.book);
-            *package.styles_mut() = made.styles;
             *package.settings_mut() = made.settings;
             package.save(&file, &SaveOptions::default()).unwrap();
             let reopened = Package::open(&file).unwrap();
@@ -216,15 +215,16 @@ fn the_paper_isbn_and_look_are_kept() {
         ..spec(BookKind::Memoir)
     })
     .unwrap();
+    assert_eq!(made.book.paper, folio_model::Paper::Cream);
     assert_eq!(made.settings["paper"], "cream");
     assert_eq!(made.settings["plannedPages"], 212);
     assert_eq!(
         made.book.metadata.isbn.paperback.as_deref(),
         Some("978-0-306-40615-7")
     );
-    assert_eq!(made.styles["look"], "classic");
-    assert_eq!(made.styles["fontFamily"], "Literata");
-    assert_eq!(made.styles["styles"]["body"]["sizePt"], 10.5);
+    assert_eq!(made.book.styles.look, "classic");
+    assert_eq!(made.book.styles.font_family, "Literata");
+    assert_eq!(made.book.styles.styles["body"].size_pt, Some(10.5));
 }
 
 #[test]
@@ -235,7 +235,7 @@ fn every_style_a_frame_uses_is_in_the_styles_file() {
             for frame in &spread.frames {
                 if let Frame::Text(t) = frame {
                     assert!(
-                        made.styles["styles"].get(&t.style.0).is_some(),
+                        made.book.styles.styles.contains_key(&t.style.0),
                         "{kind:?} uses `{}` but does not define it",
                         t.style.0
                     );

@@ -333,3 +333,188 @@ describe('the rulers and their guides', () => {
 		});
 	});
 });
+
+describe('the font list', () => {
+	const fonts = [
+		{ family: 'Literata', origin: 'bundled' },
+		{ family: 'Zed Sans', origin: 'system' },
+		{ family: 'Quill Mono', origin: 'book' },
+	] as const;
+
+	it("is live for words, offers the book's fonts and shows the font of the words", () => {
+		expect(editorState(input([image()])).available.has('font')).toBe(false);
+		const state = editorState(
+			input([text({ overrides: { font: 'Zed Sans' } })], { fonts: [...fonts] }),
+		);
+		expect(state.available.has('font')).toBe(true);
+		expect(state.texts.font).toBe('Zed Sans');
+		expect(state.options.font).toEqual([
+			['Literata', 'Literata'],
+			['Zed Sans', 'Zed Sans'],
+			['Quill Mono', 'Quill Mono'],
+		]);
+		expect(editorState(input([text()], { fonts: [...fonts] })).texts.font).toBe('');
+	});
+
+	it('sets the font of the words, and asks to keep an installed one with the book', () => {
+		const frame = text({ overrides: { size: 12, align: null, bold: true, italic: null } });
+		const action = editorAction('font', 'Zed Sans', input([frame], { fonts: [...fonts] }));
+		expect(action).toMatchObject({ kind: 'font', keep: 'Zed Sans' });
+		expect(action?.kind === 'font' && action.intents).toEqual([
+			{
+				type: 'OverrideStyle',
+				frame: 't',
+				overrides: { size: 12, align: null, bold: true, italic: null, font: 'Zed Sans' },
+			},
+		]);
+	});
+
+	it('keeps nothing for a bundled font or one the book already has, and clears with the empty choice', () => {
+		const base = input([text()], { fonts: [...fonts] });
+		expect(editorAction('font', 'Literata', base)).toMatchObject({ keep: null });
+		expect(editorAction('font', 'Quill Mono', base)).toMatchObject({ keep: null });
+		const had = input([text({ overrides: { font: 'Zed Sans' } })], { fonts: [...fonts] });
+		const cleared = editorAction('font', '', had);
+		expect(cleared).toMatchObject({ kind: 'font', keep: null });
+		expect(cleared?.kind === 'font' && cleared.intents[0]).toMatchObject({
+			overrides: { size: null, align: null, bold: null, italic: null },
+		});
+		expect(
+			cleared?.kind === 'font' && 'font' in (cleared.intents[0] as { overrides: object }).overrides,
+		).toBe(false);
+	});
+});
+
+describe('the Check book button', () => {
+	it('is always available and asks for the dialog', () => {
+		expect(editorState(input()).available.has('preflight')).toBe(true);
+		expect(editorAction('preflight', undefined, input())).toEqual({ kind: 'checkBook' });
+	});
+});
+
+describe('the Export buttons', () => {
+	it('are always available and ask for the dialog, quickly for Quick PDF', () => {
+		const state = editorState(input());
+		expect(state.available.has('export') && state.available.has('quickPdf')).toBe(true);
+		expect(editorAction('export', undefined, input())).toEqual({
+			kind: 'exportBook',
+			quick: false,
+		});
+		expect(editorAction('quickPdf', undefined, input())).toEqual({
+			kind: 'exportBook',
+			quick: true,
+		});
+	});
+});
+
+describe('the preview buttons', () => {
+	it('are always available, show print as chosen to begin with and ask to switch', () => {
+		const state = editorState(input());
+		expect(['print', 'kindle', 'kobo'].every((id) => state.available.has(id))).toBe(true);
+		expect(state.active.print).toBe(true);
+		expect(editorState(input([], { preview: 'kobo' })).active).toMatchObject({ kobo: true });
+		expect(editorAction('kindle', undefined, input())).toEqual({ kind: 'preview', mode: 'kindle' });
+		expect(editorAction('print', undefined, input())).toEqual({ kind: 'preview', mode: 'print' });
+	});
+});
+
+describe('words selected in the open editor', () => {
+	const words = (inline: { text: string; bold?: boolean }[]) =>
+		({
+			type: 'text',
+			id: 't',
+			box: {},
+			locked: false,
+			rotation: 0,
+			style: 'body',
+			content: { inline: inline.map((r) => ({ bold: false, italic: false, ...r })) },
+		}) as unknown as Frame;
+
+	it('are what bold, italic and the font apply to, and not the whole frame', () => {
+		const frame = words([{ text: 'Hello brave world' }]);
+		const selection = { frame: 't', start: 6, end: 11 };
+		expect(editorAction('bold', undefined, input([frame], { selection }))).toEqual({
+			kind: 'intents',
+			intents: [{ type: 'StyleRange', frame: 't', start: 6, end: 11, change: { bold: true } }],
+		});
+		expect(editorAction('font', 'Zed Sans', input([frame], { selection }))).toMatchObject({
+			kind: 'font',
+			intents: [
+				{ type: 'StyleRange', frame: 't', start: 6, end: 11, change: { font: 'Zed Sans' } },
+			],
+		});
+	});
+
+	it('turn bold off when the whole stretch is already bold', () => {
+		const frame = words([{ text: 'Hello ' }, { text: 'brave', bold: true }, { text: ' world' }]);
+		const selection = { frame: 't', start: 6, end: 11 };
+		expect(editorAction('bold', undefined, input([frame], { selection }))).toMatchObject({
+			intents: [{ change: { bold: false } }],
+		});
+		// A stretch that is only partly bold is made bold.
+		expect(
+			editorAction(
+				'bold',
+				undefined,
+				input([frame], { selection: { frame: 't', start: 3, end: 8 } }),
+			),
+		).toMatchObject({ intents: [{ change: { bold: true } }] });
+	});
+
+	it('are ignored when nothing is selected or the frame is not the one selected', () => {
+		const frame = words([{ text: 'Hello' }]);
+		for (const selection of [
+			null,
+			{ frame: 't', start: 2, end: 2 },
+			{ frame: 'other', start: 0, end: 3 },
+		]) {
+			expect(editorAction('bold', undefined, input([frame], { selection }))).toMatchObject({
+				intents: [{ type: 'OverrideStyle' }],
+			});
+		}
+	});
+});
+
+describe('the text colour list', () => {
+	const frame = {
+		type: 'text',
+		id: 't',
+		box: {},
+		locked: false,
+		rotation: 0,
+		style: 'body',
+		content: { inline: [{ text: 'Hello brave world', bold: false, italic: false }] },
+	} as unknown as Frame;
+
+	it('offers colours once words are selected', () => {
+		const state = editorState(input([frame]));
+		expect(state.available.has('colour')).toBe(true);
+		expect(state.options.colour?.[0]?.[0]).toBe('#1c1b20');
+		expect(editorState(input([])).available.has('colour')).toBe(false);
+	});
+
+	it('colours the selected words, or all of them when none are selected', () => {
+		expect(
+			editorAction(
+				'colour',
+				'#a23b2a',
+				input([frame], { selection: { frame: 't', start: 6, end: 11 } }),
+			),
+		).toEqual({
+			kind: 'intents',
+			intents: [
+				{ type: 'StyleRange', frame: 't', start: 6, end: 11, change: { colour: '#a23b2a' } },
+			],
+		});
+		expect(editorAction('colour', '#a23b2a', input([frame]))).toEqual({
+			kind: 'intents',
+			intents: [
+				{ type: 'StyleRange', frame: 't', start: 0, end: 17, change: { colour: '#a23b2a' } },
+			],
+		});
+		// Choosing "Colour from style" takes the colour away.
+		expect(editorAction('colour', '', input([frame]))).toMatchObject({
+			intents: [{ change: { colour: '' } }],
+		});
+	});
+});

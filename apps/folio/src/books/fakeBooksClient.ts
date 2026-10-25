@@ -16,8 +16,14 @@ import type {
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
+import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
+import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
+import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
+import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
+import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
 import { applyPatch } from './applyPatch';
 import type { BooksClient, BooksListener } from './booksClient';
 import cases from './fixtures/patchCases.json';
@@ -110,10 +116,18 @@ export interface FakeBooks {
 	emit: { patch(event: PatchEvent): void; changed(): void };
 	/** Makes the next call named `name` fail with a refusal. */
 	refuseNext(name: string, kind: string, message: string): void;
+	/** Holds each export at the file it has reached until the returned function is called. */
+	holdExport(): () => void;
 	/** Books a crash left changes in, which a test puts here for the client to offer. */
 	recoveries: Recoverable[];
 	/** The words the fake speller flags, whatever the case; none to begin with. */
 	misspelt: string[];
+	/** The families installed on the fake computer; a test puts some here. */
+	installedFonts: string[];
+	/** What the fake preflight finds; a test puts items here. */
+	preflightItems: PreflightItem[];
+	/** The typefaces the fake book uses; a test puts some here. */
+	fontUses: FontUse[];
 }
 
 export function createFakeBooksClient(): FakeBooks {
@@ -123,12 +137,18 @@ export function createFakeBooksClient(): FakeBooks {
 	const refusals = new Map<string, { kind: string; message: string }>();
 	let counter = 0;
 	const misspelt: string[] = [];
+	const installedFonts: string[] = [];
+	const preflightItems: PreflightItem[] = [];
+	const fontUses: FontUse[] = [];
 	const downloaded = new Set<string>();
 	/** Books a crash left changes in; a test puts some here. */
 	const recoveries: Recoverable[] = [];
 	/** The revision each book was last copied at, as the plugin keeps it. */
 	const copied = new Map<string, number>();
 	const progress = new Set<(event: DictionaryProgress) => void>();
+	const exportListeners = new Set<(event: ExportProgress) => void>();
+	let exportStopped = false;
+	let exportGate: Promise<void> = Promise.resolve();
 	const listing = (): DictionaryStatus[] => [
 		{
 			id: 'en-CA',
@@ -489,6 +509,156 @@ export function createFakeBooksClient(): FakeBooks {
 			downloaded.delete(id);
 			return listing();
 		},
+		async fontsInUse(id) {
+			await call('fontsInUse', [id]);
+			find(id);
+			return fontUses.map((use) => ({ ...use }));
+		},
+		async unkeepFonts(id, families) {
+			await call('unkeepFonts', [id, families]);
+			find(id);
+			for (const use of fontUses) {
+				if (families.includes(use.family) && use.origin === 'book') use.origin = 'system';
+			}
+		},
+		async readerPreview(id) {
+			await call('readerPreview', [id]);
+			find(id);
+			const preview: ReaderPreview = {
+				title: 'Pip',
+				language: 'en-CA',
+				css: 'p { margin: 0 }',
+				chapters: [{ title: 'One', body: '<h1>One</h1><p class="body">Down by the reeds.</p>' }],
+				images: [],
+			};
+			return preview;
+		},
+		async previewCoverSheet(id) {
+			await call('previewCoverSheet', [id]);
+			find(id);
+			return {
+				image: 'data:image/png;base64,AAAA',
+				width: 1000,
+				height: 600,
+				edge: 9,
+				cover: 450,
+				spine: 82,
+				spineText: false,
+				barcode: { x: 300, y: 450, w: 144, h: 86 },
+			};
+		},
+		async proofSpread(id, spread, profile) {
+			await call('proofSpread', [id, spread, profile]);
+			find(id);
+			const png = 'data:image/png;base64,AAAA';
+			return [{ original: png, proofed: `${png}B`, outside: 12.5 }];
+		},
+		async onExportProgress(listener) {
+			exportListeners.add(listener);
+			return () => exportListeners.delete(listener);
+		},
+		async cancelExport() {
+			await call('cancelExport', []);
+			exportStopped = true;
+		},
+		async exportBook(id, targets, colour) {
+			await call('exportBook', colour ? [id, targets, colour] : [id, targets]);
+			find(id);
+			const names: Record<string, string[]> = {
+				sharingPdf: ['pip-share.pdf'],
+				kdpInterior: ['pip-paperback-interior.pdf'],
+				kdpCover: ['pip-paperback-cover.pdf'],
+				printShopPdf: ['pip-print-pdfx4.pdf'],
+				ebookCover: ['pip-ebook-cover.jpg'],
+				kindleEpub: ['pip-kindle.epub'],
+				fixedEpub: ['pip-fixed.epub'],
+				koboEpub: ['pip.epub', 'pip.kepub.epub'],
+			};
+			exportStopped = false;
+			const report: ExportReport = {
+				folder: '/home/mom/Books/Pip/exports',
+				files: [],
+				cancelled: false,
+			};
+			for (const [done, target] of targets.entries()) {
+				for (const listener of exportListeners)
+					listener({ id, target, done, total: targets.length });
+				// A test can hold the export here to look at the dialog while it works.
+				await exportGate;
+				if (exportStopped) {
+					report.cancelled = true;
+					break;
+				}
+				report.files.push(
+					...(names[target] ?? []).map((name) => ({
+						target,
+						path: `/home/mom/Books/Pip/exports/${name}`,
+						bytes: 123456,
+					})),
+				);
+			}
+			return report;
+		},
+		async revealPath(path) {
+			await call('revealPath', [path]);
+		},
+		async preflightBook(id) {
+			await call('preflightBook', [id]);
+			find(id);
+			return [...preflightItems];
+		},
+		async listFonts(id) {
+			await call('listFonts', [id]);
+			const kept = new Set(find(id).snapshot.book.fonts?.map((f) => f.family) ?? []);
+			return [
+				...['Literata', 'Source Serif 4', 'Inter', 'Atkinson Hyperlegible'].map((family) => ({
+					family,
+					origin: 'bundled' as const,
+				})),
+				...[...kept].map((family) => ({ family, origin: 'book' as const })),
+				...installedFonts
+					.filter((family) => !kept.has(family))
+					.map((family) => ({ family, origin: 'system' as const })),
+			];
+		},
+		async keepFonts(id, families) {
+			await call('keepFonts', [id, families]);
+			const book = find(id);
+			const report: KeepFontsReport = { kept: [], skipped: [] };
+			const fonts = [...(book.snapshot.book.fonts ?? [])];
+			for (const family of families) {
+				if (fonts.some((f) => f.family === family)) report.kept.push(family);
+				else if (installedFonts.includes(family)) {
+					fonts.push({
+						family,
+						weight: 400,
+						italic: false,
+						path: `assets/fonts/${family.toLowerCase().replace(/\W+/g, '')}.ttf`,
+						index: 0,
+					});
+					report.kept.push(family);
+				} else if (
+					!['Literata', 'Source Serif 4', 'Inter', 'Atkinson Hyperlegible'].includes(family)
+				) {
+					report.skipped.push({ family, reason: 'notInstalled' });
+				}
+			}
+			if (fonts.length !== (book.snapshot.book.fonts?.length ?? 0)) {
+				const revision = book.snapshot.revision + 1;
+				const result: Patch = { revision, ops: [{ op: 'setFonts', fonts }] };
+				book.past += 1;
+				book.snapshot = {
+					...book.snapshot,
+					revision,
+					book: applyPatch(book.snapshot.book, result),
+					canUndo: true,
+					canRedo: false,
+				};
+				const event: PatchEvent = { id, patch: result, canUndo: true, canRedo: false };
+				listeners.forEach((l) => l.onPatch(event));
+			}
+			return report;
+		},
 		async subscribe(listener) {
 			await call('subscribe');
 			listeners.add(listener);
@@ -504,7 +674,20 @@ export function createFakeBooksClient(): FakeBooks {
 			changed,
 		},
 		refuseNext: (name, kind, message) => refusals.set(name, { kind, message }),
+		holdExport: () => {
+			let release = () => {};
+			exportGate = new Promise<void>((resolve) => {
+				release = () => {
+					exportGate = Promise.resolve();
+					resolve();
+				};
+			});
+			return release;
+		},
 		misspelt,
+		installedFonts,
+		preflightItems,
+		fontUses,
 		recoveries,
 	};
 }

@@ -5,6 +5,7 @@
 
 use std::path::PathBuf;
 
+use folio_layout::wire::PreflightItem;
 use folio_model::Intent;
 use folio_presets::{KindInfo, NewBookSpec, PaintPresets};
 use folio_protocol::PluginStatus;
@@ -14,8 +15,9 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow};
 use crate::error::Error;
 use crate::state::Books;
 use crate::wire::{
-    BookSnapshot, BookSpelling, BookSummary, DictionaryProgress, DictionaryStatus, Recoverable,
-    SpellCheck, SpreadLayoutResult,
+    BookSnapshot, BookSpelling, BookSummary, CoverSheetPreview, DictionaryProgress,
+    DictionaryStatus, ExportColour, ExportReport, ExportTarget, FontChoice, FontUse,
+    KeepFontsReport, ProofPage, ReaderPreview, Recoverable, SpellCheck, SpreadLayoutResult,
 };
 use crate::DICTIONARY_PROGRESS_EVENT;
 
@@ -32,6 +34,16 @@ pub async fn presets<R: Runtime>(
     books: State<'_, Books<R>>,
 ) -> Result<Vec<KindInfo>, Error> {
     Ok(books.presets())
+}
+
+/// The cover of the book `spec` would make, as a `data:image/png` URI.
+#[tauri::command]
+pub async fn preview_new_book<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    spec: NewBookSpec,
+) -> Result<String, Error> {
+    books.preview_new_book(&spec)
 }
 
 /// The colours and gradients the pickers offer.
@@ -300,6 +312,141 @@ pub async fn spell_suggest<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().spell_suggest(&id, &word))
         .await
         .expect("the spelling task does not panic")
+}
+
+/// The book as an e-reader would show it, from the same chapters and CSS the EPUB ships.
+#[tauri::command]
+pub async fn reader_preview<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+) -> Result<ReaderPreview, Error> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().reader_preview(&id))
+        .await
+        .expect("the preview task does not panic")
+}
+
+/// A spread as a press would print it, through the CMYK ICC profile at `profile`.
+#[tauri::command]
+pub async fn proof_spread<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    spread: String,
+    profile: String,
+) -> Result<Vec<ProofPage>, Error> {
+    // Drawing and converting every pixel is work for a blocking thread, not the async runtime.
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Books<R>>().proof_spread(&id, &spread, &profile)
+    })
+    .await
+    .expect("the proof task does not panic")
+}
+
+/// The paperback cover sheet (back, spine and front) as the exporter would make it, as a
+/// `data:image/png` URI; `None` for a book with no cover.
+#[tauri::command]
+pub async fn preview_cover_sheet<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+) -> Result<Option<CoverSheetPreview>, Error> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().preview_cover_sheet(&id))
+        .await
+        .expect("the preview task does not panic")
+}
+
+/// Makes the files for `targets` and writes them into the book's `exports` folder.
+#[tauri::command]
+pub async fn export_book<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    targets: Vec<ExportTarget>,
+    colour: Option<ExportColour>,
+) -> Result<ExportReport, Error> {
+    // Laying out and writing a book is work for a blocking thread, not the async runtime.
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Books<R>>()
+            .export(&id, &targets, colour.unwrap_or_default())
+    })
+    .await
+    .expect("the export task does not panic")
+}
+
+/// Stops the export in progress after the file it is making; what was made is kept.
+#[tauri::command]
+pub async fn cancel_export<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+) -> Result<(), Error> {
+    books.cancel_export();
+    Ok(())
+}
+
+/// Shows a file in the system's file manager.
+#[tauri::command]
+pub async fn reveal_path<R: Runtime>(_window: WebviewWindow<R>, path: String) -> Result<(), Error> {
+    crate::reveal::reveal(std::path::Path::new(&path)).map_err(Error::Export)
+}
+
+/// What preflight finds in the whole book, the issues that wait on the person first.
+#[tauri::command]
+pub async fn preflight_book<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+) -> Result<Vec<PreflightItem>, Error> {
+    // Laying out every spread is work for a blocking thread, not the async runtime.
+    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().preflight(&id))
+        .await
+        .expect("the preflight task does not panic")
+}
+
+/// Every family a book can draw in, and where each comes from.
+#[tauri::command]
+pub async fn list_fonts<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+) -> Result<Vec<FontChoice>, Error> {
+    books.font_choices(&id)
+}
+
+/// The typefaces a book uses, and where each comes from.
+#[tauri::command]
+pub async fn fonts_in_use<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+) -> Result<Vec<FontUse>, Error> {
+    books.fonts_in_use(&id)
+}
+
+/// Takes fonts out of a book, so it is laid out from the computer's again.
+#[tauri::command]
+pub async fn unkeep_fonts<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Books<R>>,
+    id: String,
+    families: Vec<String>,
+) -> Result<(), Error> {
+    books.unkeep_fonts(&id, &families)
+}
+
+/// Keeps installed fonts inside a book, so it opens the same on a computer without them, and says
+/// which were kept and which could not be.
+#[tauri::command]
+pub async fn keep_fonts<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    families: Vec<String>,
+) -> Result<KeepFontsReport, Error> {
+    // Reading font files is work for a blocking thread, not the async runtime.
+    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().keep_fonts(&id, &families))
+        .await
+        .expect("the font task does not panic")
 }
 
 /// Every dictionary there is, and whether it is in place.

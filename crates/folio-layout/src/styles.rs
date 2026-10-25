@@ -5,35 +5,11 @@
 
 use std::collections::BTreeMap;
 
-use folio_model::{Align as ModelAlign, StyleId, StyleOverrides};
-use serde::Deserialize;
+use folio_model::{Align as ModelAlign, StyleDef, StyleId, StyleOverrides, Styles};
 use serde_json::Value;
 
 use crate::fonts::{FALLBACK_SANS, FALLBACK_SERIF};
 use crate::paragraph::{Align, TextStyle, Wrap};
-
-/// One named style as the file stores it. Every key is optional.
-#[derive(Debug, Clone, Default, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-pub struct StyleDef {
-    pub name: String,
-    pub size_pt: Option<f64>,
-    pub weight: Option<u16>,
-    pub italic: bool,
-    /// Drawn in the sans family rather than the look's serif.
-    pub sans: bool,
-    pub align: Option<String>,
-    pub line_height: Option<f64>,
-    /// Letter spacing in ems.
-    pub tracking: Option<f64>,
-    /// First-line indent in ems.
-    pub first_indent: Option<f64>,
-    pub space_before: Option<f64>,
-    pub space_after: Option<f64>,
-    /// `"preserve"` keeps every line break (poetry).
-    pub wrap: Option<String>,
-    pub hyphenate: Option<bool>,
-}
 
 /// A style ready to lay text out with.
 #[derive(Debug, Clone, PartialEq)]
@@ -67,28 +43,22 @@ impl Default for StyleSheet {
 }
 
 impl StyleSheet {
+    /// The sheet a book's styles make: its typeface for body text and its named styles.
+    pub fn from_styles(styles: &Styles) -> Self {
+        Self {
+            family: if styles.font_family.is_empty() {
+                FALLBACK_SERIF.to_string()
+            } else {
+                styles.font_family.clone()
+            },
+            styles: styles.styles.clone(),
+        }
+    }
+
     /// Reads the shape of `styles.json`: `{ "fontFamily": "...", "styles": { id: {...} } }`.
-    /// Anything unreadable is left out, and the layout uses defaults for it.
+    /// Anything unreadable gives an empty sheet, and the layout uses defaults for it.
     pub fn from_value(value: &Value) -> Self {
-        let family = value
-            .get("fontFamily")
-            .and_then(Value::as_str)
-            .unwrap_or(FALLBACK_SERIF)
-            .to_string();
-        let styles = value
-            .get("styles")
-            .and_then(Value::as_object)
-            .map(|map| {
-                map.iter()
-                    .filter_map(|(id, v)| {
-                        serde_json::from_value::<StyleDef>(v.clone())
-                            .ok()
-                            .map(|d| (id.clone(), d))
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-        Self { family, styles }
+        Self::from_styles(&serde_json::from_value(value.clone()).unwrap_or_default())
     }
 
     /// This sheet with the styles of `fallback` it does not have: a book that never used a style
@@ -108,15 +78,14 @@ impl StyleSheet {
     pub fn resolve(&self, id: &StyleId, overrides: Option<&StyleOverrides>) -> ResolvedStyle {
         let def = self.styles.get(&id.0).cloned().unwrap_or_default();
         let size = def.size_pt.unwrap_or(DEFAULT_SIZE);
-        let mut text = TextStyle::new(
-            if def.sans {
-                FALLBACK_SANS
-            } else {
-                &self.family
-            },
-            size,
-        );
+        let family = match (&def.family, def.sans) {
+            (Some(own), _) => own.as_str(),
+            (None, true) => FALLBACK_SANS,
+            (None, false) => &self.family,
+        };
+        let mut text = TextStyle::new(family, size);
         text.weight = def.weight.unwrap_or(400);
+        text.colour = def.colour.clone();
         text.italic = def.italic;
         text.tracking_em = def.tracking.unwrap_or(0.0);
         text.line_height = def.line_height.unwrap_or(DEFAULT_LINE_HEIGHT);
@@ -145,6 +114,9 @@ impl StyleSheet {
             if let Some(italic) = o.italic {
                 text.italic = italic;
             }
+            if let Some(font) = &o.font {
+                text.family = font.clone();
+            }
         }
         ResolvedStyle {
             first_indent: def.first_indent.unwrap_or(0.0) * text.size_pt,
@@ -159,5 +131,40 @@ impl StyleSheet {
             align,
             text,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn sheet() -> StyleSheet {
+        StyleSheet::from_value(&json!({
+            "fontFamily": "Literata",
+            "styles": {
+                "body": { "sizePt": 11 },
+                "label": { "sans": true },
+                "mono": { "sans": true, "family": "Source Code Pro" }
+            }
+        }))
+    }
+
+    #[test]
+    fn a_style_is_drawn_in_the_look_unless_it_is_sans_or_names_its_own_typeface() {
+        let sheet = sheet();
+        let family = |id: &str| sheet.resolve(&StyleId(id.into()), None).text.family;
+        assert_eq!(family("body"), "Literata");
+        assert_eq!(family("label"), FALLBACK_SANS);
+        assert_eq!(family("mono"), "Source Code Pro");
+    }
+
+    #[test]
+    fn a_sheet_without_a_typeface_uses_the_default_serif() {
+        let sheet = StyleSheet::from_value(&json!({ "styles": {} }));
+        assert_eq!(
+            sheet.resolve(&StyleId("body".into()), None).text.family,
+            FALLBACK_SERIF
+        );
     }
 }

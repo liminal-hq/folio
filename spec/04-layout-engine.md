@@ -66,9 +66,11 @@ modifiers: Alt = no snapping · Shift (resize) = keep aspect · Shift (move) = c
 
 The same flows are laid out into an e-reader viewport (Kindle Paperwhite 6.8 in: 1236 × 1648 at 300 ppi; Kobo Clara 2E: 1072 × 1448). This uses the reader CSS that the EPUB export emits, so what she sees matches what ships. Text size steps mirror the readers' own (about ±12% per step).
 
+**Built so far:** the View tab's **Kindle** and **Kobo** buttons switch the stage to a device frame of that screen (shown whole, scaled to fit). A flowing book is laid out in columns one screen wide from the very chapters and CSS the EPUB ships (`reader_preview`), with page turns, text size in steps of about 12%, white, sepia and dark pages, and a switch to the reader's own font; fonts are lent from the page and real devices differ a little, which the preview says. **Print** goes back to the pages.
+
 ## Fixed layout preview
 
-Fixed spreads render into a device frame at the device's landscape aspect. Guides are hidden, and a note explains that readers can zoom but not reflow.
+Fixed spreads render into a device frame at the device's landscape aspect. Guides are hidden, and a note explains that readers can zoom but not reflow. This is built: the current spread is drawn read-only in the frame.
 
 ## Preflight geometry (shared with Jax's page checklist)
 

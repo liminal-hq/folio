@@ -6,9 +6,8 @@
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
-use folio_model::{BookKind, LayoutMode, Pt};
+use folio_model::{BookKind, LayoutMode, Pt, StyleDef, Styles};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use ts_rs::TS;
 
 const KINDS_JSON: &str = include_str!("../data/kinds.json");
@@ -99,12 +98,15 @@ pub(crate) fn kind_data(kind: BookKind) -> &'static KindData {
 }
 
 /// Every style Folio ships, as `{ "styles": { id: {...} } }`, to fall back on when a book lacks one.
-pub fn preset_styles() -> Value {
-    serde_json::json!({ "styles": style_table() })
+pub fn preset_styles() -> Styles {
+    Styles {
+        styles: style_table().clone(),
+        ..Styles::default()
+    }
 }
 
-pub(crate) fn style_table() -> &'static BTreeMap<String, Value> {
-    static STYLES: OnceLock<BTreeMap<String, Value>> = OnceLock::new();
+pub(crate) fn style_table() -> &'static BTreeMap<String, StyleDef> {
+    static STYLES: OnceLock<BTreeMap<String, StyleDef>> = OnceLock::new();
     STYLES.get_or_init(|| serde_json::from_str(STYLES_JSON).expect("data/styles.json is valid"))
 }
 

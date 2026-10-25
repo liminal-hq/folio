@@ -37,7 +37,12 @@ export function ClassicToolbar({
 	);
 	const controls = useRibbonControls(peers, labels, onCommand);
 	return (
-		<div role="toolbar" aria-label={label ?? labels.ribbon} className={styles.classic}>
+		<div
+			role="toolbar"
+			aria-label={label ?? labels.ribbon}
+			className={styles.classic}
+			data-ribbon=""
+		>
 			{model.groups.map((group, index) => (
 				<div key={index} role="group" className={styles.classicGroup}>
 					{group.map((item) => controls.control(item, false, `${index}`))}

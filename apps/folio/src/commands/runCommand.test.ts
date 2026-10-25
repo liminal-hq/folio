@@ -21,6 +21,7 @@ function context(overrides: Partial<CommandContext['settings']> = {}) {
 		close: vi.fn(async () => {}),
 		undo: vi.fn(async () => {}),
 		redo: vi.fn(async () => {}),
+		exportBook: vi.fn(async () => {}),
 	};
 	const closeWindow = vi.fn();
 	const openWindow = vi.fn();
@@ -41,6 +42,7 @@ describe('availableCommands', () => {
 		expect(NONE.has('file.new') && NONE.has('file.open')).toBe(true);
 		expect(NONE.has('file.save') || NONE.has('file.close') || NONE.has('file.saveAs')).toBe(false);
 		expect(OPEN.has('file.save') && OPEN.has('file.saveAs') && OPEN.has('file.close')).toBe(true);
+		expect(OPEN.has('file.export') && !NONE.has('file.export')).toBe(true);
 	});
 
 	it('offers undo and redo only when there is something to undo or redo', () => {
@@ -95,6 +97,7 @@ describe('runCommand', () => {
 		await runCommand('file.save', value, OPEN);
 		await runCommand('file.saveAs', value, OPEN);
 		await runCommand('file.close', value, OPEN);
+		await runCommand('file.export', value, OPEN);
 		await runCommand('edit.undo', value, OPEN);
 		await runCommand('edit.redo', value, OPEN);
 		for (const call of Object.values(books)) expect(call).toHaveBeenCalledOnce();
@@ -106,11 +109,11 @@ describe('runCommand', () => {
 		expect(books.open).toHaveBeenCalledWith('/books/otter.folio');
 	});
 
-	it('does nothing for a command that is not available, has no behaviour yet, or is unknown', async () => {
+	it('does nothing for a command that is not available or is unknown', async () => {
 		const { value, books, patches } = context();
 		await runCommand('file.save', value, NONE);
 		await runCommand('edit.undo', value, NONE);
-		await runCommand('file.export', value, OPEN);
+		await runCommand('file.export', value, NONE);
 		await runCommand('nonsense', value, OPEN);
 		expect(patches).toEqual([]);
 		for (const call of Object.values(books)) expect(call).not.toHaveBeenCalled();

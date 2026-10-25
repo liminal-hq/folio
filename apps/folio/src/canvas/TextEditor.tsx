@@ -11,21 +11,23 @@ import type { MenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { t } from '../i18n/messages';
 import { KEEP_WORDS_EVENT, type KeepWordsDetail } from './editCheckpoint';
+import { charsBefore, setTextSelection } from './textSelection';
 import styles from './TextEditor.module.css';
 
 /** A frame with words of its own to edit: a text frame or a shape. */
 export type WordFrame = Extract<Frame, { type: 'text' | 'shape' }>;
 
-/** The words of a frame as plain text, or `null` when they carry emphasis that plain text would lose. */
-export function plainTextOf(frame: { content?: InlineContent | null }): string | null {
-	const runs = frame.content?.inline ?? [];
-	if (runs.some((r) => r.bold || r.italic || r.style)) return null;
-	return runs.map((r) => r.text).join('');
+/**
+ * The words of a frame as plain text. Editing them keeps the emphasis, typeface and colour of the
+ * stretches that were not touched (`SetText` matches the new words against the old runs).
+ */
+export function plainTextOf(frame: { content?: InlineContent | null }): string {
+	return (frame.content?.inline ?? []).map((r) => r.text).join('');
 }
 
-/** Whether a frame's words can be edited in place: its own, and plain. */
+/** Whether a frame's words can be edited in place: its own. */
 export function canEditText(frame: WordFrame): boolean {
-	if (frame.locked || frame.fromMaster || plainTextOf(frame) === null) return false;
+	if (frame.locked || frame.fromMaster) return false;
 	// A shape's words are always its own; a line has no inside to put them in.
 	return frame.type === 'shape' ? frame.shape !== 'line' : !frame.flow;
 }
@@ -58,6 +60,8 @@ export interface EditedWords {
 
 export interface TextEditorProps {
 	frame: EditedWords;
+	/** The frame's id, so a selection in it can be styled from the ribbon. Cells have none. */
+	frameId?: string;
 	/** How the frame was laid out, for the font and line height the words are drawn in. */
 	layout: FrameLayout | undefined;
 	/** Screen pixels per point. */
@@ -87,6 +91,7 @@ export interface TextEditorProps {
  */
 export function TextEditor({
 	frame,
+	frameId,
 	layout,
 	scale,
 	rotation = 0,
@@ -99,7 +104,7 @@ export function TextEditor({
 	const area = useRef<HTMLTextAreaElement | null>(null);
 	const first = layout?.lines[0];
 	const run = first?.runs[0];
-	const initial = plainTextOf(frame) ?? '';
+	const initial = plainTextOf(frame);
 	// A shape's words have a room of their own inside it, and the lines are already placed in it.
 	const room = frame.type !== 'text' ? layout?.textBox : undefined;
 	// The words are set as the layout's style sets them, whatever the shape.
@@ -111,6 +116,18 @@ export function TextEditor({
 	/** The words last handed over, as a step or as the end of the editing. */
 	const sent = useRef(initial);
 	const pause = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+	/** Tells the ribbon which stretch is selected, for bold, italic and the font of just those words. */
+	const publish = () => {
+		const el = area.current;
+		if (!el || !frameId) return;
+		setTextSelection({
+			frame: frameId,
+			start: charsBefore(el.value, el.selectionStart),
+			end: charsBefore(el.value, el.selectionEnd),
+		});
+	};
+	useEffect(() => () => setTextSelection(null), []);
 
 	useEffect(() => {
 		const el = area.current;
@@ -154,7 +171,11 @@ export function TextEditor({
 		const onKeep = (event: Event) => {
 			const { end } = (event as CustomEvent<KeepWordsDetail>).detail;
 			if (end) latest.current();
-			else kept.current();
+			else {
+				kept.current();
+				// A ribbon list that styled the selection gives the focus back to the words.
+				if (document.activeElement?.closest('[data-ribbon]')) area.current?.focus();
+			}
 		};
 		window.addEventListener(KEEP_WORDS_EVENT, onKeep);
 		return () => window.removeEventListener(KEEP_WORDS_EVENT, onKeep);
@@ -324,9 +345,14 @@ export function TextEditor({
 						pause.current = setTimeout(() => kept.current(), KEEP_AFTER_MS);
 					}
 				}}
+				onSelect={publish}
 				onPaste={keep}
 				onCut={keep}
-				onBlur={() => {
+				onBlur={(event) => {
+					// A list in the ribbon (the font, the colour) takes focus to open, and the words
+					// selected stay selected for it to style: that is not the end of the editing.
+					const to = event.relatedTarget;
+					if (to instanceof Element && to.closest('[data-ribbon]')) return;
 					if (!menuUp.current) finish();
 				}}
 				onContextMenu={(event) => {

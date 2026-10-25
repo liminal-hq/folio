@@ -6,8 +6,8 @@
 use std::time::{Duration, Instant};
 
 use folio_model::{
-    Axis, Book, Frame, FrameId, Grid, Intent, Margins, Pt, Rect, ReorderTo, Size, SpreadId,
-    SpreadKind, StyleId, StyleOverrides, Surface,
+    Axis, Book, BookFont, Frame, FrameId, Grid, Intent, Margins, Pt, Rect, ReorderTo, Size,
+    SpreadId, SpreadKind, StyleId, StyleOverrides, Surface,
 };
 use folio_session::{PatchOp, Session, SessionError, COALESCE_WINDOW, UNDO_DEPTH};
 use serde_json::json;
@@ -623,6 +623,79 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
         .unwrap()
     });
     record("undo the language", &mut s, &|s| s.undo().unwrap());
+    record("keep a font", &mut s, &|s| {
+        s.apply(Intent::SetFonts {
+            fonts: vec![BookFont {
+                family: "Zed Sans".into(),
+                weight: 400,
+                italic: false,
+                path: "assets/fonts/ab12.ttf".into(),
+                index: 0,
+            }],
+        })
+        .unwrap()
+    });
+    record("undo the fonts", &mut s, &|s| s.undo().unwrap());
+    record("leave an issue alone", &mut s, &|s| {
+        s.apply(Intent::SetPreflightIgnore {
+            keys: vec!["AltMissing:sp_1:fr_a:".into()],
+        })
+        .unwrap()
+    });
+    record("undo leaving it alone", &mut s, &|s| s.undo().unwrap());
+    record("leave the barcode to KDP", &mut s, &|s| {
+        s.apply(Intent::SetBarcode {
+            choice: folio_model::BarcodeChoice::Kdp,
+        })
+        .unwrap()
+    });
+    record("undo the barcode choice", &mut s, &|s| s.undo().unwrap());
+    record("choose cream paper", &mut s, &|s| {
+        s.apply(Intent::SetPaper {
+            paper: folio_model::Paper::Cream,
+        })
+        .unwrap()
+    });
+    record("undo the paper", &mut s, &|s| s.undo().unwrap());
+    record("set the details", &mut s, &|s| {
+        s.apply(Intent::SetDetails {
+            details: details("A New Title", Some("A subtitle"), "9780306406157"),
+        })
+        .unwrap()
+    });
+    record("undo the details", &mut s, &|s| s.undo().unwrap());
+    record("clear the subtitle and the ISBN", &mut s, &|s| {
+        s.apply(Intent::SetDetails {
+            details: details("Plain", None, ""),
+        })
+        .unwrap()
+    });
+    record("set words", &mut s, &|s| {
+        s.apply(Intent::SetText {
+            frame: frame("fr_text"),
+            text: "Hello brave world".into(),
+        })
+        .unwrap()
+    });
+    record("make a stretch bold", &mut s, &|s| {
+        s.apply(Intent::StyleRange {
+            frame: frame("fr_text"),
+            start: 6,
+            end: 11,
+            change: folio_model::RunChange {
+                bold: Some(true),
+                ..Default::default()
+            },
+        })
+        .unwrap()
+    });
+    record("edit the words around it", &mut s, &|s| {
+        s.apply(Intent::SetText {
+            frame: frame("fr_text"),
+            text: "Hello, brave world".into(),
+        })
+        .unwrap()
+    });
     record("ignore a word", &mut s, &|s| {
         s.apply(Intent::IgnoreWord {
             word: "Zorblat".into(),
@@ -1208,6 +1281,8 @@ fn a_number_the_person_reworded_keeps_its_words_when_the_numbers_move() {
                 style: None,
                 bold: false,
                 italic: false,
+                font: None,
+                colour: None,
             }],
         });
     }
@@ -2347,6 +2422,7 @@ fn words_go_into_a_shape_and_emptying_them_takes_them_out_but_a_line_has_no_insi
             align: None,
             bold: Some(true),
             italic: None,
+            font: None,
         },
     })
     .unwrap();
@@ -2928,4 +3004,315 @@ fn the_language_is_set_checked_and_undone() {
         );
     }
     assert_eq!(s.book().language, "fr-CA");
+}
+
+fn font(family: &str, path: &str) -> BookFont {
+    BookFont {
+        family: family.into(),
+        weight: 400,
+        italic: false,
+        path: path.into(),
+        index: 0,
+    }
+}
+
+#[test]
+fn keeping_fonts_is_one_undo_step_and_nothing_when_they_are_the_same() {
+    let mut s = Session::new(book());
+    let kept = vec![font("Zed Sans", "assets/fonts/ab12.ttf")];
+    let patch = s
+        .apply(Intent::SetFonts {
+            fonts: kept.clone(),
+        })
+        .unwrap();
+    assert_eq!(
+        patch.ops,
+        vec![PatchOp::SetFonts {
+            fonts: kept.clone()
+        }]
+    );
+    assert_eq!(s.book().fonts, kept);
+
+    // Setting the same list again changes nothing, so it makes no step.
+    let depth = s.undo_depth();
+    let again = s
+        .apply(Intent::SetFonts {
+            fonts: kept.clone(),
+        })
+        .unwrap();
+    assert!(again.ops.is_empty());
+    assert_eq!(s.undo_depth(), depth);
+
+    let undone = s.undo().unwrap();
+    assert_eq!(undone.ops, vec![PatchOp::SetFonts { fonts: Vec::new() }]);
+    assert!(s.book().fonts.is_empty());
+    let redone = s.redo().unwrap();
+    assert_eq!(redone.ops, vec![PatchOp::SetFonts { fonts: kept }]);
+}
+
+#[test]
+fn a_list_of_fonts_that_cannot_be_kept_is_refused_and_changes_nothing() {
+    let mut s = Session::new(book());
+    for bad in [
+        vec![font(" ", "assets/fonts/a.ttf")],
+        vec![font("Zed", "assets/images/a.png")],
+        vec![font("Zed", "assets/fonts/../book.json")],
+        vec![BookFont {
+            weight: 0,
+            ..font("Zed", "assets/fonts/a.ttf")
+        }],
+        vec![
+            font("Zed", "assets/fonts/a.ttf"),
+            font("Zed", "assets/fonts/a.ttf"),
+        ],
+    ] {
+        assert!(matches!(
+            s.apply(Intent::SetFonts { fonts: bad }),
+            Err(SessionError::BadFont(_))
+        ));
+    }
+    assert!(s.book().fonts.is_empty());
+    assert_eq!(s.revision(), 0);
+}
+
+#[test]
+fn leaving_issues_alone_is_one_undo_step_and_a_list_that_cannot_be_kept_is_refused() {
+    let mut s = Session::new(book());
+    let keys = vec![
+        "AltMissing:sp_1:fr_a:".to_string(),
+        "FontMissing:sp_1:fr_b:Zed".to_string(),
+    ];
+    let patch = s
+        .apply(Intent::SetPreflightIgnore { keys: keys.clone() })
+        .unwrap();
+    assert_eq!(
+        patch.ops,
+        vec![PatchOp::SetPreflightIgnore { keys: keys.clone() }]
+    );
+    assert_eq!(s.book().preflight_ignore, keys);
+    let undone = s.undo().unwrap();
+    assert_eq!(
+        undone.ops,
+        vec![PatchOp::SetPreflightIgnore { keys: Vec::new() }]
+    );
+    assert!(matches!(
+        s.apply(Intent::SetPreflightIgnore {
+            keys: vec![String::new()]
+        }),
+        Err(SessionError::BadIgnore(_))
+    ));
+    let many: Vec<String> = (0..501).map(|i| format!("k{i}")).collect();
+    assert!(matches!(
+        s.apply(Intent::SetPreflightIgnore { keys: many }),
+        Err(SessionError::BadIgnore(_))
+    ));
+}
+
+/// Details for the tests: a title, an optional subtitle, one author and a paperback ISBN.
+fn details(title: &str, subtitle: Option<&str>, isbn: &str) -> folio_model::Details {
+    folio_model::Details {
+        title: title.into(),
+        subtitle: subtitle.map(str::to_owned),
+        authors: vec![folio_model::Contributor {
+            name: "Mom".into(),
+            role: folio_model::ContributorRole::Author,
+        }],
+        description: "About an otter.".into(),
+        isbn: folio_model::Isbns {
+            paperback: Some(isbn.to_owned()).filter(|s| !s.is_empty()),
+            hardcover: None,
+            ebook: None,
+        },
+    }
+}
+
+#[test]
+fn the_details_are_one_undo_step_and_details_a_book_cannot_have_are_refused() {
+    let mut s = Session::new(book());
+    let was = folio_model::Details::of(s.book());
+    let new = details("Tea at the Lighthouse", Some("A tale"), "978-0-306-40615-7");
+    let patch = s
+        .apply(Intent::SetDetails {
+            details: new.clone(),
+        })
+        .unwrap();
+    assert_eq!(
+        patch.ops,
+        vec![PatchOp::SetDetails {
+            details: new.clone()
+        }]
+    );
+    assert_eq!(s.book().title, "Tea at the Lighthouse");
+    assert_eq!(
+        s.book().metadata.isbn.paperback.as_deref(),
+        Some("978-0-306-40615-7")
+    );
+    let undone = s.undo().unwrap();
+    assert_eq!(
+        undone.ops,
+        vec![PatchOp::SetDetails {
+            details: was.clone()
+        }]
+    );
+    assert_eq!(folio_model::Details::of(s.book()), was);
+    for bad in [
+        details("  ", None, ""),
+        details("Fine", None, "978-0-306-40615-8"),
+        details(&"x".repeat(301), None, ""),
+    ] {
+        assert!(matches!(
+            s.apply(Intent::SetDetails { details: bad }),
+            Err(SessionError::BadDetails(_))
+        ));
+    }
+    let mut nameless = details("Fine", None, "");
+    nameless.authors[0].name = " ".into();
+    assert!(matches!(
+        s.apply(Intent::SetDetails { details: nameless }),
+        Err(SessionError::BadDetails(_))
+    ));
+}
+
+#[test]
+fn a_stretch_is_styled_in_one_undo_step_and_survives_edits_around_it() {
+    let mut s = session();
+    s.apply(Intent::SetText {
+        frame: frame("fr_text"),
+        text: "Hello brave world".into(),
+    })
+    .unwrap();
+    s.apply(Intent::EndUndoStep).unwrap();
+    s.apply(Intent::StyleRange {
+        frame: frame("fr_text"),
+        start: 6,
+        end: 11,
+        change: folio_model::RunChange {
+            bold: Some(true),
+            font: Some("Zed Sans".into()),
+            ..Default::default()
+        },
+    })
+    .unwrap();
+    let runs = |s: &Session| {
+        s.book().spreads[1]
+            .frames
+            .iter()
+            .find_map(|f| match f {
+                Frame::Text(t) if t.base.id.0 == "fr_text" => {
+                    Some(t.content.clone().unwrap().inline)
+                }
+                _ => None,
+            })
+            .unwrap()
+    };
+    let styled = runs(&s);
+    assert_eq!(styled.len(), 3);
+    assert!(styled[1].bold && styled[1].font.as_deref() == Some("Zed Sans"));
+    // Typing around the stretch leaves it as it was.
+    s.apply(Intent::EndUndoStep).unwrap();
+    s.apply(Intent::SetText {
+        frame: frame("fr_text"),
+        text: "Well, hello brave world".into(),
+    })
+    .unwrap();
+    let edited = runs(&s);
+    assert!(edited.iter().any(|r| r.bold && r.text == "brave"));
+    s.undo().unwrap();
+    s.undo().unwrap();
+    assert_eq!(runs(&s).len(), 1);
+    // A stretch that is not there, or a change that changes nothing, is refused.
+    for (start, end, change) in [
+        (
+            5,
+            5,
+            folio_model::RunChange {
+                bold: Some(true),
+                ..Default::default()
+            },
+        ),
+        (
+            0,
+            99,
+            folio_model::RunChange {
+                bold: Some(true),
+                ..Default::default()
+            },
+        ),
+        (0, 3, folio_model::RunChange::default()),
+        (
+            0,
+            3,
+            folio_model::RunChange {
+                colour: Some("red".into()),
+                ..Default::default()
+            },
+        ),
+    ] {
+        assert!(matches!(
+            s.apply(Intent::StyleRange {
+                frame: frame("fr_text"),
+                start,
+                end,
+                change
+            }),
+            Err(SessionError::BadRange(_))
+        ));
+    }
+}
+
+#[test]
+fn the_paper_is_one_undo_step() {
+    let mut s = Session::new(book());
+    let patch = s
+        .apply(Intent::SetPaper {
+            paper: folio_model::Paper::Colour,
+        })
+        .unwrap();
+    assert_eq!(
+        patch.ops,
+        vec![PatchOp::SetPaper {
+            paper: folio_model::Paper::Colour
+        }]
+    );
+    assert_eq!(s.book().paper, folio_model::Paper::Colour);
+    let undone = s.undo().unwrap();
+    assert_eq!(
+        undone.ops,
+        vec![PatchOp::SetPaper {
+            paper: folio_model::Paper::White
+        }]
+    );
+}
+
+#[test]
+fn the_barcode_choice_is_one_undo_step_and_a_bad_price_addon_is_refused() {
+    use folio_model::BarcodeChoice;
+    let mut s = Session::new(book());
+    let own = BarcodeChoice::Own {
+        addon: Some("51999".into()),
+    };
+    let patch = s
+        .apply(Intent::SetBarcode {
+            choice: own.clone(),
+        })
+        .unwrap();
+    assert_eq!(
+        patch.ops,
+        vec![PatchOp::SetBarcode {
+            choice: own.clone()
+        }]
+    );
+    assert_eq!(s.book().barcode, own);
+    s.undo().unwrap();
+    assert_eq!(s.book().barcode, BarcodeChoice::Auto);
+    for bad in ["1234", "1234a", "123456"] {
+        assert!(matches!(
+            s.apply(Intent::SetBarcode {
+                choice: BarcodeChoice::Own {
+                    addon: Some(bad.into())
+                }
+            }),
+            Err(SessionError::BadBarcode(_))
+        ));
+    }
 }

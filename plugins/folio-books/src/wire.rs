@@ -129,6 +129,210 @@ pub struct DictionaryStatus {
     pub bundled: bool,
 }
 
+/// Where a font a book can use comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub enum FontOrigin {
+    /// Ships with Folio.
+    Bundled,
+    /// Kept inside the book.
+    Book,
+    /// Installed on this computer.
+    System,
+}
+
+/// One typeface family a book can draw in.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct FontChoice {
+    pub family: String,
+    pub origin: FontOrigin,
+}
+
+/// What a font's licence lets Folio do with its file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub enum FontLicence {
+    /// The file may be kept in a book, put in an EPUB and embedded in a PDF.
+    Free,
+    /// It may be embedded in a PDF but its file may not be kept in a book or an EPUB.
+    PrintOnly,
+    /// It may not be embedded anywhere.
+    Restricted,
+}
+
+/// A typeface a book uses, and what is known of it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct FontUse {
+    pub family: String,
+    pub origin: FontOrigin,
+    /// No font of that name is bundled, kept or installed, so a stand-in is used.
+    pub missing: bool,
+    pub licence: FontLicence,
+}
+
+/// Why a font was not kept with a book.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub enum FontSkip {
+    /// The font's licence does not let its file be kept in a book.
+    NotAllowed,
+    /// The file is too big to keep.
+    TooLarge,
+    /// No installed font has that family.
+    NotInstalled,
+}
+
+/// A family `keep_fonts` could not keep, and why.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct SkippedFont {
+    pub family: String,
+    pub reason: FontSkip,
+}
+
+/// What keeping fonts with a book did.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct KeepFontsReport {
+    /// The families now kept with the book, including any that already were.
+    pub kept: Vec<String>,
+    pub skipped: Vec<SkippedFont>,
+}
+
+/// A kind of file to make from a book.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub enum ExportTarget {
+    /// A PDF to read on a screen or send round.
+    SharingPdf,
+    /// The interior of a paperback, as Kindle Direct Publishing asks for it.
+    KdpInterior,
+    /// Every page for a print shop: bleed all round, crop marks, PDF/X-4.
+    PrintShopPdf,
+    /// The paperback cover for KDP: back, spine and front on one sheet.
+    KdpCover,
+    /// The cover as a picture for the book's page in a store.
+    EbookCover,
+    /// A reflowable EPUB for Kindle Direct Publishing.
+    KindleEpub,
+    /// A fixed-layout EPUB: every page as laid out, for a picture book.
+    FixedEpub,
+    /// A reflowable EPUB for Kobo, and its Kobo flavour (KEPUB).
+    KoboEpub,
+}
+
+/// A file an export wrote.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ExportedFile {
+    pub target: ExportTarget,
+    pub path: String,
+    pub bytes: u32,
+}
+
+/// How print files hold colour: sRGB as drawn, or as ink.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ExportColour {
+    /// Write the KDP interior in CMYK ink rather than sRGB. The KDP cover is always in ink.
+    pub cmyk: bool,
+    /// The path of the press's CMYK ICC profile; without one, ink is a plain separation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub profile: Option<String>,
+}
+
+/// One page of a spread as drawn and as a press would print it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ProofPage {
+    /// The page as drawn, a `data:image/png` URI.
+    pub original: String,
+    /// The page through the press's profile, a `data:image/png` URI.
+    pub proofed: String,
+    /// How much of the page, in per cent, is a colour the press cannot reproduce.
+    pub outside: f64,
+}
+
+/// The paperback cover sheet drawn, and where its parts are, in points from the sheet's top-left
+/// corner (the bleed included).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct CoverSheetPreview {
+    /// The sheet as a `data:image/png` URI.
+    pub image: String,
+    /// The whole sheet, bleed included.
+    pub width: f64,
+    pub height: f64,
+    /// The bleed all round.
+    pub edge: f64,
+    /// The width of one cover (the trim width) and of the spine.
+    pub cover: f64,
+    pub spine: f64,
+    /// Whether the spine is thick enough for text.
+    pub spine_text: bool,
+    /// The box KDP keeps for its barcode.
+    pub barcode: folio_model::Rect,
+}
+
+/// What an export wrote, and where.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ExportReport {
+    /// The folder the files are in.
+    pub folder: String,
+    pub files: Vec<ExportedFile>,
+    /// Set when the person stopped the export, so the files are those made before that.
+    #[serde(default)]
+    pub cancelled: bool,
+}
+
+/// A chapter of the book as a reader shows it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct PreviewChapter {
+    pub title: String,
+    /// The chapter's XHTML body. Pictures are `../images/<name>`.
+    pub body: String,
+}
+
+/// A picture of the book, ready to put in a page as an address.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct PreviewImage {
+    pub name: String,
+    pub data_uri: String,
+}
+
+/// The book as an e-reader would show it: the EPUB's own chapters and CSS (D-35).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ReaderPreview {
+    pub title: String,
+    pub language: String,
+    pub css: String,
+    pub chapters: Vec<PreviewChapter>,
+    pub images: Vec<PreviewImage>,
+}
+
 /// A book with changes that were never saved, found after Folio stopped without closing it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -151,6 +355,19 @@ pub struct DictionaryProgress {
     /// Bytes that have arrived, over every file of the dictionary.
     pub received: u32,
     /// Bytes expected in all: the sizes the catalogue pins.
+    pub total: u32,
+}
+
+/// How far an export has got, sent to every window as it goes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ExportProgress {
+    /// The book being exported.
+    pub id: String,
+    /// The target about to be made, and how many are done before it.
+    pub target: ExportTarget,
+    pub done: u32,
     pub total: u32,
 }
 

@@ -100,7 +100,7 @@ export const RIBBON_LAYOUT: readonly LayoutTab[] = [
 						[
 							{
 								id: 'colour',
-								kind: 'menu',
+								kind: 'select',
 							},
 							{
 								id: 'highlight',
@@ -618,6 +618,21 @@ export const RIBBON_LAYOUT: readonly LayoutTab[] = [
 						id: 'preflight',
 						large: true,
 						icon: 'check',
+					},
+					{
+						id: 'bookDetails',
+						large: true,
+						icon: 'book',
+					},
+					{
+						id: 'coverSheet',
+						large: true,
+						icon: 'book',
+					},
+					{
+						id: 'softProof',
+						large: true,
+						icon: 'eye',
 					},
 				],
 			},

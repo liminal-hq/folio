@@ -223,6 +223,29 @@ fn ops_between(before: &Delta, after: &Delta) -> Vec<PatchOp> {
             language: after.language.clone(),
         });
     }
+    if before.barcode != after.barcode {
+        ops.push(PatchOp::SetBarcode {
+            choice: after.barcode.clone(),
+        });
+    }
+    if before.paper != after.paper {
+        ops.push(PatchOp::SetPaper { paper: after.paper });
+    }
+    if before.details != after.details {
+        ops.push(PatchOp::SetDetails {
+            details: after.details.clone(),
+        });
+    }
+    if before.preflight_ignore != after.preflight_ignore {
+        ops.push(PatchOp::SetPreflightIgnore {
+            keys: after.preflight_ignore.clone(),
+        });
+    }
+    if before.fonts != after.fonts {
+        ops.push(PatchOp::SetFonts {
+            fonts: after.fonts.clone(),
+        });
+    }
     if before.proofing != after.proofing {
         ops.push(PatchOp::SetProofing {
             proofing: after.proofing.clone(),

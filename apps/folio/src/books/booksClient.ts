@@ -7,6 +7,17 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { ProofPage } from '@liminal-hq/folio-protocol/generated/ProofPage';
+import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
+import type { ExportColour } from '@liminal-hq/folio-protocol/generated/ExportColour';
+import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
+import type { CoverSheetPreview } from '@liminal-hq/folio-protocol/generated/CoverSheetPreview';
+import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
+import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
+import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
+import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
+import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
+import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
 import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck';
 import type { SpreadLayoutResult } from '@liminal-hq/folio-protocol/generated/SpreadLayoutResult';
 import {
@@ -19,6 +30,18 @@ import {
 	removeDictionary,
 	onDictionaryProgress,
 	importImage,
+	fontsInUse,
+	unkeepFonts,
+	readerPreview,
+	exportBook,
+	proofSpread,
+	previewCoverSheet,
+	onExportProgress,
+	cancelExport,
+	revealPath,
+	preflightBook,
+	keepFonts,
+	listFonts,
 	layoutMaster,
 	layoutSpread,
 	listBooks,
@@ -99,6 +122,30 @@ export interface BooksClient {
 	spellCheckBook(id: string, personal?: string[]): Promise<BookSpelling>;
 	/** Corrections for a word, best first. */
 	spellSuggest(id: string, word: string): Promise<string[]>;
+	/** The book as an e-reader would show it, from the same chapters and CSS the EPUB ships. */
+	readerPreview(id: string): Promise<ReaderPreview>;
+	/** The paperback cover sheet as the exporter would make it, or `null` with no cover. */
+	previewCoverSheet(id: string): Promise<CoverSheetPreview | null>;
+	/** A spread as a press would print it, through the CMYK ICC profile at `profile`. */
+	proofSpread(id: string, spread: string, profile: string): Promise<ProofPage[]>;
+	/** Hears which file an export has reached. */
+	onExportProgress(listener: (progress: ExportProgress) => void): Promise<() => void>;
+	/** Stops the export in progress after the file it is making; what was made is kept. */
+	cancelExport(): Promise<void>;
+	/** Makes the files for `targets` and writes them into the book's `exports` folder. */
+	exportBook(id: string, targets: ExportTarget[], colour?: ExportColour): Promise<ExportReport>;
+	/** Shows a file in the system's file manager. */
+	revealPath(path: string): Promise<void>;
+	/** What preflight finds in the whole book, the issues that wait on the person first. */
+	preflightBook(id: string): Promise<PreflightItem[]>;
+	/** The typefaces the book uses, and where each comes from. */
+	fontsInUse(id: string): Promise<FontUse[]>;
+	/** Takes fonts out of the book, so it is laid out from the computer's again. */
+	unkeepFonts(id: string, families: string[]): Promise<void>;
+	/** Every family the book can draw in, and where each comes from. */
+	listFonts(id: string): Promise<FontChoice[]>;
+	/** Keeps installed fonts inside the book; says which were kept and which could not be. */
+	keepFonts(id: string, families: string[]): Promise<KeepFontsReport>;
 	/** Every dictionary there is, and whether it is in place. */
 	dictionaries(): Promise<DictionaryStatus[]>;
 	/** Downloads a dictionary, checked against what is pinned for it; resolves to the list again. */
@@ -137,6 +184,18 @@ export const tauriBooksClient: BooksClient = {
 	spellCheck,
 	spellCheckBook,
 	spellSuggest,
+	readerPreview,
+	exportBook,
+	proofSpread,
+	previewCoverSheet,
+	onExportProgress,
+	cancelExport,
+	revealPath,
+	preflightBook,
+	fontsInUse,
+	unkeepFonts,
+	listFonts,
+	keepFonts,
 	dictionaries,
 	downloadDictionary,
 	removeDictionary,

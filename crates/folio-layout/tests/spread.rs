@@ -27,7 +27,8 @@ fn sample(kind: BookKind) -> (Book, StyleSheet) {
         ..NewBookSpec::default()
     })
     .unwrap();
-    (made.book, StyleSheet::from_value(&made.styles))
+    let styles = StyleSheet::from_styles(&made.book.styles);
+    (made.book, styles)
 }
 
 fn layout_all(book: &Book, styles: &StyleSheet) -> Vec<SpreadLayout> {
@@ -61,6 +62,8 @@ fn text_frame(id: &str, style: &str, x: f64, y: f64, w: f64, h: f64, text: &str)
                 style: None,
                 bold: false,
                 italic: false,
+                font: None,
+                colour: None,
             }],
         }),
         flow: None,
@@ -623,6 +626,8 @@ fn shape_frame(id: &str, shape: folio_model::Shape, w: f64, h: f64, text: Option
                 style: None,
                 bold: false,
                 italic: false,
+                font: None,
+                colour: None,
             }],
         }),
         overrides: None,
@@ -729,7 +734,7 @@ fn laid_with_fallback(frame: Frame) -> SpreadLayout {
     let (mut book, styles) = sample(BookKind::Picture);
     book.spreads[1].frames.push(frame);
     let id = book.spreads[1].id.clone();
-    let styles = styles.with_fallback(&StyleSheet::from_value(&folio_presets::preset_styles()));
+    let styles = styles.with_fallback(&StyleSheet::from_styles(&folio_presets::preset_styles()));
     let fonts = FontBook::bundled();
     Layouter::new(&book, &styles, &fonts)
         .layout_spread(&id)
@@ -765,7 +770,7 @@ fn a_book_without_the_bubble_style_gets_folios_and_a_book_that_has_its_own_keeps
     let own = StyleSheet::from_value(&serde_json::json!({
         "styles": { "bubble": { "sizePt": 20, "align": "right" } }
     }))
-    .with_fallback(&StyleSheet::from_value(&folio_presets::preset_styles()));
+    .with_fallback(&StyleSheet::from_styles(&folio_presets::preset_styles()));
     let resolved = own.resolve(&StyleId("bubble".into()), None);
     assert_eq!(resolved.text.size_pt, 20.0);
 }
@@ -917,6 +922,8 @@ fn table_frame(id: &str, w: f64, h: f64, words: &[&[&str]]) -> Frame {
                     style: None,
                     bold: false,
                     italic: false,
+                    font: None,
+                    colour: None,
                 }],
             });
         }
@@ -1341,4 +1348,245 @@ fn the_words_in_shapes_and_table_cells_are_marked_too() {
     assert_eq!(marked_runs(&layout, "tb#0.1").len(), 1);
     assert_eq!(marked_runs(&layout, "tb#1.1").len(), 1);
     assert!(marked_runs(&layout, "tb#0.0").is_empty());
+}
+
+#[test]
+fn a_run_can_have_its_own_typeface_and_colour_and_the_others_keep_the_styles() {
+    let mut frame = text_frame("mixed", "body", 60.0, 60.0, 300.0, 80.0, "plain");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    text.content.as_mut().unwrap().inline.push(Run {
+        text: " fancy".into(),
+        style: None,
+        bold: false,
+        italic: false,
+        font: Some("Inter".into()),
+        colour: Some(folio_model::Colour("#b91c1c".into())),
+    });
+    let (_, layout) = laid_with(frame);
+    let runs: Vec<_> = layout
+        .frames
+        .iter()
+        .find(|f| f.frame.0 == "mixed")
+        .unwrap()
+        .lines
+        .iter()
+        .flat_map(|l| &l.runs)
+        .collect();
+    let plain = runs.iter().find(|r| r.text.contains("plain")).unwrap();
+    let fancy = runs.iter().find(|r| r.text.contains("fancy")).unwrap();
+    assert_eq!(fancy.family, "Inter");
+    assert_eq!(fancy.colour.as_ref().map(|c| c.0.as_str()), Some("#b91c1c"));
+    assert_ne!(plain.family, "Inter");
+    assert_eq!(plain.colour, None);
+}
+
+#[test]
+fn the_families_a_book_asks_for_come_from_its_look_styles_overrides_and_runs() {
+    use folio_layout::families::families_used;
+    let (mut book, _) = sample(BookKind::Picture);
+    let before = families_used(&book);
+    assert!(before.contains(&book.styles.font_family));
+    assert!(!before.iter().any(|f| f == "Zed Sans"));
+
+    let mut frame = text_frame("fonts", "body", 60.0, 60.0, 300.0, 80.0, "words");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    text.overrides = Some(folio_model::StyleOverrides {
+        font: Some("Zed Sans".into()),
+        ..Default::default()
+    });
+    text.content.as_mut().unwrap().inline.push(Run {
+        text: " more".into(),
+        style: None,
+        bold: false,
+        italic: false,
+        font: Some("Quill Mono".into()),
+        colour: None,
+    });
+    book.spreads[1].frames.push(frame);
+    let after = families_used(&book);
+    assert!(after.contains(&"Zed Sans".to_string()));
+    assert!(after.contains(&"Quill Mono".to_string()));
+    let mut sorted = after.clone();
+    sorted.sort();
+    sorted.dedup();
+    assert_eq!(after, sorted, "sorted, one of each");
+}
+
+#[test]
+fn a_frame_in_a_font_nobody_has_is_flagged_once_with_the_family_and_one_the_book_keeps_is_not() {
+    use folio_layout::wire::PreflightKind;
+    use folio_layout::{BookFace, FontBook};
+    let (mut book, styles) = sample(BookKind::Picture);
+    let mut frame = text_frame("odd", "body", 60.0, 60.0, 300.0, 80.0, "words");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    text.overrides = Some(folio_model::StyleOverrides {
+        font: Some("Zed Sans".into()),
+        ..Default::default()
+    });
+    book.spreads[1].frames.push(frame);
+    let id = book.spreads[1].id.clone();
+
+    let base = FontBook::bundled();
+    let missing = Layouter::new(&book, &styles, &base)
+        .layout_spread(&id)
+        .unwrap()
+        .unwrap();
+    let flagged: Vec<_> = missing
+        .preflight
+        .iter()
+        .filter(|i| i.kind == PreflightKind::FontMissing)
+        .collect();
+    assert_eq!(flagged.len(), 1);
+    assert_eq!(flagged[0].family.as_deref(), Some("Zed Sans"));
+    assert_eq!(flagged[0].frame.as_ref().map(|f| f.0.as_str()), Some("odd"));
+
+    // The same book with the font kept in it has nothing missing.
+    let inter = base
+        .resolve(&folio_layout::FontRequest::new("Inter", 400, false))
+        .unwrap()
+        .font;
+    let kept = base.layered(vec![BookFace {
+        family: "Zed Sans".into(),
+        weight: 400,
+        italic: false,
+        index: 0,
+        data: std::sync::Arc::clone(inter.data()),
+    }]);
+    let fine = Layouter::new(&book, &styles, &kept)
+        .layout_spread(&id)
+        .unwrap()
+        .unwrap();
+    assert!(fine
+        .preflight
+        .iter()
+        .all(|i| i.kind != PreflightKind::FontMissing));
+}
+
+#[test]
+fn the_look_and_bundled_families_are_never_called_missing() {
+    use folio_layout::wire::PreflightKind;
+    use folio_layout::FontBook;
+    for kind in KINDS {
+        let (book, styles) = sample(kind);
+        let fonts = FontBook::bundled();
+        for layout in layout_all_with(&book, &styles, &fonts) {
+            assert!(
+                layout
+                    .preflight
+                    .iter()
+                    .all(|i| i.kind != PreflightKind::FontMissing),
+                "{kind:?}"
+            );
+        }
+    }
+}
+
+fn layout_all_with(
+    book: &Book,
+    styles: &StyleSheet,
+    fonts: &folio_layout::FontBook,
+) -> Vec<SpreadLayout> {
+    let layouter = Layouter::new(book, styles, fonts);
+    book.spreads
+        .iter()
+        .map(|s| layouter.layout_spread(&s.id).unwrap().unwrap())
+        .collect()
+}
+
+#[test]
+fn a_picture_frame_with_no_picture_is_a_placeholder_and_one_without_a_description_is_noted() {
+    let (mut book, styles) = sample(BookKind::Picture);
+    let mut empty = picture_frame("empty", "x", 100.0, 100.0, Fit::Fill);
+    let mut described = picture_frame("described", "a.png", 100.0, 100.0, Fit::Fill);
+    let bare = picture_frame("bare", "b.png", 100.0, 100.0, Fit::Fill);
+    if let Frame::Image(i) = &mut empty {
+        i.image.asset = None;
+    }
+    if let Frame::Image(i) = &mut described {
+        i.base.description = Some("An otter on a lily pad".into());
+    }
+    book.spreads[2].frames.clear();
+    book.spreads[2].frames.extend([empty, described, bare]);
+    let layouts = layout_all(&book, &styles);
+    let found: Vec<(PreflightKind, &str)> = layouts[2]
+        .preflight
+        .iter()
+        .filter(|i| {
+            matches!(
+                i.kind,
+                PreflightKind::PicturePlaceholder | PreflightKind::AltMissing
+            )
+        })
+        .map(|i| (i.kind, i.frame.as_ref().unwrap().0.as_str()))
+        .collect();
+    assert!(found.contains(&(PreflightKind::PicturePlaceholder, "empty")));
+    assert!(found.contains(&(PreflightKind::AltMissing, "bare")));
+    assert!(!found.iter().any(|(_, frame)| *frame == "described"));
+    assert_eq!(
+        PreflightKind::PicturePlaceholder.severity(),
+        folio_layout::wire::Severity::Error
+    );
+    assert_eq!(
+        PreflightKind::AltMissing.severity(),
+        folio_layout::wire::Severity::Note
+    );
+    assert!(layouts[2]
+        .preflight
+        .iter()
+        .all(|i| i.severity == i.kind.severity()));
+}
+
+#[test]
+fn a_word_in_a_script_the_font_lacks_is_set_in_a_fallback_and_what_nothing_covers_is_flagged() {
+    use folio_layout::wire::PreflightKind;
+    let (mut book, styles) = sample(BookKind::Picture);
+    book.spreads[1].frames.push(text_frame(
+        "cyr",
+        "body",
+        60.0,
+        60.0,
+        300.0,
+        60.0,
+        "Привет, Pip",
+    ));
+    book.spreads[1].frames.push(text_frame(
+        "han",
+        "body",
+        60.0,
+        140.0,
+        300.0,
+        60.0,
+        "Pip 中 pip",
+    ));
+    let id = book.spreads[1].id.clone();
+    let fonts = FontBook::bundled();
+    let layout = Layouter::new(&book, &styles, &fonts)
+        .layout_spread(&id)
+        .unwrap()
+        .unwrap();
+    let cyr = layout.frames.iter().find(|f| f.frame.0 == "cyr").unwrap();
+    let families: std::collections::BTreeSet<&str> = cyr
+        .lines
+        .iter()
+        .flat_map(|l| &l.runs)
+        .map(|r| r.family.as_str())
+        .collect();
+    assert!(
+        families.len() >= 2,
+        "the Cyrillic is in a fallback: {families:?}"
+    );
+    let flagged: Vec<_> = layout
+        .preflight
+        .iter()
+        .filter(|i| i.kind == PreflightKind::MissingGlyphs)
+        .collect();
+    assert_eq!(flagged.len(), 1);
+    assert_eq!(flagged[0].chars.as_deref(), Some("中"));
+    assert_eq!(flagged[0].frame.as_ref().map(|f| f.0.as_str()), Some("han"));
 }

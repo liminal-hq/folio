@@ -1,0 +1,29 @@
+[package]
+name = "folio-export"
+version = "0.1.0"
+description = "Folio's exporters: PDF and EPUB from the page scene. Pure Rust, no Tauri"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+folio-colour = { path = "../folio-colour" }
+folio-layout = { path = "../folio-layout" }
+folio-presets = { path = "../folio-presets" }
+folio-model = { path = "../folio-model" }
+krilla = "0.8"
+thiserror = { workspace = true }
+kurbo = "0.11"
+resvg = { version = "0.45", default-features = false }
+lopdf = "0.34"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
+tiny-skia = "0.12"
+ttf-parser = "0.25"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+unicode-segmentation = "1"
+
+[dev-dependencies]
+quick-xml = "0.37"

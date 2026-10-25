@@ -4,7 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    Grid, Margins, Master, MasterId, PageNumbers, Proofing, Pt, Size, Spread, SpreadId,
+    BarcodeChoice, BookFont, Details, Grid, Margins, Master, MasterId, PageNumbers, Paper,
+    Proofing, Pt, Size, Spread, SpreadId,
 };
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -28,6 +29,16 @@ pub enum PatchOp {
     },
     /// The language the book is written in.
     SetLanguage { language: String },
+    /// Who makes the barcode on the paperback cover.
+    SetBarcode { choice: BarcodeChoice },
+    /// The paper a printed copy is on.
+    SetPaper { paper: Paper },
+    /// The title, authors, description and ISBNs.
+    SetDetails { details: Details },
+    /// The preflight issues the book leaves alone.
+    SetPreflightIgnore { keys: Vec<String> },
+    /// The fonts the book keeps.
+    SetFonts { fonts: Vec<BookFont> },
     /// The words spelling leaves alone in the book.
     SetProofing { proofing: Proofing },
     /// The book's page geometry.

@@ -4,7 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    Book, Grid, Margins, Master, MasterId, PageNumbers, Proofing, Pt, Size, Spread, SpreadId,
+    BarcodeChoice, Book, BookFont, Details, Grid, Margins, Master, MasterId, PageNumbers, Paper,
+    Proofing, Pt, Size, Spread, SpreadId,
 };
 
 use crate::patch::PatchOp;
@@ -86,6 +87,11 @@ pub struct Delta {
     pub masters: Masters,
     pub proofing: Proofing,
     pub language: String,
+    pub details: Details,
+    pub paper: Paper,
+    pub barcode: BarcodeChoice,
+    pub fonts: Vec<BookFont>,
+    pub preflight_ignore: Vec<String>,
     pub spreads: Vec<(SpreadId, Option<Spread>)>,
 }
 
@@ -98,6 +104,11 @@ impl Delta {
             masters: Masters::of(book),
             proofing: book.proofing.clone(),
             language: book.language.clone(),
+            details: Details::of(book),
+            paper: book.paper,
+            barcode: book.barcode.clone(),
+            fonts: book.fonts.clone(),
+            preflight_ignore: book.preflight_ignore.clone(),
             spreads: touched
                 .iter()
                 .map(|id| {
@@ -118,6 +129,11 @@ impl Delta {
         let was_masters = Masters::of(book);
         let was_proofing = book.proofing.clone();
         let was_language = book.language.clone();
+        let was_details = Details::of(book);
+        let was_paper = book.paper;
+        let was_barcode = book.barcode.clone();
+        let was_fonts = book.fonts.clone();
+        let was_ignore = book.preflight_ignore.clone();
 
         for (id, spread) in &self.spreads {
             match spread {
@@ -161,6 +177,34 @@ impl Delta {
             book.language = self.language.clone();
             ops.push(PatchOp::SetLanguage {
                 language: self.language.clone(),
+            });
+        }
+        if was_barcode != self.barcode {
+            book.barcode = self.barcode.clone();
+            ops.push(PatchOp::SetBarcode {
+                choice: self.barcode.clone(),
+            });
+        }
+        if was_paper != self.paper {
+            book.paper = self.paper;
+            ops.push(PatchOp::SetPaper { paper: self.paper });
+        }
+        if was_details != self.details {
+            self.details.apply(book);
+            ops.push(PatchOp::SetDetails {
+                details: self.details.clone(),
+            });
+        }
+        if was_ignore != self.preflight_ignore {
+            book.preflight_ignore = self.preflight_ignore.clone();
+            ops.push(PatchOp::SetPreflightIgnore {
+                keys: self.preflight_ignore.clone(),
+            });
+        }
+        if was_fonts != self.fonts {
+            book.fonts = self.fonts.clone();
+            ops.push(PatchOp::SetFonts {
+                fonts: self.fonts.clone(),
             });
         }
         if was_proofing != self.proofing {

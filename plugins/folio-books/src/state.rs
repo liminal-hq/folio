@@ -5,12 +5,14 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use folio_layout::assets::sniff;
 use folio_layout::preflight::spread_assets;
-use folio_layout::{AssetFact, AssetFacts, FontBook, Layouter, StyleSheet};
-use folio_model::{Intent, SpreadId};
+use folio_layout::wire::PreflightItem;
+use folio_layout::{AssetFact, AssetFacts, BookFace, FontBook, FontSource, Layouter, StyleSheet};
+use folio_model::{BookFont, Intent, SpreadId};
 use folio_package::{Package, SaveOptions};
 use folio_presets::{kind_infos, new_book, suggest_save_path, KindInfo, NewBookSpec};
 use folio_session::{Patch, Session};
@@ -21,10 +23,13 @@ use crate::error::Error;
 use crate::recovery::{self, Recovery};
 use crate::spelling::Spelling;
 use crate::wire::{
-    BookSnapshot, BookSpelling, BookSummary, BooksChanged, Misspelling, MisspeltWord, PatchEvent,
-    Recoverable, SpellCheck, SpreadLayoutResult,
+    BookSnapshot, BookSpelling, BookSummary, BooksChanged, CoverSheetPreview, ExportColour,
+    ExportProgress, ExportReport, ExportTarget, ExportedFile, FontChoice, FontLicence, FontOrigin,
+    FontSkip, FontUse, KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, PreviewChapter,
+    PreviewImage, ProofPage, ReaderPreview, Recoverable, SkippedFont, SpellCheck,
+    SpreadLayoutResult,
 };
-use crate::{CHANGED_EVENT, PATCH_EVENT};
+use crate::{CHANGED_EVENT, EXPORT_PROGRESS_EVENT, PATCH_EVENT};
 
 /// What happened to the open books, for the app to react to (the recents list, for one).
 #[derive(Debug, Clone)]
@@ -63,6 +68,49 @@ const MAX_LISTED_WORDS: usize = 500;
 /// The largest picture file taken in whole.
 const MAX_IMAGE_BYTES: u64 = 100 * 1024 * 1024;
 
+/// The largest font file a book will keep: a family with a bigger one is left to the computer.
+const MAX_KEPT_FONT_BYTES: usize = 32 * 1024 * 1024;
+
+/// The extension a font file should be stored under, from its first bytes.
+fn font_extension(data: &[u8]) -> &'static str {
+    match data.get(..4) {
+        Some(b"OTTO") => "otf",
+        Some(b"ttcf") => "ttc",
+        _ => "ttf",
+    }
+}
+
+/// The pictures an export reads, by their path in the package.
+struct MemoryAssets(HashMap<String, Vec<u8>>);
+
+impl folio_export::pdf::Assets for MemoryAssets {
+    fn bytes(&self, path: &str) -> Option<Vec<u8>> {
+        self.0.get(path).cloned()
+    }
+}
+
+/// Every picture the book draws: on its pages, on its master pages and as page backgrounds.
+fn used_assets(book: &folio_model::Book) -> Vec<String> {
+    let mut found: Vec<String> = book
+        .spreads
+        .iter()
+        .flat_map(|s| spread_assets(book, s))
+        .collect();
+    for master in &book.master_pages {
+        for frame in &master.frames {
+            if let folio_model::Frame::Image(image) = frame {
+                found.extend(image.image.asset.clone());
+            }
+        }
+        if let Some(folio_model::Background::Picture { asset, .. }) = &master.bg {
+            found.push(asset.clone());
+        }
+    }
+    found.sort();
+    found.dedup();
+    found
+}
+
 struct OpenBook {
     id: String,
     session: Session,
@@ -75,9 +123,63 @@ struct OpenBook {
     /// What is known of each picture, read from its header the first time layout needs it. A
     /// picture's path is its content hash, so what is known of it never goes stale.
     facts: HashMap<String, AssetFact>,
+    /// The fonts the book keeps, laid over the app's, made again only when the list changes.
+    fonts: Option<(Vec<BookFont>, Arc<FontBook>)>,
 }
 
 impl OpenBook {
+    /// The paper that decides how thick the spine is: the book's own, and for a book made before the
+    /// paper was part of it, the one its settings name.
+    fn paper_in_use(&self) -> folio_model::Paper {
+        let book = self.session.book();
+        if book.paper != folio_model::Paper::default() {
+            return book.paper;
+        }
+        match self
+            .package
+            .settings()
+            .get("paper")
+            .and_then(|p| p.as_str())
+        {
+            Some("cream") => folio_model::Paper::Cream,
+            Some("colour") => folio_model::Paper::Colour,
+            _ => folio_model::Paper::White,
+        }
+    }
+
+    /// The font book to lay this book out with: `base` with the fonts the book keeps added, or
+    /// `None` when it keeps none. A file that cannot be read is left out, so the family falls back
+    /// as it would if it were missing.
+    fn font_book(&mut self, base: &FontBook) -> Option<Arc<FontBook>> {
+        let kept = &self.session.book().fonts;
+        if kept.is_empty() {
+            self.fonts = None;
+            return None;
+        }
+        if let Some((list, book)) = &self.fonts {
+            if list == kept {
+                return Some(Arc::clone(book));
+            }
+        }
+        let list = kept.clone();
+        let faces: Vec<BookFace> = list
+            .iter()
+            .filter_map(|font| {
+                let data = self.package.asset_bytes(&font.path).ok()?;
+                Some(BookFace {
+                    family: font.family.clone(),
+                    weight: font.weight,
+                    italic: font.italic,
+                    index: font.index,
+                    data: Arc::from(data),
+                })
+            })
+            .collect();
+        let book = Arc::new(base.layered(faces));
+        self.fonts = Some((list, Arc::clone(&book)));
+        Some(book)
+    }
+
     /// What is known of the pictures spread `spread` uses. A picture that is not in the package is
     /// left out, which is how layout knows it is missing; one that cannot be read is unreadable.
     fn facts_for(&mut self, book: &folio_model::Book, spread: &str) -> AssetFacts {
@@ -127,7 +229,7 @@ impl OpenBook {
             summary: self.summary(),
             revision: self.session.revision(),
             book: self.session.book().clone(),
-            styles: self.package.styles().clone(),
+            styles: serde_json::to_value(&self.session.book().styles).unwrap_or_default(),
             settings: self.package.settings().clone(),
             can_undo: self.session.can_undo(),
             can_redo: self.session.can_redo(),
@@ -159,6 +261,8 @@ pub struct Books<R: Runtime> {
     pub(crate) spelling: Spelling,
     /// Copies of books with changes, for coming back after a crash.
     pub(crate) recovery: Recovery,
+    /// Set to stop the export in progress before its next file.
+    cancel_export: AtomicBool,
 }
 
 impl<R: Runtime> Books<R> {
@@ -172,7 +276,13 @@ impl<R: Runtime> Books<R> {
             fonts: OnceLock::new(),
             spelling: Spelling::default(),
             recovery: Recovery::default(),
+            cancel_export: AtomicBool::new(false),
         }
+    }
+
+    /// Stops the export in progress after the file it is making.
+    pub fn cancel_export(&self) {
+        self.cancel_export.store(true, Ordering::SeqCst);
     }
 
     /// Runs `hook` after a book opens, saves or closes.
@@ -204,6 +314,31 @@ impl<R: Runtime> Books<R> {
         if let Err(e) = self.app.emit(PATCH_EVENT, event) {
             log::warn!("could not announce a change to a book: {e}");
         }
+    }
+
+    /// The cover of the book `spec` would make, as a `data:image/png` URI.
+    pub fn preview_new_book(&self, spec: &NewBookSpec) -> Result<String, Error> {
+        use base64::Engine as _;
+        let made = new_book(spec)?;
+        let styles = style_sheet(&made.book.styles);
+        let fonts = FontBook::bundled();
+        let cover = made
+            .book
+            .spreads
+            .first()
+            .ok_or_else(|| Error::Export("the book has no cover".into()))?;
+        let scene = Layouter::new(&made.book, &styles, &fonts)
+            .scene_spread(&cover.id)
+            .map_err(|e| Error::Export(e.to_string()))?
+            .and_then(|s| s.pages.into_iter().next())
+            .ok_or_else(|| Error::Export("the cover has no page".into()))?;
+        let png =
+            folio_export::raster::page_to_png(&scene, &fonts, &MemoryAssets(HashMap::new()), 360)
+                .map_err(|e| Error::Export(e.to_string()))?;
+        Ok(format!(
+            "data:image/png;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(png)
+        ))
     }
 
     pub fn presets(&self) -> Vec<KindInfo> {
@@ -245,6 +380,7 @@ impl<R: Runtime> Books<R> {
             recovery_id: recovery_id.unwrap_or_else(|| recovery::new_id(inner.next)),
             autosaved: None,
             facts: HashMap::new(),
+            fonts: None,
         };
         let snapshot = book.snapshot();
         inner.books.push(book);
@@ -256,7 +392,6 @@ impl<R: Runtime> Books<R> {
     pub fn new_book(&self, spec: &NewBookSpec) -> Result<BookSnapshot, Error> {
         let made = new_book(spec)?;
         let mut package = Package::new(made.book.clone());
-        *package.styles_mut() = made.styles;
         *package.settings_mut() = made.settings;
         Ok(self.add(Session::new(made.book), package, None))
     }
@@ -424,7 +559,8 @@ impl<R: Runtime> Books<R> {
         spread: &str,
         spelling: Option<&[String]>,
     ) -> Result<SpreadLayoutResult, Error> {
-        let (book, styles, revision, facts) = {
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, styles, revision, facts, layered) = {
             let mut inner = locked(&self.inner);
             let open = inner
                 .books
@@ -433,14 +569,16 @@ impl<R: Runtime> Books<R> {
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
             let book = open.session.book().clone();
             let facts = open.facts_for(&book, spread);
+            let layered = open.font_book(base);
             (
                 book,
-                style_sheet(open.package.styles()),
+                style_sheet(&open.session.book().styles),
                 open.session.revision(),
                 facts,
+                layered,
             )
         };
-        let fonts = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let fonts = layered.as_deref().unwrap_or(base);
         // Words are checked as the book's dictionary says, leaving alone those the book ignores and
         // those added for every book.
         let mut ignore = book.proofing.ignore.clone();
@@ -472,20 +610,23 @@ impl<R: Runtime> Books<R> {
     /// Lays out the text of one master page of a book, with its tokens as written, at the revision
     /// the book is at now.
     pub fn layout_master(&self, id: &str, master: &str) -> Result<SpreadLayoutResult, Error> {
-        let (book, styles, revision) = {
-            let inner = locked(&self.inner);
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, styles, revision, layered) = {
+            let mut inner = locked(&self.inner);
             let open = inner
                 .books
-                .iter()
+                .iter_mut()
                 .find(|b| b.id == id)
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let layered = open.font_book(base);
             (
                 open.session.book().clone(),
-                style_sheet(open.package.styles()),
+                style_sheet(&open.session.book().styles),
                 open.session.revision(),
+                layered,
             )
         };
-        let fonts = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let fonts = layered.as_deref().unwrap_or(base);
         let layouter = Layouter::new(&book, &styles, fonts);
         let layout = layouter
             .layout_master(&folio_model::MasterId(master.to_string()))?
@@ -748,6 +889,505 @@ impl<R: Runtime> Books<R> {
         Ok(open.package.asset_bytes(asset)?)
     }
 
+    /// Everything preflight has to say about the whole book: each spread laid out and its issues
+    /// gathered, the ones that wait on the person first and then in page order.
+    pub fn preflight(&self, id: &str) -> Result<Vec<PreflightItem>, Error> {
+        let spreads: Vec<String> = {
+            let inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            open.session
+                .book()
+                .spreads
+                .iter()
+                .map(|s| s.id.0.clone())
+                .collect()
+        };
+        let ignore = self.book_ignore(id)?;
+        let mut items = Vec::new();
+        for spread in spreads {
+            items.extend(self.layout_spread(id, &spread, None)?.layout.preflight);
+        }
+        for item in &mut items {
+            item.key = item.compute_key();
+            item.ignored = ignore.contains(&item.key);
+        }
+        // A stable sort keeps the pages in order within each severity.
+        items.sort_by_key(|item| item.severity);
+        Ok(items)
+    }
+
+    /// A spread as a press would print it, through the CMYK ICC profile at `profile`.
+    pub fn proof_spread(
+        &self,
+        id: &str,
+        spread: &str,
+        profile: &str,
+    ) -> Result<Vec<ProofPage>, Error> {
+        use base64::Engine as _;
+        let press = std::fs::read(profile).map_err(|e| Error::Export(format!("{profile}: {e}")))?;
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, styles, assets, layered) = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let book = open.session.book().clone();
+            let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
+            for path in used_assets(&book) {
+                if let Ok(bytes) = open.package.asset_bytes(&path) {
+                    assets.insert(path, bytes);
+                }
+            }
+            let styles = style_sheet(&book.styles);
+            (book, styles, assets, open.font_book(base))
+        };
+        let fonts = layered.as_deref().unwrap_or(base);
+        let pages = folio_export::proof::proof_spread(
+            &book,
+            &styles,
+            fonts,
+            &MemoryAssets(assets),
+            &SpreadId(spread.to_owned()),
+            &press,
+            720,
+        )
+        .map_err(|e| Error::Export(format!("{profile}: {e}")))?
+        .ok_or_else(|| Error::Export(format!("no spread {spread}")))?;
+        let uri = |png: Vec<u8>| {
+            format!(
+                "data:image/png;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(png)
+            )
+        };
+        Ok(pages
+            .into_iter()
+            .map(|p| ProofPage {
+                original: uri(p.original),
+                proofed: uri(p.proofed),
+                outside: p.outside,
+            })
+            .collect())
+    }
+
+    /// The paperback cover sheet as the exporter would make it (back, spine and front), as a
+    /// `data:image/png` URI. `None` when the book has no cover.
+    pub fn preview_cover_sheet(&self, id: &str) -> Result<Option<CoverSheetPreview>, Error> {
+        use base64::Engine as _;
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, assets, paper, layered) = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let book = open.session.book().clone();
+            let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
+            for path in used_assets(&book) {
+                if let Ok(bytes) = open.package.asset_bytes(&path) {
+                    assets.insert(path, bytes);
+                }
+            }
+            (book, assets, open.paper_in_use(), open.font_book(base))
+        };
+        let fonts = layered.as_deref().unwrap_or(base);
+        let Some(sheet) = folio_export::cover::cover_sheet(&book, paper) else {
+            return Ok(None);
+        };
+        let styles = style_sheet(&sheet.styles);
+        let scene = Layouter::new(&sheet, &styles, fonts)
+            .scene_spread(&sheet.spreads[0].id)
+            .map_err(|e| Error::Export(e.to_string()))?
+            .and_then(|s| s.pages.into_iter().next())
+            .ok_or_else(|| Error::Export("the cover sheet has no page".into()))?;
+        let png = folio_export::raster::page_to_png(&scene, fonts, &MemoryAssets(assets), 1400)
+            .map_err(|e| Error::Export(e.to_string()))?;
+        let maths = folio_model::paperback_cover(book.trim, folio_model::spine_pages(&book), paper);
+        Ok(Some(CoverSheetPreview {
+            image: format!(
+                "data:image/png;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(png)
+            ),
+            width: maths.width.0,
+            height: maths.height.0,
+            edge: maths.edge.0,
+            cover: book.trim.w.0,
+            spine: maths.spine.0,
+            spine_text: maths.spine_text_allowed,
+            barcode: maths.barcode,
+        }))
+    }
+
+    /// The book as an e-reader would show it, from the same chapters and CSS the EPUB ships.
+    pub fn reader_preview(&self, id: &str) -> Result<ReaderPreview, Error> {
+        use base64::Engine as _;
+        let (book, assets) = {
+            let inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let book = open.session.book().clone();
+            let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
+            for path in used_assets(&book) {
+                if let Ok(bytes) = open.package.asset_bytes(&path) {
+                    assets.insert(path, bytes);
+                }
+            }
+            (book, assets)
+        };
+        let made = folio_export::epub::reader_preview(&book, &MemoryAssets(assets))
+            .map_err(|e| Error::Export(e.to_string()))?;
+        Ok(ReaderPreview {
+            title: made.title,
+            language: made.language,
+            css: made.css,
+            chapters: made
+                .chapters
+                .into_iter()
+                .map(|c| PreviewChapter {
+                    title: c.title,
+                    body: c.body,
+                })
+                .collect(),
+            images: made
+                .images
+                .into_iter()
+                .map(|(name, media, bytes)| PreviewImage {
+                    data_uri: format!(
+                        "data:{media};base64,{}",
+                        base64::engine::general_purpose::STANDARD.encode(bytes)
+                    ),
+                    name,
+                })
+                .collect(),
+        })
+    }
+
+    /// Makes the files for `targets` from a book and writes them into its `exports` folder: beside
+    /// the book's file when it has been saved, and in its folder under `Books` when it has not.
+    /// Each file is written whole under a temporary name and renamed, so a failed export leaves no
+    /// half-written file.
+    pub fn export(
+        &self,
+        id: &str,
+        targets: &[ExportTarget],
+        colour: ExportColour,
+    ) -> Result<ExportReport, Error> {
+        // The press's profile is read once; a file that is not a CMYK profile is refused up front.
+        let ink = match (&colour.profile, colour.cmyk) {
+            (Some(path), _) => {
+                let bytes =
+                    std::fs::read(path).map_err(|e| Error::Export(format!("{path}: {e}")))?;
+                folio_colour::Profile::from_icc(&bytes)
+                    .map_err(|e| Error::Export(format!("{path}: {e}")))?;
+                Some(folio_export::pdf::InkOptions {
+                    profile: Some(bytes),
+                })
+            }
+            (None, true) => Some(folio_export::pdf::InkOptions::default()),
+            (None, false) => None,
+        };
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, styles, assets, layered, folder, paper) = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let book = open.session.book().clone();
+            // Pictures are read under the lock and used outside it, so the book stays usable.
+            let mut assets: HashMap<String, Vec<u8>> = HashMap::new();
+            for path in used_assets(&book) {
+                if let Ok(bytes) = open.package.asset_bytes(&path) {
+                    assets.insert(path, bytes);
+                }
+            }
+            let paper = open.paper_in_use();
+            let folder = match &open.path {
+                Some(path) => path.parent().map(Path::to_path_buf).unwrap_or_default(),
+                None => self
+                    .default_save_path(&book.title)
+                    .parent()
+                    .map(Path::to_path_buf)
+                    .unwrap_or_default(),
+            }
+            .join("exports");
+            let styles = style_sheet(&book.styles);
+            let layered = open.font_book(base);
+            (book, styles, assets, layered, folder, paper)
+        };
+        let fonts = layered.as_deref().unwrap_or(base);
+        std::fs::create_dir_all(&folder)
+            .map_err(|e| Error::Export(format!("{}: {e}", folder.display())))?;
+        let source = MemoryAssets(assets);
+        let mut report = ExportReport {
+            folder: folder.to_string_lossy().into_owned(),
+            files: Vec::new(),
+            cancelled: false,
+        };
+        self.cancel_export.store(false, Ordering::SeqCst);
+        for (done, &target) in targets.iter().enumerate() {
+            let progress = ExportProgress {
+                id: id.to_owned(),
+                target,
+                done: done as u32,
+                total: targets.len() as u32,
+            };
+            if let Err(e) = self.app.emit(EXPORT_PROGRESS_EVENT, progress) {
+                log::warn!("could not send the export's progress: {e}");
+            }
+            if self.cancel_export.swap(false, Ordering::SeqCst) {
+                report.cancelled = true;
+                break;
+            }
+            let made = folio_export::export_target(
+                match target {
+                    ExportTarget::SharingPdf => folio_export::Target::SharingPdf,
+                    ExportTarget::KdpInterior => folio_export::Target::KdpInterior,
+                    ExportTarget::PrintShopPdf => folio_export::Target::PrintShopPdf,
+                    ExportTarget::KdpCover => folio_export::Target::KdpCover,
+                    ExportTarget::EbookCover => folio_export::Target::EbookCover,
+                    ExportTarget::KindleEpub => folio_export::Target::KindleEpub,
+                    ExportTarget::FixedEpub => folio_export::Target::FixedEpub,
+                    ExportTarget::KoboEpub => folio_export::Target::KoboEpub,
+                },
+                paper,
+                &book,
+                &styles,
+                fonts,
+                &source,
+                ink.as_ref(),
+            )
+            .map_err(|e| Error::Export(e.to_string()))?;
+            for file in made {
+                let path = folder.join(&file.file_name);
+                let partial = folder.join(format!(".{}.partial", file.file_name));
+                std::fs::write(&partial, &file.bytes)
+                    .and_then(|()| std::fs::rename(&partial, &path))
+                    .map_err(|e| Error::Export(format!("{}: {e}", path.display())))?;
+                report.files.push(ExportedFile {
+                    target,
+                    path: path.to_string_lossy().into_owned(),
+                    bytes: file.bytes.len().try_into().unwrap_or(u32::MAX),
+                });
+            }
+        }
+        Ok(report)
+    }
+
+    /// Every family the book can draw in, bundled first, then the book's own, then the computer's,
+    /// each said once and with where it comes from.
+    pub fn font_choices(&self, id: &str) -> Result<Vec<FontChoice>, Error> {
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let layered = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            open.font_book(base)
+        };
+        let fonts = layered.as_deref().unwrap_or(base);
+        let mut seen: Vec<FontChoice> = Vec::new();
+        for face in fonts.faces() {
+            if seen
+                .iter()
+                .any(|c| c.family.eq_ignore_ascii_case(&face.family))
+            {
+                continue;
+            }
+            seen.push(FontChoice {
+                origin: match face.source {
+                    FontSource::Bundled => FontOrigin::Bundled,
+                    FontSource::Book => FontOrigin::Book,
+                    FontSource::System => FontOrigin::System,
+                },
+                family: face.family,
+            });
+        }
+        Ok(seen)
+    }
+
+    /// The typefaces the book uses and where each comes from, for the Fonts panel.
+    pub fn fonts_in_use(&self, id: &str) -> Result<Vec<FontUse>, Error> {
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let (book, layered) = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            (open.session.book().clone(), open.font_book(base))
+        };
+        let fonts = layered.as_deref().unwrap_or(base);
+        let choices = self.font_choices(id)?;
+        Ok(folio_layout::families::families_used(&book)
+            .into_iter()
+            .map(|family| {
+                let found = fonts.resolve(&folio_layout::FontRequest::new(&family, 400, false));
+                let (missing, licence) = match &found {
+                    Ok(r) => {
+                        let rights = r.font.embedding_rights();
+                        let licence = if rights.may_keep_with_book() {
+                            FontLicence::Free
+                        } else if rights.may_embed_in_pdf() {
+                            FontLicence::PrintOnly
+                        } else {
+                            FontLicence::Restricted
+                        };
+                        (r.family_substituted, licence)
+                    }
+                    Err(_) => (true, FontLicence::Restricted),
+                };
+                let origin = choices
+                    .iter()
+                    .find(|c| c.family.eq_ignore_ascii_case(&family))
+                    .map_or(FontOrigin::System, |c| c.origin);
+                FontUse {
+                    family,
+                    origin,
+                    missing,
+                    licence,
+                }
+            })
+            .collect())
+    }
+
+    /// Takes the fonts of `families` out of the book, so it is laid out from the computer's again,
+    /// in one undo step. The files leave the package at the next save.
+    pub fn unkeep_fonts(&self, id: &str, families: &[String]) -> Result<(), Error> {
+        let kept = self.book_fonts(id)?;
+        let left: Vec<BookFont> = kept
+            .iter()
+            .filter(|f| !families.iter().any(|x| x.eq_ignore_ascii_case(&f.family)))
+            .cloned()
+            .collect();
+        if left.len() == kept.len() {
+            return Ok(());
+        }
+        let gone: Vec<String> = kept
+            .iter()
+            .filter(|f| !left.contains(f))
+            .map(|f| f.path.clone())
+            .collect();
+        self.apply(
+            id,
+            Intent::SetFonts {
+                fonts: left.clone(),
+            },
+        )?;
+        // A file another kept font still names stays; the rest are not wanted.
+        let mut inner = locked(&self.inner);
+        if let Some(open) = inner.books.iter_mut().find(|b| b.id == id) {
+            for path in gone {
+                if !left.iter().any(|f| f.path == path) {
+                    open.package.remove_asset(&path);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Keeps the installed fonts of `families` inside the book, so it lays out the same on a
+    /// computer without them (D-30). A font whose licence does not let its file travel, or that is
+    /// too large, is left and reported; the rest are added to the package and the book's list in
+    /// one undo step.
+    pub fn keep_fonts(&self, id: &str, families: &[String]) -> Result<KeepFontsReport, Error> {
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let mut report = KeepFontsReport::default();
+        // Reading the font files is slow and needs no lock.
+        let wanted: Vec<(String, Vec<folio_layout::KeepableFace>)> = families
+            .iter()
+            .filter(|family| !FontBook::is_bundled(family))
+            .map(|family| (family.clone(), base.installed_files_of(family)))
+            .collect();
+        let list = {
+            let mut inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let mut list = open.session.book().fonts.clone();
+            for (family, files) in wanted {
+                if list.iter().any(|f| f.family.eq_ignore_ascii_case(&family)) {
+                    report.kept.push(family);
+                    continue;
+                }
+                if files.is_empty() {
+                    report.skipped.push(SkippedFont {
+                        family,
+                        reason: FontSkip::NotInstalled,
+                    });
+                    continue;
+                }
+                if files.iter().any(|f| !f.rights.may_keep_with_book()) {
+                    report.skipped.push(SkippedFont {
+                        family,
+                        reason: FontSkip::NotAllowed,
+                    });
+                    continue;
+                }
+                if files.iter().any(|f| f.data.len() > MAX_KEPT_FONT_BYTES) {
+                    report.skipped.push(SkippedFont {
+                        family,
+                        reason: FontSkip::TooLarge,
+                    });
+                    continue;
+                }
+                for file in files {
+                    let path = open
+                        .package
+                        .add_font(file.data.to_vec(), font_extension(&file.data));
+                    list.push(BookFont {
+                        family: file.family,
+                        weight: file.weight,
+                        italic: file.italic,
+                        path,
+                        index: file.index,
+                    });
+                }
+                report.kept.push(family);
+            }
+            list
+        };
+        if list != self.book_fonts(id)? {
+            self.apply(id, Intent::SetFonts { fonts: list })?;
+        }
+        Ok(report)
+    }
+
+    fn book_ignore(&self, id: &str) -> Result<Vec<String>, Error> {
+        let inner = locked(&self.inner);
+        inner
+            .books
+            .iter()
+            .find(|b| b.id == id)
+            .map(|open| open.session.book().preflight_ignore.clone())
+            .ok_or_else(|| Error::NoSuchBook(id.into()))
+    }
+
+    fn book_fonts(&self, id: &str) -> Result<Vec<BookFont>, Error> {
+        let inner = locked(&self.inner);
+        inner
+            .books
+            .iter()
+            .find(|b| b.id == id)
+            .map(|open| open.session.book().fonts.clone())
+            .ok_or_else(|| Error::NoSuchBook(id.into()))
+    }
+
     /// Applies an intent to a book, tells every window, and answers with what changed.
     pub fn apply(&self, id: &str, intent: Intent) -> Result<Patch, Error> {
         self.change(
@@ -824,7 +1464,7 @@ impl<R: Runtime> Books<R> {
 }
 
 /// The styles a book has, with Folio's own behind them for any it never used.
-fn style_sheet(styles: &serde_json::Value) -> StyleSheet {
-    StyleSheet::from_value(styles)
-        .with_fallback(&StyleSheet::from_value(&folio_presets::preset_styles()))
+fn style_sheet(styles: &folio_model::Styles) -> StyleSheet {
+    StyleSheet::from_styles(styles)
+        .with_fallback(&StyleSheet::from_styles(&folio_presets::preset_styles()))
 }

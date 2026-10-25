@@ -31,6 +31,8 @@ Files land in `~/Books/<Title>/exports/` by default (Documents\Books on Windows)
 
 KEPUB is EPUB plus `<span class="koboSpan" id="kobo.N.M">` around sentences, plus a `kobo.js`-free stylesheet. The file extension is `.kepub.epub`. It's generated from the same XHTML in a post-pass.
 
+**Built so far:** the Export tab's **Export book** opens a dialog with the Sharing PDF and the KDP paperback interior (the others are still to come); it says how many things are waiting on you with a way to check the book first, makes the chosen files in the book's `exports` folder (beside its file, or in its folder under `Books` before it is saved), lists them with their sizes and **Show in folder**. **Quick PDF** makes the Sharing PDF at once. File names follow `<slug>-share.pdf` and `<slug>-paperback-interior.pdf`. Pictures, fonts kept in the book and the page scene (D-29) are what it draws; bleed, crop marks, PDF/X and the cover are still to come.
+
 ## PDF writer
 
 - `krilla` (on `pdf-writer` and `subsetter`) for font subsetting, with the full glyph set for PDF/X and for the KDP targets; a spike confirms it can write PDF/X boxes and output intents, and `pdf-writer` is the fallback.
@@ -70,10 +72,13 @@ Issues are **fix-oriented**, sorted Waiting on you → Worth a look → Fine, sh
 | `OVERSET` | "Chapter 3 has words that don't fit" | "Add pages, or let Folio add them for you." |
 | `SPINE-NARROW` | "Spine is too narrow for text (under 80 pages)" | "We'll leave the spine blank, which KDP expects." |
 | `FONT-EMBED` | "Gill Sans can't be embedded in eBooks" | "Use Literata or Inter (both included), or let readers choose their own font." |
+| `FONT-MISSING` | "Zed Sans isn't on this computer or in the book" | "Pages are set in a stand-in and will break differently. Install the font, pick another, or open the book on the computer it was made on." (engine: `PreflightKind::FontMissing`, with the family) |
 | `FXL-SMALL-TEXT` | "Story text is 14 pt on a fixed-layout page" | "Make it 18 pt or larger so it reads well on a phone-sized screen." |
 | `ALT-MISSING` | "3 pictures have no description" | "Add a short description so screen readers can share them." |
 
 When nothing needs attention: **"No issues found. Book looks ready to export."**
+
+**Built so far:** the Export tab's **Check book** button opens a dialog that lays out every spread and lists what it finds in three groups (Waiting on you, Worth a look, For your information), worst first, each with the way to fix it and **Show me**, which goes to the page and selects the frame. Empty picture frames and pictures with no description are said once with a count. It covers the checks the engine has (words that do not fit, words outside the margin, pictures short of the bleed, missing and soft pictures, a missing font, an empty picture frame, no description). The Expert panel that stays open and the checks that need the exporters (spine, page count, embedding) are still to come.
 
 ## Job model
 

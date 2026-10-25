@@ -9,10 +9,12 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::background::Background;
+use crate::cover::{BarcodeChoice, Paper};
 use crate::flow::Flow;
 use crate::frame::Frame;
 use crate::ids::{BookId, MasterId};
 use crate::spread::{Guide, Spread};
+use crate::styles::Styles;
 use crate::units::{Margins, Pt, Size};
 
 /// The `book.json` schema version this build writes (and the newest it reads).
@@ -70,9 +72,25 @@ pub struct Book {
     /// Where the page numbers go, kept so the masters can be made again when pages come and go.
     #[serde(default, skip_serializing_if = "PageNumbers::is_none")]
     pub page_numbers: PageNumbers,
+    /// The paper a printed copy is on, which decides how thick the spine is.
+    #[serde(default, skip_serializing_if = "is_default_paper")]
+    pub paper: Paper,
+    /// Who makes the barcode on the paperback cover.
+    #[serde(default, skip_serializing_if = "is_default_barcode")]
+    pub barcode: BarcodeChoice,
+    /// Preflight issues the person has said to leave alone, each by its key (D-31).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub preflight_ignore: Vec<String>,
+    /// Font files kept inside the package, so the book is laid out the same on a machine without
+    /// them (D-30). Each names a file under `assets/fonts/`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fonts: Vec<BookFont>,
     /// What the person has told the proofing tools to leave alone, kept with the book.
     #[serde(default, skip_serializing_if = "Proofing::is_empty")]
     pub proofing: Proofing,
+    /// The named styles and the typeface body text starts in; `styles.json` in the package.
+    #[serde(default, skip_serializing_if = "Styles::is_empty")]
+    pub styles: Styles,
     pub metadata: BookMetadata,
     /// Keys at the top of `book.json` that this version does not know, from imports or a newer
     /// version of Folio, kept as they were so a save does not lose them. The UI never sees them.
@@ -112,6 +130,27 @@ impl Proofing {
         }
         Ok(word.to_owned())
     }
+}
+
+/// A font file the book keeps with it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct BookFont {
+    /// The family name styles and runs ask for.
+    pub family: String,
+    /// CSS weight: 400 regular, 700 bold.
+    pub weight: u16,
+    pub italic: bool,
+    /// The file in the package, such as `assets/fonts/9f2c…c1.ttf`.
+    pub path: String,
+    /// Which face of a collection file; 0 for an ordinary font.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub index: u32,
+}
+
+fn is_zero(value: &u32) -> bool {
+    *value == 0
 }
 
 /// A language tag as it would be kept (a BCP 47 code such as `en-CA` or `fr`): trimmed, a two or
@@ -216,6 +255,41 @@ pub struct Isbns {
     pub ebook: Option<String>,
 }
 
+/// What a book says about itself on its cover and in a store: its title, who made it, what it is
+/// about and its ISBNs. They are set together, as one undo step.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(rename_all = "camelCase")]
+pub struct Details {
+    pub title: String,
+    pub subtitle: Option<String>,
+    pub authors: Vec<Contributor>,
+    pub description: String,
+    pub isbn: Isbns,
+}
+
+impl Details {
+    /// The details a book has now.
+    pub fn of(book: &Book) -> Self {
+        Self {
+            title: book.title.clone(),
+            subtitle: book.subtitle.clone(),
+            authors: book.authors.clone(),
+            description: book.metadata.description.clone(),
+            isbn: book.metadata.isbn.clone(),
+        }
+    }
+
+    /// Puts these details in `book`, leaving its keywords alone.
+    pub fn apply(&self, book: &mut Book) {
+        book.title = self.title.clone();
+        book.subtitle = self.subtitle.clone();
+        book.authors = self.authors.clone();
+        book.metadata.description = self.description.clone();
+        book.metadata.isbn = self.isbn.clone();
+    }
+}
+
 impl Book {
     /// The number of pages in the book, not counting the cover, which a printer counts apart.
     pub fn page_count(&self) -> usize {
@@ -225,6 +299,14 @@ impl Book {
             .map(|s| s.pages.len())
             .sum()
     }
+}
+
+fn is_default_barcode(choice: &BarcodeChoice) -> bool {
+    *choice == BarcodeChoice::default()
+}
+
+fn is_default_paper(paper: &Paper) -> bool {
+    *paper == Paper::default()
 }
 
 #[cfg(test)]

@@ -12,6 +12,17 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { DictionaryOffer } from '@liminal-hq/folio-protocol/generated/DictionaryOffer';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { ExportColour } from '@liminal-hq/folio-protocol/generated/ExportColour';
+import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
+import type { CoverSheetPreview } from '@liminal-hq/folio-protocol/generated/CoverSheetPreview';
+import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
+import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
+import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
+import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
+import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
+import type { ProofPage } from '@liminal-hq/folio-protocol/generated/ProofPage';
+import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
+import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
 import type { Misspelling } from '@liminal-hq/folio-protocol/generated/Misspelling';
 import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
@@ -183,6 +194,18 @@ export function onBooksChanged(listener: (event: BooksChanged) => void): Promise
 	return listen<BooksChanged>(CHANGED_EVENT, (e) => listener(e.payload));
 }
 
+export const EXPORT_PROGRESS_EVENT = 'folio-books://export-progress';
+
+/** Hears which file an export has reached. */
+export function onExportProgress(listener: (event: ExportProgress) => void): Promise<UnlistenFn> {
+	return listen<ExportProgress>(EXPORT_PROGRESS_EVENT, (e) => listener(e.payload));
+}
+
+/** Stops the export in progress after the file it is making; what was made is kept. */
+export function cancelExport(): Promise<void> {
+	return cmd<void>('cancel_export');
+}
+
 /** Hears how far a dictionary download has got. */
 export function onDictionaryProgress(
 	listener: (event: DictionaryProgress) => void,
@@ -195,7 +218,14 @@ export type {
 	BookSpelling,
 	DictionaryOffer,
 	DictionaryStatus,
+	ExportReport,
+	ExportTarget,
+	FontChoice,
+	FontUse,
+	KeepFontsReport,
 	Misspelling,
+	PreflightItem,
+	ReaderPreview,
 	SpellCheck,
 	BookSummary,
 	BooksChanged,
@@ -208,6 +238,65 @@ export type {
 	PluginStatus,
 	Recoverable,
 };
+
+/** The book as an e-reader would show it, from the same chapters and CSS the EPUB ships. */
+export function readerPreview(id: string): Promise<ReaderPreview> {
+	return cmd<ReaderPreview>('reader_preview', { id });
+}
+
+/** A spread as a press would print it, through the CMYK ICC profile at `profile`. */
+export function proofSpread(id: string, spread: string, profile: string): Promise<ProofPage[]> {
+	return cmd<ProofPage[]>('proof_spread', { id, spread, profile });
+}
+
+/** The cover of the book `spec` would make, as a `data:image/png` URI. */
+export function previewNewBook(spec: NewBookSpec): Promise<string> {
+	return cmd<string>('preview_new_book', { spec });
+}
+
+/** The paperback cover sheet as the exporter would make it, as a PNG data URI; `null` with no cover. */
+export function previewCoverSheet(id: string): Promise<CoverSheetPreview | null> {
+	return cmd<CoverSheetPreview | null>('preview_cover_sheet', { id });
+}
+
+/** Makes the files for `targets` and writes them into the book's `exports` folder. */
+export function exportBook(
+	id: string,
+	targets: ExportTarget[],
+	colour?: ExportColour,
+): Promise<ExportReport> {
+	return cmd<ExportReport>('export_book', { id, targets, colour });
+}
+
+/** Shows a file in the system's file manager. */
+export function revealPath(path: string): Promise<void> {
+	return cmd<void>('reveal_path', { path });
+}
+
+/** What preflight finds in the whole book, the issues that wait on the person first. */
+export function preflightBook(id: string): Promise<PreflightItem[]> {
+	return cmd<PreflightItem[]>('preflight_book', { id });
+}
+
+/** Every family a book can draw in, and where each comes from (bundled, kept in the book or installed). */
+export function listFonts(id: string): Promise<FontChoice[]> {
+	return cmd<FontChoice[]>('list_fonts', { id });
+}
+
+/** The typefaces the book uses, and where each comes from. */
+export function fontsInUse(id: string): Promise<FontUse[]> {
+	return cmd<FontUse[]>('fonts_in_use', { id });
+}
+
+/** Takes fonts out of the book, so it is laid out from the computer's again. */
+export function unkeepFonts(id: string, families: string[]): Promise<void> {
+	return cmd<void>('unkeep_fonts', { id, families });
+}
+
+/** Keeps installed fonts inside the book; says which were kept and which could not be, and why. */
+export function keepFonts(id: string, families: string[]): Promise<KeepFontsReport> {
+	return cmd<KeepFontsReport>('keep_fonts', { id, families });
+}
 
 /** Reads a picture file into the book; resolves to its path inside the book (`assets/images/…`). */
 export function importImage(id: string, path: string): Promise<string> {

@@ -39,8 +39,40 @@ function applyOp(book: Book, op: PatchOp): Book {
 				...(op.numbers !== 'none' ? { pageNumbers: op.numbers } : {}),
 			};
 		}
+		case 'setBarcode': {
+			// Rust leaves the automatic barcode out of the book, and so does the copy.
+			const { barcode: _barcode, ...rest } = book;
+			return op.choice.kind !== 'auto' ? { ...rest, barcode: op.choice } : rest;
+		}
+		case 'setPaper': {
+			// Rust leaves the default, white paper out of the book, and so does the copy.
+			const { paper: _paper, ...rest } = book;
+			return op.paper !== 'white' ? { ...rest, paper: op.paper } : rest;
+		}
+		case 'setDetails': {
+			// Rust leaves a missing subtitle out of the book, and so does the copy.
+			const { subtitle: _subtitle, ...rest } = book;
+			const d = op.details;
+			return {
+				...rest,
+				title: d.title,
+				...(d.subtitle !== null ? { subtitle: d.subtitle } : {}),
+				authors: d.authors,
+				metadata: { ...book.metadata, description: d.description, isbn: d.isbn },
+			};
+		}
 		case 'setLanguage':
 			return { ...book, language: op.language };
+		case 'setPreflightIgnore': {
+			// Rust leaves an empty list out of the book, and so does the copy.
+			const { preflightIgnore: _ignore, ...rest } = book;
+			return op.keys.length > 0 ? { ...rest, preflightIgnore: op.keys } : rest;
+		}
+		case 'setFonts': {
+			// Rust leaves an empty list out of the book, and so does the copy.
+			const { fonts: _fonts, ...rest } = book;
+			return op.fonts.length > 0 ? { ...rest, fonts: op.fonts } : rest;
+		}
 		case 'setProofing': {
 			// Rust leaves an empty list out of the book, and so does the copy.
 			const { proofing: _proofing, ...rest } = book;

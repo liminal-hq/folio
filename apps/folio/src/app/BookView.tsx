@@ -6,6 +6,8 @@
 import type { RibbonCommand } from '@liminal-hq/folio-ribbon/types';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { usePaintPresets } from './usePaintPresets';
+import { useFontChoices } from './useFontChoices';
+import { useFontsInUse } from './useFontsInUse';
 import { shelfLabels } from '../books/shelfLabels';
 import type { OpenBookCopy } from '../books/booksStore';
 import { useBooks } from '../books/useBooks';
@@ -21,6 +23,18 @@ import { shelfIntent } from '../canvas/shelfMenu';
 import { guideIntents } from '../canvas/guides';
 import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../canvas/marksModel';
 import { keepWords } from '../canvas/editCheckpoint';
+import { CheckBookDialog } from './CheckBookDialog';
+import { ExportDialog } from './ExportDialog';
+import { getTextSelection } from '../canvas/textSelection';
+import { BookDetailsDialog } from './BookDetailsDialog';
+import { BarcodeDialog } from './BarcodeDialog';
+import { CoverSheetDialog } from './CoverSheetDialog';
+import { JAX_TOGGLE_EVENT } from '../jax/jaxToggle';
+import { JaxPanel } from '../jax/JaxPanel';
+import rowStyles from '../jax/shelfSlot.module.css';
+import { SoftProofDialog } from './SoftProofDialog';
+import { EXPORT_EVENT } from './exportRequest';
+import { ReaderView } from './ReaderView';
 import { PageBackgroundDialog } from '../canvas/PageBackgroundDialog';
 import { Stage, type ZoomApi } from '../canvas/Stage';
 import type { Speller } from '../canvas/TextEditor';
@@ -34,6 +48,7 @@ import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/Dict
 import { Inspector } from '../inspector/Inspector';
 import { languageChoices } from '../inspector/languageChoices';
 import { PagesPanel } from '../sidebar/PagesPanel';
+import { FontsPanel } from '../sidebar/FontsPanel';
 import { ProofingPanel } from '../sidebar/ProofingPanel';
 import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
 import { Sidebar, type SidebarGroup } from '../sidebar/Sidebar';
@@ -99,6 +114,8 @@ export function BookView({
 		master !== null,
 		settings.spelling.enabled ? settings.spelling.personal : null,
 	);
+	// What the stage shows: the pages as printed, or as a Kindle or a Kobo shows them.
+	const [preview, setPreview] = useState<'print' | 'kindle' | 'kobo'>('print');
 	const [selection, select] = useSelection(
 		spread?.id ?? null,
 		spread?.frames.map((f) => f.id) ?? [],
@@ -111,6 +128,7 @@ export function BookView({
 		...backgroundAssets(book),
 	]);
 	const choices = useMemo(() => styleChoices(copy.styles), [copy.styles]);
+	const fonts = useFontChoices(client, id, (book.fonts ?? []).map((f) => f.path).join('|'));
 	const selected = useMemo(
 		() => spread?.frames.filter((f) => selection.includes(f.id)) ?? [],
 		[spread, selection],
@@ -145,9 +163,11 @@ export function BookView({
 				selected,
 				layout,
 				choices,
+				...(fonts ? { fonts } : {}),
 				marks,
 				snap,
 				rulers: rulers.on,
+				preview,
 				master: master !== null,
 				cell: editingCell,
 			}
@@ -306,6 +326,33 @@ export function BookView({
 		} else setEditing(named);
 	};
 
+	// The Check book dialog, and the frame to select once "Show me" has gone to its spread.
+	const [checking, setChecking] = useState(false);
+	const [proofOpen, setProofOpen] = useState(false);
+	const [sheetOpen, setSheetOpen] = useState(false);
+	/** Jax's panel, open from the start when the person asked to be walked through. */
+	const [jaxOpen, setJaxOpen] = useState(settings.jax === 'guide');
+	useEffect(() => {
+		const toggle = () => setJaxOpen((open) => !open);
+		window.addEventListener(JAX_TOGGLE_EVENT, toggle);
+		return () => window.removeEventListener(JAX_TOGGLE_EVENT, toggle);
+	}, []);
+	const [barcodeOpen, setBarcodeOpen] = useState(false);
+	const [detailsOpen, setDetailsOpen] = useState(false);
+	// The Export dialog; `quick` makes the Sharing PDF the moment it opens.
+	const [exporting, setExporting] = useState<{ quick: boolean } | null>(null);
+	useEffect(() => {
+		const open = () => setExporting({ quick: false });
+		window.addEventListener(EXPORT_EVENT, open);
+		return () => window.removeEventListener(EXPORT_EVENT, open);
+	}, []);
+	const [reveal, setReveal] = useState<{ spread: string; frame: string } | null>(null);
+	useEffect(() => {
+		if (reveal && spread?.id === reveal.spread) {
+			select([reveal.frame]);
+			setReveal(null);
+		}
+	});
 	// The page background dialog: which page it was asked about, and the palette it offers.
 	const [background, setBackground] = useState<{ page: number | null; scope?: string } | null>(
 		null,
@@ -333,6 +380,7 @@ export function BookView({
 	};
 	// The sidebar's open group. Selecting something on the page brings the Properties forward.
 	const [group, setGroup] = useState<SidebarGroup>('properties');
+	const fontUses = useFontsInUse(client, id, copy.revision, group === 'fonts');
 	useEffect(() => {
 		// The Proofing list is a task: showing a word selects it, and the list stays.
 		if (selection.length > 0) setGroup((open) => (open === 'proofing' ? open : 'properties'));
@@ -394,6 +442,11 @@ export function BookView({
 			case 'intents':
 				action.intents.forEach(apply);
 				break;
+			case 'font':
+				action.intents.forEach(apply);
+				// An installed font is kept inside the book, so it opens the same on another computer.
+				if (action.keep) void client.keepFonts(id, [action.keep]).catch(() => undefined);
+				break;
 			case 'add':
 				addFrame(action.shape);
 				break;
@@ -431,6 +484,27 @@ export function BookView({
 			case 'pageBackground':
 				setBackground({ page: null });
 				break;
+			case 'preview':
+				setPreview(action.mode);
+				break;
+			case 'checkBook':
+				setChecking(true);
+				break;
+			case 'softProof':
+				setProofOpen(true);
+				break;
+			case 'coverSheet':
+				setSheetOpen(true);
+				break;
+			case 'barcode':
+				setBarcodeOpen(true);
+				break;
+			case 'bookDetails':
+				setDetailsOpen(true);
+				break;
+			case 'exportBook':
+				setExporting({ quick: action.quick });
+				break;
 			case 'editMaster': {
 				if (editing !== null) setEditing(null);
 				else void editMasterOf(spread.pages.findIndex((p) => p.master));
@@ -442,7 +516,12 @@ export function BookView({
 	/** The ribbon's document controls; answers whether the command was one of them. */
 	const onEditorCommand = (command: RibbonCommand): boolean => {
 		const value = typeof command.value === 'boolean' ? undefined : command.value;
-		const action = editorAction(command.id, value, input);
+		// What is selected in the open editor is read now: the ribbon keeps the editor's focus.
+		const action = editorAction(command.id, value, {
+			...input,
+			// Easy styles the whole box; only Expert styles the selected words (spec 09).
+			selection: settings.mode === 'expert' ? getTextSelection() : null,
+		});
 		if (!action) return false;
 		perform(action);
 		return true;
@@ -473,99 +552,112 @@ export function BookView({
 							</button>
 						</div>
 					)}
-					<Stage
-						book={book}
-						spread={spread}
-						label={master ? t('master.page', { name: masterName }) : (labels[shown] ?? '')}
-						heading={master ? t('master.editing', { name: masterName }) : undefined}
-						layout={layout}
-						marks={marks}
-						colours={colours}
-						onMarks={setMarks}
-						onMarkColour={(key: MarkKey, colour: number) =>
-							void update({ marks: { [key]: { colour } } } as SettingsPatch)
-						}
-						snap={snap}
-						rulers={{ on: rulers.on, unit: rulers.units }}
-						onRulerUnit={(units) => void update({ rulers: { units } } as SettingsPatch)}
-						onAddGuide={(axis, pos) => apply({ type: 'AddGuide', on: surface, axis, pos })}
-						onMoveGuide={(index, pos) => apply({ type: 'MoveGuide', on: surface, index, pos })}
-						onRemoveGuide={(index) => apply({ type: 'RemoveGuide', on: surface, index })}
-						onGuideCommand={(command, index) => {
-							for (const intent of guideIntents(command, spread, index, demoteTo)) apply(intent);
-						}}
-						zoomApi={zoomApi}
-						images={images}
-						selection={selection}
-						onSelect={select}
-						onMove={(moves) =>
-							store.apply(
-								moves.length === 1
-									? {
-											type: 'MoveFrame',
-											on: surface,
-											frame: moves[0]!.id,
-											box: boxOf(moves[0]!.rect),
-										}
-									: {
-											type: 'MoveFrames',
-											on: surface,
-											moves: moves.map((m) => ({ frame: m.id, box: boxOf(m.rect) })),
-										},
-							)
-						}
-						onTurn={(frame, degrees) =>
-							store.apply({ type: 'RotateFrame', on: surface, frame, degrees })
-						}
-						onEditText={(frame, text) => keepAsStep({ type: 'SetText', frame, text })}
-						onEditTable={(frame, edit) => keepAsStep({ type: 'EditTable', frame, edit })}
-						speller={speller}
-						onEditingCell={(cell) => cell && setEditingCell(cell)}
-						editableMasters={settings.mode === 'expert'}
-						demoteTo={demoteTo}
-						onPageCommand={(command, point) => {
-							const kinds: Record<string, NewFrameKind> = {
-								addText: 'text',
-								addPicture: 'picture',
-								addNote: 'note',
-							};
-							const kind = kinds[command];
-							if (kind) addFrame(kind, point);
-							else if (command === 'pageBackground')
-								setBackground({ page: pageAt(book, spread, point) });
-							else if (command.startsWith('editMaster:'))
-								setEditing(command.slice('editMaster:'.length));
-							else if (command === 'toggleMargins') setMarks({ margins: !marks.margins });
-							else if (command === 'toggleGrid') {
-								const on = !(marks.columns || marks.baseline);
-								setMarks({ columns: on, baseline: on });
-							} else if (master) return;
-							else if (command === 'addPages') {
-								apply({ type: 'AddSpread', after: spread.id, duplicate: false });
-								setSpreadIndex(shown + 1);
-							} else if (command === 'duplicateSpread') pageOp('duplicate');
-							else if (command.startsWith('copyMaster:')) {
-								const [, page, frame] = command.split(':') as [string, string, string];
-								apply({ type: 'CopyMasterItem', spread: spread.id, page, frame });
-							} else if (command.startsWith('hideMaster:') || command.startsWith('showMaster:')) {
-								const [which, page, frame] = command.split(':') as [string, string, string];
-								apply({
-									type: 'HideMasterItem',
-									spread: spread.id,
-									page,
-									frame,
-									hide: which === 'hideMaster',
-								});
+					{preview === 'print' ? (
+						<Stage
+							book={book}
+							spread={spread}
+							label={master ? t('master.page', { name: masterName }) : (labels[shown] ?? '')}
+							heading={master ? t('master.editing', { name: masterName }) : undefined}
+							layout={layout}
+							marks={marks}
+							colours={colours}
+							onMarks={setMarks}
+							onMarkColour={(key: MarkKey, colour: number) =>
+								void update({ marks: { [key]: { colour } } } as SettingsPatch)
 							}
-						}}
-						onCommand={(command, ids) => {
-							for (const frameId of ids) {
-								const target = spread.frames.find((f) => f.id === frameId);
-								if (!target) continue;
-								for (const intent of frameIntents(command, surface, target)) apply(intent);
+							snap={snap}
+							rulers={{ on: rulers.on, unit: rulers.units }}
+							onRulerUnit={(units) => void update({ rulers: { units } } as SettingsPatch)}
+							onAddGuide={(axis, pos) => apply({ type: 'AddGuide', on: surface, axis, pos })}
+							onMoveGuide={(index, pos) => apply({ type: 'MoveGuide', on: surface, index, pos })}
+							onRemoveGuide={(index) => apply({ type: 'RemoveGuide', on: surface, index })}
+							onGuideCommand={(command, index) => {
+								for (const intent of guideIntents(command, spread, index, demoteTo)) apply(intent);
+							}}
+							zoomApi={zoomApi}
+							images={images}
+							selection={selection}
+							onSelect={select}
+							onMove={(moves) =>
+								store.apply(
+									moves.length === 1
+										? {
+												type: 'MoveFrame',
+												on: surface,
+												frame: moves[0]!.id,
+												box: boxOf(moves[0]!.rect),
+											}
+										: {
+												type: 'MoveFrames',
+												on: surface,
+												moves: moves.map((m) => ({ frame: m.id, box: boxOf(m.rect) })),
+											},
+								)
 							}
-						}}
-					/>
+							onTurn={(frame, degrees) =>
+								store.apply({ type: 'RotateFrame', on: surface, frame, degrees })
+							}
+							onEditText={(frame, text) => keepAsStep({ type: 'SetText', frame, text })}
+							onEditTable={(frame, edit) => keepAsStep({ type: 'EditTable', frame, edit })}
+							speller={speller}
+							onEditingCell={(cell) => cell && setEditingCell(cell)}
+							editableMasters={settings.mode === 'expert'}
+							demoteTo={demoteTo}
+							onPageCommand={(command, point) => {
+								const kinds: Record<string, NewFrameKind> = {
+									addText: 'text',
+									addPicture: 'picture',
+									addNote: 'note',
+								};
+								const kind = kinds[command];
+								if (kind) addFrame(kind, point);
+								else if (command === 'pageBackground')
+									setBackground({ page: pageAt(book, spread, point) });
+								else if (command.startsWith('editMaster:'))
+									setEditing(command.slice('editMaster:'.length));
+								else if (command === 'toggleMargins') setMarks({ margins: !marks.margins });
+								else if (command === 'toggleGrid') {
+									const on = !(marks.columns || marks.baseline);
+									setMarks({ columns: on, baseline: on });
+								} else if (master) return;
+								else if (command === 'addPages') {
+									apply({ type: 'AddSpread', after: spread.id, duplicate: false });
+									setSpreadIndex(shown + 1);
+								} else if (command === 'duplicateSpread') pageOp('duplicate');
+								else if (command.startsWith('copyMaster:')) {
+									const [, page, frame] = command.split(':') as [string, string, string];
+									apply({ type: 'CopyMasterItem', spread: spread.id, page, frame });
+								} else if (command.startsWith('hideMaster:') || command.startsWith('showMaster:')) {
+									const [which, page, frame] = command.split(':') as [string, string, string];
+									apply({
+										type: 'HideMasterItem',
+										spread: spread.id,
+										page,
+										frame,
+										hide: which === 'hideMaster',
+									});
+								}
+							}}
+							onCommand={(command, ids) => {
+								for (const frameId of ids) {
+									const target = spread.frames.find((f) => f.id === frameId);
+									if (!target) continue;
+									for (const intent of frameIntents(command, surface, target)) apply(intent);
+								}
+							}}
+						/>
+					) : (
+						<ReaderView
+							client={client}
+							id={id}
+							book={book}
+							revision={copy.revision}
+							device={preview}
+							spread={spread}
+							layout={layout}
+							images={images}
+						/>
+					)}
 				</div>
 				<Sidebar
 					group={group}
@@ -649,6 +741,13 @@ export function BookView({
 								}
 							/>
 						),
+						fonts: (
+							<FontsPanel
+								uses={fontUses}
+								onKeep={(family) => void client.keepFonts(id, [family]).catch(() => undefined)}
+								onLetGo={(family) => void client.unkeepFonts(id, [family]).catch(() => undefined)}
+							/>
+						),
 						pages: (
 							<PagesPanel
 								book={book}
@@ -666,35 +765,129 @@ export function BookView({
 					}}
 				/>
 			</main>
-			<Shelf
+			<div className={rowStyles.row}>
+				<div className={rowStyles.slot}>
+					<Shelf
+						book={book}
+						images={images}
+						labels={labels}
+						selected={shown}
+						onSelect={(index) => {
+							setEditing(null);
+							setSpreadIndex(index);
+						}}
+						onAdd={() => {
+							setEditing(null);
+							pageOp('add');
+						}}
+						onCommand={(command, index) => {
+							const intent = shelfIntent(command, book, index);
+							if (!intent) return;
+							setEditing(null);
+							apply(intent);
+							if (command === 'duplicate' || command === 'moveRight') setSpreadIndex(index + 1);
+							else if (command === 'moveLeft') setSpreadIndex(index - 1);
+							else if (command === 'remove') setSpreadIndex(Math.max(0, index - 1));
+						}}
+						onMove={(from, to) => {
+							const moved = book.spreads[from];
+							if (!moved) return;
+							setEditing(null);
+							apply({ type: 'MoveSpread', spread: moved.id, to });
+							// Nothing goes in front of a cover, and the selection follows the spread.
+							setSpreadIndex(Math.max(book.spreads[0]?.kind === 'cover' ? 1 : 0, to));
+						}}
+					/>
+				</div>
+				{jaxOpen && settings.jax !== 'off' && (
+					<JaxPanel
+						context={{
+							picture: selected.some((f) => f.type === 'image'),
+							text: selected.some((f) => f.type === 'text' || f.type === 'shape'),
+							reader: preview,
+							flowing: book.layout === 'flowing',
+							grid: marks.columns || marks.baseline,
+						}}
+						issues={layout?.preflight ?? []}
+						spreadName={labels[shown] ?? ''}
+						guided={settings.jax === 'guide'}
+						onHush={() => setJaxOpen(false)}
+						onShow={(action) => {
+							switch (action.kind) {
+								case 'page':
+									setEditing(null);
+									setSpreadIndex(Math.min(action.index, book.spreads.length - 1));
+									break;
+								case 'preview':
+									setPreview(action.mode);
+									break;
+								case 'check':
+									setChecking(true);
+									break;
+								case 'export':
+									setExporting({ quick: false });
+									break;
+								case 'details':
+									setDetailsOpen(true);
+									break;
+								case 'coverSheet':
+									setSheetOpen(true);
+									break;
+								default:
+									break;
+							}
+						}}
+					/>
+				)}
+			</div>
+			<ExportDialog
+				open={exporting !== null}
+				onClose={() => setExporting(null)}
+				client={client}
+				id={id}
+				autoStart={exporting?.quick ? ['sharingPdf'] : null}
+				onCheck={() => setChecking(true)}
+			/>
+			<BookDetailsDialog
+				open={detailsOpen}
+				onClose={() => setDetailsOpen(false)}
 				book={book}
-				images={images}
+				onSave={(details) => apply({ type: 'SetDetails', details })}
+				onPaper={(paper) => apply({ type: 'SetPaper', paper })}
+			/>
+			<BarcodeDialog
+				open={barcodeOpen}
+				onClose={() => setBarcodeOpen(false)}
+				book={book}
+				apply={apply}
+			/>
+			<CoverSheetDialog
+				open={sheetOpen}
+				onClose={() => setSheetOpen(false)}
+				client={client}
+				id={id}
+				revision={copy.revision}
+			/>
+			<SoftProofDialog
+				open={proofOpen}
+				onClose={() => setProofOpen(false)}
+				client={client}
+				id={id}
+				spread={spread.id}
+			/>
+			<CheckBookDialog
+				open={checking}
+				onClose={() => setChecking(false)}
+				client={client}
+				id={id}
+				book={book}
 				labels={labels}
-				selected={shown}
-				onSelect={(index) => {
-					setEditing(null);
-					setSpreadIndex(index);
-				}}
-				onAdd={() => {
-					setEditing(null);
-					pageOp('add');
-				}}
-				onCommand={(command, index) => {
-					const intent = shelfIntent(command, book, index);
-					if (!intent) return;
-					setEditing(null);
-					apply(intent);
-					if (command === 'duplicate' || command === 'moveRight') setSpreadIndex(index + 1);
-					else if (command === 'moveLeft') setSpreadIndex(index - 1);
-					else if (command === 'remove') setSpreadIndex(Math.max(0, index - 1));
-				}}
-				onMove={(from, to) => {
-					const moved = book.spreads[from];
-					if (!moved) return;
-					setEditing(null);
-					apply({ type: 'MoveSpread', spread: moved.id, to });
-					// Nothing goes in front of a cover, and the selection follows the spread.
-					setSpreadIndex(Math.max(book.spreads[0]?.kind === 'cover' ? 1 : 0, to));
+				onIgnore={(keys) => void store.apply({ type: 'SetPreflightIgnore', keys })}
+				onShow={(at, frame) => {
+					if (master !== null) setEditing(null);
+					setSpreadIndex(at);
+					const target = book.spreads[at];
+					if (frame && target) setReveal({ spread: target.id, frame });
 				}}
 			/>
 			<PageBackgroundDialog

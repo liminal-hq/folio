@@ -36,6 +36,16 @@ pub enum SessionError {
     NotTable(String),
     #[error("that word cannot be ignored: {0}")]
     BadWord(String),
+    #[error("those issues cannot be left alone: {0}")]
+    BadIgnore(String),
+    #[error("that stretch of words cannot be styled: {0}")]
+    BadRange(String),
+    #[error("that barcode cannot be used: {0}")]
+    BadBarcode(String),
+    #[error("those details cannot be used: {0}")]
+    BadDetails(String),
+    #[error("those fonts cannot be kept: {0}")]
+    BadFont(String),
     #[error("that language cannot be used: {0}")]
     BadLanguage(String),
     #[error("that section cannot be used: {0}")]

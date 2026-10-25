@@ -94,6 +94,8 @@ function toRibbonItem(
 		...(source.expert ? { expert: true } : {}),
 		...(source.radio ? { radio: source.radio } : {}),
 	};
+	const shownText = context.editor?.texts[source.id];
+	if (shownText !== undefined) item.value = shownText;
 	if (source.id === 'menubar') item.active = context.settings.interface.menuBar;
 	if (source.id === 'spell') item.active = context.settings.spelling.enabled;
 	const pressed = context.editor?.active[source.id];
@@ -101,7 +103,12 @@ function toRibbonItem(
 	const shown = context.editor?.values[source.id];
 	if (shown !== undefined) item.value = shown;
 	if (kind === 'select') {
-		item.options = [['', t(`ribbon.value.${source.id}` as MessageKey)]];
+		item.options = [
+			['', t(`ribbon.value.${source.id}` as MessageKey)],
+			...(context.editor?.options[source.id] ?? []).map(
+				([value, text]) => [value, text] as [string, string],
+			),
+		];
 		item.width = source.id === 'font' ? 150 : 130;
 	}
 	if (source.id === 'size') Object.assign(item, { min: 4, max: 96, step: 1, defaultValue: 12 });

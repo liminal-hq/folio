@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use crate::wire::{ExportColour, ExportTarget};
 use std::sync::{Arc, Mutex};
 
 use folio_model::{Intent, Pt, Rect, SpreadId};
@@ -979,4 +980,445 @@ fn a_book_never_saved_comes_back_untitled_and_closing_or_giving_up_leaves_no_cop
         books(&other).restore("../outside"),
         Err(Error::Recovery(_))
     ));
+}
+
+#[test]
+fn a_book_offers_the_bundled_families_first_and_says_where_each_comes_from() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let choices = books(&app).font_choices(&id).unwrap();
+    assert_eq!(choices[0].origin, crate::wire::FontOrigin::Bundled);
+    assert!(choices.iter().any(|c| c.family == "Literata"));
+    let mut names: Vec<String> = choices.iter().map(|c| c.family.to_lowercase()).collect();
+    names.sort();
+    names.dedup();
+    assert_eq!(names.len(), choices.len(), "each family once");
+    assert!(books(&app).font_choices("nope").is_err());
+}
+
+#[test]
+fn keeping_fonts_leaves_the_bundled_ones_alone_and_reports_what_is_not_installed() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let report = books(&app)
+        .keep_fonts(&id, &["Literata".to_string(), "No Such Family".to_string()])
+        .unwrap();
+    assert!(report.kept.is_empty());
+    assert_eq!(report.skipped.len(), 1);
+    assert_eq!(report.skipped[0].family, "No Such Family");
+    assert_eq!(
+        report.skipped[0].reason,
+        crate::wire::FontSkip::NotInstalled
+    );
+    // Nothing was kept, so nothing changed and there is nothing to undo.
+    assert!(books(&app).snapshot(&id).unwrap().book.fonts.is_empty());
+    assert!(!books(&app).snapshot(&id).unwrap().can_undo);
+}
+
+#[test]
+fn an_installed_font_that_may_travel_is_kept_in_one_undo_step_and_laid_out_from_the_book() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    // Which fonts are installed depends on the computer, so use the first one whose licence allows.
+    let installed: Vec<String> = books(&app)
+        .font_choices(&id)
+        .unwrap()
+        .into_iter()
+        .filter(|c| c.origin == crate::wire::FontOrigin::System)
+        .map(|c| c.family)
+        .collect();
+    let Some(family) = installed.into_iter().find(|f| {
+        let report = books(&app)
+            .keep_fonts(&id, std::slice::from_ref(f))
+            .unwrap();
+        !report.kept.is_empty()
+    }) else {
+        return; // No installed font may be kept on this computer; there is nothing to check.
+    };
+    let snapshot = books(&app).snapshot(&id).unwrap();
+    assert!(snapshot
+        .book
+        .fonts
+        .iter()
+        .all(|f| f.path.starts_with("assets/fonts/")));
+    assert!(snapshot.book.fonts.iter().any(|f| f.family == family));
+    assert!(snapshot.can_undo);
+    // The family now comes from the book.
+    let origin = books(&app)
+        .font_choices(&id)
+        .unwrap()
+        .into_iter()
+        .find(|c| c.family == family)
+        .unwrap()
+        .origin;
+    assert_eq!(origin, crate::wire::FontOrigin::Book);
+    // Keeping it again changes nothing.
+    let depth = books(&app).history_mark(&id).unwrap();
+    books(&app)
+        .keep_fonts(&id, std::slice::from_ref(&family))
+        .unwrap();
+    assert_eq!(books(&app).history_mark(&id).unwrap(), depth);
+    // One undo takes it back out.
+    books(&app).undo(&id).unwrap();
+    assert!(books(&app).snapshot(&id).unwrap().book.fonts.is_empty());
+}
+
+#[test]
+fn preflight_gathers_the_whole_book_with_what_waits_on_the_person_first() {
+    use folio_layout::wire::{PreflightKind, Severity};
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let items = books(&app).preflight(&id).unwrap();
+    // A sample picture book has picture frames with no picture yet.
+    assert!(items
+        .iter()
+        .any(|i| i.kind == PreflightKind::PicturePlaceholder));
+    let severities: Vec<Severity> = items.iter().map(|i| i.severity).collect();
+    let mut sorted = severities.clone();
+    sorted.sort();
+    assert_eq!(severities, sorted, "errors, then warnings, then notes");
+    assert!(books(&app).preflight("nope").is_err());
+}
+
+#[test]
+fn exporting_writes_each_target_into_an_exports_folder_beside_the_saved_book() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("Otter").join("Otter.folio");
+    books(&app).save(&id, Some(file.as_path())).unwrap();
+
+    let report = books(&app)
+        .export(
+            &id,
+            &[
+                ExportTarget::SharingPdf,
+                ExportTarget::KdpInterior,
+                ExportTarget::KdpCover,
+                ExportTarget::EbookCover,
+            ],
+            ExportColour::default(),
+        )
+        .unwrap();
+    let folder = dir.path().join("Otter").join("exports");
+    assert_eq!(std::path::Path::new(&report.folder), folder);
+    assert_eq!(report.files.len(), 4);
+    let names: Vec<String> = report
+        .files
+        .iter()
+        .map(|f| {
+            std::path::Path::new(&f.path)
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "the-otter-who-couldnt-sleep-share.pdf",
+            "the-otter-who-couldnt-sleep-paperback-interior.pdf",
+            "the-otter-who-couldnt-sleep-paperback-cover.pdf",
+            "the-otter-who-couldnt-sleep-ebook-cover.jpg"
+        ]
+    );
+    for file in &report.files {
+        let bytes = std::fs::read(&file.path).unwrap();
+        assert!(bytes.starts_with(b"%PDF-") || bytes.starts_with(&[0xff, 0xd8]));
+        assert_eq!(bytes.len() as u32, file.bytes);
+    }
+    // No half-written file is left behind.
+    assert!(std::fs::read_dir(&folder).unwrap().all(|e| !e
+        .unwrap()
+        .file_name()
+        .to_string_lossy()
+        .ends_with(".partial")));
+    assert!(books(&app)
+        .export("nope", &[ExportTarget::SharingPdf], ExportColour::default())
+        .is_err());
+}
+
+#[test]
+fn the_interior_can_be_made_in_ink_and_a_bad_profile_is_refused() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec {
+            title: "Otter".into(),
+            ..NewBookSpec::default()
+        })
+        .unwrap()
+        .summary
+        .id;
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("Otter").join("Otter.folio");
+    books(&app).save(&id, Some(file.as_path())).unwrap();
+    let ink = ExportColour {
+        cmyk: true,
+        profile: None,
+    };
+    let report = books(&app)
+        .export(&id, &[ExportTarget::KdpInterior], ink)
+        .unwrap();
+    let in_ink = std::fs::read(&report.files[0].path).unwrap();
+    let plain = books(&app)
+        .export(&id, &[ExportTarget::KdpInterior], ExportColour::default())
+        .unwrap();
+    // The colour model is in the page content, so the two files differ.
+    assert_ne!(in_ink, std::fs::read(&plain.files[0].path).unwrap());
+
+    let junk = dir.path().join("junk.icc");
+    std::fs::write(&junk, b"not a profile").unwrap();
+    let bad = ExportColour {
+        cmyk: true,
+        profile: Some(junk.to_string_lossy().into_owned()),
+    };
+    assert!(books(&app)
+        .export(&id, &[ExportTarget::KdpInterior], bad)
+        .is_err());
+}
+
+#[test]
+fn the_reader_preview_is_the_chapters_and_css_the_epub_ships() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec {
+            kind: folio_model::BookKind::Novel,
+            ..NewBookSpec::default()
+        })
+        .unwrap()
+        .summary
+        .id;
+    let preview = books(&app).reader_preview(&id).unwrap();
+    assert_eq!(preview.language, "en-CA");
+    assert!(!preview.chapters.is_empty());
+    assert!(preview.chapters.iter().any(|c| c.body.contains("<p")));
+    assert!(preview.css.contains("font-family"));
+    assert!(books(&app).reader_preview("nope").is_err());
+}
+
+#[test]
+fn the_fonts_panel_lists_the_families_a_book_uses_and_a_kept_font_can_be_let_go() {
+    use crate::wire::{FontLicence, FontOrigin};
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let in_use = books(&app).fonts_in_use(&id).unwrap();
+    let look = in_use
+        .iter()
+        .find(|f| f.family == "Atkinson Hyperlegible")
+        .expect("the look");
+    assert_eq!(look.origin, FontOrigin::Bundled);
+    assert!(!look.missing);
+    assert_eq!(look.licence, FontLicence::Free);
+
+    // A font nobody has is reported missing.
+    let snapshot = books(&app).snapshot(&id).unwrap();
+    let frame = snapshot.book.spreads[1]
+        .frames
+        .iter()
+        .find(|f| matches!(f, folio_model::Frame::Text(_)))
+        .unwrap()
+        .base()
+        .id
+        .clone();
+    books(&app)
+        .apply(
+            &id,
+            Intent::OverrideStyle {
+                frame,
+                overrides: folio_model::StyleOverrides {
+                    font: Some("Zed Sans".into()),
+                    ..Default::default()
+                },
+            },
+        )
+        .unwrap();
+    let in_use = books(&app).fonts_in_use(&id).unwrap();
+    assert!(in_use.iter().any(|f| f.family == "Zed Sans" && f.missing));
+
+    // Letting go of a font that is not kept changes nothing.
+    let depth = books(&app).history_mark(&id).unwrap();
+    books(&app)
+        .unkeep_fonts(&id, &["Zed Sans".to_string()])
+        .unwrap();
+    assert_eq!(books(&app).history_mark(&id).unwrap(), depth);
+}
+
+#[test]
+fn an_issue_the_person_leaves_alone_is_marked_so_and_comes_back_when_it_is_let_go() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let all = books(&app).preflight(&id).unwrap();
+    assert!(all.iter().all(|i| !i.ignored && !i.key.is_empty()));
+    let one = all[0].key.clone();
+    books(&app)
+        .apply(
+            &id,
+            Intent::SetPreflightIgnore {
+                keys: vec![one.clone()],
+            },
+        )
+        .unwrap();
+    let after = books(&app).preflight(&id).unwrap();
+    assert_eq!(after.len(), all.len(), "an ignored issue is still listed");
+    assert!(after.iter().find(|i| i.key == one).unwrap().ignored);
+    assert_eq!(after.iter().filter(|i| i.ignored).count(), 1);
+    books(&app).undo(&id).unwrap();
+    assert!(books(&app)
+        .preflight(&id)
+        .unwrap()
+        .iter()
+        .all(|i| !i.ignored));
+}
+
+#[test]
+fn a_spread_is_proofed_through_a_press_profile_and_a_bad_path_is_refused() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let spread = books(&app).snapshot(&id).unwrap().book.spreads[1]
+        .id
+        .0
+        .clone();
+    assert!(books(&app).proof_spread(&id, &spread, "/nope.icc").is_err());
+    let press = "/usr/share/ghostscript/iccprofiles/default_cmyk.icc";
+    if std::path::Path::new(press).exists() {
+        let pages = books(&app).proof_spread(&id, &spread, press).unwrap();
+        assert!(!pages.is_empty());
+        assert!(pages[0].proofed.starts_with("data:image/png;base64,"));
+        assert_ne!(pages[0].original, pages[0].proofed);
+    }
+}
+
+#[test]
+fn an_export_says_which_file_it_has_reached_and_stops_when_asked() {
+    use crate::wire::{ExportProgress, ExportReport};
+    use crate::EXPORT_PROGRESS_EVENT;
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec {
+            title: "Otter".into(),
+            ..NewBookSpec::default()
+        })
+        .unwrap()
+        .summary
+        .id;
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("Otter").join("Otter.folio");
+    books(&app).save(&id, Some(file.as_path())).unwrap();
+    let targets = [ExportTarget::SharingPdf, ExportTarget::EbookCover];
+
+    let heard = hear::<ExportProgress>(&app, "main", EXPORT_PROGRESS_EVENT);
+    let report: ExportReport = books(&app)
+        .export(&id, &targets, ExportColour::default())
+        .unwrap();
+    assert!(!report.cancelled);
+    let seen: Vec<(u32, u32)> = heard
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|p| (p.done, p.total))
+        .collect();
+    assert_eq!(seen, vec![(0, 2), (1, 2)]);
+
+    // Asking to stop when the first file is reached keeps that file and makes no more.
+    let handle = app.handle().clone();
+    app.listen(EXPORT_PROGRESS_EVENT, move |e| {
+        let p: ExportProgress = serde_json::from_str(e.payload()).unwrap();
+        if p.done == 1 {
+            handle.state::<Books<MockRuntime>>().cancel_export();
+        }
+    });
+    let stopped = books(&app)
+        .export(&id, &targets, ExportColour::default())
+        .unwrap();
+    assert!(stopped.cancelled);
+    assert_eq!(stopped.files.len(), 1);
+}
+
+#[test]
+fn the_cover_a_new_book_would_have_is_drawn_without_making_the_book() {
+    let app = app();
+    let spec = NewBookSpec {
+        cover_colour: "#1f4e5f".into(),
+        ..NewBookSpec::default()
+    };
+    let uri = books(&app).preview_new_book(&spec).unwrap();
+    assert!(uri.starts_with("data:image/png;base64,"));
+    assert!(books(&app).list().is_empty());
+    let other = books(&app)
+        .preview_new_book(&NewBookSpec {
+            cover_colour: "#a23b2a".into(),
+            ..spec
+        })
+        .unwrap();
+    assert_ne!(uri, other);
+    assert!(books(&app)
+        .preview_new_book(&NewBookSpec {
+            cover_colour: "teal".into(),
+            ..NewBookSpec::default()
+        })
+        .is_err());
+}
+
+#[test]
+fn the_cover_sheet_is_drawn_wide_and_changes_with_the_paper() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec {
+            kind: folio_model::BookKind::Novel,
+            ..NewBookSpec::default()
+        })
+        .unwrap()
+        .summary
+        .id;
+    let white = books(&app).preview_cover_sheet(&id).unwrap().unwrap();
+    assert!(white.image.starts_with("data:image/png;base64,"));
+    assert!(white.width > white.cover * 2.0 + white.spine);
+    assert!(white.barcode.w.0 > 100.0);
+    books(&app)
+        .apply(
+            &id,
+            folio_model::Intent::SetPaper {
+                paper: folio_model::Paper::Cream,
+            },
+        )
+        .unwrap();
+    let cream = books(&app).preview_cover_sheet(&id).unwrap().unwrap();
+    assert_ne!(
+        white.image, cream.image,
+        "a thicker spine draws differently"
+    );
+    assert!(cream.spine > white.spine);
 }

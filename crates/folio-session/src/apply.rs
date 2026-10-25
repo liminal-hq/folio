@@ -4,10 +4,55 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    clean_language, BackgroundTarget, Book, Colour, Frame, FrameId, Guide, InlineContent, Intent,
-    Master, MasterId, Page, Paint, Proofing, Pt, ReorderTo, Run, Spread, SpreadId, SpreadKind,
-    Surface, TableCell, TableEdit, TableFrame, MAX_IGNORED_WORDS,
+    clean_language, BackgroundTarget, BarcodeChoice, Book, BookFont, Colour, Frame, FrameId, Guide,
+    InlineContent, Intent, Master, MasterId, Page, Paint, Proofing, Pt, ReorderTo, Run, Spread,
+    SpreadId, SpreadKind, Surface, TableCell, TableEdit, TableFrame, MAX_IGNORED_WORDS,
 };
+
+/// The most preflight issues a book can leave alone.
+pub const MAX_IGNORED_ISSUES: usize = 500;
+
+/// How long the details of a book may be.
+const MAX_TITLE: usize = 300;
+const MAX_DESCRIPTION: usize = 5000;
+const MAX_AUTHORS: usize = 20;
+
+/// The most fonts a book can keep, and a sanity limit on the weights a font can name.
+pub const MAX_BOOK_FONTS: usize = 128;
+
+/// Whether `fonts` could be kept: each names a family and a file under `assets/fonts/`, and none
+/// is listed twice.
+fn check_fonts(fonts: &[BookFont]) -> Result<(), SessionError> {
+    if fonts.len() > MAX_BOOK_FONTS {
+        return Err(SessionError::BadFont(format!(
+            "a book keeps at most {MAX_BOOK_FONTS} fonts"
+        )));
+    }
+    for (at, font) in fonts.iter().enumerate() {
+        if font.family.trim().is_empty() {
+            return Err(SessionError::BadFont("a font needs a family name".into()));
+        }
+        if !font.path.starts_with("assets/fonts/") || font.path.contains("..") {
+            return Err(SessionError::BadFont(format!(
+                "`{}` is not a file in the book's fonts",
+                font.path
+            )));
+        }
+        if !(1..=1000).contains(&font.weight) {
+            return Err(SessionError::BadFont(format!(
+                "{} is not a font weight",
+                font.weight
+            )));
+        }
+        if fonts[..at].contains(font) {
+            return Err(SessionError::BadFont(format!(
+                "{} is listed twice",
+                font.family
+            )));
+        }
+    }
+    Ok(())
+}
 
 /// The widest an outline can be, and the roundest a corner, in points.
 const MAX_STROKE: f64 = 100.0;
@@ -388,6 +433,55 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 merge: None,
             })
         }
+        Intent::SetFonts { fonts } => {
+            check_fonts(fonts)?;
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                merge: None,
+            })
+        }
+        Intent::SetBarcode { choice } => {
+            if let BarcodeChoice::Own { addon: Some(addon) } = choice {
+                if !BarcodeChoice::addon_is_valid(addon) {
+                    return Err(SessionError::BadBarcode(
+                        "a price add-on is five digits".into(),
+                    ));
+                }
+            }
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                merge: None,
+            })
+        }
+        Intent::SetPaper { .. } => Ok(Plan {
+            touched: Vec::new(),
+            new_spread: None,
+            merge: None,
+        }),
+        Intent::SetDetails { details } => {
+            check_details(details)?;
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                merge: None,
+            })
+        }
+        Intent::SetPreflightIgnore { keys } => {
+            if keys.len() > MAX_IGNORED_ISSUES
+                || keys.iter().any(|k| k.is_empty() || k.chars().count() > 240)
+            {
+                return Err(SessionError::BadIgnore(format!(
+                    "at most {MAX_IGNORED_ISSUES} issues, each with a key"
+                )));
+            }
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                merge: None,
+            })
+        }
         Intent::EndUndoStep => Ok(Plan {
             touched: Vec::new(),
             new_spread: None,
@@ -646,6 +740,34 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 touched: touched_by(book, frame)?,
                 new_spread: None,
                 merge: Some(MergeKey::Text(frame.clone())),
+            })
+        }
+        Intent::StyleRange {
+            frame,
+            start,
+            end,
+            change,
+        } => {
+            check_text(book, frame)?;
+            let length = words_of(book, frame)
+                .map(|runs| folio_model::text_of(runs).chars().count())
+                .unwrap_or(0);
+            if start >= end || *end as usize > length || change.is_empty() {
+                return Err(SessionError::BadRange(format!(
+                    "{start}..{end} in words of {length} characters"
+                )));
+            }
+            if change
+                .colour
+                .as_deref()
+                .is_some_and(|c| !c.is_empty() && folio_model::Colour::parse(c).is_err())
+            {
+                return Err(SessionError::BadRange("that colour is not #rrggbb".into()));
+            }
+            Ok(Plan {
+                touched: touched_by(book, frame)?,
+                new_spread: None,
+                merge: None,
             })
         }
         Intent::EditTable { frame, edit } => {
@@ -908,6 +1030,11 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 book.language = language;
             }
         }
+        Intent::SetFonts { fonts } => book.fonts = fonts,
+        Intent::SetBarcode { choice } => book.barcode = choice,
+        Intent::SetPaper { paper } => book.paper = paper,
+        Intent::SetDetails { details } => details.apply(book),
+        Intent::SetPreflightIgnore { keys } => book.preflight_ignore = keys,
         Intent::EndUndoStep => {}
         Intent::IgnoreWord { word } => {
             if let Ok(word) = Proofing::clean(&word) {
@@ -1091,14 +1218,35 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 sp.guides.retain(|g| g.locked);
             }
         }
+        Intent::StyleRange {
+            frame,
+            start,
+            end,
+            change,
+        } => {
+            let styled = |content: &mut Option<InlineContent>| {
+                if let Some(content) = content {
+                    content.inline = folio_model::style_range(
+                        &content.inline,
+                        start as usize,
+                        end as usize,
+                        &change,
+                    );
+                }
+            };
+            match locate_mut(book, &frame) {
+                Some(Frame::Text(t)) => styled(&mut t.content),
+                Some(Frame::Shape(s)) => styled(&mut s.content),
+                _ => {}
+            }
+        }
         Intent::SetText { frame, text } => {
+            // Words already there keep the look of the stretches that were not touched.
+            let old: Vec<Run> = words_of(book, &frame)
+                .map(<[Run]>::to_vec)
+                .unwrap_or_default();
             let content = InlineContent {
-                inline: vec![Run {
-                    text,
-                    style: None,
-                    bold: false,
-                    italic: false,
-                }],
+                inline: folio_model::retext(&old, &text),
             };
             match locate_mut(book, &frame) {
                 Some(Frame::Text(t)) => t.content = Some(content),
@@ -1312,6 +1460,8 @@ fn edit_table(table: &mut TableFrame, edit: &TableEdit) {
                         style: None,
                         bold: false,
                         italic: false,
+                        font: None,
+                        colour: None,
                     }],
                 });
             }
@@ -1357,5 +1507,54 @@ fn edit_table(table: &mut TableFrame, edit: &TableEdit) {
         TableEdit::SetHead { head } => table.head = *head,
         TableEdit::SetLook { look } => table.look = *look,
         _ => {}
+    }
+}
+
+/// Refuses details a book cannot have: no title, text that is too long, or an ISBN that is not an
+/// ISBN-13 with a correct check digit.
+fn check_details(details: &folio_model::Details) -> Result<(), SessionError> {
+    let bad = |what: &str| Err(SessionError::BadDetails(what.to_owned()));
+    if details.title.trim().is_empty() || details.title.chars().count() > MAX_TITLE {
+        return bad("the title must be there and no longer than 300 characters");
+    }
+    if details
+        .subtitle
+        .as_deref()
+        .is_some_and(|s| s.chars().count() > MAX_TITLE)
+    {
+        return bad("the subtitle is too long");
+    }
+    if details.description.chars().count() > MAX_DESCRIPTION {
+        return bad("the description is too long");
+    }
+    if details.authors.len() > MAX_AUTHORS
+        || details
+            .authors
+            .iter()
+            .any(|a| a.name.trim().is_empty() || a.name.chars().count() > MAX_TITLE)
+    {
+        return bad("each author needs a name, and there can be at most 20");
+    }
+    for isbn in [
+        &details.isbn.paperback,
+        &details.isbn.hardcover,
+        &details.isbn.ebook,
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if !isbn.is_empty() && !folio_model::is_valid_isbn13(isbn) {
+            return bad("an ISBN is not a valid ISBN-13");
+        }
+    }
+    Ok(())
+}
+
+/// The runs of the words a text frame or shape holds.
+fn words_of<'a>(book: &'a Book, frame: &FrameId) -> Option<&'a [Run]> {
+    match locate(book, frame)? {
+        Frame::Text(t) => t.content.as_ref().map(|c| c.inline.as_slice()),
+        Frame::Shape(s) => s.content.as_ref().map(|c| c.inline.as_slice()),
+        _ => None,
     }
 }

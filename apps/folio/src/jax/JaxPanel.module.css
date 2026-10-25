@@ -1,0 +1,97 @@
+.panel {
+	display: grid;
+	grid-template-rows: auto 1fr;
+	flex: 0 0 470px;
+	min-block-size: 168px;
+	max-block-size: 40vh;
+	overflow-y: auto;
+	min-inline-size: 0;
+	border-inline-start: 1px solid var(--folio-border-subtle);
+	background: var(--folio-bg-raised);
+}
+
+.head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 12px;
+}
+
+.face {
+	font-size: 22px;
+}
+
+.tabs {
+	display: flex;
+	flex: 1;
+	gap: 4px;
+}
+
+.tab,
+.hush,
+.button {
+	padding: 4px 10px;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	background: none;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.tab[aria-selected='true'] {
+	border-color: var(--folio-border-subtle);
+	background: var(--folio-bg-hover);
+}
+
+.tab:hover,
+.hush:hover,
+.button:hover:not(:disabled) {
+	background: var(--folio-bg-hover);
+}
+
+.tab:active,
+.hush:active,
+.button:active:not(:disabled) {
+	background: var(--folio-bg-pressed);
+}
+
+.button {
+	border-color: var(--folio-border-subtle);
+}
+
+.button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.body {
+	display: grid;
+	align-content: start;
+	gap: 8px;
+	padding: 0 16px 12px;
+	overflow-y: auto;
+}
+
+.says {
+	margin: 0;
+	font-size: 14px;
+}
+
+.hint {
+	margin: 0;
+	color: var(--folio-text-muted);
+	font-size: 13px;
+}
+
+.list {
+	margin: 0;
+	padding-inline-start: 20px;
+	font-size: 14px;
+}
+
+.actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}

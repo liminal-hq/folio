@@ -1,0 +1,82 @@
+.panel {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.intro,
+.note {
+	margin: 0;
+	color: var(--folio-text-secondary);
+	font-size: 13px;
+}
+
+.list {
+	display: grid;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 12px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 8px;
+	background: var(--folio-bg-raised);
+}
+
+.row[data-missing] {
+	border-color: var(--folio-warning);
+}
+
+.text {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 2px;
+	min-inline-size: 0;
+}
+
+.name {
+	font-weight: 600;
+	overflow-wrap: anywhere;
+}
+
+.status,
+.licence {
+	color: var(--folio-text-secondary);
+	font-size: 12px;
+}
+
+.row[data-missing] .status {
+	color: var(--folio-warning);
+}
+
+.action {
+	flex: none;
+	padding: 5px 10px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: transparent;
+	color: var(--folio-text-primary);
+	font: inherit;
+	font-size: 12px;
+	cursor: default;
+}
+
+.action:hover {
+	background: var(--folio-bg-hover);
+}
+
+.action:active {
+	background: var(--folio-border-subtle);
+}
+
+.action:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: 2px;
+}

@@ -1,0 +1,130 @@
+// The cover sheet preview: back, spine and front as the paperback cover file will have them
+//
+// (c) Copyright 2026 Liminal HQ, Scott Morris
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
+import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
+import { useEffect, useState } from 'react';
+import type { CoverSheetPreview } from '@liminal-hq/folio-protocol/generated/CoverSheetPreview';
+import type { BooksClient } from '../books/booksClient';
+import { t } from '../i18n/messages';
+import styles from './CoverSheetDialog.module.css';
+
+interface CoverSheetDialogProps {
+	open: boolean;
+	onClose(): void;
+	client: BooksClient;
+	id: string;
+	/** Changes when the book does, so the sheet is drawn again. */
+	revision: number;
+}
+
+export function CoverSheetDialog({ open, onClose, client, id, revision }: CoverSheetDialogProps) {
+	const [picture, setPicture] = useState<CoverSheetPreview | null | undefined>(undefined);
+	const [guides, setGuides] = useState(true);
+	const [failed, setFailed] = useState(false);
+	useEffect(() => {
+		if (!open) return;
+		let live = true;
+		setPicture(undefined);
+		setFailed(false);
+		client
+			.previewCoverSheet(id)
+			.then((found) => live && setPicture(found))
+			.catch(() => live && setFailed(true));
+		return () => {
+			live = false;
+		};
+	}, [open, client, id, revision]);
+
+	return (
+		<Dialog
+			open={open}
+			title={t('coverSheet.title')}
+			size="large"
+			onClose={onClose}
+			footer={
+				<DialogActions>
+					<DialogButton variant="primary" onClick={onClose}>
+						{t('coverSheet.done')}
+					</DialogButton>
+				</DialogActions>
+			}
+		>
+			<p className={styles.hint}>{t('coverSheet.hint')}</p>
+			{failed && (
+				<p role="alert" className={styles.problem}>
+					{t('coverSheet.failed')}
+				</p>
+			)}
+			{picture === undefined && !failed && (
+				<p role="status" className={styles.hint}>
+					{t('coverSheet.drawing')}
+				</p>
+			)}
+			{picture === null && <p className={styles.hint}>{t('coverSheet.none')}</p>}
+			{picture && (
+				<label className={styles.toggle}>
+					<input
+						type="checkbox"
+						checked={guides}
+						onChange={(event) => setGuides(event.target.checked)}
+					/>
+					{t('coverSheet.guides')}
+				</label>
+			)}
+			{picture && (
+				<div className={styles.stage}>
+					<img className={styles.sheet} src={picture.image} alt={t('coverSheet.alt')} />
+					{guides && <Guides sheet={picture} />}
+				</div>
+			)}
+		</Dialog>
+	);
+}
+
+/** Points from the edge of a trimmed cover the safe area keeps text and pictures that need to stay. */
+const SAFE = 18;
+/** The same beside each fold of the spine. */
+const SPINE_SAFE = 4.5;
+
+/** The folds, the safe areas and the barcode box over the sheet, in the sheet's own points. */
+function Guides({ sheet }: { sheet: CoverSheetPreview }) {
+	const { width, height, edge, cover, spine, barcode } = sheet;
+	const backRight = edge + cover;
+	const frontLeft = backRight + spine;
+	const safe = (x: number, w: number, key: string) => (
+		<rect
+			key={key}
+			x={x}
+			y={edge + SAFE}
+			width={w}
+			height={height - 2 * (edge + SAFE)}
+			className={styles.safe}
+		/>
+	);
+	return (
+		<svg
+			className={styles.guides}
+			viewBox={`0 0 ${width} ${height}`}
+			preserveAspectRatio="none"
+			aria-hidden="true"
+			data-testid="cover-guides"
+		>
+			{safe(edge + SAFE, cover - 2 * SAFE, 'back')}
+			{safe(frontLeft + SAFE, cover - 2 * SAFE, 'front')}
+			{spine > 2 * SPINE_SAFE && safe(backRight + SPINE_SAFE, spine - 2 * SPINE_SAFE, 'spine')}
+			{[backRight, frontLeft].map((x) => (
+				<line key={x} x1={x} x2={x} y1={0} y2={height} className={styles.spineFold} />
+			))}
+			<rect
+				x={barcode.x}
+				y={barcode.y}
+				width={barcode.w}
+				height={barcode.h}
+				className={styles.barcode}
+			/>
+		</svg>
+	);
+}

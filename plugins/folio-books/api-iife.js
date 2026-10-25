@@ -112,9 +112,62 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function onBooksChanged(listener) {
         return event.listen(CHANGED_EVENT, (e) => listener(e.payload));
     }
+    const EXPORT_PROGRESS_EVENT = 'folio-books://export-progress';
+    /** Hears which file an export has reached. */
+    function onExportProgress(listener) {
+        return event.listen(EXPORT_PROGRESS_EVENT, (e) => listener(e.payload));
+    }
+    /** Stops the export in progress after the file it is making; what was made is kept. */
+    function cancelExport() {
+        return cmd('cancel_export');
+    }
     /** Hears how far a dictionary download has got. */
     function onDictionaryProgress(listener) {
         return event.listen(DICTIONARY_PROGRESS_EVENT, (e) => listener(e.payload));
+    }
+    /** The book as an e-reader would show it, from the same chapters and CSS the EPUB ships. */
+    function readerPreview(id) {
+        return cmd('reader_preview', { id });
+    }
+    /** A spread as a press would print it, through the CMYK ICC profile at `profile`. */
+    function proofSpread(id, spread, profile) {
+        return cmd('proof_spread', { id, spread, profile });
+    }
+    /** The cover of the book `spec` would make, as a `data:image/png` URI. */
+    function previewNewBook(spec) {
+        return cmd('preview_new_book', { spec });
+    }
+    /** The paperback cover sheet as the exporter would make it, as a PNG data URI; `null` with no cover. */
+    function previewCoverSheet(id) {
+        return cmd('preview_cover_sheet', { id });
+    }
+    /** Makes the files for `targets` and writes them into the book's `exports` folder. */
+    function exportBook(id, targets, colour) {
+        return cmd('export_book', { id, targets, colour });
+    }
+    /** Shows a file in the system's file manager. */
+    function revealPath(path) {
+        return cmd('reveal_path', { path });
+    }
+    /** What preflight finds in the whole book, the issues that wait on the person first. */
+    function preflightBook(id) {
+        return cmd('preflight_book', { id });
+    }
+    /** Every family a book can draw in, and where each comes from (bundled, kept in the book or installed). */
+    function listFonts(id) {
+        return cmd('list_fonts', { id });
+    }
+    /** The typefaces the book uses, and where each comes from. */
+    function fontsInUse(id) {
+        return cmd('fonts_in_use', { id });
+    }
+    /** Takes fonts out of the book, so it is laid out from the computer's again. */
+    function unkeepFonts(id, families) {
+        return cmd('unkeep_fonts', { id, families });
+    }
+    /** Keeps installed fonts inside the book; says which were kept and which could not be, and why. */
+    function keepFonts(id, families) {
+        return cmd('keep_fonts', { id, families });
     }
     /** Reads a picture file into the book; resolves to its path inside the book (`assets/images/…`). */
     function importImage(id, path) {
@@ -151,32 +204,45 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
 
     exports.CHANGED_EVENT = CHANGED_EVENT;
     exports.DICTIONARY_PROGRESS_EVENT = DICTIONARY_PROGRESS_EVENT;
+    exports.EXPORT_PROGRESS_EVENT = EXPORT_PROGRESS_EVENT;
     exports.PATCH_EVENT = PATCH_EVENT;
     exports.applyIntent = applyIntent;
     exports.assetData = assetData;
     exports.autosaveBooks = autosaveBooks;
+    exports.cancelExport = cancelExport;
     exports.closeBook = closeBook;
     exports.defaultSavePath = defaultSavePath;
     exports.dictionaries = dictionaries;
     exports.discardRecovered = discardRecovered;
     exports.downloadDictionary = downloadDictionary;
+    exports.exportBook = exportBook;
+    exports.fontsInUse = fontsInUse;
     exports.getStatus = getStatus;
     exports.historyMark = historyMark;
     exports.importImage = importImage;
+    exports.keepFonts = keepFonts;
     exports.layoutMaster = layoutMaster;
     exports.layoutSpread = layoutSpread;
     exports.listBooks = listBooks;
+    exports.listFonts = listFonts;
     exports.newBook = newBook;
     exports.onBooksChanged = onBooksChanged;
     exports.onDictionaryProgress = onDictionaryProgress;
+    exports.onExportProgress = onExportProgress;
     exports.onPatch = onPatch;
     exports.openBook = openBook;
     exports.paintPresets = paintPresets;
+    exports.preflightBook = preflightBook;
     exports.presets = presets;
+    exports.previewCoverSheet = previewCoverSheet;
+    exports.previewNewBook = previewNewBook;
+    exports.proofSpread = proofSpread;
+    exports.readerPreview = readerPreview;
     exports.recoverableBooks = recoverableBooks;
     exports.redo = redo;
     exports.removeDictionary = removeDictionary;
     exports.restoreBook = restoreBook;
+    exports.revealPath = revealPath;
     exports.rewindHistory = rewindHistory;
     exports.saveBook = saveBook;
     exports.snapshot = snapshot;
@@ -184,6 +250,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.spellCheckBook = spellCheckBook;
     exports.spellSuggest = spellSuggest;
     exports.undo = undo;
+    exports.unkeepFonts = unkeepFonts;
 
     return exports;
 

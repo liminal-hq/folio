@@ -1,0 +1,173 @@
+.targets {
+	display: grid;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.legend {
+	margin-block-end: 8px;
+	padding: 0;
+	color: var(--folio-text-secondary);
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.target {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	padding: 12px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 8px;
+	background: var(--folio-bg-raised);
+}
+
+.target:hover {
+	background: var(--folio-bg-hover);
+}
+
+.targetText {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.targetName {
+	font-weight: 600;
+}
+
+.targetSub {
+	color: var(--folio-text-secondary);
+	font-size: 13px;
+}
+
+.warning,
+.error,
+.ok {
+	margin: 0 0 12px;
+}
+
+.warning {
+	color: var(--folio-warning);
+}
+
+.error {
+	color: var(--folio-danger);
+}
+
+.ok {
+	color: var(--folio-success);
+	font-weight: 600;
+}
+
+.link {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--folio-accent);
+	font: inherit;
+	text-decoration: underline;
+	cursor: default;
+}
+
+.files {
+	display: grid;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.file {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 12px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 8px;
+	background: var(--folio-bg-raised);
+}
+
+.fileText {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 2px;
+	min-inline-size: 0;
+}
+
+.fileName {
+	overflow-wrap: anywhere;
+	font-weight: 600;
+}
+
+.fileSize,
+.where {
+	color: var(--folio-text-secondary);
+	font-size: 13px;
+}
+
+.where {
+	margin: 12px 0 0;
+	overflow-wrap: anywhere;
+}
+
+.show {
+	flex: none;
+	padding: 6px 12px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: transparent;
+	color: var(--folio-text-primary);
+	font: inherit;
+	cursor: default;
+}
+
+.show:hover {
+	background: var(--folio-bg-hover);
+}
+
+.show:active {
+	background: var(--folio-border-subtle);
+}
+
+.show:focus-visible,
+.link:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: 2px;
+}
+
+.colour {
+	display: grid;
+	gap: 8px;
+	margin: 16px 0 0;
+	padding: 0;
+	border: 0;
+}
+
+.profile {
+	display: grid;
+	gap: 4px;
+}
+
+.profile input {
+	padding: 6px 8px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-bg-raised);
+	color: inherit;
+	font: inherit;
+}
+
+.progress {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin: 0 0 12px;
+	padding: 8px 12px;
+	border-radius: 8px;
+	background: var(--folio-bg-raised);
+}

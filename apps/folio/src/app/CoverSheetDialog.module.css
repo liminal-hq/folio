@@ -1,0 +1,60 @@
+.hint {
+	margin: 0 0 12px;
+	color: var(--folio-text-muted);
+	font-size: 13px;
+}
+
+.problem {
+	margin: 0 0 12px;
+	color: var(--folio-danger);
+}
+
+.sheet {
+	display: block;
+	max-inline-size: 100%;
+	block-size: auto;
+	border: 1px solid var(--folio-border-subtle);
+}
+
+.toggle {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.stage {
+	position: relative;
+	line-height: 0;
+}
+
+.guides {
+	position: absolute;
+	inset: 0;
+	inline-size: 100%;
+	block-size: 100%;
+	pointer-events: none;
+}
+
+.safe {
+	fill: none;
+	stroke: #8a5cf6;
+	stroke-width: 1;
+	stroke-dasharray: 4 3;
+	vector-effect: non-scaling-stroke;
+}
+
+.spineFold {
+	stroke: #f08a24;
+	stroke-width: 1.5;
+	stroke-dasharray: 6 4;
+	vector-effect: non-scaling-stroke;
+}
+
+.barcode {
+	fill: none;
+	stroke: #e0368f;
+	stroke-width: 1.5;
+	stroke-dasharray: 5 3;
+	vector-effect: non-scaling-stroke;
+}

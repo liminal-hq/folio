@@ -4,13 +4,16 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { TableEdit } from '@liminal-hq/folio-protocol/generated/TableEdit';
+import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
+import type { TextSelection } from '../canvas/textSelection';
 import type { Marks } from '../canvas/marksModel';
 import { surfaceOf } from '../canvas/masterView';
 import type { NewFrameKind } from '../canvas/newFrames';
+import { t, type MessageKey } from '../i18n/messages';
 import type { StyleChoice } from '../inspector/styleChoices';
 import { effectiveSize, withOverrides } from '../inspector/textFacts';
 
@@ -22,14 +25,20 @@ export interface EditorInput {
 	selected: Frame[];
 	layout: SpreadLayout | null;
 	choices: StyleChoice[];
+	/** The typefaces the book can draw in, for the Font list. */
+	fonts?: FontChoice[];
 	marks: Marks;
 	snap: boolean;
 	/** Whether the rulers show. */
 	rulers: boolean;
+	/** What the stage shows: the pages as printed, or as a Kindle or Kobo shows them. */
+	preview?: 'print' | 'kindle' | 'kobo';
 	/** The cell being edited in the selected table, which says where a row or column goes. */
 	cell?: { row: number; col: number } | null;
 	/** Whether `spread` is a master page being edited, not one of the book's spreads. */
 	master?: boolean;
+	/** The words selected in the open text editor: bold, italic and the font apply to just those. */
+	selection?: TextSelection | null;
 }
 
 /** What the controls show: which can be used now, which are pressed, the numbers, the extra tabs. */
@@ -37,12 +46,17 @@ export interface EditorState {
 	available: ReadonlySet<string>;
 	active: Readonly<Record<string, boolean>>;
 	values: Readonly<Record<string, number>>;
+	/** The text a list shows as chosen, by control: the font of the selected words. */
+	texts: Readonly<Record<string, string>>;
+	/** The choices of a list, by control, as value and label. */
+	options: Readonly<Record<string, ReadonlyArray<readonly [string, string]>>>;
 	contextual: readonly string[];
 }
 
 /** What a control asks the book view to do. */
 export type EditorAction =
 	| { kind: 'intents'; intents: Intent[] }
+	| { kind: 'font'; intents: Intent[]; keep: string | null }
 	| { kind: 'add'; shape: NewFrameKind }
 	| { kind: 'marks'; marks: Partial<Marks> }
 	| { kind: 'snap' }
@@ -53,6 +67,13 @@ export type EditorAction =
 	| { kind: 'choosePicture'; frame: string }
 	| { kind: 'stretch'; frame: string }
 	| { kind: 'fit'; frame: string; fit: 'fill' | 'fit' }
+	| { kind: 'preview'; mode: 'print' | 'kindle' | 'kobo' }
+	| { kind: 'checkBook' }
+	| { kind: 'softProof' }
+	| { kind: 'coverSheet' }
+	| { kind: 'barcode' }
+	| { kind: 'bookDetails' }
+	| { kind: 'exportBook'; quick: boolean }
 	| { kind: 'editMaster' }
 	| { kind: 'pageBackground' };
 
@@ -65,6 +86,46 @@ const ALIGNS: Record<string, 'left' | 'center' | 'right' | 'justify'> = {
 
 const texts = (frames: Frame[]) =>
 	frames.flatMap((f) => (f.type === 'text' && !f.locked && !f.fromMaster ? [f] : []));
+/** The selected stretch of words, when it is in one of the selected text frames or shapes. */
+function wordsSelected(input: EditorInput) {
+	const { selection } = input;
+	if (!selection || selection.end <= selection.start) return null;
+	const frame = input.selected.find((f) => f.id === selection.frame);
+	return frame && (frame.type === 'text' || frame.type === 'shape') && !frame.locked
+		? { frame, selection }
+		: null;
+}
+
+/** Whether every character of `start..end` is in a run where `has` is true. */
+function allRuns(
+	frame: Extract<Frame, { type: 'text' | 'shape' }>,
+	start: number,
+	end: number,
+	has: (run: { bold: boolean; italic: boolean }) => boolean,
+): boolean {
+	let at = 0;
+	for (const run of frame.content?.inline ?? []) {
+		const length = [...run.text].length;
+		const overlaps = at < end && at + length > start;
+		if (overlaps && !has(run)) return false;
+		at += length;
+	}
+	return true;
+}
+
+/** The colours the Text colour list offers: ink first, then colours that read well on paper. */
+const TEXT_COLOURS: ReadonlyArray<readonly [hex: string, name: MessageKey]> = [
+	['#1c1b20', 'colour.ink'],
+	['#5b2a4a', 'colour.plum'],
+	['#1f4e5f', 'colour.teal'],
+	['#2f5d3a', 'colour.forest'],
+	['#a23b2a', 'colour.brick'],
+	['#c98b2b', 'colour.marigold'],
+	['#2b3a67', 'colour.navy'],
+	['#4a4a4a', 'colour.slate'],
+	['#ffffff', 'colour.white'],
+];
+
 const free = (frames: Frame[]) => frames.filter((f) => !f.locked && !f.fromMaster);
 
 export function editorState(input: EditorInput): EditorState {
@@ -104,6 +165,7 @@ export function editorState(input: EditorInput): EditorState {
 		snap,
 	};
 	const values: Record<string, number> = {};
+	const shown: Record<string, string> = {};
 	const contextual: string[] = [];
 
 	if (input.master) {
@@ -117,6 +179,15 @@ export function editorState(input: EditorInput): EditorState {
 	}
 	if (input.master) active.master = true;
 	available.add('master');
+	available.add('preflight');
+	available.add('softProof');
+	available.add('coverSheet');
+	available.add('barcode');
+	available.add('bookDetails');
+	for (const id of ['print', 'kindle', 'kobo']) available.add(id);
+	active[input.preview ?? 'print'] = true;
+	available.add('export');
+	available.add('quickPdf');
 	// A master page has no spread to paint; its background is set from the pages that use it.
 	if (!input.master) available.add('pageBg');
 	if (selected.length > 0) available.add('lock');
@@ -134,6 +205,9 @@ export function editorState(input: EditorInput): EditorState {
 		const align = first.overrides?.align ?? 'left';
 		for (const [id, value] of Object.entries(ALIGNS)) active[id] = align === value;
 		values.size = effectiveSize(first, layout, choices);
+		available.add('font');
+		available.add('colour');
+		shown.font = first.overrides?.font ?? '';
 	}
 	const only = selected.length === 1 ? selected[0]! : null;
 	if (only?.type === 'image') {
@@ -162,7 +236,10 @@ export function editorState(input: EditorInput): EditorState {
 		available.add('rotL');
 		available.add('rotR');
 	}
-	return { available, active, values, contextual };
+	const options: Record<string, ReadonlyArray<readonly [string, string]>> = {};
+	options.colour = TEXT_COLOURS.map(([hex, name]) => [hex, t(name)] as const);
+	if (input.fonts) options.font = input.fonts.map((f) => [f.family, f.family] as const);
+	return { available, active, values, texts: shown, options, contextual };
 }
 
 /** The action a control asks for, or `null` when it is not one of the document's controls. */
@@ -174,6 +251,24 @@ export function editorAction(
 	const { spread, selected } = input;
 	const on = { on: surfaceOf(spread) };
 	switch (id) {
+		case 'print':
+		case 'kindle':
+		case 'kobo':
+			return { kind: 'preview', mode: id };
+		case 'preflight':
+			return { kind: 'checkBook' };
+		case 'softProof':
+			return { kind: 'softProof' };
+		case 'coverSheet':
+			return { kind: 'coverSheet' };
+		case 'barcode':
+			return { kind: 'barcode' };
+		case 'bookDetails':
+			return { kind: 'bookDetails' };
+		case 'export':
+			return { kind: 'exportBook', quick: false };
+		case 'quickPdf':
+			return { kind: 'exportBook', quick: true };
 		case 'text':
 			return { kind: 'add', shape: 'text' };
 		case 'image':
@@ -248,6 +343,23 @@ export function editorAction(
 		}
 		case 'bold':
 		case 'italic': {
+			const picked = wordsSelected(input);
+			if (picked) {
+				const { frame, selection } = picked;
+				const on = allRuns(frame, selection.start, selection.end, (r) => r[id]);
+				return {
+					kind: 'intents',
+					intents: [
+						{
+							type: 'StyleRange',
+							frame: frame.id,
+							start: selection.start,
+							end: selection.end,
+							change: { [id]: !on },
+						},
+					],
+				};
+			}
 			const words = texts(selected);
 			const turnOn = words[0]?.overrides?.[id] !== true;
 			return {
@@ -271,6 +383,64 @@ export function editorAction(
 					overrides: withOverrides(f, { align: ALIGNS[id]! }),
 				})),
 			};
+		case 'colour': {
+			// The selected words, or all of them when none are selected.
+			const hex = typeof value === 'string' ? value : '';
+			const picked = wordsSelected(input);
+			const targets = picked
+				? [{ id: picked.frame.id, start: picked.selection.start, end: picked.selection.end }]
+				: texts(selected).map((f) => ({
+						id: f.id,
+						start: 0,
+						end: [...(f.content?.inline ?? []).map((r) => r.text).join('')].length,
+					}));
+			return {
+				kind: 'intents',
+				intents: targets
+					.filter((r) => r.end > r.start)
+					.map((r) => ({
+						type: 'StyleRange',
+						frame: r.id,
+						start: r.start,
+						end: r.end,
+						change: { colour: hex },
+					})),
+			};
+		}
+		case 'font': {
+			const family = typeof value === 'string' ? value : '';
+			const origin = input.fonts?.find((f) => f.family === family)?.origin;
+			const picked = wordsSelected(input);
+			if (picked) {
+				const { frame, selection } = picked;
+				return {
+					kind: 'font',
+					keep: origin === 'system' ? family : null,
+					intents: [
+						{
+							type: 'StyleRange',
+							frame: frame.id,
+							start: selection.start,
+							end: selection.end,
+							change: { font: family },
+						},
+					],
+				};
+			}
+			return {
+				kind: 'font',
+				// An installed font is kept with the book, so it opens the same elsewhere.
+				keep: origin === 'system' ? family : null,
+				intents: texts(selected).map((f) => {
+					const { font: _was, ...rest } = withOverrides(f, {});
+					return {
+						type: 'OverrideStyle',
+						frame: f.id,
+						overrides: family === '' ? rest : { ...rest, font: family },
+					};
+				}),
+			};
+		}
 		case 'size': {
 			const size = typeof value === 'number' ? value : Number(value);
 			if (!Number.isFinite(size)) return null;

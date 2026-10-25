@@ -10,11 +10,14 @@
 pub mod assets;
 pub mod breaker;
 pub mod error;
+pub mod fallback;
+pub mod families;
 pub mod flow;
 pub mod fonts;
 pub mod hyphenate;
 pub mod paragraph;
 pub mod preflight;
+pub mod scene;
 pub mod shape;
 pub mod spread;
 pub mod styles;
@@ -22,7 +25,10 @@ pub mod wire;
 
 pub use assets::{AssetFact, AssetFacts};
 pub use error::LayoutError;
-pub use fonts::{Font, FontBook, FontRequest, Metrics, Resolved};
+pub use fonts::{
+    BookFace, Embedding, EmbeddingRights, FaceInfo, Font, FontBook, FontRequest, FontSource,
+    KeepableFace, Metrics, Resolved,
+};
 pub use shape::{feature, shape, Glyph, Run, Shaped};
 pub use spread::Layouter;
 pub use styles::StyleSheet;

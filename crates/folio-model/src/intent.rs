@@ -7,10 +7,12 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::background::Background;
-use crate::book::{Grid, PageNumbers};
+use crate::book::{BookFont, Details, Grid, PageNumbers};
 use crate::colour::Colour;
+use crate::cover::{BarcodeChoice, Paper};
 use crate::frame::{Fit, Frame, Shape, StyleOverrides, TableLook};
 use crate::ids::{FrameId, MasterId, PageId, SpreadId, StyleId};
+use crate::runs::RunChange;
 use crate::sections::Section;
 use crate::spread::Axis;
 use crate::units::{Margins, Pt, Rect, Size};
@@ -97,6 +99,9 @@ pub enum TableEdit {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(tag = "type")]
+// `AddFrame` carries a whole frame and the rest are small. Intents are made one at a time and
+// passed along, never kept in bulk, so the extra bytes cost nothing worth a `Box` in every frame.
+#[allow(clippy::large_enum_variant)]
 pub enum Intent {
     MoveFrame {
         on: Surface,
@@ -166,6 +171,27 @@ pub enum Intent {
     /// decides which dictionary checks the spelling, and how words are hyphenated and shaped.
     SetLanguage {
         language: String,
+    },
+    /// Sets the fonts the book keeps, each a file already in the package. The books plugin adds the
+    /// files and sends this; it is one undo step.
+    SetFonts {
+        fonts: Vec<BookFont>,
+    },
+    /// Sets who makes the barcode on the paperback cover. One undo step.
+    SetBarcode {
+        choice: BarcodeChoice,
+    },
+    /// Sets the paper a printed copy is on. One undo step.
+    SetPaper {
+        paper: Paper,
+    },
+    /// Sets the title, subtitle, authors, description and ISBNs together. One undo step.
+    SetDetails {
+        details: Details,
+    },
+    /// Sets the preflight issues to leave alone, each by its key. One undo step.
+    SetPreflightIgnore {
+        keys: Vec<String>,
     },
     /// Closes the last undo step, so the next change on the same frame starts a new one instead of
     /// joining it. It changes nothing in the book. Words typed in an editor send it before each pause
@@ -255,6 +281,14 @@ pub enum Intent {
     SetText {
         frame: FrameId,
         text: String,
+    },
+    /// Changes the look of the characters `start..end` of a frame's words (counted in characters),
+    /// splitting the words into runs where it begins and ends. One undo step.
+    StyleRange {
+        frame: FrameId,
+        start: u32,
+        end: u32,
+        change: RunChange,
     },
     /// Changes a table: a cell's words, its rows and columns, header rows or look. Typing in one
     /// cell is one undo step.

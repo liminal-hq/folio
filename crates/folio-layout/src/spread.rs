@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    page_labels, Book, Flow, Frame, FrameId, InlineContent, MasterId, PageLabel, Pt, ShapeFrame,
-    Spread, SpreadId, StyleId, TableFrame, TextFrame,
+    page_labels, Book, Colour, Flow, Frame, FrameId, InlineContent, MasterId, PageLabel, Pt,
+    ShapeFrame, Spread, SpreadId, StyleId, TableFrame, TextFrame,
 };
 
 use std::ops::Range;
@@ -19,7 +19,7 @@ use crate::preflight::{asset_checks, geometry_checks};
 use crate::styles::{ResolvedStyle, StyleSheet};
 use crate::wire::{
     FrameLayout, LayoutLine, LayoutRect, LayoutRun, Origin, PreflightItem, PreflightKind,
-    SpreadLayout,
+    SceneGlyph, SpreadLayout,
 };
 
 /// Finds the misspelt words of some text, as ranges of its bytes.
@@ -107,6 +107,7 @@ impl<'a> Layouter<'a> {
     fn spread(&self, spread: &Spread) -> Result<SpreadLayout, LayoutError> {
         let mut frames = Vec::new();
         let mut preflight = geometry_checks(self.book, spread);
+        preflight.extend(self.font_checks(spread));
         if let Some(facts) = self.assets {
             preflight.extend(asset_checks(self.book, spread, facts));
         }
@@ -465,6 +466,96 @@ impl<'a> Layouter<'a> {
         ))
     }
 
+    /// A frame set in a font that is neither bundled, kept in the book nor installed, so the layout
+    /// has used a stand-in. One item for each family a frame asks for that is missing.
+    fn font_checks(&self, spread: &Spread) -> Vec<PreflightItem> {
+        let mut items = Vec::new();
+        for frame in &spread.frames {
+            let (style, overrides, runs): (_, _, Vec<&folio_model::Run>) = match frame {
+                Frame::Text(t) => (
+                    Some(&t.style),
+                    t.overrides.as_ref(),
+                    t.content.iter().flat_map(|c| &c.inline).collect(),
+                ),
+                Frame::Shape(s) => (
+                    s.style.as_ref(),
+                    s.overrides.as_ref(),
+                    s.content.iter().flat_map(|c| &c.inline).collect(),
+                ),
+                Frame::Table(t) => (
+                    t.style.as_ref(),
+                    t.overrides.as_ref(),
+                    t.rows
+                        .iter()
+                        .flatten()
+                        .flat_map(|c| c.content.iter().flat_map(|c| &c.inline))
+                        .collect(),
+                ),
+                _ => continue,
+            };
+            let mut asked: Vec<String> = Vec::new();
+            if let Some(style) = style {
+                asked.push(self.styles.resolve(style, overrides).text.family);
+            }
+            for run in runs {
+                if let Some(font) = &run.font {
+                    asked.push(font.clone());
+                } else if let Some(id) = &run.style {
+                    asked.push(self.styles.resolve(id, overrides).text.family);
+                }
+            }
+            // Characters no font covers, in the frame's own typeface and every bundled fallback.
+            if let Some(first) = asked.first() {
+                let text: String = match frame {
+                    Frame::Text(t) => t
+                        .content
+                        .iter()
+                        .flat_map(|c| &c.inline)
+                        .map(|r| r.text.as_str())
+                        .collect(),
+                    Frame::Shape(s) => s
+                        .content
+                        .iter()
+                        .flat_map(|c| &c.inline)
+                        .map(|r| r.text.as_str())
+                        .collect(),
+                    Frame::Table(t) => t
+                        .rows
+                        .iter()
+                        .flatten()
+                        .flat_map(|c| c.content.iter().flat_map(|c| &c.inline))
+                        .map(|r| r.text.as_str())
+                        .collect(),
+                    _ => String::new(),
+                };
+                let lacking = crate::fallback::uncovered(self.fonts, first, 400, false, &text);
+                if !lacking.is_empty() {
+                    items.push(PreflightItem::missing_glyphs(
+                        &spread.id,
+                        &frame.base().id,
+                        &lacking,
+                    ));
+                }
+            }
+            asked.sort();
+            asked.dedup();
+            for family in asked {
+                let missing = self
+                    .fonts
+                    .resolve(&FontRequest::new(&family, 400, false))
+                    .is_ok_and(|r| r.family_substituted);
+                if missing {
+                    items.push(PreflightItem::font_missing(
+                        &spread.id,
+                        &frame.base().id,
+                        &family,
+                    ));
+                }
+            }
+        }
+        items
+    }
+
     fn poem_item(&self, spread: &Spread, text: &TextFrame) -> PreflightItem {
         PreflightItem::of_frame(PreflightKind::PoemLineTooLong, &spread.id, &text.base.id)
     }
@@ -495,7 +586,18 @@ impl<'a> Layouter<'a> {
             if run.italic {
                 text_style.italic = true;
             }
-            spans.push((Span::new(&run.text, text_style), resolved));
+            if let Some(font) = &run.font {
+                text_style.family = font.clone();
+            }
+            if let Some(colour) = &run.colour {
+                text_style.colour = Some(colour.clone());
+            }
+            // A character the run's font lacks is set in one that has it.
+            for piece in
+                crate::fallback::split_with_fallback(self.fonts, &Span::new(&run.text, text_style))
+            {
+                spans.push((piece, resolved.clone()));
+            }
         }
         if base.wrap == Wrap::Preserve {
             return vec![paragraph_from(
@@ -613,6 +715,11 @@ impl<'a> Layouter<'a> {
                             weight,
                             italic,
                             tracking: s.style.tracking_em,
+                            colour: s.style.colour.clone(),
+                            face_key: found
+                                .as_ref()
+                                .map(|r| r.font.face_key().to_string())
+                                .unwrap_or_default(),
                         }
                     })
                     .collect()
@@ -661,6 +768,8 @@ struct RunStyle {
     weight: u16,
     italic: bool,
     tracking: f64,
+    colour: Option<Colour>,
+    face_key: String,
 }
 
 fn paragraph_from(spans: Vec<Span>, style: &ResolvedStyle) -> StoryParagraph {
@@ -737,6 +846,8 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo) -> LayoutLine {
                     weight: 400,
                     italic: false,
                     tracking: 0.0,
+                    colour: None,
+                    face_key: String::new(),
                 });
             LayoutRun {
                 text: r.text.clone(),
@@ -747,8 +858,21 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo) -> LayoutLine {
                 weight: s.weight,
                 italic: s.italic,
                 tracking: s.tracking,
+                colour: s.colour,
                 hyphen: r.hyphen,
                 miss,
+                face_key: s.face_key,
+                glyphs: r
+                    .glyphs
+                    .iter()
+                    .map(|g| SceneGlyph {
+                        id: g.id,
+                        cluster: g.cluster,
+                        advance: g.advance,
+                        dx: g.dx,
+                        dy: g.dy,
+                    })
+                    .collect(),
             }
         })
         .collect();

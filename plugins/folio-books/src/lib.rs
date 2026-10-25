@@ -6,6 +6,7 @@
 mod commands;
 mod error;
 mod recovery;
+mod reveal;
 mod spelling;
 mod state;
 #[cfg(test)]
@@ -31,12 +32,16 @@ pub const CHANGED_EVENT: &str = "folio-books://changed";
 /// Sent to every window while a dictionary downloads: how much has arrived.
 pub const DICTIONARY_PROGRESS_EVENT: &str = "folio-books://dictionary-progress";
 
+/// Sent to every window while an export runs: which file it has reached.
+pub const EXPORT_PROGRESS_EVENT: &str = "folio-books://export-progress";
+
 /// Registers the plugin.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("folio-books")
         .invoke_handler(tauri::generate_handler![
             commands::get_status,
             commands::presets,
+            commands::preview_new_book,
             commands::paint_presets,
             commands::default_save_path,
             commands::new_book,
@@ -61,6 +66,17 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::spell_check,
             commands::spell_suggest,
             commands::spell_check_book,
+            commands::reader_preview,
+            commands::preview_cover_sheet,
+            commands::proof_spread,
+            commands::export_book,
+            commands::cancel_export,
+            commands::reveal_path,
+            commands::preflight_book,
+            commands::fonts_in_use,
+            commands::unkeep_fonts,
+            commands::list_fonts,
+            commands::keep_fonts,
             commands::dictionaries,
             commands::download_dictionary,
             commands::remove_dictionary,
