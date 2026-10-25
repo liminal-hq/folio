@@ -1,0 +1,17 @@
+{
+	"$schema": "https://schema.tauri.app/config/2",
+	"bundle": {
+		"resources": {
+			"assets/file-icons/folio-document.ico": "file-icons/folio-document.ico"
+		},
+		"windows": {
+			"nsis": {
+				"installerHooks": "assets/windows/file-association.nsh"
+			},
+			"wix": {
+				"fragmentPaths": ["assets/windows/file-association.wxs"],
+				"componentRefs": ["FolioDocumentIcon"]
+			}
+		}
+	}
+}

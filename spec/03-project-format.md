@@ -111,4 +111,5 @@ Try this · Wet a postcard-sized sheet edge to edge…
 
 - Unzipping a `.folio` gives you your words (`text/*.md`, or inline in `book.json`) and your original pictures (`assets/images/`). This is the sovereignty guarantee.
 - `folio export --format folder` writes the same tree unzipped, which is handy for Git.
+- Installed Debian and RPM packages identify `.folio` files as `application/vnd.liminal.folio+zip` and supply a folded-page icon carrying Folio's book mark. Windows NSIS and MSI installers register the same document artwork for Explorer. This document icon is separate from the application icon. AppImages carry the Linux metadata, but a portable AppImage does not register it with the host desktop by itself.
 - A thumbnailer for Linux (`folio-thumbnailer`, a `.thumbnailer` file + small binary) reads `thumbnails/cover.png`. Windows gets an `IThumbnailProvider` shell extension later.
