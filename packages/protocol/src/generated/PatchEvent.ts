@@ -4,4 +4,9 @@ import type { Patch } from "./Patch";
 /**
  * Sent to every window after a change to an open book.
  */
-export type PatchEvent = { id: string, patch: Patch, canUndo: boolean, canRedo: boolean, };
+export type PatchEvent = { id: string, patch: Patch, canUndo: boolean, canRedo: boolean, 
+/**
+ * Who made the change when it was not the person at the window: `agent` for one an AI agent
+ * made through the MCP server. A window can say so.
+ */
+by?: string, };

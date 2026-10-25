@@ -1,6 +1,6 @@
 # Copyright page generator
 
-**Area:** Book structure · **Prototype:** `Folio Structure.dc.html` · **Status:** artboard → merge into Folio
+**Area:** Book structure · **Prototype:** `Folio Structure.dc.html` · **Status:** partly built — Book tools → Book structure → **Copyright page** (Rust: `ToolRequest::Copyright`, `ToolFix::CopyrightPage`) makes the words from the year, holder, rights line, the book's title and paperback ISBN and the printing, and puts them in a text frame (`copyright`) on a new left-hand page after the title page, or in the frame it made before; the CIP block and a rights-holder per edition are not built
 
 ## What it does
 Fill-in-the-blanks copyright page: ©, year, author, rights statement, ISBNs per edition, edition/printing line, publisher, credits, CIP block.

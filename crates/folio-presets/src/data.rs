@@ -122,6 +122,7 @@ pub(crate) fn parse_trim(text: &str) -> Option<(f64, f64)> {
 }
 
 /// A size a book of some kind can be, as the UI offers it.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
@@ -133,6 +134,7 @@ pub struct TrimChoice {
 }
 
 /// A kind of book, as the welcome screen and the wizard show it.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
@@ -150,6 +152,7 @@ pub struct KindInfo {
 }
 
 /// A paper and the spine a book of the kind's usual length has on it.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]

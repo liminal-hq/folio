@@ -5,10 +5,12 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+mod agent;
 mod app_info;
 mod status;
 mod window;
 
+pub use agent::*;
 pub use app_info::*;
 pub use status::*;
 pub use window::*;

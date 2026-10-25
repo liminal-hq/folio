@@ -1,0 +1,8 @@
+{
+	"mcpServers": {
+		"folio": {
+			"command": "npx",
+			"args": ["-y", "@liminal-hq/folio-mcp"]
+		}
+	}
+}

@@ -145,8 +145,9 @@ pub fn export_target(
             )?]
         }
         Target::EbookCover => {
-            let cover = book.spreads.first().ok_or(ExportError::NoPages)?;
-            let layouter = folio_layout::Layouter::new(book, styles, fonts);
+            let front = folio_model::front_cover_view(book);
+            let cover = front.spreads.first().ok_or(ExportError::NoPages)?;
+            let layouter = folio_layout::Layouter::new(&front, styles, fonts);
             let scene = layouter
                 .scene_spread(&cover.id)?
                 .and_then(|s| s.pages.into_iter().next())

@@ -9,13 +9,15 @@
 
 use folio_settings::push_recent;
 use serde_json::json;
+use std::sync::Arc;
 use tauri::{AppHandle, Manager, Runtime};
+
 use tauri_plugin_folio_books::{BookEvent, Books};
 use tauri_plugin_folio_settings::SettingsStore;
 
 /// Subscribes the recents list to the open books. Call once the plugins are set up.
 pub fn wire<R: Runtime>(app: &AppHandle<R>) {
-    let Some(books) = app.try_state::<Books<R>>() else {
+    let Some(books) = app.try_state::<Arc<Books>>() else {
         return;
     };
     let handle = app.clone();
@@ -56,7 +58,7 @@ mod tests {
             .build(mock_context(noop_assets()))
             .expect("the mock app builds");
         wire(app.handle());
-        let books = app.state::<Books<tauri::test::MockRuntime>>();
+        let books = app.state::<Arc<Books>>();
         let settings = app.state::<SettingsStore<tauri::test::MockRuntime>>();
         let dir = tempfile::tempdir().unwrap();
 

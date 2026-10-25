@@ -63,6 +63,10 @@ export interface SpreadCanvasProps {
 	/** An address to draw for each picture's asset path, once it has been read. */
 	images?: Record<string, string>;
 	onPageMenu?(at: { x: number; y: number }, point: { x: number; y: number }): void;
+	/** A frame was double-clicked: `true` when something took it, and it is not edited in place. */
+	onActivate?(id: string): boolean;
+	/** A line of grey words drawn in the middle of a box, for what can be done there; never printed. */
+	hint?: { box: { x: number; y: number; w: number; h: number }; text: string };
 	/** New words for a text frame, after it was edited in place. */
 	onEditText?(id: string, text: string): void;
 	/** A change to a table, from editing one of its cells. */
@@ -255,6 +259,8 @@ export function SpreadCanvas({
 	onGuidePointerDown,
 	onGuideMenu,
 	guideDrag = null,
+	onActivate,
+	hint,
 	onEditText,
 	onEditStory,
 	onEditParagraphs,
@@ -319,6 +325,7 @@ export function SpreadCanvas({
 	/** The paragraphs of the stretch being edited as the book was last told them. */
 	const lastLines = useRef<string[]>([]);
 	const startEditing = (frame: Frame, at?: { x: number; y: number }) => {
+		if (onActivate?.(frame.id)) return;
 		if (frame.type === 'table') {
 			if (!onEditTable || frame.locked || frame.fromMaster) return;
 			const cell = at ? cellAt(frame, at) : { frame: frame.id, row: 0, col: 0 };
@@ -558,6 +565,20 @@ export function SpreadCanvas({
 							)}
 					</g>
 				))}
+				{hint && (
+					<text
+						data-testid="canvas-hint"
+						x={hint.box.x + hint.box.w / 2}
+						y={hint.box.y + hint.box.h / 2}
+						textAnchor="middle"
+						dominantBaseline="middle"
+						fontSize={6.5}
+						fill="#8a8f98"
+						pointerEvents="none"
+					>
+						{hint.text}
+					</text>
+				)}
 				{editable && (
 					<g role="listbox" aria-multiselectable="true" aria-label={label}>
 						{frames.map((frame) => (

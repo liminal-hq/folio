@@ -1,6 +1,6 @@
 # KDP / IngramSpark upload checklist
 
-**Area:** Publishing helpers · **Prototype:** `Folio Publishing.dc.html` · **Status:** artboard → merge into Folio
+**Area:** Publishing helpers · **Prototype:** `Folio Publishing.dc.html` · **Status:** partly built — Book tools → Publishing → **Upload checklist** (Rust: `ToolRequest::Checklist`) lists title, author, description, language, keywords, ISBN, page count (KDP's 24 to 828), cover, problems with the pages and missing pictures, each done, to do or worth a look, with how to put it right and a **Copy** button for the words; IngramSpark and Kobo field maps and the file paths of the exports are not built ⚠ (verify the fields against the stores' current forms)
 
 ## What it does
 A checklist that mirrors the upload forms, prefilled from the book, with copy buttons for every field.

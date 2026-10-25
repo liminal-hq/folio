@@ -7,6 +7,11 @@ import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpel
 import type { Recoverable } from '@liminal-hq/folio-protocol/generated/Recoverable';
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
+import type { ToolFix } from '@liminal-hq/folio-protocol/generated/ToolFix';
+import type { ToolFixed } from '@liminal-hq/folio-protocol/generated/ToolFixed';
+import type { ToolReport } from '@liminal-hq/folio-protocol/generated/ToolReport';
+import type { ToolRequest } from '@liminal-hq/folio-protocol/generated/ToolRequest';
+import type { TemplateGallery } from '@liminal-hq/folio-protocol/generated/TemplateGallery';
 import type { CoverCanvas } from '@liminal-hq/folio-protocol/generated/CoverCanvas';
 import type { StoryChapter } from '@liminal-hq/folio-protocol/generated/StoryChapter';
 import type { ProofSpread } from '@liminal-hq/folio-protocol/generated/ProofSpread';
@@ -53,6 +58,13 @@ import {
 	listBooks,
 	newBook,
 	previewNewBook,
+	templateGallery,
+	applyTemplate,
+	bookTool,
+	bookToolFix,
+	setActiveBook,
+	activeBook,
+	onActiveBook,
 	onBooksChanged,
 	onPatch,
 	openBook,
@@ -86,6 +98,8 @@ import {
 export interface BooksListener {
 	onPatch(event: PatchEvent): void;
 	onChanged(event: BooksChanged): void;
+	/** The main window showed another book (or none). Only a window that follows it listens. */
+	onActive?(id: string | null): void;
 }
 
 /** What the page needs from the books: Rust owns them, so every call goes through it. */
@@ -97,6 +111,18 @@ export interface BooksClient {
 	newBook(spec: Partial<NewBookSpec>): Promise<BookSnapshot>;
 	/** The cover of the book `spec` would make, as a `data:image/png` URI. */
 	previewNewBook(spec: NewBookSpec): Promise<string>;
+	/** The spread templates a book can add, each drawn at the book's size. */
+	templateGallery(id: string): Promise<TemplateGallery>;
+	/** Asks a Book tool about a book; the answer is worked out in Rust. */
+	bookTool(id: string, request: ToolRequest): Promise<ToolReport>;
+	/** Makes a Book tool's change to a book as one undo step. */
+	bookToolFix(id: string, fix: ToolFix): Promise<ToolFixed>;
+	/** Says which book the main window is showing, so other windows can follow it. */
+	setActiveBook(id: string | null): Promise<void>;
+	/** The book the main window is showing, for a window that opens after it was chosen. */
+	activeBook(): Promise<string | null>;
+	/** Adds a spread template after a spread, as one undo step. */
+	applyTemplate(id: string, template: string, after: string): Promise<Patch>;
 	openBook(path: string): Promise<BookSnapshot>;
 	saveBook(id: string, path?: string): Promise<BookSummary>;
 	closeBook(id: string): Promise<void>;
@@ -179,6 +205,12 @@ export const tauriBooksClient: BooksClient = {
 	defaultSavePath,
 	newBook,
 	previewNewBook,
+	templateGallery,
+	applyTemplate,
+	bookTool,
+	bookToolFix,
+	setActiveBook,
+	activeBook,
 	openBook,
 	saveBook,
 	closeBook,
@@ -220,9 +252,11 @@ export const tauriBooksClient: BooksClient = {
 	removeDictionary,
 	onDictionaryProgress,
 	async subscribe(listener) {
+		const { onActive } = listener;
 		const stops = await Promise.all([
 			onPatch((event) => listener.onPatch(event)),
 			onBooksChanged((event) => listener.onChanged(event)),
+			...(onActive ? [onActiveBook((id) => onActive(id))] : []),
 		]);
 		return () => stops.forEach((stop) => stop());
 	},

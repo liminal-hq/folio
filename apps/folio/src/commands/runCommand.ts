@@ -5,6 +5,7 @@
 
 import type { Settings, SettingsPatch } from '@liminal-hq/folio-plugin-settings';
 import type { WindowKind } from '@liminal-hq/folio-protocol/generated/WindowKind';
+import { requestAgentDialog } from '../app/agentRequest';
 import { keepWords } from '../canvas/editCheckpoint';
 import { RECENT_PREFIX, type CommandId } from './appMenuModel';
 
@@ -29,6 +30,8 @@ export interface CommandContext {
 	update(patch: SettingsPatch): Promise<void>;
 	/** Opens a window, or focuses it when it is already open. */
 	openWindow(kind: WindowKind): void | Promise<void>;
+	/** Opens the Book tools window on a group of tools, or moves it there when it is open. */
+	openBookTools(area: string): void | Promise<void>;
 	/** Closes the window the command was run in. */
 	closeWindow(): void | Promise<void>;
 	books: BookCommands;
@@ -42,8 +45,12 @@ export const ALWAYS_AVAILABLE: ReadonlySet<CommandId> = new Set<CommandId>([
 	'view.ribbon',
 	'view.expert',
 	'view.jax',
-	'app.bookTools',
+	'tools.structure',
+	'tools.typesetting',
+	'tools.pictures',
+	'tools.publishing',
 	'app.preferences',
+	'app.agents',
 	'app.about',
 	'app.quit',
 ]);
@@ -91,10 +98,15 @@ export async function runCommand(
 		case 'view.jax':
 			// Switching Jax back on returns to the gentle default rather than the last choice.
 			return context.update({ jax: settings.jax === 'off' ? 'tips' : 'off' });
-		case 'app.bookTools':
-			return context.openWindow('BookTools');
+		case 'tools.structure':
+		case 'tools.typesetting':
+		case 'tools.pictures':
+		case 'tools.publishing':
+			return context.openBookTools(id.slice('tools.'.length));
 		case 'app.preferences':
 			return context.openWindow('Preferences');
+		case 'app.agents':
+			return requestAgentDialog();
 		case 'app.about':
 			return context.openWindow('About');
 		case 'app.quit':

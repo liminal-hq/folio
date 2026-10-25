@@ -95,7 +95,7 @@ pub struct FrameLayout {
     /// are already placed inside it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text_box: Option<LayoutRect>,
-    /// For a shape: how its style sets the words, so an editor sets them the same way.
+    /// How its style sets the words, so an editor sets them the same way.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text_align: Option<folio_model::Align>,
     /// For a frame in a story: the paragraph its first line is from, so the story editor can open
