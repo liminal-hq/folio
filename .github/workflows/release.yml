@@ -38,6 +38,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
       draft: ${{ steps.release.outputs.draft }}
       prerelease: ${{ steps.release.outputs.prerelease }}
       dry_run: ${{ steps.release.outputs.dry_run }}
@@ -67,6 +68,7 @@ jobs:
           version="$(bash scripts/check-release-versions.sh --current-version)"
           [[ "v${version}" == "${tag}" ]]
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
           draft=false
           prerelease=false
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ inputs.release_draft }}" == "true" ]]; then draft=true; fi
@@ -116,11 +118,37 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run release:version:check
-      - run: bun run tauri build --bundles appimage,deb,rpm
+      - run: bun run tauri build --bundles deb,rpm
+      - name: Collect release assets
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets/linux
+          find target/release/bundle -type f \( -name '*.deb' -o -name '*.rpm' \) -exec cp {} release-assets/linux/ \;
       - uses: actions/upload-artifact@v7
         with:
           name: linux-release-assets-${{ matrix.arch }}
-          path: target/release/bundle/**
+          path: release-assets/linux/*
+          if-no-files-found: error
+
+  package-appimage:
+    name: AppImage (${{ matrix.arch }})
+    needs: [prepare, build-linux]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x64
+            deb-artifact: linux-release-assets-x64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+            deb-artifact: linux-release-assets-arm64
+    uses: liminal-hq/.github/.github/workflows/package-arch-appimage.yml@main
+    with:
+      runs-on: ${{ matrix.runner }}
+      deb-artifact-name: ${{ matrix.deb-artifact }}
+      app-version: ${{ needs.prepare.outputs.version }}
+    secrets: inherit
 
   build-windows:
     needs: prepare
@@ -143,19 +171,35 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run release:version:check
       - run: bun run tauri build --bundles msi,nsis
+      - name: Collect release assets
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets/windows
+          find target/release/bundle -type f \( -name '*.msi' -o -name '*.exe' \) -exec cp {} release-assets/windows/ \;
       - uses: actions/upload-artifact@v7
         with:
           name: windows-release-assets-${{ matrix.arch }}
-          path: target/release/bundle/**
+          path: release-assets/windows/*
+          if-no-files-found: error
 
   publish:
-    needs: [prepare, build-linux, build-windows]
+    needs: [prepare, build-linux, package-appimage, build-windows]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v7
         with:
           # Each native matrix job supplies one architecture-specific directory.
-          pattern: '*-release-assets'
+          pattern: 'linux-release-assets-*'
+          path: release-assets
+          merge-multiple: true
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: 'appimage-*'
+          path: release-assets
+          merge-multiple: true
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: 'windows-release-assets-*'
           path: release-assets
           merge-multiple: true
       - run: (cd release-assets && sha256sum ./* > SHA256SUMS)
