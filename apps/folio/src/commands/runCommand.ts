@@ -10,8 +10,6 @@ import { RECENT_PREFIX, type CommandId } from './appMenuModel';
 
 /** What the books can do for a command. Each answers when it is finished. */
 export interface BookCommands {
-	/** Starts a new book: back to the welcome screen, after asking about the book being shown. */
-	newBook(): Promise<void>;
 	/** Opens a book from the picker, or from `path`, after asking about the book being shown. */
 	open(path?: string): Promise<void>;
 	save(): Promise<void>;
@@ -97,7 +95,8 @@ export async function runCommand(
 			await context.closeWindow();
 			return;
 		case 'file.new':
-			return books.newBook();
+			// The wizard makes the book and adds it beside any already open, so nothing is closed.
+			return context.openWindow('WizardNew');
 		case 'file.open':
 			return books.open();
 		case 'file.save':

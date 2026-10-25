@@ -92,6 +92,13 @@ export const FAKE_KINDS: KindInfo[] = [
 	trims: (trims as string[]).map((t) => ({ label: t, width: 612, height: 612 })),
 	defaultPages: pages as number,
 	sampleTitle: `Sample ${label as string}`,
+	spines: (
+		[
+			['white', 0.002252],
+			['cream', 0.0025],
+			['colour', 0.002347],
+		] as const
+	).map(([paper, factor]) => ({ paper, inches: (pages as number) * factor })),
 }));
 
 interface Held {
@@ -220,6 +227,10 @@ export function createFakeBooksClient(): FakeBooks {
 		async defaultSavePath(title) {
 			await call('defaultSavePath', [title]);
 			return `/home/mom/Books/${title}/${title}.folio`;
+		},
+		async previewNewBook(spec: NewBookSpec) {
+			await call('previewNewBook', [spec]);
+			return `data:image/png;base64,${btoa(spec.coverColour)}`;
 		},
 		async newBook(spec: Partial<NewBookSpec>) {
 			await call('newBook', [spec]);

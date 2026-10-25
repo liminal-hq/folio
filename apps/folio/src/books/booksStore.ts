@@ -162,8 +162,13 @@ export function createBooksStore(client: BooksClient): BooksStore {
 		const listed = new Set(event.books.map((b) => b.id));
 		state.setState((s) => {
 			const copies = Object.fromEntries(Object.entries(s.copies).filter(([id]) => listed.has(id)));
+			const known = new Set(s.summaries.map((b) => b.id));
+			// A book another window made (the New book wizard) is the one to show; otherwise keep the
+			// open book, and when it is gone fall back to the last one.
+			const arrived = event.books.filter((b) => !known.has(b.id)).at(-1)?.id;
 			const stillThere = s.activeId !== null && listed.has(s.activeId);
-			const activeId = stillThere ? s.activeId : (event.books[event.books.length - 1]?.id ?? null);
+			const activeId =
+				arrived ?? (stillThere ? s.activeId : (event.books[event.books.length - 1]?.id ?? null));
 			return { summaries: event.books, copies, activeId };
 		});
 		const { activeId, copies } = state.getState();
