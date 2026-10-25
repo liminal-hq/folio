@@ -46,9 +46,13 @@ pub fn new_book_with_ids(
 
     let sizes: Vec<(f64, f64)> = data.trims.iter().filter_map(|t| parse_trim(t)).collect();
     let (base_w, base_h) = *sizes.first().ok_or(PresetError::NoSuchTrim(0))?;
-    let (width, height) = *sizes
-        .get(spec.trim_index as usize)
-        .ok_or(PresetError::NoSuchTrim(spec.trim_index))?;
+    let (width, height) = match spec.custom_trim {
+        Some(custom) if custom.is_printable() => (custom.width, custom.height),
+        Some(custom) => return Err(PresetError::BadCustomTrim(custom.width, custom.height)),
+        None => *sizes
+            .get(spec.trim_index as usize)
+            .ok_or(PresetError::NoSuchTrim(spec.trim_index))?,
+    };
     let isbn = spec.isbn.trim();
     if !isbn.is_empty() && !is_valid_isbn13(isbn) {
         return Err(PresetError::BadIsbn(isbn.to_owned()));

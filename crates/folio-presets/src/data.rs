@@ -6,6 +6,7 @@
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
+use crate::spec::Paper;
 use folio_model::{BookKind, LayoutMode, Pt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -139,6 +140,17 @@ pub struct KindInfo {
     /// How long a book of this kind usually is, for the spine and the status bar.
     pub default_pages: u32,
     pub sample_title: String,
+    /// How thick the spine of a book of the usual length is on each paper, in inches.
+    pub spines: Vec<SpineChoice>,
+}
+
+/// A paper and the spine a book of the kind's usual length has on it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct SpineChoice {
+    pub paper: Paper,
+    pub inches: f64,
 }
 
 /// The six kinds, in the order they are offered.
@@ -169,6 +181,17 @@ pub fn kind_infos() -> Vec<KindInfo> {
                     .collect(),
                 default_pages: data.default_pages,
                 sample_title: data.sample_title.clone(),
+                spines: [
+                    (Paper::White, folio_model::Paper::White),
+                    (Paper::Cream, folio_model::Paper::Cream),
+                    (Paper::Colour, folio_model::Paper::Colour),
+                ]
+                .into_iter()
+                .map(|(paper, model)| SpineChoice {
+                    paper,
+                    inches: f64::from(data.default_pages) * folio_model::spine_factor(model),
+                })
+                .collect(),
             }
         })
         .collect()

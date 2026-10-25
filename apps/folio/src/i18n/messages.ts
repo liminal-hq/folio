@@ -79,6 +79,13 @@ export const messages = {
 	'wizard.paper.white': 'White',
 	'wizard.paper.cream': 'Cream',
 	'wizard.paper.colour': 'Colour',
+	'wizard.size.custom': 'My own size',
+	'wizard.size.width': 'Width (in)',
+	'wizard.size.height': 'Height (in)',
+	'wizard.size.customHint':
+		'Amazon KDP prints paperbacks from 4 to 8.5 in wide and 6 to 11.69 in high.',
+	'wizard.size.spine':
+		'A book of about {pages} pages has a spine about {inches} in thick on this paper.',
 	'wizard.size.paperHint': 'The paper decides how thick the spine is when the book is printed.',
 	'wizard.title.title': 'Title',
 	'wizard.title.placeholder': 'Leave empty to keep the sample title',
@@ -96,6 +103,8 @@ export const messages = {
 	'wizard.way.modeHint':
 		'Easy keeps things simple. Expert shows grids, master pages and print settings.',
 	'wizard.look.type': 'Typeface',
+	'wizard.look.preview': 'Your cover, as it will look',
+	'wizard.look.previewHint': 'The cover of your book with this look. You can change it later.',
 	'wizard.look.friendly': 'Friendly',
 	'wizard.look.friendlySub': 'Clear, warm and easy to read.',
 	'wizard.look.modern': 'Modern',
@@ -187,6 +196,7 @@ export const messages = {
 	'welcome.jax': 'Would you like Jax’s help?',
 	'welcome.start': 'Start {kind}',
 	'welcome.starting': 'Starting…',
+	'welcome.guide': 'Guide me…',
 	'recovery.heading': 'Unsaved work from last time',
 	'recovery.never': 'Never saved',
 	'recovery.saved': 'Kept {when}',
