@@ -13,12 +13,16 @@ export interface FileDialogs {
 	pickSavePath(defaultPath: string): Promise<string | null>;
 	/** Asks which picture to bring in. */
 	pickImage(): Promise<string | null>;
+	/** Asks which Markdown or text file to bring in. */
+	pickText(): Promise<string | null>;
 }
 
 const FILTERS = [{ name: 'Folio books', extensions: ['folio'] }];
 const IMAGE_FILTERS = [
 	{ name: 'Pictures', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] },
 ];
+
+const TEXT_FILTERS = [{ name: 'Markdown and text', extensions: ['md', 'markdown', 'txt'] }];
 
 export const tauriFileDialogs: FileDialogs = {
 	async pickBook() {
@@ -27,6 +31,10 @@ export const tauriFileDialogs: FileDialogs = {
 	},
 	async pickSavePath(defaultPath) {
 		return save({ defaultPath, filters: FILTERS });
+	},
+	async pickText() {
+		const picked = await open({ multiple: false, directory: false, filters: TEXT_FILTERS });
+		return typeof picked === 'string' ? picked : null;
 	},
 	async pickImage() {
 		const picked = await open({ multiple: false, directory: false, filters: IMAGE_FILTERS });

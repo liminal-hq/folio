@@ -165,6 +165,23 @@ impl Session {
         })
     }
 
+    /// Makes the last `count` undo steps one, so a change and what had to follow from it (pages
+    /// added for a story that grew) are taken back together. Does nothing when there are fewer.
+    pub fn join_last(&mut self, count: usize) {
+        if count < 2 || self.undo.len() < count {
+            return;
+        }
+        let mut steps = self.undo.split_off(self.undo.len() - count).into_iter();
+        let first = steps.next().expect("count is at least two");
+        let joined = steps.fold(first, |so_far, next| Entry {
+            before: so_far.before.before_both(&next.before),
+            after: so_far.after.after_both(&next.after),
+            merge: None,
+            at: next.at,
+        });
+        self.undo.push(joined);
+    }
+
     /// Undoes the last step, or `None` when there is nothing to undo.
     pub fn undo(&mut self) -> Option<Patch> {
         let entry = self.undo.pop()?;
