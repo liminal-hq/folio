@@ -15,7 +15,10 @@ interface ReviewStepProps {
 }
 
 export function ReviewStep({ kind, draft, problem }: ReviewStepProps) {
-	const trim = kind?.trims[draft.trimIndex]?.label ?? '';
+	const own = draft.customTrim;
+	const trim = own
+		? `${own.width} × ${own.height} in`
+		: (kind?.trims[draft.trimIndex]?.label ?? '');
 	const rows: Array<[string, string]> = [
 		[t('wizard.review.kind'), kind?.label ?? ''],
 		[t('wizard.review.size'), trim],

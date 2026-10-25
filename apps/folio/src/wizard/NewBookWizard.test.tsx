@@ -124,6 +124,39 @@ describe('the kind and size steps', () => {
 		expect(screen.getByRole('radio', { name: '5.5 × 8.5 in' })).toBeChecked();
 		expect(screen.getByRole('radio', { name: 'Cream' })).toBeChecked();
 	});
+
+	it("takes a size of the author's own and says how thick the spine is on the chosen paper", async () => {
+		const close = vi.fn();
+		const { fake } = mount(close);
+		await userEvent.click(await screen.findByRole('radio', { name: /Novel/ }));
+		await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+		expect(screen.getByRole('status')).toHaveTextContent('248 pages');
+		expect(screen.getByRole('status')).toHaveTextContent('0.56 in');
+		await userEvent.click(screen.getByRole('radio', { name: 'My own size' }));
+		const width = screen.getByLabelText('Width (in)');
+		await userEvent.clear(width);
+		await userEvent.type(width, '5.25');
+		await toStep(/Review/);
+		expect(screen.getByText('5.25 × 8.5 in')).toBeInTheDocument();
+		await userEvent.click(screen.getByRole('button', { name: 'Make my book' }));
+		await waitFor(() => expect(close).toHaveBeenCalled());
+		const made = fake.calls.find((call) => call.startsWith('newBook('));
+		expect(made).toContain('"customTrim":{"width":5.25,"height":8.5}');
+	});
+
+	it('shows the cover the chosen look and colour would give, and draws it again when they change', async () => {
+		const { fake } = mount();
+		await toStep(/The look/);
+		const image = await screen.findByRole('img', { name: 'Your cover, as it will look' });
+		const before = image.getAttribute('src');
+		await userEvent.click(screen.getByRole('radio', { name: 'Forest' }));
+		await waitFor(() =>
+			expect(
+				screen.getByRole('img', { name: 'Your cover, as it will look' }).getAttribute('src'),
+			).not.toBe(before),
+		);
+		expect(fake.calls.filter((c) => c.startsWith('previewNewBook(')).length).toBeGreaterThan(1);
+	});
 });
 
 async function toStep(name: RegExp) {

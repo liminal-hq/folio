@@ -30,7 +30,8 @@ export function KindStep({ kinds, draft, onChange }: KindStepProps) {
 		kinds.findIndex((info) => info.kind === draft.kind),
 	);
 	// A different kind has different sizes, so the size starts again from its first.
-	const choose = (info: KindInfo) => onChange({ kind: info.kind, trimIndex: 0 });
+	const choose = (info: KindInfo) =>
+		onChange({ kind: info.kind, trimIndex: 0, customTrim: undefined });
 	return (
 		<div
 			className={styles.kinds}
