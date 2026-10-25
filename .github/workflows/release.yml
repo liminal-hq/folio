@@ -62,6 +62,7 @@ jobs:
           draft=false
           prerelease=false
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ inputs.release_draft }}" == "true" ]]; then draft=true; fi
+          # A prerelease tag always stays a prerelease; the manual flag can also opt a normal tag in.
           if [[ "${tag}" == *-* ]] || [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ inputs.release_prerelease }}" == "true" ]]; then prerelease=true; fi
           echo "draft=${draft}" >> "${GITHUB_OUTPUT}"
           echo "prerelease=${prerelease}" >> "${GITHUB_OUTPUT}"
@@ -87,6 +88,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Build natively: cross-compiling WebKitGTK bundles is not a supported release path.
         include:
           - runner: ubuntu-24.04
             arch: x64
@@ -94,6 +96,7 @@ jobs:
             arch: arm64
     container: ghcr.io/liminal-hq/tauri-ci-desktop:latest
     env:
+      # The public key is committed in Tauri config; only CI receives the signing half of the pair.
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.FOLIO_TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.FOLIO_TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
@@ -114,6 +117,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Windows installers must be built on their target architecture for a supported updater payload.
         include:
           - runner: windows-latest
             arch: x64
@@ -139,6 +143,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v7
         with:
+          # Each native matrix job supplies one architecture-specific directory.
           pattern: '*-release-assets'
           path: release-assets
           merge-multiple: true
