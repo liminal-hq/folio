@@ -22,7 +22,7 @@ origin?: Origin | null,
  */
 textBox?: LayoutRect | null, 
 /**
- * For a shape: how its style sets the words, so an editor sets them the same way.
+ * How its style sets the words, so an editor sets them the same way.
  */
 textAlign?: Align | null, 
 /**

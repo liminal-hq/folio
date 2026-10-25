@@ -1,0 +1,98 @@
+.note {
+	margin: 0;
+	color: var(--folio-text-muted);
+}
+
+.summary {
+	margin: 0 0 12px;
+	color: var(--folio-text-secondary);
+}
+
+.rules {
+	display: grid;
+	gap: 8px;
+	margin: 0 0 16px;
+	padding: 0;
+	list-style: none;
+}
+
+.rule,
+.stray {
+	padding: 10px 12px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 8px;
+	background: var(--folio-bg-raised);
+}
+
+.stray {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.ruleHead {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.ruleName {
+	font-weight: 600;
+}
+
+.count {
+	margin-inline-start: auto;
+	color: var(--folio-text-muted);
+	font-size: 12px;
+}
+
+.hint {
+	display: block;
+	color: var(--folio-text-muted);
+	font-size: 12px;
+}
+
+.diff {
+	margin: 6px 0 0 24px;
+	font-size: 13px;
+}
+
+.before {
+	color: var(--folio-text-muted);
+}
+
+.after {
+	color: var(--folio-text-primary);
+}
+
+.button,
+.primary {
+	padding: 5px 12px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-control-bg);
+	color: var(--folio-text-primary);
+	font: inherit;
+	cursor: default;
+}
+
+.primary {
+	border-color: var(--folio-accent);
+	background: var(--folio-accent);
+	color: var(--folio-accent-contrast, #fff);
+}
+
+.primary:disabled {
+	opacity: 0.5;
+}
+
+.button:hover {
+	background: var(--folio-control-bg-hover);
+}
+
+.button:focus-visible,
+.primary:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: 2px;
+}

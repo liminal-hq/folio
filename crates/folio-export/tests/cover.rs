@@ -134,22 +134,37 @@ fn the_spine_carries_the_title_only_from_the_page_count_where_kdp_allows_text() 
 }
 
 #[test]
-fn the_back_has_the_description_and_a_clear_box_for_the_barcode() {
+fn the_sheet_is_the_cover_spread_with_a_clear_box_for_the_barcode_over_it() {
     let (mut book, _) = sample(BookKind::Picture);
-    book.metadata.description = "A small otter who cannot sleep.".into();
+    // What the person put on the back is a frame of the cover, kept where it is and not locked.
+    let mut back = folio_model::words_frame(
+        "fr_back",
+        folio_model::Rect {
+            x: folio_model::Pt(30.0),
+            y: folio_model::Pt(60.0),
+            w: folio_model::Pt(120.0),
+            h: folio_model::Pt(40.0),
+        },
+        0.0,
+        "Praise for the otter",
+    );
+    back.base_mut().locked = false;
+    book.spreads[0].frames.push(back);
     let frames = &cover_sheet(&book, Paper::White).unwrap().spreads[0].frames;
-    assert!(frames.iter().any(|f| f.base().id.0 == "cover_blurb"));
+    let mine = frames.iter().find(|f| f.base().id.0 == "fr_back").unwrap();
+    assert_eq!(mine.base().rect.x.0, 30.0);
+    assert!(!mine.base().locked);
     let Some(Frame::Shape(barcode)) = frames.iter().find(|f| f.base().id.0 == "cover_barcode")
     else {
         panic!("a barcode box")
     };
     assert_eq!(barcode.fill.as_ref().map(|c| c.0.as_str()), Some("#ffffff"));
-    // No description, no blurb frame.
-    book.metadata.description.clear();
-    assert!(!cover_sheet(&book, Paper::White).unwrap().spreads[0]
-        .frames
-        .iter()
-        .any(|f| f.base().id.0 == "cover_blurb"));
+    assert!(
+        barcode.base.locked,
+        "what Folio draws is not the person's to move"
+    );
+    // Folio no longer makes a blurb of its own: the description is a frame of the cover.
+    assert!(!frames.iter().any(|f| f.base().id.0 == "cover_blurb"));
 }
 
 #[test]
@@ -294,60 +309,117 @@ fn the_barcode_follows_the_books_choice_and_a_price_addon_adds_bars() {
 }
 
 #[test]
-fn words_put_on_the_back_cover_are_drawn_on_the_sheet() {
-    use folio_model::{BackNote, Pt, Rect};
-    let (mut book, _) = sample(BookKind::Picture);
-    book.back_notes = vec![BackNote {
-        id: "n1".into(),
-        text: "Praise for the otter".into(),
-        rect: Rect {
-            x: Pt(30.0),
-            y: Pt(200.0),
-            w: Pt(120.0),
-            h: Pt(40.0),
-        },
-        size: 11.0,
-        picture: None,
-        shape: None,
-        fill: None,
-    }];
+fn the_sheet_has_guides_at_the_folds_and_the_safe_areas_for_the_canvas_to_snap_to() {
+    use folio_model::Axis;
+    let (book, _) = sample(BookKind::Picture);
     let sheet = cover_sheet(&book, Paper::White).unwrap();
-    let found = sheet.spreads[0].frames.iter().any(|f| match f {
-        folio_model::Frame::Text(t) => {
-            t.base.id.0 == "cover_note_n1"
-                && t.base.rect.x.0 == 30.0
-                && t.overrides.as_ref().and_then(|o| o.size) == Some(Pt(11.0))
-        }
-        _ => false,
-    });
-    assert!(found, "the note is a text frame of the sheet");
+    let w = book.trim.w.0;
+    let spine = paperback_cover(book.trim, spine_pages(&book), Paper::White)
+        .spine
+        .0;
+    let xs: Vec<f64> = sheet.spreads[0]
+        .guides
+        .iter()
+        .filter(|g| g.axis == Axis::X)
+        .map(|g| g.pos.0)
+        .collect();
+    for fold in [0.0, w, w + spine, 2.0 * w + spine, 18.0, w - 18.0] {
+        assert!(
+            xs.iter().any(|x| (x - fold).abs() < 1e-9),
+            "a guide at {fold}"
+        );
+    }
+    assert!(sheet.spreads[0].guides.iter().all(|g| g.locked));
 }
 
 #[test]
-fn a_picture_put_on_the_back_cover_is_an_image_frame_of_the_sheet() {
-    use folio_model::{BackNote, Pt, Rect};
+fn the_cover_of_an_older_book_moves_onto_the_sheet_with_its_back_cover_words_as_frames() {
+    use folio_model::{upgrade_cover, BackNote, Pt, Rect, SCHEMA_VERSION};
     let (mut book, _) = sample(BookKind::Picture);
-    book.back_notes = vec![BackNote {
-        id: "n2".into(),
-        text: String::new(),
-        rect: Rect {
-            x: Pt(30.0),
-            y: Pt(60.0),
-            w: Pt(100.0),
-            h: Pt(100.0),
+    let front = book.spreads[0].frames.len();
+    let x_before = book.spreads[0].frames[0].base().rect.x.0;
+    book.schema = 2;
+    book.metadata.description = "A small otter who cannot sleep.".into();
+    book.back_notes = vec![
+        BackNote {
+            id: "n1".into(),
+            text: "Praise for the otter".into(),
+            rect: Rect {
+                x: Pt(30.0),
+                y: Pt(200.0),
+                w: Pt(120.0),
+                h: Pt(40.0),
+            },
+            size: 11.0,
+            picture: None,
+            shape: None,
+            fill: None,
+            rotation: Some(15.0),
         },
-        size: 12.0,
-        picture: Some("assets/images/otter.png".into()),
-        shape: None,
-        fill: None,
-    }];
-    let sheet = cover_sheet(&book, Paper::White).unwrap();
-    let found = sheet.spreads[0].frames.iter().any(|f| match f {
-        Frame::Image(i) => {
-            i.base.id.0 == "cover_note_n2"
-                && i.image.asset.as_deref() == Some("assets/images/otter.png")
-        }
-        _ => false,
-    });
-    assert!(found, "the picture is an image frame of the sheet");
+        BackNote {
+            id: "n2".into(),
+            text: String::new(),
+            rect: Rect {
+                x: Pt(30.0),
+                y: Pt(60.0),
+                w: Pt(100.0),
+                h: Pt(100.0),
+            },
+            size: 12.0,
+            picture: Some("assets/images/otter.png".into()),
+            shape: None,
+            fill: None,
+            rotation: None,
+        },
+    ];
+    upgrade_cover(&mut book, Some(Paper::Cream));
+    assert_eq!(book.schema, SCHEMA_VERSION);
+    assert_eq!(book.paper, Paper::Cream);
+    assert!(book.back_notes.is_empty());
+    let frames = &book.spreads[0].frames;
+    // The front is set past the back and the spine.
+    let offset = folio_model::front_offset(&book).0;
+    assert_eq!(frames[0].base().rect.x.0, x_before + offset);
+    // The description and the two notes are frames of the cover, after the front's own.
+    assert_eq!(frames.len(), front + 3);
+    let by_id = |id: &str| frames.iter().find(|f| f.base().id.0 == id).unwrap();
+    assert!(matches!(by_id("blurb"), Frame::Text(_)));
+    assert_eq!(by_id("note_n1").base().rotation, 15.0);
+    assert_eq!(by_id("note_n1").base().rect.x.0, 30.0);
+    assert!(matches!(by_id("note_n2"), Frame::Image(_)));
+    // A book already on this schema is left as it is.
+    let again = book.clone();
+    upgrade_cover(&mut book, None);
+    assert_eq!(book, again);
+}
+
+#[test]
+fn the_blurb_follows_the_description_until_the_person_changes_the_words_in_it() {
+    use folio_model::sync_blurb;
+    let (mut book, _) = sample(BookKind::Picture);
+    let text = |book: &Book| -> Option<String> {
+        book.spreads[0].frames.iter().find_map(|f| match f {
+            Frame::Text(t) if t.base.id.0 == "blurb" => t
+                .content
+                .as_ref()
+                .map(|c| c.inline.iter().map(|r| r.text.as_str()).collect()),
+            _ => None,
+        })
+    };
+    // A description typed where there was none makes the frame.
+    sync_blurb(&mut book, "", "First words");
+    assert_eq!(text(&book).as_deref(), Some("First words"));
+    // While the frame still holds the last description, a new one replaces it.
+    sync_blurb(&mut book, "First words", "Second words");
+    assert_eq!(text(&book).as_deref(), Some("Second words"));
+    // Words changed on the cover are the person's, and a new description leaves them alone.
+    if let Some(Frame::Text(t)) = book.spreads[0]
+        .frames
+        .iter_mut()
+        .find(|f| f.base().id.0 == "blurb")
+    {
+        t.content.as_mut().unwrap().inline[0].text = "My own words".into();
+    }
+    sync_blurb(&mut book, "Second words", "Third words");
+    assert_eq!(text(&book).as_deref(), Some("My own words"));
 }

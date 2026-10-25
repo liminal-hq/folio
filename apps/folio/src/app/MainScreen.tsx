@@ -11,6 +11,10 @@ import { useActiveBook, useBooks, useBooksSelector } from '../books/useBooks';
 import { APP_MENU_MNEMONICS } from '../commands/appMenuModel';
 import { requestJaxToggle } from '../jax/jaxToggle';
 import { t } from '../i18n/messages';
+import { AgentChip } from './AgentChip';
+import { AGENT_EVENT } from './agentRequest';
+import { ConnectAgentDialog } from './ConnectAgentDialog';
+import { tauriAgentClient, type AgentClient } from '../services/agentClient';
 import { tauriAppInfoClient, type AppInfoClient } from '../services/appInfoClient';
 import { tauriCloseRequests, type CloseRequests } from '../services/closeRequests';
 import { useSettings } from '../settings/useSettings';
@@ -55,11 +59,19 @@ function savedText(path: string | null, dirty: boolean): string {
 export function MainScreen({
 	client = tauriAppInfoClient,
 	closeRequests = tauriCloseRequests,
+	agentClient = tauriAgentClient,
 }: {
 	client?: AppInfoClient;
 	closeRequests?: CloseRequests;
+	agentClient?: AgentClient;
 }) {
 	const settings = useSettings();
+	const [agentsOpen, setAgentsOpen] = useState(false);
+	useEffect(() => {
+		const open = () => setAgentsOpen(true);
+		window.addEventListener(AGENT_EVENT, open);
+		return () => window.removeEventListener(AGENT_EVENT, open);
+	}, []);
 	const { ask, dialog } = useCloseQuestion();
 	const { actions } = useBooks();
 	// Closing the window (the ✕, Alt+F4 or Quit) asks about every book with changes first.
@@ -139,6 +151,7 @@ export function MainScreen({
 							: t('status.noBook')}
 					</span>
 					<span className={styles.statusGroup}>
+						<AgentChip />
 						{active && <span>{savedText(active.summary.path, active.summary.dirty)}</span>}
 						{settings.jax !== 'off' &&
 							(active ? (
@@ -154,6 +167,11 @@ export function MainScreen({
 			</div>
 			{dialog}
 			{recovery.dialog}
+			<ConnectAgentDialog
+				open={agentsOpen}
+				onClose={() => setAgentsOpen(false)}
+				client={agentClient}
+			/>
 		</WindowFrame>
 	);
 }

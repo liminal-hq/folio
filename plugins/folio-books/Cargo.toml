@@ -20,29 +20,23 @@ name = "tauri_plugin_folio_books"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dependencies]
-base64 = "0.22"
-dunce = { workspace = true }
-folio-colour = { path = "../../crates/folio-colour" }
-folio-export = { path = "../../crates/folio-export" }
-folio-import = { path = "../../crates/folio-import" }
-folio-layout = { path = "../../crates/folio-layout" }
-folio-spell = { path = "../../crates/folio-spell" }
-ureq = "3"
-folio-model = { path = "../../crates/folio-model" }
-folio-package = { path = "../../crates/folio-package" }
-folio-presets = { path = "../../crates/folio-presets" }
+folio-engine = { path = "../../crates/folio-engine" }
 folio-protocol = { path = "../../crates/folio-protocol" }
+folio-layout = { path = "../../crates/folio-layout" }
+folio-model = { path = "../../crates/folio-model" }
+folio-presets = { path = "../../crates/folio-presets" }
+folio-import = { path = "../../crates/folio-import" }
 folio-session = { path = "../../crates/folio-session" }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tauri = { workspace = true }
-thiserror = { workspace = true }
-ts-rs = { workspace = true }
 
 [build-dependencies]
 tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
+folio-package = { path = "../../crates/folio-package" }
+folio-spell = { path = "../../crates/folio-spell" }
 tauri = { workspace = true, features = ["test"] }
 tempfile = "3"

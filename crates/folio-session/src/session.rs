@@ -122,9 +122,42 @@ impl Session {
                 ops: Vec::new(),
             });
         }
-        let plan = plan(&self.book, &intent, &mut self.ids)?;
-        let before = Delta::capture(&self.book, &plan.touched, &plan.flows);
+        let mut plan = plan(&self.book, &intent, &mut self.ids)?;
+        // The spine is as thick as the pages and the paper make it, and the front cover sits past
+        // it, so what changes either takes the cover along in the same step.
+        let spine_may_move = matches!(
+            intent,
+            Intent::AddSpread { .. }
+                | Intent::AddSpreadWith { .. }
+                | Intent::DeleteSpread { .. }
+                | Intent::SetPaper { .. }
+                | Intent::AddFlowPages { .. }
+                | Intent::TrimFlowPages { .. }
+        );
+        let cover = self
+            .book
+            .spreads
+            .first()
+            .filter(|s| s.kind == folio_model::SpreadKind::Cover)
+            .map(|s| s.id.clone())
+            .filter(|_| spine_may_move);
+        let front_before = folio_model::front_offset(&self.book).0;
+        let cover_was = cover.as_ref().and_then(|id| {
+            self.book
+                .spreads
+                .iter()
+                .find(|s| &s.id == id)
+                .cloned()
+                .map(|s| (id.clone(), Some(s)))
+        });
+        let mut before = Delta::capture(&self.book, &plan.touched, &plan.flows);
         run(&mut self.book, intent, &plan, &mut self.ids);
+        if let Some(cover) = &cover {
+            if slide_front(&mut self.book, cover, front_before) && !plan.touched.contains(cover) {
+                plan.touched.push(cover.clone());
+                before.spreads.extend(cover_was);
+            }
+        }
         let after = Delta::capture(&self.book, &plan.touched, &plan.flows);
 
         let ops = ops_between(&before, &after);
@@ -163,6 +196,12 @@ impl Session {
             revision: self.revision,
             ops,
         })
+    }
+
+    /// Forgets what could be redone: after steps were taken back to undo a batch that failed,
+    /// redoing them would bring half of it back.
+    pub fn clear_redo(&mut self) {
+        self.redo.clear();
     }
 
     /// Makes the last `count` undo steps one, so a change and what had to follow from it (pages
@@ -207,6 +246,33 @@ impl Session {
             ops,
         })
     }
+}
+
+/// Moves what sits on the front half of the cover along with the front, when the spine has grown or
+/// shrunk since the front was at `front_before`: frames centred past the middle of the old spine
+/// slide by the change, and the back and the spine's own frames stay where they are. Whether any
+/// frame moved.
+fn slide_front(
+    book: &mut folio_model::Book,
+    cover: &folio_model::SpreadId,
+    front_before: f64,
+) -> bool {
+    let change = folio_model::front_offset(book).0 - front_before;
+    if change.abs() < 1e-9 {
+        return false;
+    }
+    let middle = (front_before + book.trim.w.0) / 2.0;
+    let mut moved = false;
+    if let Some(spread) = book.spreads.iter_mut().find(|s| &s.id == cover) {
+        for frame in &mut spread.frames {
+            let base = frame.base_mut();
+            if base.rect.x.0 + base.rect.w.0 / 2.0 > middle {
+                base.rect.x.0 += change;
+                moved = true;
+            }
+        }
+    }
+    moved
 }
 
 /// What changed between two snapshots of the same touched spreads.
@@ -258,9 +324,9 @@ fn ops_between(before: &Delta, after: &Delta) -> Vec<PatchOp> {
             choice: after.barcode.clone(),
         });
     }
-    if before.back_notes != after.back_notes {
-        ops.push(PatchOp::SetBackNotes {
-            notes: after.back_notes.clone(),
+    if before.keywords != after.keywords {
+        ops.push(PatchOp::SetKeywords {
+            keywords: after.keywords.clone(),
         });
     }
     if before.paper != after.paper {

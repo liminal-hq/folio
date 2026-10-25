@@ -6,10 +6,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use folio_model::{
-    Background, Book, BookId, BookKind, BookMetadata, Colour, Contributor, ContributorRole, Fit,
-    Flow, FlowId, FlowSlot, Frame, FrameBase, FrameId, Grid, ImageFrame, ImageRef, InlineContent,
-    Isbns, LayoutMode, Margins, Page, PageId, Pt, Rect, Run, Size, Spread, SpreadId, SpreadKind,
-    StoryPara, StyleId, Styles, TextFrame, SCHEMA_VERSION,
+    front_offset, Background, Book, BookId, BookKind, BookMetadata, Colour, Contributor,
+    ContributorRole, Fit, Flow, FlowId, FlowSlot, Frame, FrameBase, FrameId, Grid, ImageFrame,
+    ImageRef, InlineContent, Isbns, LayoutMode, Margins, Page, PageId, Pt, Rect, Run, Size, Spread,
+    SpreadId, SpreadKind, StoryPara, StyleId, Styles, TextFrame, SCHEMA_VERSION,
 };
 use serde_json::{json, Value};
 
@@ -26,7 +26,8 @@ pub struct NewBook {
     pub settings: Value,
 }
 
-fn random_id(prefix: &str) -> String {
+/// A new id: the prefix, an underscore and twelve hex digits.
+pub fn random_id(prefix: &str) -> String {
     let id = uuid::Uuid::new_v4().simple().to_string();
     format!("{prefix}_{}", &id[..12])
 }
@@ -110,7 +111,7 @@ pub fn new_book_with_ids(
         })
         .collect();
 
-    let book = Book {
+    let mut book = Book {
         schema: SCHEMA_VERSION,
         id: BookId(ids("bk")),
         title: title.clone(),
@@ -174,6 +175,15 @@ pub fn new_book_with_ids(
         },
         extensions: Default::default(),
     };
+
+    // The cover is the printed sheet, back, spine and front, and what was made for it is the front:
+    // set it past the back and the spine, whose width the pages and the paper decide.
+    let front = front_offset(&book).0;
+    if let Some(cover) = book.spreads.first_mut() {
+        for frame in &mut cover.frames {
+            frame.base_mut().rect.x.0 += front;
+        }
+    }
 
     Ok(NewBook {
         book,

@@ -319,6 +319,8 @@ pub fn export_fixed_epub(
     fonts: &FontBook,
     assets: &dyn Assets,
 ) -> Result<Vec<u8>, ExportError> {
+    let front = folio_model::front_cover_view(book);
+    let book = &front;
     let layouter = Layouter::new(book, styles, fonts);
     let mut scenes: Vec<PageScene> = Vec::new();
     for spread in &book.spreads {

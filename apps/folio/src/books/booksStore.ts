@@ -39,6 +39,8 @@ export interface BooksState {
 	kinds: KindInfo[];
 	/** The last refusal, until the next call succeeds. */
 	error: BooksCommandError | null;
+	/** When an AI agent last changed a book, so the window can say so; `null` if none has. */
+	agentEditedAt: number | null;
 }
 
 export interface BooksStore {
@@ -85,13 +87,21 @@ function copyOf(snapshot: BookSnapshot): OpenBookCopy {
  * would have to skip a revision is read again whole. The store subscribes before it reads, so a
  * change made in between reaches it as an event instead of falling through the gap.
  */
-export function createBooksStore(client: BooksClient): BooksStore {
+export function createBooksStore(
+	client: BooksClient,
+	/**
+	 * `main` tells the other windows which book it shows; `follow` shows the book the main window
+	 * does, as the Book tools window does.
+	 */
+	role: 'main' | 'follow' = 'main',
+): BooksStore {
 	const state = createStore<BooksState>(() => ({
 		summaries: [],
 		copies: {},
 		activeId: null,
 		kinds: [],
 		error: null,
+		agentEditedAt: null,
 	}));
 
 	const fail = (reason: unknown) => {
@@ -135,6 +145,7 @@ export function createBooksStore(client: BooksClient): BooksStore {
 	};
 
 	const onPatch = (event: PatchEvent) => {
+		if (event.by === 'agent') state.setState({ agentEditedAt: Date.now() });
 		const held = state.getState().copies[event.id];
 		if (!held) return;
 		const revision = event.patch.revision;
@@ -180,10 +191,27 @@ export function createBooksStore(client: BooksClient): BooksStore {
 		return activeId;
 	};
 
+	if (role === 'main') {
+		state.subscribe((now, before) => {
+			if (now.activeId !== before.activeId) void client.setActiveBook(now.activeId).catch(() => {});
+		});
+	}
+
+	/** Shows the book the main window shows, once it is known to this window. */
+	const follow = async (id: string | null) => {
+		if (id === null || !state.getState().summaries.some((b) => b.id === id)) return;
+		state.setState({ activeId: id });
+		if (!state.getState().copies[id]) await load(id);
+	};
+
 	return {
 		state,
 		async start() {
-			const stop = await client.subscribe({ onPatch, onChanged });
+			const stop = await client.subscribe({
+				onPatch,
+				onChanged,
+				...(role === 'follow' ? { onActive: (id: string | null) => void follow(id) } : {}),
+			});
 			try {
 				state.setState({ kinds: await client.presets() });
 			} catch {
@@ -195,6 +223,8 @@ export function createBooksStore(client: BooksClient): BooksStore {
 					summaries: books,
 					activeId: s.activeId ?? books[0]?.id ?? null,
 				}));
+				if (role === 'follow') await follow(await client.activeBook());
+				else await client.setActiveBook(state.getState().activeId);
 				const { activeId } = state.getState();
 				if (activeId !== null && !state.getState().copies[activeId]) await load(activeId);
 			} catch {

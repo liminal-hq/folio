@@ -784,26 +784,6 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
         .unwrap()
     });
 
-    record("put words on the back cover", &mut s, &|s| {
-        s.apply(Intent::SetBackNotes {
-            notes: vec![folio_model::BackNote {
-                id: "n1".into(),
-                text: "A cosy tale".into(),
-                rect: folio_model::Rect {
-                    x: folio_model::Pt(20.0),
-                    y: folio_model::Pt(30.0),
-                    w: folio_model::Pt(100.0),
-                    h: folio_model::Pt(40.0),
-                },
-                size: 10.0,
-                picture: None,
-                shape: None,
-                fill: None,
-            }],
-        })
-        .unwrap()
-    });
-
     let text = serde_json::to_string_pretty(&cases).unwrap() + "\n";
     let path = fixture_path();
     if std::env::var_os("UPDATE_FIXTURES").is_some() {
@@ -3237,25 +3217,29 @@ fn the_details_are_one_undo_step_and_details_a_book_cannot_have_are_refused() {
             details: new.clone(),
         })
         .unwrap();
-    assert_eq!(
-        patch.ops,
-        vec![PatchOp::SetDetails {
-            details: new.clone()
-        }]
-    );
+    // The description is put on the back cover too, as a frame of it.
+    assert!(patch.ops.contains(&PatchOp::SetDetails {
+        details: new.clone()
+    }));
+    assert!(patch
+        .ops
+        .iter()
+        .any(|op| matches!(op, PatchOp::SetSpread { spread } if spread.kind == folio_model::SpreadKind::Cover
+            && spread.frames.iter().any(|f| f.base().id.0 == "blurb"))));
     assert_eq!(s.book().title, "Tea at the Lighthouse");
     assert_eq!(
         s.book().metadata.isbn.paperback.as_deref(),
         Some("978-0-306-40615-7")
     );
     let undone = s.undo().unwrap();
-    assert_eq!(
-        undone.ops,
-        vec![PatchOp::SetDetails {
-            details: was.clone()
-        }]
-    );
+    assert!(undone.ops.contains(&PatchOp::SetDetails {
+        details: was.clone()
+    }));
     assert_eq!(folio_model::Details::of(s.book()), was);
+    assert!(
+        s.book().spreads[0].frames.is_empty(),
+        "the blurb goes with it"
+    );
     for bad in [
         details("  ", None, ""),
         details("Fine", None, "978-0-306-40615-8"),
@@ -3983,37 +3967,214 @@ fn the_barcode_choice_is_one_undo_step_and_a_bad_price_addon_is_refused() {
 }
 
 #[test]
-fn the_words_on_the_back_cover_are_one_undo_step() {
-    use folio_model::{BackNote, Pt, Rect};
+fn the_front_of_the_cover_slides_with_the_spine_as_pages_come_in_one_step() {
+    use folio_model::front_offset;
     let mut s = Session::new(book());
-    let notes = vec![BackNote {
-        id: "n1".into(),
-        text: "A cosy tale".into(),
-        rect: Rect {
-            x: Pt(20.0),
-            y: Pt(30.0),
-            w: Pt(100.0),
-            h: Pt(40.0),
-        },
-        size: 10.0,
-        picture: None,
-        shape: None,
-        fill: None,
-    }];
+    let cover = s.book().spreads[0].id.clone();
+    let before_offset = front_offset(s.book()).0;
+    // A frame on the back, and one on the front, each in the sheet's own points.
+    let at = |x: f64| folio_model::Rect {
+        x: folio_model::Pt(x),
+        y: folio_model::Pt(10.0),
+        w: folio_model::Pt(40.0),
+        h: folio_model::Pt(20.0),
+    };
+    for (id, x) in [("fr_back", 10.0), ("fr_front", before_offset + 10.0)] {
+        s.apply(Intent::AddFrame {
+            on: folio_model::Surface::Spread(cover.clone()),
+            frame: folio_model::Frame::Shape(folio_model::ShapeFrame {
+                base: folio_model::FrameBase {
+                    id: frame(id),
+                    rect: at(x),
+                    rotation: 0.0,
+                    locked: false,
+                    from_master: None,
+                    description: None,
+                },
+                shape: folio_model::Shape::Rect,
+                fill: None,
+                style: None,
+                stroke: None,
+                stroke_width: None,
+                radius: None,
+                flip: false,
+                content: None,
+                overrides: None,
+            }),
+        })
+        .unwrap();
+    }
+    let x_of = |s: &Session, id: &str| {
+        s.book().spreads[0]
+            .frames
+            .iter()
+            .find(|f| f.base().id == frame(id))
+            .unwrap()
+            .base()
+            .rect
+            .x
+            .0
+    };
+    // The paper changes how thick the spine is.
+    s.apply(Intent::EndUndoStep).unwrap();
+    s.apply(Intent::SetPaper {
+        paper: folio_model::Paper::Cream,
+    })
+    .unwrap();
+    let moved = front_offset(s.book()).0 - before_offset;
+    assert!(moved > 0.0);
+    assert_eq!(x_of(&s, "fr_back"), 10.0);
+    assert!((x_of(&s, "fr_front") - (before_offset + 10.0 + moved)).abs() < 1e-9);
+    // One undo step puts the paper and the front back together.
+    s.undo().unwrap();
+    assert_eq!(x_of(&s, "fr_front"), before_offset + 10.0);
+    assert_eq!(s.book().paper, folio_model::Paper::default());
+}
+
+#[test]
+fn a_spread_with_frames_is_one_undo_step_that_adds_two_pages_and_slides_the_cover() {
+    use folio_model::front_offset;
+    let mut s = Session::new(book());
+    let first = s.book().spreads.len();
+    let after = s.book().spreads.last().unwrap().id.clone();
+    let front = front_offset(s.book()).0;
+    let made = |id: &str| {
+        folio_model::Frame::Shape(folio_model::ShapeFrame {
+            base: folio_model::FrameBase {
+                id: frame(id),
+                rect: folio_model::Rect {
+                    x: folio_model::Pt(10.0),
+                    y: folio_model::Pt(10.0),
+                    w: folio_model::Pt(40.0),
+                    h: folio_model::Pt(20.0),
+                },
+                rotation: 0.0,
+                locked: false,
+                from_master: None,
+                description: None,
+            },
+            shape: folio_model::Shape::Rect,
+            fill: None,
+            style: None,
+            stroke: None,
+            stroke_width: None,
+            radius: None,
+            flip: false,
+            content: None,
+            overrides: None,
+        })
+    };
+    s.apply(Intent::AddSpreadWith {
+        after,
+        frames: vec![made("fr_t1"), made("fr_t2")],
+    })
+    .unwrap();
+    assert_eq!(s.book().spreads.len(), first + 1);
+    let added = s.book().spreads.last().unwrap();
+    assert_eq!(added.pages.len(), 2);
+    assert_eq!(added.frames.len(), 2);
+    // Two more pages make the spine thicker only when the count passes KDP's minimum, so the front
+    // is at or past where it was.
+    assert!(front_offset(s.book()).0 >= front);
+    s.undo().unwrap();
+    assert_eq!(
+        s.book().spreads.len(),
+        first,
+        "one undo takes the spread and its frames"
+    );
+    // A frame id already in the book is refused, and so is a spread after the cover.
+    let cover = s.book().spreads[0].id.clone();
+    assert!(matches!(
+        s.apply(Intent::AddSpreadWith {
+            after: cover,
+            frames: vec![]
+        }),
+        Err(SessionError::CoverFixed)
+    ));
+}
+
+#[test]
+fn a_frames_description_is_one_undo_step_and_an_empty_one_takes_it_away() {
+    let mut s = session();
+    let on = folio_model::Surface::Spread(s.book().spreads[1].id.clone());
+    let described = |s: &Session| {
+        s.book().spreads[1]
+            .frames
+            .iter()
+            .find(|f| f.base().id == frame("fr_text"))
+            .unwrap()
+            .base()
+            .description
+            .clone()
+    };
+    s.apply(Intent::SetFrameDescription {
+        on: on.clone(),
+        frame: frame("fr_text"),
+        description: Some("An otter on a log".into()),
+    })
+    .unwrap();
+    assert_eq!(described(&s).as_deref(), Some("An otter on a log"));
+    s.undo().unwrap();
+    assert_eq!(described(&s), None);
+    s.redo().unwrap();
+    s.apply(Intent::EndUndoStep).unwrap();
+    s.apply(Intent::SetFrameDescription {
+        on: on.clone(),
+        frame: frame("fr_text"),
+        description: Some("  ".into()),
+    })
+    .unwrap();
+    assert_eq!(described(&s), None, "words of only spaces take it away");
+    // Too long, or a frame that is not there, is refused.
+    assert!(matches!(
+        s.apply(Intent::SetFrameDescription {
+            on: on.clone(),
+            frame: frame("fr_text"),
+            description: Some("x".repeat(501)),
+        }),
+        Err(SessionError::BadDetails(_))
+    ));
+    assert!(s
+        .apply(Intent::SetFrameDescription {
+            on,
+            frame: frame("fr_none"),
+            description: None,
+        })
+        .is_err());
+}
+
+#[test]
+fn the_keywords_are_one_undo_step_that_merges_while_typed_and_a_bad_list_is_refused() {
+    let mut s = session();
     let patch = s
-        .apply(Intent::SetBackNotes {
-            notes: notes.clone(),
+        .apply(Intent::SetKeywords {
+            keywords: vec!["otter".into(), " bedtime ".into()],
         })
         .unwrap();
     assert_eq!(
         patch.ops,
-        vec![PatchOp::SetBackNotes {
-            notes: notes.clone()
+        vec![PatchOp::SetKeywords {
+            keywords: vec!["otter".into(), "bedtime".into()]
         }]
     );
-    assert_eq!(s.book().back_notes, notes);
+    // The next one, straight away, is the same step.
+    s.apply(Intent::SetKeywords {
+        keywords: vec!["otter".into(), "bedtime".into(), "river".into()],
+    })
+    .unwrap();
+    assert_eq!(s.book().metadata.keywords.len(), 3);
     s.undo().unwrap();
-    assert!(s.book().back_notes.is_empty());
+    assert!(s.book().metadata.keywords.is_empty());
     s.redo().unwrap();
-    assert_eq!(s.book().back_notes, notes);
+    assert_eq!(s.book().metadata.keywords.len(), 3);
+    for bad in [
+        (0..8).map(|n| format!("k{n}")).collect::<Vec<_>>(),
+        vec!["x".repeat(51)],
+        vec!["  ".into()],
+    ] {
+        assert!(matches!(
+            s.apply(Intent::SetKeywords { keywords: bad }),
+            Err(SessionError::BadDetails(_))
+        ));
+    }
 }

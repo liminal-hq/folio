@@ -33,6 +33,7 @@ import { StoryEditorDialog } from '../story/StoryEditorDialog';
 import { rangeIntents } from '../story/rangeEdit';
 import { BookDetailsDialog } from './BookDetailsDialog';
 import { BarcodeDialog } from './BarcodeDialog';
+import { SpreadTemplatesDialog } from './SpreadTemplatesDialog';
 import { CoverSheetDialog } from './CoverSheetDialog';
 import { JAX_TOGGLE_EVENT } from '../jax/jaxToggle';
 import { JaxPanel } from '../jax/JaxPanel';
@@ -45,6 +46,7 @@ import { Stage, type ZoomApi } from '../canvas/Stage';
 import type { Speller } from '../canvas/TextEditor';
 import { useSelection } from '../canvas/useSelection';
 import { useAssetUrls } from '../canvas/useAssetUrls';
+import { useCoverSheet } from '../canvas/useCoverSheet';
 import { useSpreadLayout } from '../canvas/useSpreadLayout';
 import type { CommandId } from '../commands/appMenuModel';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
@@ -116,11 +118,37 @@ export function BookView({
 	// What is drawn has each reference to a swatch turned into the colour the swatch shows as.
 	const displays = useMemo(() => swatchDisplays(book), [book.styles]);
 	const drawn = useMemo(() => resolveSwatches(book, displays), [book, displays]);
-	const drawnSpread = useMemo(
-		() => (spread ? resolveSwatches(spread, displays) : spread),
-		[spread, displays],
+	// The cover is the printed sheet: what Folio draws on it (the barcode, the spine) goes over the
+	// frames the book holds, and the folds and safe areas are guides after the person's own.
+	const sheet = useCoverSheet(
+		client,
+		id,
+		copy.revision,
+		master === null && spread?.kind === 'cover',
+		useMemo(() => new Set(spread?.frames.map((f) => f.id)), [spread]),
 	);
-	const layout = useSpreadLayout(
+	const onSheet = useMemo(
+		() =>
+			sheet && spread
+				? {
+						...spread,
+						frames: [...spread.frames, ...sheet.frames],
+						guides: [...spread.guides, ...sheet.guides],
+					}
+				: spread,
+		[spread, sheet],
+	);
+	// A barcode box with no barcode in it says it can be made, in grey, and never prints.
+	const barcodeHint = useMemo(() => {
+		const box = onSheet?.frames.find((f) => f.id === 'cover_barcode')?.box;
+		const drawn = onSheet?.frames.some((f) => f.id.startsWith('cover_bar_'));
+		return box && !drawn ? { box, text: t('cover.barcodeHint') } : undefined;
+	}, [onSheet]);
+	const drawnSpread = useMemo(
+		() => (onSheet ? resolveSwatches(onSheet, displays) : onSheet),
+		[onSheet, displays],
+	);
+	const spreadLayout = useSpreadLayout(
 		client,
 		id,
 		master ? editing : (spread?.id ?? null),
@@ -128,6 +156,7 @@ export function BookView({
 		master !== null,
 		settings.spelling.enabled ? settings.spelling.personal : null,
 	);
+	const layout = sheet?.layout ?? spreadLayout;
 	// What the stage shows: the pages as printed, or as a Kindle or a Kobo shows them.
 	const [preview, setPreview] = useState<'print' | 'kindle' | 'kobo'>('print');
 	const [selection, select] = useSelection(
@@ -400,6 +429,14 @@ export function BookView({
 		return () => window.removeEventListener(JAX_TOGGLE_EVENT, toggle);
 	}, []);
 	const [barcodeOpen, setBarcodeOpen] = useState(false);
+	const [templatesOpen, setTemplatesOpen] = useState(false);
+	/** What the last change from a dialog said, shown over the page for a few seconds. */
+	const [notice, setNotice] = useState<string | null>(null);
+	useEffect(() => {
+		if (notice === null) return;
+		const timer = setTimeout(() => setNotice(null), 6000);
+		return () => clearTimeout(timer);
+	}, [notice]);
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	// The Export dialog; `quick` makes the Sharing PDF the moment it opens.
 	const [exporting, setExporting] = useState<{ quick: boolean } | null>(null);
@@ -553,6 +590,9 @@ export function BookView({
 			case 'checkBook':
 				setChecking(true);
 				break;
+			case 'templates':
+				setTemplatesOpen(true);
+				break;
 			case 'softProof':
 				setProofOpen(true);
 				break;
@@ -606,6 +646,14 @@ export function BookView({
 				}
 			>
 				<div className={styles.stage}>
+					{notice && (
+						<div className={styles.masterBanner} role="status">
+							<span>{notice}</span>
+							<button type="button" onClick={() => setNotice(null)}>
+								{t('templates.dismiss')}
+							</button>
+						</div>
+					)}
 					{master && (
 						<div className={styles.masterBanner} role="status">
 							<span>{t('master.editing', { name: masterName })}</span>
@@ -671,6 +719,15 @@ export function BookView({
 							onTurn={(frame, degrees) =>
 								store.apply({ type: 'RotateFrame', on: surface, frame, degrees })
 							}
+							onActivate={(frame) => {
+								// What Folio draws on the cover, the barcode, is made in the barcode dialog.
+								const generated = ['cover_bar', 'cover_isbn', 'cover_addon'];
+								if (!generated.some((p) => frame.startsWith(p)) || spread?.kind !== 'cover')
+									return false;
+								setBarcodeOpen(true);
+								return true;
+							}}
+							hint={barcodeHint}
 							onEditText={(frame, text) => keepAsStep({ type: 'SetText', frame, text })}
 							onEditTable={(frame, edit) => keepAsStep({ type: 'EditTable', frame, edit })}
 							onEditStory={(flow, paragraph) => {
@@ -705,6 +762,7 @@ export function BookView({
 									const on = !(marks.columns || marks.baseline);
 									setMarks({ columns: on, baseline: on });
 								} else if (master) return;
+								else if (command === 'addTemplate') setTemplatesOpen(true);
 								else if (command === 'addPages') {
 									apply({ type: 'AddSpread', after: spread.id, duplicate: false });
 									setSpreadIndex(shown + 1);
@@ -969,6 +1027,23 @@ export function BookView({
 				onSave={(details) => apply({ type: 'SetDetails', details })}
 				onPaper={(paper) => apply({ type: 'SetPaper', paper })}
 			/>
+			<SpreadTemplatesDialog
+				open={templatesOpen}
+				onClose={() => setTemplatesOpen(false)}
+				client={client}
+				id={id}
+				onChoose={async (template, name) => {
+					// A template goes after the spread on show, and after the first page when the cover is.
+					const index = spread?.kind === 'cover' ? 1 : shown;
+					const after = book.spreads[index];
+					if (!after) throw new Error(t('templates.refused'));
+					await client.applyTemplate(id, template, after.id);
+					setSpreadIndex(index + 1);
+					select([]);
+					setTemplatesOpen(false);
+					setNotice(t('templates.added', { name }));
+				}}
+			/>
 			<BarcodeDialog
 				open={barcodeOpen}
 				onClose={() => setBarcodeOpen(false)}
@@ -983,23 +1058,28 @@ export function BookView({
 				revision={copy.revision}
 				book={book}
 				onSave={(details) => apply({ type: 'SetDetails', details })}
-				onNotes={(notes) => apply({ type: 'SetBackNotes', notes })}
-				onPickPicture={pickBackgroundPicture}
-				onFrameBoxes={(moves) => {
+				onPutDescription={(text) => {
 					const cover = book.spreads[0];
 					if (!cover) return;
+					if (cover.frames.some((f) => f.id === 'blurb')) {
+						apply({ type: 'SetText', frame: 'blurb', text });
+						return;
+					}
+					// The back cover's own page, from its top-left: half an inch in from each edge.
+					const frame = newFrame(
+						'text',
+						{ x: 36, y: 54, w: book.trim.w - 72, h: book.trim.h - 144 },
+						'body',
+					);
 					apply({
-						type: 'MoveFrames',
+						type: 'AddFrame',
 						on: { spread: cover.id },
-						moves: moves.map((m) => ({ frame: m.frame, box: m.box })),
+						frame: {
+							...frame,
+							id: 'blurb',
+							content: { inline: [{ text }] },
+						} as unknown as Frame,
 					});
-				}}
-				onFrameText={(frame, text) => apply({ type: 'SetText', frame, text })}
-				onFrameDelete={(frames) => {
-					const cover = book.spreads[0];
-					if (!cover) return;
-					for (const frame of frames)
-						apply({ type: 'DeleteFrame', on: { spread: cover.id }, frame });
 				}}
 			/>
 			<SoftProofDialog

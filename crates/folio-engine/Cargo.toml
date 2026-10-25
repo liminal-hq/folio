@@ -1,0 +1,38 @@
+[package]
+name = "folio-engine"
+version = "0.1.0"
+description = "Folio's open books: sessions, packages, layout, import and export behind one writer, with no windowing toolkit"
+authors = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+publish = false
+
+[features]
+# Derives JSON Schema for the types an agent sends (used by `folio-mcp`).
+schema = ["dep:schemars", "folio-model/schema", "folio-presets/schema"]
+
+[dependencies]
+schemars = { version = "1", optional = true }
+base64 = "0.22"
+dunce = { workspace = true }
+folio-colour = { path = "../folio-colour" }
+folio-export = { path = "../folio-export" }
+folio-import = { path = "../folio-import" }
+folio-layout = { path = "../folio-layout" }
+folio-model = { path = "../folio-model" }
+folio-package = { path = "../folio-package" }
+folio-presets = { path = "../folio-presets" }
+folio-protocol = { path = "../folio-protocol" }
+folio-session = { path = "../folio-session" }
+folio-spell = { path = "../folio-spell" }
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+ts-rs = { workspace = true }
+ureq = "3"
+
+[dev-dependencies]
+tempfile = "3"

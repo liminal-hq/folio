@@ -19,6 +19,7 @@ use crate::spread::Axis;
 use crate::units::{Margins, Pt, Rect, Size};
 
 /// A frame and the box it is to have.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct FrameMove {
@@ -28,6 +29,7 @@ pub struct FrameMove {
 }
 
 /// Where a frame or a guide lives: on a spread, or on a master page that every page using it shows.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase")]
@@ -37,6 +39,7 @@ pub enum Surface {
 }
 
 /// A fill or an outline colour to set: a colour, or none at all.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -46,6 +49,7 @@ pub enum Paint {
 }
 
 /// What a background is set on.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -59,6 +63,7 @@ pub enum BackgroundTarget {
 }
 
 /// A change to a table's cells, rows, columns or look.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -97,6 +102,7 @@ pub enum TableEdit {
 }
 
 // ── Intents (UI → core) ──
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(tag = "type")]
@@ -126,6 +132,19 @@ pub enum Intent {
         on: Surface,
         frame: FrameId,
         locked: bool,
+    },
+    /// Sets the keywords a store is told about the book, whole: at most seven, each a phrase of at
+    /// most fifty characters. One undo step, merging while they are typed.
+    SetKeywords {
+        keywords: Vec<String>,
+    },
+    /// Sets what a frame is, in words, for a reader who cannot see it (a picture's alt text), or
+    /// takes it away with `None`. One undo step, merging with the next change of the same frame's
+    /// description while it is typed.
+    SetFrameDescription {
+        on: Surface,
+        frame: FrameId,
+        description: Option<String>,
     },
     /// Puts a picture in a picture frame (an asset path from the package) and says how it sits in
     /// the frame, including which point of it stays in view when it is cropped (as 0–1 across and
@@ -249,10 +268,6 @@ pub enum Intent {
     /// Sets who makes the barcode on the paperback cover. One undo step.
     SetBarcode {
         choice: BarcodeChoice,
-    },
-    /// Sets the words on the back cover, whole. One undo step.
-    SetBackNotes {
-        notes: Vec<crate::BackNote>,
     },
     /// Sets the paper a printed copy is on. One undo step.
     SetPaper {
@@ -404,6 +419,13 @@ pub enum Intent {
         after: SpreadId,
         duplicate: bool,
     },
+    /// Adds a two-page spread after `after` (not the cover) holding `frames`, in spread space: the
+    /// right page starts one trim width in. It is one undo step, with the pages it adds, the page
+    /// numbers and the spine that follow from them. Spread templates are added this way.
+    AddSpreadWith {
+        after: SpreadId,
+        frames: Vec<Frame>,
+    },
     DeleteSpread {
         spread: SpreadId,
     },
@@ -418,6 +440,7 @@ pub enum Intent {
         grid: Option<Grid>,
     },
 }
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]

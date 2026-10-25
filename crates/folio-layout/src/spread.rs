@@ -507,10 +507,21 @@ impl<'a> Layouter<'a> {
             &self.book.language,
             &options,
         )?;
-        Ok((
-            frame_layout(&text.base.id, &laid, 0, &self.runs_info(&story)),
-            laid.overlong,
-        ))
+        let mut layout = frame_layout(&text.base.id, &laid, 0, &self.runs_info(&story));
+        // How the style sets the words, so an editor in place sets them the same way.
+        layout.text_align = Some(
+            match self
+                .styles
+                .resolve(&text.style, text.overrides.as_ref())
+                .align
+            {
+                crate::paragraph::Align::Left => folio_model::Align::Left,
+                crate::paragraph::Align::Center => folio_model::Align::Center,
+                crate::paragraph::Align::Right => folio_model::Align::Right,
+                crate::paragraph::Align::Justify => folio_model::Align::Justify,
+            },
+        );
+        Ok((layout, laid.overlong))
     }
 
     /// A frame set in a font that is neither bundled, kept in the book nor installed, so the layout

@@ -21,12 +21,23 @@ pub struct PageRect {
     pub recto: bool,
 }
 
-/// Where the pages of `spread` sit. An opener is the right-hand page alone, so it starts at the
-/// gutter; a closer, a single page and a cover start at the origin.
+/// Where the pages of `spread` sit, in the spread's own space: the first page's top-left trim is
+/// the origin, and the next page starts one trim width on. A page alone (an opener, a closer, a
+/// single page or the cover, which is the wide printed sheet) starts at the origin whichever side of its spread it is on, so the
+/// frames on it are placed from the page's own left edge and agree with the canvas, the masters
+/// and the guides, which all count from there. An opener is a right-hand page and a closer a
+/// left-hand one; that decides its margins and bleed, not where it is.
 pub fn page_rects(book: &Book, spread: &Spread) -> Vec<PageRect> {
     let w = book.trim.w.0;
     let h = book.trim.h.0;
     let count = spread.pages.len();
+    // The cover is the printed sheet: back, spine and front as one page.
+    let cover = spread.kind == SpreadKind::Cover;
+    let wide = if cover {
+        folio_model::cover_width(book).0
+    } else {
+        w
+    };
     (0..count)
         .map(|i| {
             let recto = match spread.kind {
@@ -34,16 +45,11 @@ pub fn page_rects(book: &Book, spread: &Spread) -> Vec<PageRect> {
                 SpreadKind::Closer => false,
                 SpreadKind::Spread => i == 1 || count == 1,
             };
-            let slot = if spread.kind == SpreadKind::Opener {
-                1
-            } else {
-                i
-            };
             PageRect {
                 rect: Rect {
-                    x: folio_model::Pt(slot as f64 * w),
+                    x: folio_model::Pt(i as f64 * w),
                     y: folio_model::Pt(0.0),
-                    w: folio_model::Pt(w),
+                    w: folio_model::Pt(wide),
                     h: folio_model::Pt(h),
                 },
                 recto,
@@ -150,6 +156,19 @@ fn item(kind: PreflightKind, spread: &Spread, frame: &Frame) -> PreflightItem {
 /// How a picture of `natural` pixels set in a `w` × `h` point box with `fit` is sharp enough:
 /// the problem with it, if it has one.
 fn sharpness(natural: (u32, u32), w: f64, h: f64, fit: Fit) -> Option<PreflightKind> {
+    let ppi = picture_ppi(natural, w, h, fit);
+    if ppi < ERROR_PPI {
+        Some(PreflightKind::VeryLowResolution)
+    } else if ppi < WARN_PPI {
+        Some(PreflightKind::LowResolution)
+    } else {
+        None
+    }
+}
+
+/// How sharp a picture of `natural` pixels is, in pixels per inch, when it is set in a `w` × `h`
+/// point box with `fit`.
+pub fn picture_ppi(natural: (u32, u32), w: f64, h: f64, fit: Fit) -> f64 {
     let (nw, nh) = (f64::from(natural.0), f64::from(natural.1));
     // The points one pixel covers: a fill covers the box with the picture, a fit keeps it all inside,
     // and a stretch pulls each side to the box's.
@@ -164,14 +183,7 @@ fn sharpness(natural: (u32, u32), w: f64, h: f64, fit: Fit) -> Option<PreflightK
             (nw * scale, nh * scale)
         }
     };
-    let ppi = effective_ppi(natural, drawn.0, drawn.1);
-    if ppi < ERROR_PPI {
-        Some(PreflightKind::VeryLowResolution)
-    } else if ppi < WARN_PPI {
-        Some(PreflightKind::LowResolution)
-    } else {
-        None
-    }
+    effective_ppi(natural, drawn.0, drawn.1)
 }
 
 /// The problems with the pictures of `spread`, in its picture frames and in its backgrounds: a

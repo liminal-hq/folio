@@ -10,6 +10,8 @@ members = [
   "crates/folio-export",
   "crates/folio-colour",
   "crates/folio-import",
+  "crates/folio-engine",
+  "crates/folio-mcp",
   "crates/folio-settings",
   "apps/folio/src-tauri",
   "crates/wayland-toplevel-drag",
