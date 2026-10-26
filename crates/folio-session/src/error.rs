@@ -46,6 +46,8 @@ pub enum SessionError {
     BadRange(String),
     #[error("that barcode cannot be used: {0}")]
     BadBarcode(String),
+    #[error("that swatch cannot be used: {0}")]
+    BadSwatch(String),
     #[error("those details cannot be used: {0}")]
     BadDetails(String),
     #[error("those fonts cannot be kept: {0}")]

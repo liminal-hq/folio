@@ -21,7 +21,7 @@ use crate::manifest::{
 };
 
 /// The newest `book.json` schema this build reads and writes.
-pub const SUPPORTED_SCHEMA: u32 = 1;
+pub const SUPPORTED_SCHEMA: u32 = 2;
 
 const MANIFEST_PATH: &str = "META-INF/manifest.json";
 const MIMETYPE_PATH: &str = "mimetype";
