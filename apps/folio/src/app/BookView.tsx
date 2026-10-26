@@ -26,6 +26,9 @@ import { keepWords } from '../canvas/editCheckpoint';
 import { CheckBookDialog } from './CheckBookDialog';
 import { ExportDialog } from './ExportDialog';
 import { getTextSelection } from '../canvas/textSelection';
+import { IMPORT_TEXT_EVENT } from './importRequest';
+import { ImportReportDialog, type ImportOutcome } from './ImportReportDialog';
+import { StoryEditorDialog } from '../story/StoryEditorDialog';
 import { BookDetailsDialog } from './BookDetailsDialog';
 import { BarcodeDialog } from './BarcodeDialog';
 import { CoverSheetDialog } from './CoverSheetDialog';
@@ -338,6 +341,41 @@ export function BookView({
 		return () => window.removeEventListener(JAX_TOGGLE_EVENT, toggle);
 	}, []);
 	const [barcodeOpen, setBarcodeOpen] = useState(false);
+	/** The text frame whose words are to continue in the next frame clicked. */
+	const [linking, setLinking] = useState<string | null>(null);
+	/** What the last text import did, or why it could not. */
+	const [imported, setImported] = useState<ImportOutcome | null>(null);
+	useEffect(() => {
+		const run = () => {
+			void (async () => {
+				const path = await dialogs.pickText();
+				if (path === null) return;
+				try {
+					setImported({ report: await client.importText(id, path) });
+				} catch (reason) {
+					setImported({
+						problem:
+							typeof reason === 'object' && reason !== null && 'message' in reason
+								? String((reason as { message: unknown }).message)
+								: String(reason),
+					});
+				}
+			})();
+		};
+		window.addEventListener(IMPORT_TEXT_EVENT, run);
+		return () => window.removeEventListener(IMPORT_TEXT_EVENT, run);
+	}, [client, dialogs, id]);
+	/** The flow whose story is open in the story editor. */
+	const [storyFlow, setStoryFlow] = useState<string | null>(null);
+	// Escape gives up choosing the frame the words continue in.
+	useEffect(() => {
+		if (linking === null) return;
+		const onKey = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') setLinking(null);
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	}, [linking]);
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	// The Export dialog; `quick` makes the Sharing PDF the moment it opens.
 	const [exporting, setExporting] = useState<{ quick: boolean } | null>(null);
@@ -577,7 +615,18 @@ export function BookView({
 							zoomApi={zoomApi}
 							images={images}
 							selection={selection}
-							onSelect={select}
+							onSelect={(ids) => {
+								const target = linking !== null && ids.length === 1 ? ids[0] : undefined;
+								const frame = book.spreads.flatMap((s) => s.frames).find((f) => f.id === target);
+								// Choosing the frame the words continue in chains it after the one waiting.
+								if (frame?.type === 'text' && !frame.flow && frame.id !== linking) {
+									apply({ type: 'LinkFrame', frame: frame.id, to: linking! });
+									setLinking(null);
+									select([frame.id]);
+								} else if (linking === null) {
+									select(ids);
+								}
+							}}
 							onMove={(moves) =>
 								store.apply(
 									moves.length === 1
@@ -680,6 +729,9 @@ export function BookView({
 								images={images}
 								choosePicture={(frame) => void choosePicture(frame)}
 								languages={languages}
+								linking={linking}
+								onLink={setLinking}
+								onEditStory={setStoryFlow}
 							/>
 						),
 						proofing: (
@@ -847,6 +899,15 @@ export function BookView({
 				id={id}
 				autoStart={exporting?.quick ? ['sharingPdf'] : null}
 				onCheck={() => setChecking(true)}
+			/>
+			<ImportReportDialog outcome={imported} onClose={() => setImported(null)} />
+			<StoryEditorDialog
+				open={storyFlow !== null}
+				onClose={() => setStoryFlow(null)}
+				book={book}
+				flow={storyFlow}
+				choices={choices}
+				apply={apply}
 			/>
 			<BookDetailsDialog
 				open={detailsOpen}

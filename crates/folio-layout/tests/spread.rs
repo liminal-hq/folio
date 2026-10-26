@@ -331,12 +331,11 @@ fn a_story_flows_from_a_frame_on_one_spread_into_a_frame_on_the_next() {
     }
     book.spreads[1].frames.push(first);
     book.spreads[2].frames.push(second);
-    book.flows.push(Flow {
-        id: FlowId("story".into()),
-        source: story,
-        frames: vec![FrameId("a".into()), FrameId("b".into())],
-        auto_add_pages: true,
-    });
+    book.flows.push(Flow::from_text(
+        FlowId("story".into()),
+        &story,
+        vec![FrameId("a".into()), FrameId("b".into())],
+    ));
     let fonts = FontBook::bundled();
     let layouter = Layouter::new(&book, &styles, &fonts);
     let one = layouter
@@ -1589,4 +1588,129 @@ fn a_word_in_a_script_the_font_lacks_is_set_in_a_fallback_and_what_nothing_cover
     assert_eq!(flagged.len(), 1);
     assert_eq!(flagged[0].chars.as_deref(), Some("中"));
     assert_eq!(flagged[0].frame.as_ref().map(|f| f.0.as_str()), Some("han"));
+}
+
+#[test]
+fn a_story_keeps_the_emphasis_and_paragraph_style_of_its_paragraphs() {
+    use folio_model::{Flow, FlowId, FlowSlot, StoryPara, StyleId};
+    let (mut book, styles) = sample(BookKind::Novel);
+    let mut frame = text_frame("a", "body", 60.0, 60.0, 300.0, 400.0, "");
+    if let Frame::Text(t) = &mut frame {
+        t.content = None;
+        t.flow = Some(FlowSlot {
+            id: FlowId("story".into()),
+            index: 0,
+        });
+    }
+    book.spreads[1].frames.push(frame);
+    let mut flow = Flow::from_text(
+        FlowId("story".into()),
+        "A chapter\nThe otter slept.",
+        vec![FrameId("a".into())],
+    );
+    flow.paragraphs[0].style = Some(StyleId("h1".into()));
+    let mut second = StoryPara::plain("The otter ");
+    second.inline.push(folio_model::Run {
+        text: "slept".into(),
+        style: None,
+        bold: true,
+        italic: false,
+        font: None,
+        colour: None,
+    });
+    flow.paragraphs[1] = second;
+    book.flows.push(flow);
+    let laid = lay(&book, &styles, 1);
+    let lines = &laid.frames.iter().find(|f| f.frame.0 == "a").unwrap().lines;
+    // The chapter title is set larger than the body, and the bold word is bold.
+    assert!(lines[0].runs[0].size > lines[1].runs[0].size, "{lines:?}");
+    assert!(lines[1].runs.iter().any(|r| r.weight >= 700));
+}
+
+#[test]
+fn a_story_says_how_many_more_frames_it_needs_and_needs_none_once_they_are_there() {
+    use folio_model::{Flow, FlowId, FlowSlot};
+    let (mut book, styles) = sample(BookKind::Novel);
+    let story =
+        "The otter counted the stars over the river and then the pebbles under it. ".repeat(20);
+    let make = |name: &str| {
+        let mut frame = text_frame(name, "body", 60.0, 60.0, 200.0, 120.0, "");
+        if let Frame::Text(t) = &mut frame {
+            t.content = None;
+            t.flow = Some(FlowSlot {
+                id: FlowId("story".into()),
+                index: 0,
+            });
+        }
+        frame
+    };
+    book.spreads[1].frames.push(make("a"));
+    book.flows.push(Flow::from_text(
+        FlowId("story".into()),
+        &story,
+        vec![FrameId("a".into())],
+    ));
+    let fonts = FontBook::bundled();
+    let needed = Layouter::new(&book, &styles, &fonts)
+        .frames_needed(&FlowId("story".into()))
+        .unwrap();
+    assert!(needed >= 2, "{needed}");
+    // With exactly that many frames more, nothing is left over; with one fewer, something is.
+    let mut more = book.clone();
+    let names: Vec<String> = (0..needed).map(|i| format!("x{i}")).collect();
+    for name in &names {
+        more.spreads[2].frames.push(make(name));
+        more.flows
+            .last_mut()
+            .unwrap()
+            .frames
+            .push(FrameId(name.clone()));
+    }
+    let laid = Layouter::new(&more, &styles, &fonts)
+        .frames_needed(&FlowId("story".into()))
+        .unwrap();
+    assert_eq!(laid, 0);
+    let mut fewer = book.clone();
+    for name in &names[..needed - 1] {
+        fewer.spreads[2].frames.push(make(name));
+        fewer
+            .flows
+            .last_mut()
+            .unwrap()
+            .frames
+            .push(FrameId(name.clone()));
+    }
+    let still = Layouter::new(&fewer, &styles, &fonts)
+        .frames_needed(&FlowId("story".into()))
+        .unwrap();
+    assert_eq!(still, 1);
+    // A story that fits needs none, and a flow that is not there needs none.
+    *book.flows.last_mut().unwrap() =
+        Flow::from_text(FlowId("story".into()), "Short.", vec![FrameId("a".into())]);
+    let layouter = Layouter::new(&book, &styles, &fonts);
+    assert_eq!(layouter.frames_needed(&FlowId("story".into())).unwrap(), 0);
+    assert_eq!(layouter.frames_needed(&FlowId("nope".into())).unwrap(), 0);
+}
+
+#[test]
+fn spreads_laid_out_with_a_shared_flow_cache_are_the_same_as_without_one() {
+    use folio_layout::FlowCache;
+    let (book, styles) = sample(BookKind::Novel);
+    let fonts = FontBook::bundled();
+    let cache = FlowCache::new();
+    for spread in &book.spreads {
+        let alone = Layouter::new(&book, &styles, &fonts)
+            .layout_spread(&spread.id)
+            .unwrap()
+            .unwrap();
+        let shared = Layouter::new(&book, &styles, &fonts)
+            .with_flow_cache(&cache, 7)
+            .layout_spread(&spread.id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(&alone).unwrap(),
+            serde_json::to_value(&shared).unwrap()
+        );
+    }
 }

@@ -149,6 +149,40 @@ fn tidy_one(like: &Run, text: &str) -> Vec<Run> {
     vec![run]
 }
 
+/// The runs split in two at character `at` (clamped to the words): what comes before and after.
+/// Either side may be empty, and then holds one empty run that looks like its neighbour.
+pub fn split_runs(runs: &[Run], at: usize) -> (Vec<Run>, Vec<Run>) {
+    let (mut before, mut after) = (Vec::new(), Vec::new());
+    let mut seen = 0;
+    for run in runs {
+        let chars: Vec<char> = run.text.chars().collect();
+        let (from, to) = (seen, seen + chars.len());
+        seen = to;
+        let cut = at.clamp(from, to) - from;
+        for (lo, hi, side) in [(0, cut, &mut before), (cut, chars.len(), &mut after)] {
+            if lo < hi {
+                let mut piece = run.clone();
+                piece.text = chars[lo..hi].iter().collect();
+                side.push(piece);
+            }
+        }
+    }
+    let like = runs.last().cloned().unwrap_or_else(|| plain(String::new()));
+    for side in [&mut before, &mut after] {
+        if side.is_empty() {
+            let mut run = like.clone();
+            run.text.clear();
+            side.push(run);
+        }
+    }
+    (tidy(before), tidy(after))
+}
+
+/// Joins two stretches of runs into one, merging neighbours that look alike.
+pub fn join_runs(first: &[Run], second: &[Run]) -> Vec<Run> {
+    tidy(first.iter().chain(second).cloned().collect())
+}
+
 /// Applies `change` to the characters `start..end` of the words in `runs`, splitting runs where the
 /// stretch begins and ends. Offsets count characters, not bytes, and are clamped to the words.
 pub fn style_range(runs: &[Run], start: usize, end: usize, change: &RunChange) -> Vec<Run> {
@@ -291,6 +325,33 @@ mod tests {
         );
         // Unchanged words give the same runs.
         assert_eq!(retext(&runs, "Hello brave world"), runs.to_vec());
+    }
+
+    #[test]
+    fn runs_split_and_join_where_the_caret_is() {
+        let runs = [
+            run("Hello ", false),
+            run("brave", true),
+            run(" world", false),
+        ];
+        let (a, b) = split_runs(&runs, 8);
+        assert_eq!(
+            shown(&a),
+            vec![("Hello ".into(), false), ("br".into(), true)]
+        );
+        assert_eq!(
+            shown(&b),
+            vec![("ave".into(), true), (" world".into(), false)]
+        );
+        assert_eq!(join_runs(&a, &b), runs.to_vec());
+        // At the ends one side is empty, set like the words beside it.
+        let (start, rest) = split_runs(&runs, 0);
+        assert_eq!(start.len(), 1);
+        assert!(start[0].text.is_empty());
+        assert_eq!(rest, runs.to_vec());
+        let (all, end) = split_runs(&runs, 99);
+        assert_eq!(all, runs.to_vec());
+        assert!(end[0].text.is_empty());
     }
 
     #[test]

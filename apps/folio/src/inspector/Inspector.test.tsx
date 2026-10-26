@@ -178,6 +178,37 @@ describe('with a text frame selected', () => {
 	});
 });
 
+describe('chaining text frames', () => {
+	it('offers to continue the words in another frame in Expert, and starts choosing', async () => {
+		const onLink = vi.fn();
+		setup([text()], { mode: 'expert', onLink });
+		await userEvent.click(screen.getByRole('button', { name: 'Continue in another frame' }));
+		expect(onLink).toHaveBeenCalledWith('t');
+	});
+
+	it('says what to click while choosing, and can be cancelled', async () => {
+		const onLink = vi.fn();
+		setup([text()], { mode: 'expert', onLink, linking: 't' });
+		expect(screen.getByText(/Click the empty text frame/)).toBeInTheDocument();
+		await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		expect(onLink).toHaveBeenCalledWith(null);
+	});
+
+	it('takes a frame in a flow out of it, and does not offer chaining in Easy', async () => {
+		const { apply } = setup([text({ flow: { id: 'f', index: 0 } })], {
+			mode: 'expert',
+			onLink: vi.fn(),
+		});
+		await userEvent.click(screen.getByRole('button', { name: 'Take out of the story' }));
+		expect(apply).toHaveBeenCalledWith({ type: 'UnlinkFrame', frame: 't' });
+	});
+
+	it('is an Expert tool', () => {
+		setup([text()], { onLink: vi.fn() });
+		expect(screen.queryByRole('button', { name: 'Continue in another frame' })).toBeNull();
+	});
+});
+
 describe('with a picture selected', () => {
 	const picture = {
 		type: 'image',

@@ -11,7 +11,9 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use folio_layout::assets::sniff;
 use folio_layout::preflight::spread_assets;
 use folio_layout::wire::PreflightItem;
-use folio_layout::{AssetFact, AssetFacts, BookFace, FontBook, FontSource, Layouter, StyleSheet};
+use folio_layout::{
+    AssetFact, AssetFacts, BookFace, FlowCache, FontBook, FontSource, Layouter, StyleSheet,
+};
 use folio_model::{BookFont, Intent, SpreadId};
 use folio_package::{Package, SaveOptions};
 use folio_presets::{kind_infos, new_book, suggest_save_path, KindInfo, NewBookSpec};
@@ -125,6 +127,8 @@ struct OpenBook {
     facts: HashMap<String, AssetFact>,
     /// The fonts the book keeps, laid over the app's, made again only when the list changes.
     fonts: Option<(Vec<BookFont>, Arc<FontBook>)>,
+    /// The flows laid out at one revision of the book, shared by the spreads laid out at it.
+    flow_cache: Option<(u64, Arc<FlowCache>)>,
 }
 
 impl OpenBook {
@@ -144,6 +148,20 @@ impl OpenBook {
             Some("cream") => folio_model::Paper::Cream,
             Some("colour") => folio_model::Paper::Colour,
             _ => folio_model::Paper::White,
+        }
+    }
+
+    /// The cache of laid out flows for the book as it is now: the one kept while the revision stays
+    /// the same, a new one when it has changed.
+    fn flows_laid(&mut self) -> Arc<FlowCache> {
+        let revision = self.session.revision();
+        match &self.flow_cache {
+            Some((at, cache)) if *at == revision => Arc::clone(cache),
+            _ => {
+                let cache = Arc::new(FlowCache::new());
+                self.flow_cache = Some((revision, Arc::clone(&cache)));
+                cache
+            }
         }
     }
 
@@ -280,6 +298,75 @@ impl<R: Runtime> Books<R> {
         }
     }
 
+    /// Brings the words of the Markdown or plain text file at `path` in as the story of the book's
+    /// first flow, in one undo step. A book with no flow has no story to put them in.
+    pub fn import_text(&self, id: &str, path: &str) -> Result<folio_import::ImportReport, Error> {
+        /// More than this is not a manuscript someone typed; it would also stall the page.
+        const MAX_BYTES: u64 = 8 * 1024 * 1024;
+        let file = Path::new(path);
+        let known = file
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(str::to_ascii_lowercase);
+        if !matches!(known.as_deref(), Some("md" | "markdown" | "txt")) {
+            return Err(Error::Import(
+                "Folio can bring in Markdown (.md) and plain text (.txt) files so far. Word and \
+                 other formats are not supported yet."
+                    .into(),
+            ));
+        }
+        let size = std::fs::metadata(file)
+            .map_err(|e| Error::Import(format!("{path}: {e}")))?
+            .len();
+        if size > MAX_BYTES {
+            return Err(Error::Import(
+                "That file is too large to bring in (the limit is 8 MB).".into(),
+            ));
+        }
+        let text = std::fs::read_to_string(file).map_err(|e| {
+            Error::Import(format!(
+                "{path} could not be read as text ({e}). Save it as UTF-8 and try again."
+            ))
+        })?;
+        let imported = folio_import::import_markdown(&text);
+        if imported.story.is_empty() {
+            return Err(Error::Import("That file has no words to bring in.".into()));
+        }
+        let (flow, count) = {
+            let inner = locked(&self.inner);
+            let open = inner
+                .books
+                .iter()
+                .find(|b| b.id == id)
+                .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+            let flow = open
+                .session
+                .book()
+                .flows
+                .first()
+                .map(|f| (f.id.clone(), f.paragraphs.len()))
+                .ok_or_else(|| {
+                    Error::Import(
+                        "This book's pages hold their own words, so there is no story to bring \
+                         them into. Use a flowing book such as a novel, or chain its text frames \
+                         first."
+                            .into(),
+                    )
+                })?;
+            (flow.0, flow.1)
+        };
+        self.apply(
+            id,
+            Intent::SpliceStory {
+                flow,
+                at: 0,
+                remove: count,
+                insert: imported.story,
+            },
+        )?;
+        Ok(imported.report)
+    }
+
     /// Stops the export in progress after the file it is making.
     pub fn cancel_export(&self) {
         self.cancel_export.store(true, Ordering::SeqCst);
@@ -381,6 +468,7 @@ impl<R: Runtime> Books<R> {
             autosaved: None,
             facts: HashMap::new(),
             fonts: None,
+            flow_cache: None,
         };
         let snapshot = book.snapshot();
         inner.books.push(book);
@@ -560,7 +648,7 @@ impl<R: Runtime> Books<R> {
         spelling: Option<&[String]>,
     ) -> Result<SpreadLayoutResult, Error> {
         let base = self.fonts.get_or_init(FontBook::with_system_fonts);
-        let (book, styles, revision, facts, layered) = {
+        let (book, styles, revision, facts, layered, flows) = {
             let mut inner = locked(&self.inner);
             let open = inner
                 .books
@@ -576,6 +664,7 @@ impl<R: Runtime> Books<R> {
                 open.session.revision(),
                 facts,
                 layered,
+                open.flows_laid(),
             )
         };
         let fonts = layered.as_deref().unwrap_or(base);
@@ -597,7 +686,17 @@ impl<R: Runtime> Books<R> {
                 })
                 .unwrap_or_default()
         };
-        let mut layouter = Layouter::new(&book, &styles, fonts).with_assets(&facts);
+        // Flows laid out for one set of misspelt words are not shared with another.
+        let variant = {
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            speller.is_some().hash(&mut hasher);
+            ignore.hash(&mut hasher);
+            hasher.finish()
+        };
+        let mut layouter = Layouter::new(&book, &styles, fonts)
+            .with_assets(&facts)
+            .with_flow_cache(&flows, variant);
         if speller.is_some() {
             layouter = layouter.with_proofing(&find);
         }
@@ -767,7 +866,7 @@ impl<R: Runtime> Books<R> {
                             .and_then(|s| book.flows.iter().find(|f| f.id == s.id))
                         {
                             if flowed.insert(flow.id.0.clone()) {
-                                look(&spread.id.0, &t.base.id.0, None, &flow.source, false);
+                                look(&spread.id.0, &t.base.id.0, None, &flow.text(), false);
                             }
                         }
                     }
@@ -1390,9 +1489,78 @@ impl<R: Runtime> Books<R> {
 
     /// Applies an intent to a book, tells every window, and answers with what changed.
     pub fn apply(&self, id: &str, intent: Intent) -> Result<Patch, Error> {
+        // A change to a story may leave it with more words than its frames have room for.
+        let refit = changes_a_story(&intent);
+        let edits_words = edits_a_story(&intent);
+        let base = self.fonts.get_or_init(FontBook::with_system_fonts);
+        let layered = if refit {
+            let mut inner = locked(&self.inner);
+            inner
+                .books
+                .iter_mut()
+                .find(|b| b.id == id)
+                .and_then(|open| open.font_book(base))
+        } else {
+            None
+        };
         self.change(
             id,
-            |session| session.apply(intent).map_err(Error::from),
+            |session| {
+                let depth = session.undo_depth();
+                let mut patch = session.apply(intent)?;
+                if !refit {
+                    return Ok(patch);
+                }
+                let user_step = session.undo_depth() > depth;
+                let after_user = session.undo_depth();
+                let styles = style_sheet(&session.book().styles);
+                let fonts = layered.as_deref().unwrap_or(base);
+                let flows: Vec<folio_model::FlowId> = session
+                    .book()
+                    .flows
+                    .iter()
+                    .filter(|f| f.auto_add_pages)
+                    .map(|f| f.id.clone())
+                    .collect();
+                for flow in flows {
+                    let needed = Layouter::new(session.book(), &styles, fonts)
+                        .frames_needed(&flow)
+                        .map_err(Error::from)?;
+                    if needed > 0 {
+                        let more = session.apply(Intent::AddFlowPages {
+                            flow,
+                            count: needed,
+                        })?;
+                        patch.ops.extend(more.ops);
+                        patch.revision = more.revision;
+                        continue;
+                    }
+                    // A story whose words were edited may have shrunk, leaving frames, and so pages,
+                    // with nothing in them. Chaining a frame or restyling does not give pages back.
+                    if !edits_words {
+                        continue;
+                    }
+                    let layouter = Layouter::new(session.book(), &styles, fonts);
+                    let used = layouter.frames_used(&flow).map_err(Error::from)?;
+                    let have = session
+                        .book()
+                        .flows
+                        .iter()
+                        .find(|f| f.id == flow)
+                        .map_or(0, |f| f.frames.len());
+                    if let Some(used) = used.filter(|u| *u < have) {
+                        let less = session.apply(Intent::TrimFlowPages { flow, keep: used })?;
+                        patch.ops.extend(less.ops);
+                        patch.revision = less.revision;
+                    }
+                }
+                // The pages added for the change are taken back with it.
+                let added = session.undo_depth() - after_user;
+                if user_step && added > 0 {
+                    session.join_last(added + 1);
+                }
+                Ok(patch)
+            },
             |patch: &Patch| Some(patch),
         )
     }
@@ -1467,4 +1635,33 @@ impl<R: Runtime> Books<R> {
 fn style_sheet(styles: &folio_model::Styles) -> StyleSheet {
     StyleSheet::from_styles(styles)
         .with_fallback(&StyleSheet::from_styles(&folio_presets::preset_styles()))
+}
+
+/// Whether an intent can change how much room a story needs: its words, their styles, or the frames
+/// they run through.
+fn changes_a_story(intent: &Intent) -> bool {
+    matches!(
+        intent,
+        Intent::SetParagraphText { .. }
+            | Intent::SpliceStory { .. }
+            | Intent::SplitParagraph { .. }
+            | Intent::JoinParagraphs { .. }
+            | Intent::StyleParagraphs { .. }
+            | Intent::StyleStoryRange { .. }
+            | Intent::LinkFrame { .. }
+            | Intent::UnlinkFrame { .. }
+            | Intent::SetStyle { .. }
+            | Intent::OverrideStyle { .. }
+    )
+}
+
+/// Whether an intent edits the words of a story, which can make it shorter.
+fn edits_a_story(intent: &Intent) -> bool {
+    matches!(
+        intent,
+        Intent::SetParagraphText { .. }
+            | Intent::SpliceStory { .. }
+            | Intent::SplitParagraph { .. }
+            | Intent::JoinParagraphs { .. }
+    )
 }

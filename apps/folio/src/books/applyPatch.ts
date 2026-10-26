@@ -49,6 +49,14 @@ function applyOp(book: Book, op: PatchOp): Book {
 			const { paper: _paper, ...rest } = book;
 			return op.paper !== 'white' ? { ...rest, paper: op.paper } : rest;
 		}
+		case 'setFlow': {
+			const flows = book.flows.some((f) => f.id === op.flow.id)
+				? book.flows.map((f) => (f.id === op.flow.id ? op.flow : f))
+				: [...book.flows, op.flow];
+			return { ...book, flows };
+		}
+		case 'removeFlow':
+			return { ...book, flows: book.flows.filter((f) => f.id !== op.id) };
 		case 'setDetails': {
 			// Rust leaves a missing subtitle out of the book, and so does the copy.
 			const { subtitle: _subtitle, ...rest } = book;

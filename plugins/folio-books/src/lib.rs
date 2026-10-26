@@ -70,6 +70,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::preview_cover_sheet,
             commands::proof_spread,
             commands::export_book,
+            commands::import_text,
             commands::cancel_export,
             commands::reveal_path,
             commands::preflight_book,

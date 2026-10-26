@@ -123,9 +123,9 @@ impl Session {
             });
         }
         let plan = plan(&self.book, &intent, &mut self.ids)?;
-        let before = Delta::capture(&self.book, &plan.touched);
+        let before = Delta::capture(&self.book, &plan.touched, &plan.flows);
         run(&mut self.book, intent, &plan, &mut self.ids);
-        let after = Delta::capture(&self.book, &plan.touched);
+        let after = Delta::capture(&self.book, &plan.touched, &plan.flows);
 
         let ops = ops_between(&before, &after);
         if ops.is_empty() {
@@ -163,6 +163,23 @@ impl Session {
             revision: self.revision,
             ops,
         })
+    }
+
+    /// Makes the last `count` undo steps one, so a change and what had to follow from it (pages
+    /// added for a story that grew) are taken back together. Does nothing when there are fewer.
+    pub fn join_last(&mut self, count: usize) {
+        if count < 2 || self.undo.len() < count {
+            return;
+        }
+        let mut steps = self.undo.split_off(self.undo.len() - count).into_iter();
+        let first = steps.next().expect("count is at least two");
+        let joined = steps.fold(first, |so_far, next| Entry {
+            before: so_far.before.before_both(&next.before),
+            after: so_far.after.after_both(&next.after),
+            merge: None,
+            at: next.at,
+        });
+        self.undo.push(joined);
     }
 
     /// Undoes the last step, or `None` when there is nothing to undo.
@@ -230,6 +247,19 @@ fn ops_between(before: &Delta, after: &Delta) -> Vec<PatchOp> {
     }
     if before.paper != after.paper {
         ops.push(PatchOp::SetPaper { paper: after.paper });
+    }
+    for (id, now) in &after.flows {
+        let was = before
+            .flows
+            .iter()
+            .find(|(b, _)| b == id)
+            .and_then(|(_, f)| f.as_ref());
+        match (was, now) {
+            (Some(was), Some(now)) if was == now => {}
+            (_, Some(now)) => ops.push(PatchOp::SetFlow { flow: now.clone() }),
+            (Some(_), None) => ops.push(PatchOp::RemoveFlow { id: id.clone() }),
+            (None, None) => {}
+        }
     }
     if before.details != after.details {
         ops.push(PatchOp::SetDetails {

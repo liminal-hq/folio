@@ -20,6 +20,7 @@ use crate::wire::{
     KeepFontsReport, ProofPage, ReaderPreview, Recoverable, SpellCheck, SpreadLayoutResult,
 };
 use crate::DICTIONARY_PROGRESS_EVENT;
+use folio_import::ImportReport;
 
 /// Reports that books work. They need nothing from the system, so this is always available.
 #[tauri::command]
@@ -372,6 +373,19 @@ pub async fn export_book<R: Runtime>(
     })
     .await
     .expect("the export task does not panic")
+}
+
+/// Brings the words of a Markdown or plain text file in as the book's story, in one undo step.
+#[tauri::command]
+pub async fn import_text<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    path: String,
+) -> Result<ImportReport, Error> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Books<R>>().import_text(&id, &path))
+        .await
+        .expect("the import task does not panic")
 }
 
 /// Stops the export in progress after the file it is making; what was made is kept.

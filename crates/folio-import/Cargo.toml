@@ -1,0 +1,17 @@
+[package]
+name = "folio-import"
+version = "0.1.0"
+description = "Importers for Folio: words with structure from Markdown and plain text, as the paragraphs of a story"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+folio-model = { path = "../folio-model" }
+pulldown-cmark = { version = "0.13", default-features = false }
+serde = { workspace = true }
+thiserror = { workspace = true }
+ts-rs = { workspace = true }

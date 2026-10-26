@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    BarcodeChoice, Book, BookFont, Details, Grid, Margins, Master, MasterId, PageNumbers, Paper,
-    Proofing, Pt, Size, Spread, SpreadId,
+    BarcodeChoice, Book, BookFont, Details, Flow, FlowId, Grid, Margins, Master, MasterId,
+    PageNumbers, Paper, Proofing, Pt, Size, Spread, SpreadId,
 };
 
 use crate::patch::PatchOp;
@@ -92,12 +92,14 @@ pub struct Delta {
     pub barcode: BarcodeChoice,
     pub fonts: Vec<BookFont>,
     pub preflight_ignore: Vec<String>,
+    /// The flows a step touched, each as it was (or `None` where it did not exist).
+    pub flows: Vec<(FlowId, Option<Flow>)>,
     pub spreads: Vec<(SpreadId, Option<Spread>)>,
 }
 
 impl Delta {
     /// Captures `touched` and the book-wide parts.
-    pub fn capture(book: &Book, touched: &[SpreadId]) -> Self {
+    pub fn capture(book: &Book, touched: &[SpreadId], flows: &[FlowId]) -> Self {
         Self {
             order: book.spreads.iter().map(|s| s.id.clone()).collect(),
             geometry: Geometry::of(book),
@@ -109,6 +111,10 @@ impl Delta {
             barcode: book.barcode.clone(),
             fonts: book.fonts.clone(),
             preflight_ignore: book.preflight_ignore.clone(),
+            flows: flows
+                .iter()
+                .map(|id| (id.clone(), book.flows.iter().find(|f| &f.id == id).cloned()))
+                .collect(),
             spreads: touched
                 .iter()
                 .map(|id| {
@@ -119,6 +125,41 @@ impl Delta {
                 })
                 .collect(),
         }
+    }
+
+    /// The state before two steps in a row, given the state before the first (`self`) and the state
+    /// before the second (`later`): the first's, and what only the second touched, which the first
+    /// left as it was.
+    pub fn before_both(&self, later: &Delta) -> Delta {
+        let mut both = self.clone();
+        for (id, spread) in &later.spreads {
+            if !both.spreads.iter().any(|(i, _)| i == id) {
+                both.spreads.push((id.clone(), spread.clone()));
+            }
+        }
+        for (id, flow) in &later.flows {
+            if !both.flows.iter().any(|(i, _)| i == id) {
+                both.flows.push((id.clone(), flow.clone()));
+            }
+        }
+        both
+    }
+
+    /// The state after two steps in a row, given the state after the first (`self`) and after the
+    /// second (`later`): the second's, and what only the first touched, which the second left alone.
+    pub fn after_both(&self, later: &Delta) -> Delta {
+        let mut both = later.clone();
+        for (id, spread) in &self.spreads {
+            if !both.spreads.iter().any(|(i, _)| i == id) {
+                both.spreads.push((id.clone(), spread.clone()));
+            }
+        }
+        for (id, flow) in &self.flows {
+            if !both.flows.iter().any(|(i, _)| i == id) {
+                both.flows.push((id.clone(), flow.clone()));
+            }
+        }
+        both
     }
 
     /// Puts the book back as this snapshot has it, and says what that changed.
@@ -194,6 +235,25 @@ impl Delta {
             ops.push(PatchOp::SetDetails {
                 details: self.details.clone(),
             });
+        }
+        for (id, flow) in &self.flows {
+            let slot = book.flows.iter().position(|f| &f.id == id);
+            match (flow, slot) {
+                (Some(flow), Some(at)) if book.flows[at] == *flow => {}
+                (Some(flow), Some(at)) => {
+                    book.flows[at] = flow.clone();
+                    ops.push(PatchOp::SetFlow { flow: flow.clone() });
+                }
+                (Some(flow), None) => {
+                    book.flows.push(flow.clone());
+                    ops.push(PatchOp::SetFlow { flow: flow.clone() });
+                }
+                (None, Some(at)) => {
+                    book.flows.remove(at);
+                    ops.push(PatchOp::RemoveFlow { id: id.clone() });
+                }
+                (None, None) => {}
+            }
         }
         if was_ignore != self.preflight_ignore {
             book.preflight_ignore = self.preflight_ignore.clone();

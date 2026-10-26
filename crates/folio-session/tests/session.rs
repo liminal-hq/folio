@@ -6,7 +6,7 @@
 use std::time::{Duration, Instant};
 
 use folio_model::{
-    Axis, Book, BookFont, Frame, FrameId, Grid, Intent, Margins, Pt, Rect, ReorderTo, Size,
+    Axis, Book, BookFont, FlowId, Frame, FrameId, Grid, Intent, Margins, Pt, Rect, ReorderTo, Size,
     SpreadId, SpreadKind, StyleId, StyleOverrides, Surface,
 };
 use folio_session::{PatchOp, Session, SessionError, COALESCE_WINDOW, UNDO_DEPTH};
@@ -31,6 +31,11 @@ fn book() -> Book {
             ] },
             { "id": "sp_2", "kind": "spread", "pages": [{ "id": "pg_2", "master": null }, { "id": "pg_3", "master": null }], "frames": [] }
         ],
+        "flows": [{ "id": "fl_main", "frames": ["fr_flowed"], "paragraphs": [
+            { "inline": [{ "text": "A chapter" }] },
+            { "inline": [{ "text": "The otter slept." }] },
+            { "inline": [{ "text": "Morning came." }] }
+        ] }],
         "metadata": { "isbn": { "paperback": null, "hardcover": null, "ebook": null }, "description": "" }
     }))
     .unwrap()
@@ -657,6 +662,75 @@ fn the_patch_cases_the_ui_is_tested_against_match_what_the_session_produces() {
         .unwrap()
     });
     record("undo the paper", &mut s, &|s| s.undo().unwrap());
+    record("type in a paragraph of the story", &mut s, &|s| {
+        s.apply(Intent::SetParagraphText {
+            flow: FlowId("fl_main".into()),
+            para: 1,
+            text: "The otter slept well.".into(),
+        })
+        .unwrap()
+    });
+    record("split a paragraph with Enter", &mut s, &|s| {
+        s.apply(Intent::SpliceStory {
+            flow: FlowId("fl_main".into()),
+            at: 1,
+            remove: 1,
+            insert: vec![
+                folio_model::StoryPara::plain("The otter"),
+                folio_model::StoryPara::plain(" slept well."),
+            ],
+        })
+        .unwrap()
+    });
+    record("make a paragraph a heading", &mut s, &|s| {
+        s.apply(Intent::StyleParagraphs {
+            flow: FlowId("fl_main".into()),
+            from: 0,
+            to: 0,
+            style: Some(folio_model::StyleId("h1".into())),
+        })
+        .unwrap()
+    });
+    record("make a word in the story bold", &mut s, &|s| {
+        s.apply(Intent::StyleStoryRange {
+            flow: FlowId("fl_main".into()),
+            para: 3,
+            start: 1,
+            end: 6,
+            change: folio_model::RunChange {
+                bold: Some(true),
+                ..Default::default()
+            },
+        })
+        .unwrap()
+    });
+    record("add pages for a story that grew", &mut s, &|s| {
+        s.apply(Intent::AddFlowPages {
+            flow: FlowId("fl_main".into()),
+            count: 3,
+        })
+        .unwrap()
+    });
+    record("undo adding the pages", &mut s, &|s| s.undo().unwrap());
+    record("chain a frame after the story's", &mut s, &|s| {
+        s.apply(Intent::LinkFrame {
+            frame: frame("fr_text"),
+            to: frame("fr_flowed"),
+        })
+        .unwrap()
+    });
+    record("take it out of the chain", &mut s, &|s| {
+        s.apply(Intent::UnlinkFrame {
+            frame: frame("fr_text"),
+        })
+        .unwrap()
+    });
+    record("undo unlinking", &mut s, &|s| s.undo().unwrap());
+    record("undo linking", &mut s, &|s| s.undo().unwrap());
+    record("undo the bold", &mut s, &|s| s.undo().unwrap());
+    record("undo the heading", &mut s, &|s| s.undo().unwrap());
+    record("undo the split", &mut s, &|s| s.undo().unwrap());
+    record("undo the typing", &mut s, &|s| s.undo().unwrap());
     record("set the details", &mut s, &|s| {
         s.apply(Intent::SetDetails {
             details: details("A New Title", Some("A subtitle"), "9780306406157"),
@@ -3313,6 +3387,426 @@ fn the_barcode_choice_is_one_undo_step_and_a_bad_price_addon_is_refused() {
                 }
             }),
             Err(SessionError::BadBarcode(_))
+        ));
+    }
+}
+
+fn story(s: &Session) -> Vec<String> {
+    s.book().flows[0]
+        .paragraphs
+        .iter()
+        .map(|p| p.text())
+        .collect()
+}
+
+#[test]
+fn the_story_is_edited_a_paragraph_at_a_time_and_every_edit_undoes() {
+    let mut s = Session::new(book());
+    let flow = FlowId("fl_main".into());
+    // Typing in one paragraph merges into one step; the words not touched keep their look.
+    s.apply(Intent::SetParagraphText {
+        flow: flow.clone(),
+        para: 1,
+        text: "The otter slept w".into(),
+    })
+    .unwrap();
+    s.apply(Intent::SetParagraphText {
+        flow: flow.clone(),
+        para: 1,
+        text: "The otter slept well.".into(),
+    })
+    .unwrap();
+    assert_eq!(story(&s)[1], "The otter slept well.");
+    s.undo().unwrap();
+    assert_eq!(story(&s)[1], "The otter slept.");
+    // Enter splits, Backspace joins; both are splices.
+    s.apply(Intent::SpliceStory {
+        flow: flow.clone(),
+        at: 1,
+        remove: 1,
+        insert: vec![
+            folio_model::StoryPara::plain("The otter"),
+            folio_model::StoryPara::plain(" slept."),
+        ],
+    })
+    .unwrap();
+    assert_eq!(
+        story(&s),
+        ["A chapter", "The otter", " slept.", "Morning came."]
+    );
+    s.apply(Intent::SpliceStory {
+        flow: flow.clone(),
+        at: 1,
+        remove: 2,
+        insert: vec![folio_model::StoryPara::plain("The otter slept.")],
+    })
+    .unwrap();
+    assert_eq!(
+        story(&s),
+        ["A chapter", "The otter slept.", "Morning came."]
+    );
+    // A paragraph style and a bold stretch.
+    s.apply(Intent::StyleParagraphs {
+        flow: flow.clone(),
+        from: 0,
+        to: 0,
+        style: Some(StyleId("h1".into())),
+    })
+    .unwrap();
+    s.apply(Intent::StyleStoryRange {
+        flow: flow.clone(),
+        para: 1,
+        start: 4,
+        end: 9,
+        change: folio_model::RunChange {
+            bold: Some(true),
+            ..Default::default()
+        },
+    })
+    .unwrap();
+    let paragraphs = &s.book().flows[0].paragraphs;
+    assert_eq!(
+        paragraphs[0].style.as_ref().map(|s| s.0.as_str()),
+        Some("h1")
+    );
+    assert!(paragraphs[1]
+        .inline
+        .iter()
+        .any(|r| r.bold && r.text == "otter"));
+    // Undo takes each back.
+    while s.undo().is_some() {}
+    assert_eq!(
+        story(&s),
+        ["A chapter", "The otter slept.", "Morning came."]
+    );
+    assert!(s.book().flows[0].paragraphs[0].style.is_none());
+}
+
+#[test]
+fn a_story_edit_that_is_not_there_is_refused() {
+    let mut s = Session::new(book());
+    let flow = FlowId("fl_main".into());
+    let gone = FlowId("nope".into());
+    for bad in [
+        Intent::SetParagraphText {
+            flow: flow.clone(),
+            para: 9,
+            text: "x".into(),
+        },
+        Intent::SpliceStory {
+            flow: flow.clone(),
+            at: 2,
+            remove: 5,
+            insert: Vec::new(),
+        },
+        Intent::StyleParagraphs {
+            flow: flow.clone(),
+            from: 2,
+            to: 1,
+            style: None,
+        },
+    ] {
+        assert!(matches!(s.apply(bad), Err(SessionError::BadStory(_))));
+    }
+    assert!(matches!(
+        s.apply(Intent::SetParagraphText {
+            flow: gone,
+            para: 0,
+            text: "x".into()
+        }),
+        Err(SessionError::NoSuchFlow(_))
+    ));
+    assert!(matches!(
+        s.apply(Intent::StyleStoryRange {
+            flow,
+            para: 0,
+            start: 0,
+            end: 99,
+            change: folio_model::RunChange {
+                bold: Some(true),
+                ..Default::default()
+            }
+        }),
+        Err(SessionError::BadRange(_))
+    ));
+}
+
+fn slot_of(s: &Session, id: &str) -> Option<(String, u32)> {
+    s.book()
+        .spreads
+        .iter()
+        .flat_map(|sp| &sp.frames)
+        .find_map(|f| match f {
+            Frame::Text(t) if t.base.id.0 == id => {
+                t.flow.as_ref().map(|f| (f.id.0.clone(), f.index))
+            }
+            _ => None,
+        })
+}
+
+#[test]
+fn frames_are_chained_into_a_flow_and_taken_out_again() {
+    let mut s = Session::new(book());
+    // The frame's own words join the end of the story, and it follows the flowed frame.
+    s.apply(Intent::LinkFrame {
+        frame: frame("fr_text"),
+        to: frame("fr_flowed"),
+    })
+    .unwrap();
+    assert_eq!(
+        s.book().flows[0].frames,
+        [frame("fr_flowed"), frame("fr_text")]
+    );
+    assert_eq!(slot_of(&s, "fr_flowed"), Some(("fl_main".into(), 0)));
+    assert_eq!(slot_of(&s, "fr_text"), Some(("fl_main".into(), 1)));
+    assert_eq!(story(&s).last().unwrap(), "Once upon a time");
+    // Taking it out leaves the story with the rest.
+    s.apply(Intent::UnlinkFrame {
+        frame: frame("fr_text"),
+    })
+    .unwrap();
+    assert_eq!(s.book().flows[0].frames, [frame("fr_flowed")]);
+    assert_eq!(slot_of(&s, "fr_text"), None);
+    // A frame that is the only one takes the story back as its own words.
+    s.apply(Intent::UnlinkFrame {
+        frame: frame("fr_flowed"),
+    })
+    .unwrap();
+    assert!(s.book().flows.is_empty());
+    assert_eq!(slot_of(&s, "fr_flowed"), None);
+    s.undo().unwrap();
+    s.undo().unwrap();
+    s.undo().unwrap();
+    assert_eq!(s.book().flows[0].frames, [frame("fr_flowed")]);
+    assert_eq!(story(&s).len(), 3);
+}
+
+#[test]
+fn a_frame_that_cannot_be_chained_is_refused_and_deleting_one_leaves_its_flow() {
+    let mut s = Session::new(book());
+    for (frame_id, to) in [
+        ("fr_pic", "fr_flowed"),
+        ("fr_flowed", "fr_flowed"),
+        ("fr_text", "fr_pic"),
+    ] {
+        assert!(s
+            .apply(Intent::LinkFrame {
+                frame: frame(frame_id),
+                to: frame(to)
+            })
+            .is_err());
+    }
+    s.apply(Intent::LinkFrame {
+        frame: frame("fr_text"),
+        to: frame("fr_flowed"),
+    })
+    .unwrap();
+    // A frame already in a flow cannot be chained again.
+    assert!(s
+        .apply(Intent::LinkFrame {
+            frame: frame("fr_text"),
+            to: frame("fr_flowed")
+        })
+        .is_err());
+    s.apply(Intent::DeleteFrame {
+        on: folio_model::Surface::Spread(spread("sp_1")),
+        frame: frame("fr_text"),
+    })
+    .unwrap();
+    assert_eq!(s.book().flows[0].frames, [frame("fr_flowed")]);
+    s.undo().unwrap();
+    assert_eq!(s.book().flows[0].frames.len(), 2);
+    assert_eq!(slot_of(&s, "fr_text"), Some(("fl_main".into(), 1)));
+}
+
+#[test]
+fn enter_splits_a_paragraph_where_the_caret_is_and_backspace_joins_it_back() {
+    let mut s = Session::new(book());
+    let flow = FlowId("fl_main".into());
+    s.apply(Intent::StyleStoryRange {
+        flow: flow.clone(),
+        para: 1,
+        start: 4,
+        end: 9,
+        change: folio_model::RunChange {
+            bold: Some(true),
+            ..Default::default()
+        },
+    })
+    .unwrap();
+    s.apply(Intent::SplitParagraph {
+        flow: flow.clone(),
+        para: 1,
+        at: 7,
+    })
+    .unwrap();
+    assert_eq!(
+        story(&s),
+        ["A chapter", "The ott", "er slept.", "Morning came."]
+    );
+    // Both halves keep the look of their words.
+    let paragraphs = &s.book().flows[0].paragraphs;
+    assert!(paragraphs[1]
+        .inline
+        .iter()
+        .any(|r| r.bold && r.text == "ott"));
+    assert!(paragraphs[2]
+        .inline
+        .iter()
+        .any(|r| r.bold && r.text == "er"));
+    s.apply(Intent::JoinParagraphs {
+        flow: flow.clone(),
+        para: 1,
+    })
+    .unwrap();
+    assert_eq!(
+        story(&s),
+        ["A chapter", "The otter slept.", "Morning came."]
+    );
+    assert_eq!(
+        s.book().flows[0].paragraphs[1]
+            .inline
+            .iter()
+            .filter(|r| r.bold)
+            .map(|r| r.text.as_str())
+            .collect::<String>(),
+        "otter"
+    );
+    assert!(s
+        .apply(Intent::JoinParagraphs {
+            flow: flow.clone(),
+            para: 2
+        })
+        .is_err());
+    assert!(s
+        .apply(Intent::SplitParagraph {
+            flow,
+            para: 0,
+            at: 99
+        })
+        .is_err());
+    s.undo().unwrap();
+    s.undo().unwrap();
+    assert_eq!(story(&s).len(), 3);
+}
+
+#[test]
+fn steps_joined_together_are_undone_and_redone_together() {
+    let mut s = Session::new(book());
+    s.apply(Intent::SetParagraphText {
+        flow: FlowId("fl_main".into()),
+        para: 1,
+        text: "Changed.".into(),
+    })
+    .unwrap();
+    s.apply(Intent::AddSpread {
+        after: spread("sp_1"),
+        duplicate: false,
+    })
+    .unwrap();
+    s.apply(Intent::LinkFrame {
+        frame: frame("fr_text"),
+        to: frame("fr_flowed"),
+    })
+    .unwrap();
+    let spreads = s.book().spreads.len();
+    s.join_last(3);
+    // One step now takes all three back, the new spread included.
+    s.undo().unwrap();
+    assert_eq!(s.book().spreads.len(), spreads - 1);
+    assert_eq!(story(&s)[1], "The otter slept.");
+    assert_eq!(s.book().flows[0].frames, [frame("fr_flowed")]);
+    assert!(s.undo().is_none());
+    s.redo().unwrap();
+    assert_eq!(s.book().spreads.len(), spreads);
+    assert_eq!(story(&s)[1], "Changed.");
+    assert_eq!(s.book().flows[0].frames.len(), 2);
+    // Fewer steps than asked for is left alone.
+    s.join_last(9);
+    s.undo().unwrap();
+    assert_eq!(s.book().spreads.len(), spreads - 1);
+}
+
+#[test]
+fn pages_are_added_for_a_story_that_has_outgrown_its_frames_in_one_undo_step() {
+    let mut s = Session::new(book());
+    let flow = FlowId("fl_main".into());
+    let spreads = s.book().spreads.len();
+    s.apply(Intent::AddFlowPages {
+        flow: flow.clone(),
+        count: 3,
+    })
+    .unwrap();
+    let frames = s.book().flows[0].frames.clone();
+    assert_eq!(frames.len(), 4);
+    // Every frame is numbered by its place in the chain and sits on a spread of the book.
+    for (i, id) in frames.iter().enumerate() {
+        assert_eq!(
+            slot_of(&s, &id.0),
+            Some(("fl_main".into(), i as u32)),
+            "{id:?}"
+        );
+    }
+    assert!(s.book().spreads.len() > spreads);
+    // New spreads are two pages wide and hold no frame twice.
+    let mut seen = std::collections::HashSet::new();
+    for sp in &s.book().spreads {
+        for f in &sp.frames {
+            assert!(seen.insert(f.base().id.0.clone()), "{:?}", f.base().id);
+        }
+    }
+    s.undo().unwrap();
+    assert_eq!(s.book().spreads.len(), spreads);
+    assert_eq!(s.book().flows[0].frames, [frame("fr_flowed")]);
+    for bad in [0, 5000] {
+        assert!(matches!(
+            s.apply(Intent::AddFlowPages {
+                flow: flow.clone(),
+                count: bad
+            }),
+            Err(SessionError::BadStory(_))
+        ));
+    }
+    assert!(matches!(
+        s.apply(Intent::AddFlowPages {
+            flow: FlowId("nope".into()),
+            count: 1
+        }),
+        Err(SessionError::NoSuchFlow(_))
+    ));
+}
+
+#[test]
+fn frames_a_story_no_longer_needs_leave_with_the_spreads_they_empty_in_one_undo_step() {
+    let mut s = Session::new(book());
+    let flow = FlowId("fl_main".into());
+    s.apply(Intent::AddFlowPages {
+        flow: flow.clone(),
+        count: 4,
+    })
+    .unwrap();
+    let grown = s.book().spreads.len();
+    assert_eq!(s.book().flows[0].frames.len(), 5);
+    s.apply(Intent::TrimFlowPages {
+        flow: flow.clone(),
+        keep: 1,
+    })
+    .unwrap();
+    assert_eq!(s.book().flows[0].frames, [frame("fr_flowed")]);
+    assert!(s.book().spreads.len() < grown);
+    // The spread the first frame is on, and the ones the person made, are left.
+    assert!(s.book().spreads.iter().any(|sp| sp.id.0 == "sp_1"));
+    assert!(s.book().spreads.iter().any(|sp| sp.id.0 == "sp_2"));
+    s.undo().unwrap();
+    assert_eq!(s.book().spreads.len(), grown);
+    assert_eq!(s.book().flows[0].frames.len(), 5);
+    for bad in [0, 5, 9] {
+        assert!(matches!(
+            s.apply(Intent::TrimFlowPages {
+                flow: flow.clone(),
+                keep: bad
+            }),
+            Err(SessionError::BadStory(_))
         ));
     }
 }
