@@ -14,7 +14,6 @@ const NONE = availableCommands({ hasBook: false, canUndo: false, canRedo: false 
 function context(overrides: Partial<CommandContext['settings']> = {}) {
 	const patches: SettingsPatch[] = [];
 	const books = {
-		newBook: vi.fn(async () => {}),
 		open: vi.fn(async () => {}),
 		save: vi.fn(async () => {}),
 		saveAs: vi.fn(async () => {}),
@@ -99,9 +98,14 @@ describe('runCommand', () => {
 		expect(openBookTools.mock.calls).toEqual([['pictures'], ['structure']]);
 	});
 
+	it('opens the New book wizard for File → New book…', async () => {
+		const { value, openWindow } = context();
+		await runCommand('file.new', value, NONE);
+		expect(openWindow.mock.calls).toEqual([['WizardNew']]);
+	});
+
 	it('runs the book commands', async () => {
 		const { value, books } = context();
-		await runCommand('file.new', value, OPEN);
 		await runCommand('file.open', value, OPEN);
 		await runCommand('file.save', value, OPEN);
 		await runCommand('file.saveAs', value, OPEN);

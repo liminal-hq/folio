@@ -57,6 +57,12 @@
 	font-weight: 600;
 }
 
+.doors {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+
 .start {
 	align-self: flex-start;
 	min-block-size: var(--folio-hit-target);
@@ -79,7 +85,32 @@
 	cursor: default;
 }
 
+.guide {
+	min-block-size: var(--folio-hit-target);
+	padding: 0 20px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 8px;
+	background: var(--folio-bg-raised);
+	color: var(--folio-text-primary);
+	font: inherit;
+	cursor: default;
+}
+
+.guide:hover {
+	border-color: var(--folio-text-muted);
+	background: var(--folio-bg-hover);
+}
+
+.guide:active {
+	background: var(--folio-border-subtle);
+}
+
+.start:active:not(:disabled) {
+	filter: brightness(0.9);
+}
+
 .start:focus-visible,
+.guide:focus-visible,
 .row:focus-visible,
 .action:focus-visible {
 	outline: 2px solid var(--folio-focus-ring);
