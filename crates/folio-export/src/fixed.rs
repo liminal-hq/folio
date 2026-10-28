@@ -22,6 +22,10 @@ use crate::error::ExportError;
 use crate::pdf::Assets;
 use crate::raster::page_to_jpeg;
 
+/// The size of the cover picture a store asks for, which is also the cover page's size.
+const COVER_W: u32 = 1600;
+const COVER_H: u32 = 2560;
+
 fn esc(text: &str) -> String {
     text.replace('&', "&amp;")
         .replace('<', "&lt;")
@@ -421,6 +425,9 @@ pub fn export_fixed_epub(
 ) -> Result<Vec<u8>, ExportError> {
     let front = folio_model::front_cover_view(book);
     let book = &front;
+    // The cover is the front alone: the printed sheet's back and spine are not a page of this book.
+    let front = folio_model::front_cover_view(book);
+    let book = &front;
     let layouter = Layouter::new(book, styles, fonts);
     let mut scenes: Vec<PageScene> = Vec::new();
     for spread in &book.spreads {
@@ -512,7 +519,23 @@ pub fn export_fixed_epub(
         deflated,
     )?;
     put(&mut zip, "OEBPS/css/book.css", css.as_bytes(), deflated)?;
-    for (index, page) in pages.iter().enumerate() {
+    // The first document of the spine is the cover picture. It is a reflowable page in the
+    // fixed-layout book (see the spine), so the reader scales the picture to the screen: a Kobo
+    // does not scale a fixed page by its own viewport but with the other pages', which cropped
+    // it. It is what a reader that makes a thumbnail from the first document, and a store that
+    // looks for the cover, show. The cover page the author laid out is the picture in it.
+    let cover_page = format!(
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE html>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" lang=\"{lang}\" xml:lang=\"{lang}\">\n<head>\n<meta charset=\"utf-8\"/>\n<title>{title} — cover</title>\n<link rel=\"stylesheet\" type=\"text/css\" href=\"../css/book.css\"/>\n</head>\n<body epub:type=\"cover\">\n<div style=\"text-align:center\"><img src=\"../images/cover.jpg\" alt=\"Cover of {title}\" style=\"max-width:100%;max-height:100vh;height:auto\"/></div>\n</body>\n</html>\n",
+        lang = esc(&book.language),
+        title = esc(&book.title),
+    );
+    put(
+        &mut zip,
+        "OEBPS/text/cover.xhtml",
+        cover_page.as_bytes(),
+        deflated,
+    )?;
+    for (index, page) in pages.iter().enumerate().skip(1) {
         let doc = format!(
             "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE html>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" lang=\"{lang}\" xml:lang=\"{lang}\">\n<head>\n<meta charset=\"utf-8\"/>\n<meta name=\"viewport\" content=\"width={w}, height={h}\"/>\n<title>{title} — page {n}</title>\n<link rel=\"stylesheet\" type=\"text/css\" href=\"../css/book.css\"/>\n</head>\n<body>\n{body}</body>\n</html>\n",
             lang = esc(&book.language),
@@ -541,7 +564,7 @@ pub fn export_fixed_epub(
     }
     // The cover, as the picture a store would show.
     let cover = scenes.first().ok_or(ExportError::NoPages)?;
-    let cover_jpeg = page_to_jpeg(cover, fonts, assets, 1600, 2560)?;
+    let cover_jpeg = page_to_jpeg(cover, fonts, assets, COVER_W, COVER_H)?;
     put(&mut zip, "OEBPS/images/cover.jpg", &cover_jpeg, deflated)?;
     manifest_images.push_str("<item id=\"cover-image\" href=\"images/cover.jpg\" media-type=\"image/jpeg\" properties=\"cover-image\"/>\n");
     let mut manifest_fonts = String::new();
@@ -556,17 +579,25 @@ pub fn export_fixed_epub(
             }
         ));
     }
-    let manifest_pages: String = (1..=pages.len())
-        .map(|i| format!("<item id=\"page-{i:03}\" href=\"text/page-{i:03}.xhtml\" media-type=\"application/xhtml+xml\"/>\n"))
-        .collect();
+    let mut manifest_pages = String::from(
+        "<item id=\"cover\" href=\"text/cover.xhtml\" media-type=\"application/xhtml+xml\"/>\n",
+    );
+    manifest_pages.extend((2..=pages.len())
+        .map(|i| format!("<item id=\"page-{i:03}\" href=\"text/page-{i:03}.xhtml\" media-type=\"application/xhtml+xml\"/>\n")));
     let spine: String = scenes
         .iter()
         .enumerate()
         .map(|(i, s)| {
             format!(
-                "<itemref idref=\"page-{:03}\" properties=\"{}\"/>\n",
-                i + 1,
-                if s.recto {
+                "<itemref idref=\"{}\" properties=\"{}\"/>\n",
+                if i == 0 {
+                    "cover".to_string()
+                } else {
+                    format!("page-{:03}", i + 1)
+                },
+                if i == 0 {
+                    "rendition:layout-reflowable"
+                } else if s.recto {
                     "page-spread-right"
                 } else {
                     "page-spread-left"
@@ -575,7 +606,7 @@ pub fn export_fixed_epub(
         })
         .collect();
     let nav = format!(
-        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE html>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" lang=\"{lang}\" xml:lang=\"{lang}\">\n<head><meta charset=\"utf-8\"/><title>{title}</title></head>\n<body>\n<nav epub:type=\"toc\" id=\"toc\"><h1>Contents</h1>\n<ol><li><a href=\"text/page-001.xhtml\">{title}</a></li></ol></nav>\n</body>\n</html>\n",
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE html>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" lang=\"{lang}\" xml:lang=\"{lang}\">\n<head><meta charset=\"utf-8\"/><title>{title}</title></head>\n<body>\n<nav epub:type=\"toc\" id=\"toc\"><h1>Contents</h1>\n<ol><li><a href=\"text/cover.xhtml\">{title}</a></li></ol></nav>\n<nav epub:type=\"landmarks\" hidden=\"hidden\"><h2>Landmarks</h2>\n<ol><li><a epub:type=\"cover\" href=\"text/cover.xhtml\">Cover</a></li></ol></nav>\n</body>\n</html>\n",
         lang = esc(&book.language),
         title = esc(&book.title)
     );
@@ -586,7 +617,7 @@ pub fn export_fixed_epub(
         .map(|a| format!("<dc:creator>{}</dc:creator>\n", esc(&a.name)))
         .collect();
     let opf = format!(
-        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"book-id\" xml:lang=\"{lang}\">\n<metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n<dc:identifier id=\"book-id\">urn:folio:{id}</dc:identifier>\n<dc:title>{title}</dc:title>\n{authors}<dc:language>{lang}</dc:language>\n<meta property=\"dcterms:modified\">{modified}</meta>\n<meta property=\"rendition:layout\">pre-paginated</meta>\n<meta property=\"rendition:orientation\">auto</meta>\n<meta property=\"rendition:spread\">landscape</meta>\n<meta property=\"schema:accessMode\">textual</meta>\n<meta property=\"schema:accessMode\">visual</meta>\n<meta property=\"schema:accessibilityFeature\">readingOrder</meta>\n<meta property=\"schema:accessibilitySummary\">A fixed-layout picture book: the words are live text over the pictures.</meta>\n</metadata>\n<manifest>\n<item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\"/>\n<item id=\"css\" href=\"css/book.css\" media-type=\"text/css\"/>\n{manifest_pages}{manifest_images}{manifest_fonts}</manifest>\n<spine>\n{spine}</spine>\n</package>\n",
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"book-id\" xml:lang=\"{lang}\">\n<metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n<dc:identifier id=\"book-id\">urn:folio:{id}</dc:identifier>\n<dc:title>{title}</dc:title>\n{authors}<dc:language>{lang}</dc:language>\n<meta name=\"cover\" content=\"cover-image\"/>\n<meta property=\"dcterms:modified\">{modified}</meta>\n<meta property=\"rendition:layout\">pre-paginated</meta>\n<meta property=\"rendition:orientation\">auto</meta>\n<meta property=\"rendition:spread\">landscape</meta>\n<meta property=\"schema:accessMode\">textual</meta>\n<meta property=\"schema:accessMode\">visual</meta>\n<meta property=\"schema:accessibilityFeature\">readingOrder</meta>\n<meta property=\"schema:accessibilitySummary\">A fixed-layout picture book: the words are live text over the pictures.</meta>\n</metadata>\n<manifest>\n<item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\"/>\n<item id=\"css\" href=\"css/book.css\" media-type=\"text/css\"/>\n{manifest_pages}{manifest_images}{manifest_fonts}</manifest>\n<spine>\n{spine}</spine>\n<guide>\n<reference type=\"cover\" title=\"Cover\" href=\"text/cover.xhtml\"/>\n</guide>\n</package>\n",
         lang = esc(&book.language),
         id = esc(&book.id.0),
         title = esc(&book.title),

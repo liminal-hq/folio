@@ -57,8 +57,11 @@ fn there_is_an_xhtml_page_for_every_page_and_every_xml_file_is_well_formed() {
     let (mut zip, names) = open(&bytes);
     assert_eq!(names[0], "mimetype");
     let pages: usize = book.spreads.iter().map(|s| s.pages.len()).sum();
-    let xhtml: Vec<_> = names.iter().filter(|n| n.contains("/text/page-")).collect();
+    // The cover page is the cover document, the first of them, and the rest are pages.
+    let xhtml: Vec<_> = names.iter().filter(|n| n.contains("/text/")).collect();
     assert_eq!(xhtml.len(), pages);
+    assert!(names.iter().any(|n| n == "OEBPS/text/cover.xhtml"));
+    assert!(!names.iter().any(|n| n == "OEBPS/text/page-001.xhtml"));
     for name in names
         .iter()
         .filter(|n| n.ends_with(".xhtml") || n.ends_with(".opf"))
@@ -76,7 +79,7 @@ fn the_package_says_the_pages_are_fixed_and_which_side_each_faces() {
     assert!(opf.contains("rendition:spread"));
     assert!(opf.contains("page-spread-left") && opf.contains("page-spread-right"));
     assert!(opf.contains("properties=\"cover-image\""));
-    let first = read(&mut zip, "OEBPS/text/page-001.xhtml");
+    let first = read(&mut zip, "OEBPS/text/page-002.xhtml");
     assert!(first.contains(&format!(
         "name=\"viewport\" content=\"width={}, height={}\"",
         book.trim.w.0, book.trim.h.0
@@ -173,4 +176,43 @@ fn the_fonts_are_declared_at_the_weight_they_are_with_the_kind_of_file_they_are(
         );
         assert!(face.contains("font-style:normal") || face.contains("font-style:italic"));
     }
+}
+
+#[test]
+fn the_first_document_is_the_cover_picture_as_a_reflowable_page_and_every_reader_is_told_so() {
+    let (_, bytes) = sample(BookKind::Picture);
+    let (mut zip, _) = open(&bytes);
+    let opf = read(&mut zip, "OEBPS/content.opf");
+    let spine = opf.split("<spine>").nth(1).unwrap();
+    assert!(
+        spine.trim_start().starts_with("<itemref idref=\"cover\""),
+        "{spine}"
+    );
+    assert!(opf.contains("<item id=\"cover\" href=\"text/cover.xhtml\""));
+    // EPUB 2 readers and Amazon look for these.
+    assert!(opf.contains("<meta name=\"cover\" content=\"cover-image\"/>"));
+    assert!(opf.contains("<reference type=\"cover\" title=\"Cover\" href=\"text/cover.xhtml\"/>"));
+    let nav = read(&mut zip, "OEBPS/nav.xhtml");
+    assert!(nav.contains("epub:type=\"landmarks\"") && nav.contains("epub:type=\"cover\""));
+    let cover = read(&mut zip, "OEBPS/text/cover.xhtml");
+    // A reflowable page in the fixed book, which a Kobo scales to the screen; a fixed one is cropped.
+    assert!(!cover.contains("viewport"));
+    assert!(spine.contains("rendition:layout-reflowable"));
+    assert!(cover.contains("max-width:100%"));
+    assert!(cover.contains("src=\"../images/cover.jpg\""));
+}
+
+#[test]
+fn the_cover_picture_is_the_size_a_store_asks_for() {
+    let (_, bytes) = sample(BookKind::Picture);
+    let (mut zip, _) = open(&bytes);
+    let mut cover = zip.by_name("OEBPS/images/cover.jpg").unwrap();
+    let mut jpeg = Vec::new();
+    cover.read_to_end(&mut jpeg).unwrap();
+    let (w, h) = image::ImageReader::new(std::io::Cursor::new(jpeg))
+        .with_guessed_format()
+        .unwrap()
+        .into_dimensions()
+        .unwrap();
+    assert_eq!((w, h), (1600, 2560));
 }
