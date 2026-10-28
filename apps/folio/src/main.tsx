@@ -43,8 +43,6 @@ function screenFor(kind: WindowKind | null) {
 					<BookToolsScreen />
 				</BooksProvider>
 			);
-		case 'WizardNew':
-			return <NewBookWizard />;
 		case null:
 			return null;
 	}

@@ -1554,11 +1554,7 @@ impl Books {
                 .iter_mut()
                 .find(|b| b.id == id)
                 .ok_or_else(|| Error::NoSuchBook(id.into()))?;
-            (
-                open.shown_book(),
-                open.paper_in_use(),
-                open.font_book(base),
-            )
+            (open.shown_book(), open.paper_in_use(), open.font_book(base))
         };
         let fonts = layered.as_deref().unwrap_or(base);
         let Some(sheet) = folio_export::cover::cover_sheet(&book, paper) else {

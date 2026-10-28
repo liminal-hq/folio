@@ -113,9 +113,6 @@ export function BookView({
 	const master = editing === null ? null : masterSpread(book, editing);
 	const spread = master ?? book.spreads[shown] ?? null;
 	const labels = shelfLabels(book);
-	// What is drawn has each reference to a swatch turned into the colour the swatch shows as.
-	const displays = useMemo(() => swatchDisplays(book), [book.styles]);
-	const drawn = useMemo(() => resolveSwatches(book, displays), [book, displays]);
 	// The cover is the printed sheet: what Folio draws on it (the barcode, the spine) goes over the
 	// frames the book holds, and the folds and safe areas are guides after the person's own.
 	const sheet = useCoverSheet(
@@ -142,10 +139,6 @@ export function BookView({
 		const drawn = onSheet?.frames.some((f) => f.id.startsWith('cover_bar_'));
 		return box && !drawn ? { box, text: t('cover.barcodeHint') } : undefined;
 	}, [onSheet]);
-	const drawnSpread = useMemo(
-		() => (onSheet ? resolveSwatches(onSheet, displays) : onSheet),
-		[onSheet, displays],
-	);
 	const spreadLayout = useSpreadLayout(
 		client,
 		id,

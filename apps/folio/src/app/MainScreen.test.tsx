@@ -55,7 +55,6 @@ function setup(
 ) {
 	const settings = createFakeSettingsClient();
 	const books = createFakeBooksClient();
-	const windows = { open: vi.fn(async () => {}), openBookTools: vi.fn(async () => {}) };
 	const dialogs: FileDialogs = {
 		pickBook: async () => picks.open ?? null,
 		pickSavePath: async () => picks.save ?? null,
