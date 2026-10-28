@@ -207,29 +207,43 @@ fn page_html(
                     px(at.0), px(at.1), px(size.0), px(size.1)
                 ));
                 for line in lines {
-                    for run in &line.runs {
-                        if run.text.is_empty() {
-                            continue;
-                        }
-                        let text = if run.hyphen {
-                            format!("{}-", run.text)
+                    let words = words_of(&line.runs);
+                    if words.is_empty() {
+                        continue;
+                    }
+                    // A line is one box, and a reader that sets the words in a wider font than the
+                    // one the book was laid out in still has each word whole and the spaces between
+                    // them in the text.
+                    inner.push_str(&format!(
+                        "<div class=\"ln\" style=\"position:absolute;left:{}px;top:{}px;width:{}px;height:{}px\">",
+                        px(line.x),
+                        px(line.top),
+                        px(line.width),
+                        px(line.height)
+                    ));
+                    for (i, word) in words.iter().enumerate() {
+                        let spaced = words
+                            .get(i + 1)
+                            .is_some_and(|next| next.x > word.end + 0.01);
+                        let text = if spaced {
+                            format!("{} ", word.text)
                         } else {
-                            run.text.clone()
+                            word.text.clone()
                         };
                         let style = format!(
-                            "position:absolute;left:{}px;top:{}px;white-space:pre;font-family:'{}';font-size:{}px;line-height:{}px;{}{}letter-spacing:{}em;color:{}",
-                            px(line.x + run.x),
-                            px(line.top),
-                            esc(&run.family),
-                            px(run.size),
+                            "position:absolute;left:{}px;top:0;white-space:pre;font-family:'{}';font-size:{}px;line-height:{}px;font-weight:{};font-style:{};letter-spacing:{}em;color:{}",
+                            px(word.x),
+                            esc(&word.family),
+                            px(word.size),
                             px(line.height),
-                            if run.weight != 400 { format!("font-weight:{};", run.weight) } else { String::new() },
-                            if run.italic { "font-style:italic;" } else { "" },
-                            px(run.tracking),
-                            run.colour.as_ref().map_or("#1c1b20", |c| css_colour(c)),
+                            word.weight,
+                            if word.italic { "italic" } else { "normal" },
+                            px(word.tracking),
+                            word.colour.as_ref().map_or("#1c1b20", |c| css_colour(c)),
                         );
-                        inner.push_str(&format!("<span style=\"{style}\">{}</span>\n", esc(&text)));
+                        inner.push_str(&format!("<span style=\"{style}\">{}</span>", esc(&text)));
                     }
+                    inner.push_str("</div>\n");
                 }
                 inner.push_str("</div>\n");
             }
@@ -241,6 +255,61 @@ fn page_html(
         px(scene.height)
     );
     Page { body }
+}
+
+/// A word as it is set on a line: the pieces layout cut it into (for hyphenation) put back
+/// together, in one font.
+struct Word {
+    text: String,
+    x: f64,
+    end: f64,
+    family: String,
+    size: f64,
+    weight: u16,
+    italic: bool,
+    tracking: f64,
+    colour: Option<Colour>,
+}
+
+/// The words of a line. Pieces that touch and are set alike are one word; a hyphen drawn at the
+/// end of a line is part of the word it ends.
+fn words_of(runs: &[folio_layout::wire::LayoutRun]) -> Vec<Word> {
+    let mut words: Vec<Word> = Vec::new();
+    for run in runs {
+        if run.text.is_empty() && !run.hyphen {
+            continue;
+        }
+        let text = if run.hyphen {
+            format!("{}-", run.text)
+        } else {
+            run.text.clone()
+        };
+        if let Some(last) = words.last_mut() {
+            let alike = last.family == run.family
+                && last.size == run.size
+                && last.weight == run.weight
+                && last.italic == run.italic
+                && last.tracking == run.tracking
+                && last.colour == run.colour;
+            if alike && (run.x - last.end).abs() < 0.01 {
+                last.text.push_str(&text);
+                last.end = run.x + run.width;
+                continue;
+            }
+        }
+        words.push(Word {
+            text,
+            x: run.x,
+            end: run.x + run.width,
+            family: run.family.clone(),
+            size: run.size,
+            weight: run.weight,
+            italic: run.italic,
+            tracking: run.tracking,
+            colour: run.colour.clone(),
+        });
+    }
+    words
 }
 
 fn picture(
@@ -345,41 +414,47 @@ pub fn export_fixed_epub(
     }
     let (w, h) = (book.trim.w.0, book.trim.h.0);
 
-    // The fonts the pages ask for, which may travel with the book.
-    let mut families: Vec<String> = scenes
+    // The fonts the pages ask for, one for each weight and style set, which may travel with the
+    // book. Each is declared at the weight and style it is, with the kind of file it is, because
+    // some readers refuse a font declared across a range of weights and fall back to their own.
+    let mut faces: Vec<(String, u16, bool)> = scenes
         .iter()
         .flat_map(|s| s.items.iter())
         .filter_map(|i| match &i.kind {
             SceneKind::Text { lines, .. } => Some(
                 lines
                     .iter()
-                    .flat_map(|l| l.runs.iter().map(|r| r.family.clone()))
+                    .flat_map(|l| {
+                        l.runs
+                            .iter()
+                            .map(|r| (r.family.clone(), r.weight, r.italic))
+                    })
                     .collect::<Vec<_>>(),
             ),
             _ => None,
         })
         .flatten()
         .collect();
-    families.sort();
-    families.dedup();
+    faces.sort();
+    faces.dedup();
     let mut font_files: Vec<(String, std::sync::Arc<[u8]>)> = Vec::new();
-    let mut css =
-        String::from("html,body{margin:0;padding:0}\n.page{position:relative;overflow:hidden}\n");
-    for family in &families {
-        if let Ok(found) = fonts.resolve(&FontRequest::new(family, 400, false)) {
+    let mut css = String::from(
+        "html,body{margin:0;padding:0}\n.page{position:relative;overflow:hidden}\n.ln{white-space:pre}\n",
+    );
+    for (family, weight, italic) in &faces {
+        if let Ok(found) = fonts.resolve(&FontRequest::new(family, *weight, *italic)) {
             if found.font.embedding_rights().may_keep_with_book() {
-                let ext = if found.font.data().starts_with(b"OTTO") {
-                    "otf"
-                } else {
-                    "ttf"
-                };
+                let opentype = found.font.data().starts_with(b"OTTO");
+                let ext = if opentype { "otf" } else { "ttf" };
                 let file = format!("{}.{ext}", found.font.face_key());
                 if !font_files.iter().any(|(n, _)| n == &file) {
                     font_files.push((file.clone(), std::sync::Arc::clone(found.font.data())));
                 }
                 css.push_str(&format!(
-                    "@font-face{{font-family:'{}';src:url('../fonts/{file}');font-weight:100 900}}\n",
-                    esc(family)
+                    "@font-face{{font-family:'{}';src:url('../fonts/{file}') format('{}');font-weight:{weight};font-style:{}}}\n",
+                    esc(family),
+                    if opentype { "opentype" } else { "truetype" },
+                    if *italic { "italic" } else { "normal" },
                 ));
             }
         }
@@ -498,4 +573,63 @@ fn imagesize(bytes: &[u8]) -> Option<(u32, u32)> {
         .ok()?
         .into_dimensions()
         .ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use folio_layout::wire::LayoutRun;
+
+    fn run(text: &str, x: f64, width: f64) -> LayoutRun {
+        LayoutRun {
+            text: text.to_string(),
+            x,
+            width,
+            family: "Serif".to_string(),
+            size: 12.0,
+            weight: 400,
+            italic: false,
+            tracking: 0.0,
+            colour: None,
+            hyphen: false,
+            miss: Vec::new(),
+            face_key: String::new(),
+            glyphs: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn the_pieces_of_an_unbroken_word_are_one_word() {
+        let runs = [
+            run("grand", 0.0, 30.0),
+            run("par", 30.0, 18.0),
+            run("ents'", 48.0, 27.0),
+        ];
+        let words = words_of(&runs);
+        assert_eq!(words.len(), 1);
+        assert_eq!(words[0].text, "grandparents'");
+        assert_eq!(words[0].end, 75.0);
+    }
+
+    #[test]
+    fn a_gap_between_words_keeps_them_two_words() {
+        let runs = [run("Both", 0.0, 24.0), run("side.", 30.0, 28.0)];
+        let words = words_of(&runs);
+        assert_eq!(
+            words.iter().map(|w| w.text.as_str()).collect::<Vec<_>>(),
+            ["Both", "side."]
+        );
+        assert!(words[1].x > words[0].end);
+    }
+
+    #[test]
+    fn words_set_differently_are_not_joined_and_a_line_end_hyphen_belongs_to_its_word() {
+        let mut bold = run("one", 24.0, 20.0);
+        bold.weight = 700;
+        let mut hyphen = run("coun", 50.0, 24.0);
+        hyphen.hyphen = true;
+        let words = words_of(&[run("a", 0.0, 24.0), bold, hyphen]);
+        assert_eq!(words.len(), 3);
+        assert_eq!(words[2].text, "coun-");
+    }
 }

@@ -116,3 +116,46 @@ fn every_kind_of_book_makes_a_fixed_epub() {
         assert!(bytes.starts_with(b"PK"), "{kind:?}");
     }
 }
+
+#[test]
+fn a_word_is_one_span_with_the_space_after_it_and_a_line_is_one_box() {
+    let (_, bytes) = sample(BookKind::Picture);
+    let (mut zip, names) = open(&bytes);
+    let pages: String = names
+        .iter()
+        .filter(|n| n.contains("/text/page-"))
+        .map(|n| read(&mut zip, n))
+        .collect();
+    assert!(pages.contains("<div class=\"ln\""));
+    // The words of a line are separated in the text, not only by where they are placed.
+    let line = pages
+        .split("<div class=\"ln\"")
+        .skip(1)
+        .map(|l| l.split("</div>").next().unwrap_or(""))
+        .find(|l| l.matches("<span").count() > 1)
+        .expect("a line of more than one word");
+    let first_text = line
+        .split("</span>")
+        .next()
+        .unwrap()
+        .rsplit('>')
+        .next()
+        .unwrap();
+    assert!(first_text.ends_with(' '), "{first_text:?}");
+}
+
+#[test]
+fn the_fonts_are_declared_at_the_weight_they_are_with_the_kind_of_file_they_are() {
+    let (_, bytes) = sample(BookKind::Picture);
+    let (mut zip, _) = open(&bytes);
+    let css = read(&mut zip, "OEBPS/css/book.css");
+    assert!(css.contains("@font-face"));
+    assert!(!css.contains("font-weight:100 900"), "{css}");
+    for face in css.lines().filter(|l| l.starts_with("@font-face")) {
+        assert!(
+            face.contains("format('truetype')") || face.contains("format('opentype')"),
+            "{face}"
+        );
+        assert!(face.contains("font-style:normal") || face.contains("font-style:italic"));
+    }
+}
