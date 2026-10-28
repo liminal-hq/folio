@@ -16,6 +16,15 @@
 	border: 1px solid var(--folio-border-subtle);
 }
 
+.waiting {
+	display: grid;
+	place-items: center;
+	inline-size: 100%;
+	border: 1px solid var(--folio-border-subtle);
+	color: var(--folio-text-muted);
+	font-size: 13px;
+}
+
 .toggle {
 	display: flex;
 	align-items: center;
@@ -57,4 +66,83 @@
 	stroke-width: 1.5;
 	stroke-dasharray: 5 3;
 	vector-effect: non-scaling-stroke;
+}
+
+.words {
+	display: grid;
+	gap: 10px;
+	margin-top: 14px;
+}
+
+.field {
+	display: grid;
+	gap: 4px;
+}
+
+.field input,
+.field textarea {
+	padding: 6px 8px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-bg-raised);
+	color: inherit;
+	font: inherit;
+}
+
+.noteLayer {
+	position: absolute;
+	inset: 0;
+	inline-size: 100%;
+	block-size: 100%;
+}
+
+.note,
+.noteChosen {
+	fill: transparent;
+	stroke: var(--folio-accent, #e8833a);
+	stroke-width: 1.5;
+	cursor: move;
+	vector-effect: non-scaling-stroke;
+}
+
+.note {
+	stroke-dasharray: 4 3;
+}
+
+.notes {
+	display: grid;
+	grid-template-columns: auto 1fr auto auto;
+	align-items: end;
+	gap: 10px;
+	margin-top: 14px;
+}
+
+.corner {
+	fill: var(--folio-accent, #e8833a);
+	stroke: #fff;
+	stroke-width: 1;
+	vector-effect: non-scaling-stroke;
+	cursor: nwse-resize;
+}
+
+.modes {
+	display: flex;
+	gap: 6px;
+	margin-bottom: 8px;
+}
+
+.mode,
+.modeOn {
+	padding: 4px 12px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 999px;
+	background: var(--folio-bg-raised);
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.modeOn {
+	border-color: var(--folio-accent, #e8833a);
+	background: color-mix(in srgb, var(--folio-accent, #e8833a) 22%, transparent);
 }

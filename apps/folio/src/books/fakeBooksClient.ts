@@ -98,6 +98,13 @@ export const FAKE_KINDS: KindInfo[] = [
 	trims: (trims as string[]).map((t) => ({ label: t, width: 612, height: 612 })),
 	defaultPages: pages as number,
 	sampleTitle: `Sample ${label as string}`,
+	spines: (
+		[
+			['white', 0.002252],
+			['cream', 0.0025],
+			['colour', 0.002347],
+		] as const
+	).map(([paper, factor]) => ({ paper, inches: (pages as number) * factor })),
 }));
 
 interface Held {
@@ -113,7 +120,12 @@ export interface FakeBooks {
 	/** Everything the page called, in order, as `name(args)`. */
 	calls: string[];
 	/** Sends an event as if another window had changed a book. */
-	emit: { patch(event: PatchEvent): void; changed(): void };
+	emit: {
+		patch(event: PatchEvent): void;
+		changed(): void;
+		/** The main window showed another book. */
+		active(id: string | null): void;
+	};
 	/** Makes the next call named `name` fail with a refusal. */
 	refuseNext(name: string, kind: string, message: string): void;
 	/** Holds each export at the file it has reached until the returned function is called. */
@@ -136,6 +148,8 @@ export function createFakeBooksClient(): FakeBooks {
 	const calls: string[] = [];
 	const refusals = new Map<string, { kind: string; message: string }>();
 	let counter = 0;
+	/** The book the main window says it is showing. */
+	let shown: string | null = null;
 	const misspelt: string[] = [];
 	const installedFonts: string[] = [];
 	const preflightItems: PreflightItem[] = [];
@@ -240,6 +254,156 @@ export function createFakeBooksClient(): FakeBooks {
 		async defaultSavePath(title) {
 			await call('defaultSavePath', [title]);
 			return `/home/mom/Books/${title}/${title}.folio`;
+		},
+		async previewNewBook(spec: NewBookSpec) {
+			await call('previewNewBook', [spec]);
+			return `data:image/png;base64,${btoa(spec.coverColour)}`;
+		},
+		async bookTool(id, request) {
+			await call('bookTool', [id, request]);
+			const book = find(id).snapshot.book;
+			const rows = book.spreads.flatMap((spread) =>
+				spread.frames.flatMap((frame) =>
+					frame.type === 'image'
+						? [
+								{
+									spread: spread.id,
+									frame: frame.id,
+									asset: frame.image.asset ?? null,
+									width: frame.image.asset ? 1200 : null,
+									height: frame.image.asset ? 900 : null,
+									ppi: frame.image.asset ? 250 : null,
+									fit: frame.image.fit,
+									description: frame.description ?? null,
+									status: frame.image.asset ? ('low' as const) : ('empty' as const),
+								},
+							]
+						: [],
+				),
+			);
+			if (request.tool === 'copyright') {
+				return {
+					tool: 'copyright' as const,
+					text: `Copyright © ${request.fields.year} ${request.fields.holder}\n${request.fields.rights}`,
+					present: false,
+				};
+			}
+			if (request.tool === 'contents') {
+				return {
+					tool: 'contents' as const,
+					entries: [
+						{ title: 'The pumpkin', page: '3' },
+						{ title: 'The cat', page: '9' },
+					],
+					present: false,
+				};
+			}
+			if (request.tool === 'punctuation') {
+				return {
+					tool: 'punctuation' as const,
+					found: [
+						{
+							rule: 'quotes' as const,
+							count: 4,
+							examples: [{ before: 'said \"hello\" and', after: 'said “hello” and' }],
+						},
+						{ rule: 'dashes' as const, count: 1, examples: [] },
+					],
+				};
+			}
+			if (request.tool === 'styles') {
+				return {
+					tool: 'styles' as const,
+					frames: [
+						{
+							spread: book.spreads[0]?.id ?? 'sp',
+							frame: 'fr_a',
+							style: 'body',
+							changes: ['size', 'bold'],
+						},
+					],
+				};
+			}
+			if (request.tool === 'checklist') {
+				return {
+					tool: 'checklist' as const,
+					items: [
+						{ id: 'title' as const, status: 'done' as const, value: book.title },
+						{ id: 'description' as const, status: 'todo' as const, value: null },
+						{ id: 'keywords' as const, status: 'warning' as const, value: 'otter' },
+					],
+				};
+			}
+			if (request.tool === 'royalty') {
+				const printCost = 1 + 24 * 0.012;
+				return {
+					tool: 'royalty' as const,
+					pages: 24,
+					printCost,
+					costs: { fixed: 1, perPage: 0.012, asOf: '2026-10-21' },
+					sales: [
+						{
+							market: 'amazonCom' as const,
+							royalty: Math.max(0, request.listPrice * 0.6 - printCost),
+						},
+						{
+							market: 'expandedDistribution' as const,
+							royalty: Math.max(0, request.listPrice * 0.4 - printCost),
+						},
+					],
+					minimumPrice: printCost / 0.6,
+					ebookRoyalty: request.ebookPrice * 0.35,
+				};
+			}
+			return { tool: 'pictures' as const, rows };
+		},
+		async bookToolFix(id, fix) {
+			await call('bookToolFix', [id, fix]);
+			const h = find(id);
+			h.past += 1;
+			h.future = 0;
+			patch(id, h, h.snapshot.book.bleed + 1);
+			changed();
+			if (fix.tool === 'punctuation') return { changed: 5 };
+			if (fix.tool === 'resetStyles') return { changed: fix.frames.length };
+			return { changed: 1 };
+		},
+		async setActiveBook(id) {
+			await call('setActiveBook', [id]);
+			shown = id;
+			listeners.forEach((l) => l.onActive?.(id));
+		},
+		async activeBook() {
+			await call('activeBook');
+			return shown;
+		},
+		async templateGallery(id) {
+			await call('templateGallery', [id]);
+			find(id);
+			const card = (tid: string, group: string, name: string) => ({
+				id: tid,
+				group,
+				name,
+				image: 'data:image/png;base64,AAAA',
+			});
+			return {
+				home: 'Picture book',
+				templates: [
+					card('pb-bleed', 'Picture book', 'Full-bleed spread'),
+					card('pb-split', 'Picture book', 'Picture and words'),
+					card('lesson', 'Textbook', 'Lesson and worksheet'),
+					card('poem', 'Poetry', 'Poem, centred'),
+				],
+			};
+		},
+		async applyTemplate(id, template, after) {
+			await call('applyTemplate', [id, template, after]);
+			const h = find(id);
+			h.past += 1;
+			h.future = 0;
+			const result = patch(id, h, h.snapshot.book.bleed + 1);
+			changed();
+			return result;
 		},
 		async newBook(spec: Partial<NewBookSpec>) {
 			await call('newBook', [spec]);
@@ -533,6 +697,23 @@ export function createFakeBooksClient(): FakeBooks {
 			};
 			return preview;
 		},
+		async coverSheetCanvas(id) {
+			await call('coverSheetCanvas', [id]);
+			const held = find(id);
+			const cover = held.snapshot.book.spreads[0];
+			if (!cover) return null;
+			const sheet = {
+				...cover,
+				kind: 'single' as const,
+				frames: cover.frames,
+			};
+			return {
+				book: { ...held.snapshot.book, spreads: [sheet] },
+				layout: { spread: sheet.id, preflight: [], frames: [] },
+				cover: 450,
+				spine: 82,
+			};
+		},
 		async previewCoverSheet(id) {
 			await call('previewCoverSheet', [id]);
 			find(id);
@@ -551,10 +732,13 @@ export function createFakeBooksClient(): FakeBooks {
 			await call('proofSpread', [id, spread, profile]);
 			find(id);
 			const png = 'data:image/png;base64,AAAA';
-			return [{ original: png, proofed: `${png}B`, outside: 12.5 }];
+			return {
+				pages: [{ original: png, proofed: `${png}B`, outside: 12.5 }],
+				colours: [{ name: 'Moss', display: '#336633', proofed: '#406040', outside: false }],
+			};
 		},
-		async importText(id, path) {
-			await call('importText', [id, path]);
+		async importText(id, path, mapping) {
+			await call('importText', mapping ? [id, path, mapping] : [id, path]);
 			const held = find(id);
 			if (held.snapshot.book.flows.length === 0) {
 				throw {
@@ -563,7 +747,21 @@ export function createFakeBooksClient(): FakeBooks {
 						"This book's pages hold their own words, so there is no story to bring them into.",
 				};
 			}
-			return { paragraphs: 3, headings: 1, sceneBreaks: 0, notes: ['Pictures were left out.'] };
+			return {
+				paragraphs: 3,
+				headings: 1,
+				sceneBreaks: 0,
+				notes: ['Pictures were left out.'],
+				styles: [
+					{
+						name: 'Heading 1',
+						count: 1,
+						sample: 'The kettle',
+						folio: mapping?.['Heading 1'] ?? 'h1',
+					},
+					{ name: 'Normal', count: 2, sample: 'She sang.', folio: mapping?.['Normal'] || null },
+				],
+			};
 		},
 		async onExportProgress(listener) {
 			exportListeners.add(listener);
@@ -613,6 +811,14 @@ export function createFakeBooksClient(): FakeBooks {
 		},
 		async revealPath(path) {
 			await call('revealPath', [path]);
+		},
+		async storyChapters(id) {
+			await call('storyChapters', [id]);
+			const held = find(id);
+			const first = held.snapshot.book.spreads[1]?.id;
+			return first && held.snapshot.book.flows.length > 0
+				? [{ title: 'The kettle', spread: first }]
+				: [];
 		},
 		async preflightBook(id) {
 			await call('preflightBook', [id]);
@@ -684,6 +890,10 @@ export function createFakeBooksClient(): FakeBooks {
 		emit: {
 			patch: (event) => listeners.forEach((l) => l.onPatch(event)),
 			changed,
+			active: (id) => {
+				shown = id;
+				listeners.forEach((l) => l.onActive?.(id));
+			},
 		},
 		refuseNext: (name, kind, message) => refusals.set(name, { kind, message }),
 		holdExport: () => {

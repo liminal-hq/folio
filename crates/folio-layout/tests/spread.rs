@@ -441,8 +441,9 @@ fn a_picture_at_the_fold_of_an_opener_needs_no_bleed_there() {
     spread.frames.push(Frame::Image(ImageFrame {
         base: FrameBase {
             id: FrameId("pic".into()),
+            // From the fold (the page's own left edge) out past the right edge into the bleed.
             rect: Rect {
-                x: Pt(w),
+                x: Pt(0.0),
                 y: Pt(-bleed),
                 w: Pt(w + bleed),
                 h: Pt(h + bleed * 2.0),
@@ -1713,4 +1714,172 @@ fn spreads_laid_out_with_a_shared_flow_cache_are_the_same_as_without_one() {
             serde_json::to_value(&shared).unwrap()
         );
     }
+}
+
+#[test]
+fn a_swatch_that_is_missing_or_lays_down_too_much_ink_is_reported_once_for_the_spread() {
+    use folio_layout::wire::PreflightKind;
+    use folio_model::{Background, BookSwatch, Colour, Ink, SwatchId};
+    let (mut book, styles) = sample(BookKind::Novel);
+    book.styles.swatches = vec![
+        BookSwatch {
+            id: SwatchId("heavy".into()),
+            name: "Heavy black".into(),
+            display: Colour("#000000".into()),
+            ink: Some(Ink {
+                c: 100,
+                m: 100,
+                y: 100,
+                k: 100,
+            }),
+        },
+        BookSwatch {
+            id: SwatchId("fine".into()),
+            name: "Fine".into(),
+            display: Colour("#336699".into()),
+            ink: Some(Ink {
+                c: 60,
+                m: 40,
+                y: 40,
+                k: 100,
+            }),
+        },
+    ];
+    let reference = |id: &str| Background::Colour {
+        colour: Colour(format!("swatch:{id}")),
+    };
+    book.spreads[1].pages[0].bg = Some(reference("heavy"));
+    book.spreads[1].bg_span = Some(reference("heavy"));
+    book.spreads[2].pages[0].bg = Some(reference("gone"));
+    book.spreads[3].pages[0].bg = Some(reference("fine"));
+    let kinds = |spread: usize| -> Vec<(PreflightKind, Option<String>)> {
+        lay(&book, &styles, spread)
+            .preflight
+            .into_iter()
+            .filter(|i| {
+                matches!(
+                    i.kind,
+                    PreflightKind::InkOverLimit | PreflightKind::SwatchMissing
+                )
+            })
+            .map(|i| (i.kind, i.family))
+            .collect()
+    };
+    assert_eq!(
+        kinds(1),
+        vec![(PreflightKind::InkOverLimit, Some("Heavy black".into()))]
+    );
+    assert_eq!(
+        kinds(2),
+        vec![(PreflightKind::SwatchMissing, Some("gone".into()))]
+    );
+    // 240% in all is within what a press holds.
+    assert!(kinds(3).is_empty());
+}
+
+#[test]
+fn small_words_in_a_rich_black_are_warned_about_and_large_ones_are_not() {
+    use folio_layout::wire::PreflightKind;
+    use folio_model::{BookSwatch, Colour, Ink, StyleDef, SwatchId};
+    let (mut book, styles) = sample(BookKind::Novel);
+    book.styles.swatches = vec![BookSwatch {
+        id: SwatchId("rich".into()),
+        name: "Rich black".into(),
+        display: Colour("#000000".into()),
+        ink: Some(Ink {
+            c: 60,
+            m: 40,
+            y: 40,
+            k: 100,
+        }),
+    }];
+    let small = text_frame("small", "body", 20.0, 20.0, 200.0, 40.0, "Fine print");
+    let big = text_frame("big", "body", 20.0, 80.0, 200.0, 40.0, "Heading");
+    let put = |frame: Frame, size: f64, book: &mut Book| {
+        let Frame::Text(mut t) = frame else {
+            unreachable!()
+        };
+        let style = format!("s{size}");
+        t.style = StyleId(style.clone());
+        let def = StyleDef {
+            size_pt: Some(size),
+            colour: Some(Colour("swatch:rich".into())),
+            ..StyleDef::default()
+        };
+        book.styles.styles.insert(style, def);
+        book.spreads[1].frames.push(Frame::Text(t));
+    };
+    put(small, 9.0, &mut book);
+    put(big, 24.0, &mut book);
+    let found: Vec<_> = lay(&book, &styles, 1)
+        .preflight
+        .into_iter()
+        .filter(|i| i.kind == PreflightKind::RichBlackSmallText)
+        .collect();
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].family.as_deref(), Some("Rich black"));
+    assert_eq!(found[0].frame.as_ref().map(|f| f.0.as_str()), Some("small"));
+}
+
+#[test]
+fn a_frame_in_a_story_says_which_paragraph_its_words_begin_with() {
+    let (book, styles) = sample(BookKind::Novel);
+    let mut firsts: Vec<(String, Option<u32>)> = Vec::new();
+    for index in 0..book.spreads.len() {
+        for frame in lay(&book, &styles, index).frames {
+            firsts.push((frame.frame.0.clone(), frame.first_paragraph));
+        }
+    }
+    let flow = &book.flows[0];
+    let first = firsts
+        .iter()
+        .find(|(id, _)| flow.frames.first().is_some_and(|f| f.0 == *id))
+        .expect("the story's first frame is laid out");
+    assert_eq!(first.1, Some(0));
+    // A frame with words of its own is not in a story, so it names no paragraph.
+    let own = firsts
+        .iter()
+        .filter(|(id, _)| !flow.frames.iter().any(|f| f.0 == *id))
+        .all(|(_, p)| p.is_none());
+    assert!(own);
+}
+
+#[test]
+fn each_line_of_a_story_names_its_paragraph_and_other_lines_name_none() {
+    let (book, styles) = sample(BookKind::Novel);
+    let flow = &book.flows[0];
+    let mut story_lines = 0;
+    for index in 0..book.spreads.len() {
+        for frame in lay(&book, &styles, index).frames {
+            let in_story = flow.frames.iter().any(|f| f.0 == frame.frame.0);
+            for line in &frame.lines {
+                if in_story {
+                    story_lines += 1;
+                    assert!(line
+                        .paragraph
+                        .is_some_and(|p| (p as usize) < flow.paragraphs.len()));
+                } else {
+                    assert_eq!(line.paragraph, None);
+                }
+            }
+        }
+    }
+    assert!(story_lines > 0);
+}
+
+#[test]
+fn a_text_frame_says_how_its_style_sets_the_words_so_an_editor_in_place_does_the_same() {
+    use folio_model::Align;
+    let plain = laid_with_fallback(text_frame(
+        "fr_t", "body", 20.0, 20.0, 200.0, 100.0, "Hello",
+    ));
+    let plain = plain.frames.iter().find(|f| f.frame.0 == "fr_t").unwrap();
+    // The body style is justified.
+    assert_eq!(plain.text_align, Some(Align::Justify));
+    // Folio's own bubble style is centred.
+    let centred = laid_with_fallback(text_frame(
+        "fr_t", "bubble", 20.0, 20.0, 200.0, 100.0, "Hello",
+    ));
+    let centred = centred.frames.iter().find(|f| f.frame.0 == "fr_t").unwrap();
+    assert_eq!(centred.text_align, Some(Align::Center));
 }

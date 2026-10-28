@@ -12,6 +12,7 @@ use ts_rs::TS;
 use crate::colour::{BookSwatch, Colour};
 
 /// One named style as `styles.json` stores it. Every key is optional.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
@@ -51,6 +52,10 @@ pub struct StyleDef {
     pub wrap: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hyphenate: Option<bool>,
+    /// Where a paragraph in this style begins in a flowing story: `"page"` or `"recto"` (a
+    /// right-hand page). A chapter title says `"recto"`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start: Option<String>,
     /// Keys this version does not know, kept as they were so a save does not lose them.
     #[serde(flatten, skip_serializing_if = "BTreeMap::is_empty")]
     #[ts(skip)]
@@ -62,6 +67,7 @@ fn is_false(value: &bool) -> bool {
 }
 
 /// The book's styles, with the look they started from. It is `styles.json` in the package.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]

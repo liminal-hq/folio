@@ -37,6 +37,8 @@ pub enum PatchOp {
     SetFlow { flow: Flow },
     /// A flow that is gone.
     RemoveFlow { id: FlowId },
+    /// The keywords a store is told about the book.
+    SetKeywords { keywords: Vec<String> },
     /// The book's styles and swatches, whole.
     SetStyles { styles: Styles },
     /// The title, authors, description and ISBNs.

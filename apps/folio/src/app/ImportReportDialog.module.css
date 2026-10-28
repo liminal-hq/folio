@@ -23,3 +23,23 @@
 	color: var(--folio-text-muted);
 	font-size: 13px;
 }
+
+.styles {
+	width: 100%;
+	border-collapse: collapse;
+	margin-block-end: 12px;
+}
+
+.styles th,
+.styles td {
+	padding: 4px 8px 4px 0;
+	text-align: start;
+	font-weight: 400;
+	vertical-align: top;
+}
+
+.sample {
+	display: block;
+	opacity: 0.7;
+	font-size: 0.85em;
+}

@@ -5,24 +5,3 @@
 	background: var(--folio-bg-screen);
 	color: var(--folio-text-primary);
 }
-
-.body {
-	flex: 1;
-	display: grid;
-	place-content: center;
-	gap: 8px;
-	padding: 32px;
-	text-align: center;
-	background: var(--folio-bg-body);
-}
-
-.heading {
-	margin: 0;
-	font-size: 20px;
-	font-weight: 600;
-}
-
-.note {
-	margin: 0;
-	color: var(--folio-text-muted);
-}

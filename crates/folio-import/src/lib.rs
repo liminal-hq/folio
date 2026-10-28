@@ -6,6 +6,16 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+mod docx;
+mod mapping;
+mod odt;
+mod rtf;
+
+pub use docx::{import_docx, import_docx_with, DocxError};
+pub use mapping::{SourceStyle, StyleMap, Tally, MAPPABLE};
+pub use odt::{import_odt, import_odt_with, OdtError};
+pub use rtf::{import_rtf, RtfError};
+
 use folio_model::{join_runs, Run, StoryPara, StyleId};
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use serde::{Deserialize, Serialize};
@@ -24,6 +34,10 @@ pub struct ImportReport {
     pub scene_breaks: u32,
     /// What was left out or approximated, each said once in plain words.
     pub notes: Vec<String>,
+    /// The paragraph styles the document used, and the Folio style each was given, when the
+    /// document names them (Word and OpenDocument do).
+    #[serde(default)]
+    pub styles: Vec<SourceStyle>,
 }
 
 /// The story read from a document, and the report on it.

@@ -1,0 +1,10 @@
+{
+	"name": "folio",
+	"version": "0.1.0",
+	"description": "Make, edit, check and export books in Folio, the local-first book layout app",
+	"author": {
+		"name": "Liminal HQ"
+	},
+	"homepage": "https://github.com/liminal-hq/folio",
+	"license": "Apache-2.0 OR MIT"
+}

@@ -1,6 +1,6 @@
 # Auto table of contents
 
-**Area:** Book structure · **Prototype:** `Folio Structure.dc.html` · **Status:** artboard → merge into Folio
+**Area:** Book structure · **Prototype:** `Folio Structure.dc.html` · **Status:** partly built — Book tools → Book structure → **Contents** (Rust: `ToolRequest::Contents`, `ToolFix::ContentsPage`) lists the chapters of the story (paragraphs in the Heading style) with the label of the page each begins on, and sets them as a heading and two aligned columns (`toc_heading`, `toc_titles`, `toc_pages`) on a new page after the copyright page; run it again to bring the numbers up to date. Depth, dotted leaders, number position and chapter order are not built
 
 ## What it does
 Contents built from chapter headings, with real page numbers that update as pages move.

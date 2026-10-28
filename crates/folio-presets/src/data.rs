@@ -6,6 +6,7 @@
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
+use crate::spec::Paper;
 use folio_model::{BookKind, LayoutMode, Pt, StyleDef, Styles};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -121,6 +122,7 @@ pub(crate) fn parse_trim(text: &str) -> Option<(f64, f64)> {
 }
 
 /// A size a book of some kind can be, as the UI offers it.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
@@ -132,6 +134,7 @@ pub struct TrimChoice {
 }
 
 /// A kind of book, as the welcome screen and the wizard show it.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
@@ -144,6 +147,18 @@ pub struct KindInfo {
     /// How long a book of this kind usually is, for the spine and the status bar.
     pub default_pages: u32,
     pub sample_title: String,
+    /// How thick the spine of a book of the usual length is on each paper, in inches.
+    pub spines: Vec<SpineChoice>,
+}
+
+/// A paper and the spine a book of the kind's usual length has on it.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct SpineChoice {
+    pub paper: Paper,
+    pub inches: f64,
 }
 
 /// The six kinds, in the order they are offered.
@@ -174,6 +189,17 @@ pub fn kind_infos() -> Vec<KindInfo> {
                     .collect(),
                 default_pages: data.default_pages,
                 sample_title: data.sample_title.clone(),
+                spines: [
+                    (Paper::White, folio_model::Paper::White),
+                    (Paper::Cream, folio_model::Paper::Cream),
+                    (Paper::Colour, folio_model::Paper::Colour),
+                ]
+                .into_iter()
+                .map(|(paper, model)| SpineChoice {
+                    paper,
+                    inches: f64::from(data.default_pages) * folio_model::spine_factor(model),
+                })
+                .collect(),
             }
         })
         .collect()

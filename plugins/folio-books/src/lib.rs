@@ -4,36 +4,31 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 mod commands;
-mod error;
-mod recovery;
+mod host;
 mod reveal;
-mod spelling;
-mod state;
 #[cfg(test)]
 mod tests;
-mod wire;
+
+use std::sync::Arc;
 
 use tauri::{
     plugin::{Builder, TauriPlugin},
     Manager, Runtime,
 };
 
-pub use error::Error;
-pub use state::{BookEvent, BookHook, Books};
-pub use wire::{BookSnapshot, BookSummary, BooksChanged, PatchEvent};
+pub use folio_engine::{
+    BookEvent, BookHook, BookSnapshot, BookSummary, Books, BooksChanged, Error, PatchEvent,
+    CHANGED_EVENT, DICTIONARY_PROGRESS_EVENT, EXPORT_PROGRESS_EVENT, PATCH_EVENT,
+};
+pub use host::TauriHost;
 
-/// Sent to every window after a change to an open book, with a `PatchEvent`.
-pub const PATCH_EVENT: &str = "folio-books://patch";
+/// Sent to every window when the main window shows another book; the payload is the book's id, or
+/// `null` when none is shown.
+pub const ACTIVE_EVENT: &str = "folio-books://active";
 
-/// Sent to every window when books open, close, save or become changed or clean, with a
-/// `BooksChanged`.
-pub const CHANGED_EVENT: &str = "folio-books://changed";
-
-/// Sent to every window while a dictionary downloads: how much has arrived.
-pub const DICTIONARY_PROGRESS_EVENT: &str = "folio-books://dictionary-progress";
-
-/// Sent to every window while an export runs: which file it has reached.
-pub const EXPORT_PROGRESS_EVENT: &str = "folio-books://export-progress";
+/// The book the main window is showing, so another window (Book tools) can follow it.
+#[derive(Default)]
+pub struct ActiveBook(pub std::sync::Mutex<Option<String>>);
 
 /// Registers the plugin.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
@@ -42,6 +37,12 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::get_status,
             commands::presets,
             commands::preview_new_book,
+            commands::template_gallery,
+            commands::book_tool,
+            commands::book_tool_fix,
+            commands::set_active_book,
+            commands::active_book,
+            commands::apply_template,
             commands::paint_presets,
             commands::default_save_path,
             commands::new_book,
@@ -68,12 +69,14 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::spell_check_book,
             commands::reader_preview,
             commands::preview_cover_sheet,
+            commands::cover_sheet_canvas,
             commands::proof_spread,
             commands::export_book,
             commands::import_text,
             commands::cancel_export,
             commands::reveal_path,
             commands::preflight_book,
+            commands::story_chapters,
             commands::fonts_in_use,
             commands::unkeep_fonts,
             commands::list_fonts,
@@ -83,12 +86,14 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::remove_dictionary,
         ])
         .setup(|app, _api| {
-            let books = Books::new(app.clone());
+            // Shared: the commands use it, and the app lends it to the agents' server.
+            let books = Arc::new(Books::new(Arc::new(TauriHost(app.clone()))));
             if let Ok(dir) = app.path().app_data_dir() {
                 books.spelling.keep_in(dir.join("dictionaries"));
                 books.recovery.keep_in(dir.join("recovery"));
             }
             app.manage(books);
+            app.manage(ActiveBook::default());
             Ok(())
         })
         .build()

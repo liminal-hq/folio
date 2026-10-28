@@ -21,12 +21,23 @@ pub struct PageRect {
     pub recto: bool,
 }
 
-/// Where the pages of `spread` sit. An opener is the right-hand page alone, so it starts at the
-/// gutter; a closer, a single page and a cover start at the origin.
+/// Where the pages of `spread` sit, in the spread's own space: the first page's top-left trim is
+/// the origin, and the next page starts one trim width on. A page alone (an opener, a closer, a
+/// single page or the cover, which is the wide printed sheet) starts at the origin whichever side of its spread it is on, so the
+/// frames on it are placed from the page's own left edge and agree with the canvas, the masters
+/// and the guides, which all count from there. An opener is a right-hand page and a closer a
+/// left-hand one; that decides its margins and bleed, not where it is.
 pub fn page_rects(book: &Book, spread: &Spread) -> Vec<PageRect> {
     let w = book.trim.w.0;
     let h = book.trim.h.0;
     let count = spread.pages.len();
+    // The cover is the printed sheet: back, spine and front as one page.
+    let cover = spread.kind == SpreadKind::Cover;
+    let wide = if cover {
+        folio_model::cover_width(book).0
+    } else {
+        w
+    };
     (0..count)
         .map(|i| {
             let recto = match spread.kind {
@@ -34,16 +45,11 @@ pub fn page_rects(book: &Book, spread: &Spread) -> Vec<PageRect> {
                 SpreadKind::Closer => false,
                 SpreadKind::Spread => i == 1 || count == 1,
             };
-            let slot = if spread.kind == SpreadKind::Opener {
-                1
-            } else {
-                i
-            };
             PageRect {
                 rect: Rect {
-                    x: folio_model::Pt(slot as f64 * w),
+                    x: folio_model::Pt(i as f64 * w),
                     y: folio_model::Pt(0.0),
-                    w: folio_model::Pt(w),
+                    w: folio_model::Pt(wide),
                     h: folio_model::Pt(h),
                 },
                 recto,
@@ -150,6 +156,19 @@ fn item(kind: PreflightKind, spread: &Spread, frame: &Frame) -> PreflightItem {
 /// How a picture of `natural` pixels set in a `w` × `h` point box with `fit` is sharp enough:
 /// the problem with it, if it has one.
 fn sharpness(natural: (u32, u32), w: f64, h: f64, fit: Fit) -> Option<PreflightKind> {
+    let ppi = picture_ppi(natural, w, h, fit);
+    if ppi < ERROR_PPI {
+        Some(PreflightKind::VeryLowResolution)
+    } else if ppi < WARN_PPI {
+        Some(PreflightKind::LowResolution)
+    } else {
+        None
+    }
+}
+
+/// How sharp a picture of `natural` pixels is, in pixels per inch, when it is set in a `w` × `h`
+/// point box with `fit`.
+pub fn picture_ppi(natural: (u32, u32), w: f64, h: f64, fit: Fit) -> f64 {
     let (nw, nh) = (f64::from(natural.0), f64::from(natural.1));
     // The points one pixel covers: a fill covers the box with the picture, a fit keeps it all inside,
     // and a stretch pulls each side to the box's.
@@ -164,14 +183,7 @@ fn sharpness(natural: (u32, u32), w: f64, h: f64, fit: Fit) -> Option<PreflightK
             (nw * scale, nh * scale)
         }
     };
-    let ppi = effective_ppi(natural, drawn.0, drawn.1);
-    if ppi < ERROR_PPI {
-        Some(PreflightKind::VeryLowResolution)
-    } else if ppi < WARN_PPI {
-        Some(PreflightKind::LowResolution)
-    } else {
-        None
-    }
+    effective_ppi(natural, drawn.0, drawn.1)
 }
 
 /// The problems with the pictures of `spread`, in its picture frames and in its backgrounds: a
@@ -269,4 +281,98 @@ pub fn spread_assets(book: &Book, spread: &Spread) -> Vec<String> {
     out.sort();
     out.dedup();
     out
+}
+
+/// How much ink, in per cent of all four plates, a press holds before it dries badly. ⚠ Verify
+/// against KDP's help pages: they give 240% for some papers and 300% for others.
+pub const INK_LIMIT_PERCENT: u32 = 300;
+
+/// The checks on the swatches a spread's colours refer to: one that is not in the book, and one that
+/// lays down too much ink. Each swatch is said once for the spread.
+pub fn swatch_checks(book: &Book, spread: &Spread) -> Vec<PreflightItem> {
+    let mut used = std::collections::BTreeSet::new();
+    let mut copy = spread.clone();
+    folio_model::visit_spread(&mut copy, &mut |colour| {
+        if let Some(id) = colour.swatch_id() {
+            used.insert(id.to_owned());
+        }
+    });
+    used.into_iter()
+        .filter_map(
+            |id| match book.styles.swatches.iter().find(|s| s.id.0 == id) {
+                None => Some(PreflightItem::of_swatch(
+                    PreflightKind::SwatchMissing,
+                    &spread.id,
+                    &id,
+                )),
+                Some(swatch)
+                    if swatch
+                        .ink
+                        .is_some_and(|ink| ink.total() > INK_LIMIT_PERCENT) =>
+                {
+                    Some(PreflightItem::of_swatch(
+                        PreflightKind::InkOverLimit,
+                        &spread.id,
+                        &swatch.name,
+                    ))
+                }
+                Some(_) => None,
+            },
+        )
+        .collect()
+}
+
+/// Text under this size, in points, is too fine for a black made of several inks.
+const SMALL_TEXT_PT: f64 = 12.0;
+
+/// A black this heavy on the black plate is meant as black; with colour in it as well, it is "rich".
+const RICH_BLACK_FROM: u8 = 80;
+const RICH_BLACK_COLOUR: u32 = 20;
+
+/// Small text set in a rich black, said once for each swatch on a frame.
+pub fn rich_black_checks(book: &Book, spread: &Spread) -> Vec<PreflightItem> {
+    let mut items = Vec::new();
+    for frame in &spread.frames {
+        let folio_model::Frame::Text(text) = frame else {
+            continue;
+        };
+        let Some(content) = &text.content else {
+            continue;
+        };
+        let mut said = std::collections::BTreeSet::new();
+        for run in &content.inline {
+            let def = |id: &str| book.styles.styles.get(id);
+            let style = run
+                .style
+                .as_ref()
+                .and_then(|s| def(&s.0))
+                .or_else(|| def(&text.style.0));
+            let size = style.and_then(|d| d.size_pt).unwrap_or(12.0);
+            let colour = run
+                .colour
+                .as_ref()
+                .or_else(|| style.and_then(|d| d.colour.as_ref()));
+            let Some(id) = colour.and_then(|c| c.swatch_id()) else {
+                continue;
+            };
+            let Some(swatch) = book.styles.swatches.iter().find(|s| s.id.0 == id) else {
+                continue;
+            };
+            let rich = swatch.ink.is_some_and(|ink| {
+                ink.k >= RICH_BLACK_FROM
+                    && u32::from(ink.c) + u32::from(ink.m) + u32::from(ink.y) >= RICH_BLACK_COLOUR
+            });
+            if size < SMALL_TEXT_PT && rich && said.insert(id.to_owned()) {
+                items.push(PreflightItem {
+                    family: Some(swatch.name.clone()),
+                    ..PreflightItem::of_frame(
+                        PreflightKind::RichBlackSmallText,
+                        &spread.id,
+                        &text.base.id,
+                    )
+                });
+            }
+        }
+    }
+    items
 }

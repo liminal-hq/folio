@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { RibbonCommand } from '@liminal-hq/folio-ribbon/types';
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { usePaintPresets } from './usePaintPresets';
 import { useFontChoices } from './useFontChoices';
 import { useFontsInUse } from './useFontsInUse';
@@ -29,8 +29,10 @@ import { getTextSelection } from '../canvas/textSelection';
 import { IMPORT_TEXT_EVENT } from './importRequest';
 import { ImportReportDialog, type ImportOutcome } from './ImportReportDialog';
 import { StoryEditorDialog } from '../story/StoryEditorDialog';
+import { rangeIntents } from '../story/rangeEdit';
 import { BookDetailsDialog } from './BookDetailsDialog';
 import { BarcodeDialog } from './BarcodeDialog';
+import { SpreadTemplatesDialog } from './SpreadTemplatesDialog';
 import { CoverSheetDialog } from './CoverSheetDialog';
 import { JAX_TOGGLE_EVENT } from '../jax/jaxToggle';
 import { JaxPanel } from '../jax/JaxPanel';
@@ -43,6 +45,7 @@ import { Stage, type ZoomApi } from '../canvas/Stage';
 import type { Speller } from '../canvas/TextEditor';
 import { useSelection } from '../canvas/useSelection';
 import { useAssetUrls } from '../canvas/useAssetUrls';
+import { useCoverSheet } from '../canvas/useCoverSheet';
 import { useSpreadLayout } from '../canvas/useSpreadLayout';
 import type { CommandId } from '../commands/appMenuModel';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
@@ -52,6 +55,7 @@ import { Inspector } from '../inspector/Inspector';
 import { languageChoices } from '../inspector/languageChoices';
 import { PagesPanel } from '../sidebar/PagesPanel';
 import { FontsPanel } from '../sidebar/FontsPanel';
+import { useStoryChapters } from './useStoryChapters';
 import { ProofingPanel } from '../sidebar/ProofingPanel';
 import type { BookSpelling } from '@liminal-hq/folio-protocol/generated/BookSpelling';
 import { Sidebar, type SidebarGroup } from '../sidebar/Sidebar';
@@ -109,7 +113,33 @@ export function BookView({
 	const master = editing === null ? null : masterSpread(book, editing);
 	const spread = master ?? book.spreads[shown] ?? null;
 	const labels = shelfLabels(book);
-	const layout = useSpreadLayout(
+	// The cover is the printed sheet: what Folio draws on it (the barcode, the spine) goes over the
+	// frames the book holds, and the folds and safe areas are guides after the person's own.
+	const sheet = useCoverSheet(
+		client,
+		id,
+		copy.revision,
+		master === null && spread?.kind === 'cover',
+		useMemo(() => new Set(spread?.frames.map((f) => f.id)), [spread]),
+	);
+	const onSheet = useMemo(
+		() =>
+			sheet && spread
+				? {
+						...spread,
+						frames: [...spread.frames, ...sheet.frames],
+						guides: [...spread.guides, ...sheet.guides],
+					}
+				: spread,
+		[spread, sheet],
+	);
+	// A barcode box with no barcode in it says it can be made, in grey, and never prints.
+	const barcodeHint = useMemo(() => {
+		const box = onSheet?.frames.find((f) => f.id === 'cover_barcode')?.box;
+		const drawn = onSheet?.frames.some((f) => f.id.startsWith('cover_bar_'));
+		return box && !drawn ? { box, text: t('cover.barcodeHint') } : undefined;
+	}, [onSheet]);
+	const spreadLayout = useSpreadLayout(
 		client,
 		id,
 		master ? editing : (spread?.id ?? null),
@@ -117,6 +147,7 @@ export function BookView({
 		master !== null,
 		settings.spelling.enabled ? settings.spelling.personal : null,
 	);
+	const layout = sheet?.layout ?? spreadLayout;
 	// What the stage shows: the pages as printed, or as a Kindle or a Kobo shows them.
 	const [preview, setPreview] = useState<'print' | 'kindle' | 'kobo'>('print');
 	const [selection, select] = useSelection(
@@ -345,28 +376,39 @@ export function BookView({
 	const [linking, setLinking] = useState<string | null>(null);
 	/** What the last text import did, or why it could not. */
 	const [imported, setImported] = useState<ImportOutcome | null>(null);
+	/** The file last brought in, so it can be brought in again with other choices of style. */
+	const importedPath = useRef<string | null>(null);
+	const bringIn = useCallback(
+		async (path: string, mapping?: Record<string, string>) => {
+			try {
+				setImported({ report: await client.importText(id, path, mapping) });
+			} catch (reason) {
+				setImported({
+					problem:
+						typeof reason === 'object' && reason !== null && 'message' in reason
+							? String((reason as { message: unknown }).message)
+							: String(reason),
+				});
+			}
+		},
+		[client, id],
+	);
 	useEffect(() => {
 		const run = () => {
 			void (async () => {
 				const path = await dialogs.pickText();
 				if (path === null) return;
-				try {
-					setImported({ report: await client.importText(id, path) });
-				} catch (reason) {
-					setImported({
-						problem:
-							typeof reason === 'object' && reason !== null && 'message' in reason
-								? String((reason as { message: unknown }).message)
-								: String(reason),
-					});
-				}
+				importedPath.current = path;
+				await bringIn(path);
 			})();
 		};
 		window.addEventListener(IMPORT_TEXT_EVENT, run);
 		return () => window.removeEventListener(IMPORT_TEXT_EVENT, run);
-	}, [client, dialogs, id]);
+	}, [bringIn, dialogs]);
 	/** The flow whose story is open in the story editor. */
 	const [storyFlow, setStoryFlow] = useState<string | null>(null);
+	/** The paragraph the story editor opens at, when it was opened from a frame of the story. */
+	const [storyPara, setStoryPara] = useState<number | null>(null);
 	// Escape gives up choosing the frame the words continue in.
 	useEffect(() => {
 		if (linking === null) return;
@@ -376,6 +418,14 @@ export function BookView({
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
 	}, [linking]);
+	const [templatesOpen, setTemplatesOpen] = useState(false);
+	/** What the last change from a dialog said, shown over the page for a few seconds. */
+	const [notice, setNotice] = useState<string | null>(null);
+	useEffect(() => {
+		if (notice === null) return;
+		const timer = setTimeout(() => setNotice(null), 6000);
+		return () => clearTimeout(timer);
+	}, [notice]);
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	// The Export dialog; `quick` makes the Sharing PDF the moment it opens.
 	const [exporting, setExporting] = useState<{ quick: boolean } | null>(null);
@@ -419,6 +469,7 @@ export function BookView({
 	// The sidebar's open group. Selecting something on the page brings the Properties forward.
 	const [group, setGroup] = useState<SidebarGroup>('properties');
 	const fontUses = useFontsInUse(client, id, copy.revision, group === 'fonts');
+	const chapters = useStoryChapters(client, id, copy.revision, group === 'pages');
 	useEffect(() => {
 		// The Proofing list is a task: showing a word selects it, and the list stays.
 		if (selection.length > 0) setGroup((open) => (open === 'proofing' ? open : 'properties'));
@@ -528,6 +579,9 @@ export function BookView({
 			case 'checkBook':
 				setChecking(true);
 				break;
+			case 'templates':
+				setTemplatesOpen(true);
+				break;
 			case 'softProof':
 				setProofOpen(true);
 				break;
@@ -581,6 +635,14 @@ export function BookView({
 				}
 			>
 				<div className={styles.stage}>
+					{notice && (
+						<div className={styles.masterBanner} role="status">
+							<span>{notice}</span>
+							<button type="button" onClick={() => setNotice(null)}>
+								{t('templates.dismiss')}
+							</button>
+						</div>
+					)}
 					{master && (
 						<div className={styles.masterBanner} role="status">
 							<span>{t('master.editing', { name: masterName })}</span>
@@ -646,8 +708,28 @@ export function BookView({
 							onTurn={(frame, degrees) =>
 								store.apply({ type: 'RotateFrame', on: surface, frame, degrees })
 							}
+							onActivate={(frame) => {
+								// What Folio draws on the cover, the barcode, is made in the barcode dialog.
+								const generated = ['cover_bar', 'cover_isbn', 'cover_addon'];
+								if (!generated.some((p) => frame.startsWith(p)) || spread?.kind !== 'cover')
+									return false;
+								setBarcodeOpen(true);
+								return true;
+							}}
+							hint={barcodeHint}
 							onEditText={(frame, text) => keepAsStep({ type: 'SetText', frame, text })}
 							onEditTable={(frame, edit) => keepAsStep({ type: 'EditTable', frame, edit })}
+							onEditStory={(flow, paragraph) => {
+								setStoryPara(paragraph ?? null);
+								setStoryFlow(flow);
+							}}
+							onEditParagraphs={(flow, from, before, after) => {
+								const styles = (book.flows.find((f) => f.id === flow)?.paragraphs ?? [])
+									.slice(from, from + before.length)
+									.map((p) => p.style ?? null);
+								for (const intent of rangeIntents(flow, from, before, after, styles))
+									keepAsStep(intent);
+							}}
 							speller={speller}
 							onEditingCell={(cell) => cell && setEditingCell(cell)}
 							editableMasters={settings.mode === 'expert'}
@@ -669,6 +751,7 @@ export function BookView({
 									const on = !(marks.columns || marks.baseline);
 									setMarks({ columns: on, baseline: on });
 								} else if (master) return;
+								else if (command === 'addTemplate') setTemplatesOpen(true);
 								else if (command === 'addPages') {
 									apply({ type: 'AddSpread', after: spread.id, duplicate: false });
 									setSpreadIndex(shown + 1);
@@ -731,7 +814,10 @@ export function BookView({
 								languages={languages}
 								linking={linking}
 								onLink={setLinking}
-								onEditStory={setStoryFlow}
+								onEditStory={(flow) => {
+									setStoryPara(null);
+									setStoryFlow(flow);
+								}}
 							/>
 						),
 						proofing: (
@@ -806,6 +892,7 @@ export function BookView({
 								labels={labels}
 								shown={shown}
 								images={images}
+								chapters={chapters}
 								onShow={(index) => {
 									setEditing(null);
 									setSpreadIndex(index);
@@ -900,12 +987,20 @@ export function BookView({
 				autoStart={exporting?.quick ? ['sharingPdf'] : null}
 				onCheck={() => setChecking(true)}
 			/>
-			<ImportReportDialog outcome={imported} onClose={() => setImported(null)} />
+			<ImportReportDialog
+				outcome={imported}
+				onClose={() => setImported(null)}
+				onRemap={(mapping) => {
+					if (importedPath.current !== null) void bringIn(importedPath.current, mapping);
+				}}
+			/>
 			<StoryEditorDialog
 				open={storyFlow !== null}
 				onClose={() => setStoryFlow(null)}
 				book={book}
 				flow={storyFlow}
+				focusParagraph={storyPara}
+				speller={speller}
 				choices={choices}
 				apply={apply}
 			/>
@@ -915,6 +1010,23 @@ export function BookView({
 				book={book}
 				onSave={(details) => apply({ type: 'SetDetails', details })}
 				onPaper={(paper) => apply({ type: 'SetPaper', paper })}
+			/>
+			<SpreadTemplatesDialog
+				open={templatesOpen}
+				onClose={() => setTemplatesOpen(false)}
+				client={client}
+				id={id}
+				onChoose={async (template, name) => {
+					// A template goes after the spread on show, and after the first page when the cover is.
+					const index = spread?.kind === 'cover' ? 1 : shown;
+					const after = book.spreads[index];
+					if (!after) throw new Error(t('templates.refused'));
+					await client.applyTemplate(id, template, after.id);
+					setSpreadIndex(index + 1);
+					select([]);
+					setTemplatesOpen(false);
+					setNotice(t('templates.added', { name }));
+				}}
 			/>
 			<BarcodeDialog
 				open={barcodeOpen}
@@ -928,6 +1040,31 @@ export function BookView({
 				client={client}
 				id={id}
 				revision={copy.revision}
+				book={book}
+				onSave={(details) => apply({ type: 'SetDetails', details })}
+				onPutDescription={(text) => {
+					const cover = book.spreads[0];
+					if (!cover) return;
+					if (cover.frames.some((f) => f.id === 'blurb')) {
+						apply({ type: 'SetText', frame: 'blurb', text });
+						return;
+					}
+					// The back cover's own page, from its top-left: half an inch in from each edge.
+					const frame = newFrame(
+						'text',
+						{ x: 36, y: 54, w: book.trim.w - 72, h: book.trim.h - 144 },
+						'body',
+					);
+					apply({
+						type: 'AddFrame',
+						on: { spread: cover.id },
+						frame: {
+							...frame,
+							id: 'blurb',
+							content: { inline: [{ text }] },
+						} as unknown as Frame,
+					});
+				}}
 			/>
 			<SoftProofDialog
 				open={proofOpen}

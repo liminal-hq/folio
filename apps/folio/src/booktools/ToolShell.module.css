@@ -1,0 +1,133 @@
+.shell {
+	flex: 1;
+	display: grid;
+	grid-template-columns: 226px 1fr;
+	min-block-size: 0;
+	background: var(--folio-bg-body);
+}
+
+.side {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 12px;
+	border-inline-end: 1px solid var(--folio-border-subtle);
+	background: var(--folio-bg-screen);
+	overflow-y: auto;
+}
+
+.areas {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.area,
+.tool {
+	padding: 6px 10px;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--folio-text-secondary);
+	font: inherit;
+	text-align: start;
+	cursor: default;
+}
+
+.area:hover:not(:disabled),
+.tool:hover {
+	background: var(--folio-control-bg-hover);
+}
+
+.area[aria-selected='true'] {
+	background: var(--folio-bg-selected);
+	color: var(--folio-accent);
+	font-weight: 600;
+}
+
+.area:disabled {
+	color: var(--folio-text-muted);
+	opacity: 0.6;
+}
+
+.area:focus-visible,
+.tool:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: 1px;
+}
+
+.about {
+	margin: 0;
+	padding-block: 8px;
+	border-block: 1px solid var(--folio-border-subtle);
+	color: var(--folio-text-muted);
+	font-size: 12px;
+}
+
+.tools {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.tool {
+	inline-size: 100%;
+}
+
+.tool[aria-current='true'] {
+	background: var(--folio-bg-selected);
+	color: var(--folio-text-primary);
+	font-weight: 600;
+}
+
+.main {
+	display: flex;
+	flex-direction: column;
+	min-inline-size: 0;
+	min-block-size: 0;
+}
+
+.header {
+	padding: 16px 24px 8px;
+}
+
+.title {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 600;
+}
+
+.desc {
+	margin: 4px 0 0;
+	color: var(--folio-text-muted);
+	font-size: 13px;
+}
+
+.body {
+	flex: 1;
+	min-block-size: 0;
+	padding: 8px 24px 16px;
+	overflow: auto;
+}
+
+.empty {
+	display: grid;
+	flex: 1;
+	place-content: center;
+	margin: 0;
+	padding: 32px;
+	color: var(--folio-text-muted);
+	text-align: center;
+}
+
+.status {
+	min-block-size: 1.5em;
+	margin: 0;
+	padding: 4px 24px;
+	border-block-start: 1px solid var(--folio-border-subtle);
+	color: var(--folio-text-muted);
+	font-size: 12px;
+}

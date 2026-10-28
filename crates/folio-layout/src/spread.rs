@@ -149,6 +149,8 @@ impl<'a> Layouter<'a> {
         let mut frames = Vec::new();
         let mut preflight = geometry_checks(self.book, spread);
         preflight.extend(self.font_checks(spread));
+        preflight.extend(crate::preflight::swatch_checks(self.book, spread));
+        preflight.extend(crate::preflight::rich_black_checks(self.book, spread));
         if let Some(facts) = self.assets {
             preflight.extend(asset_checks(self.book, spread, facts));
         }
@@ -484,7 +486,11 @@ impl<'a> Layouter<'a> {
 
     /// A text frame that holds its own words.
     fn own_text(&self, text: &TextFrame) -> Result<(FrameLayout, bool), LayoutError> {
-        let story = self.story_of(text.content.as_ref(), &text.style, text);
+        let mut story = self.story_of(text.content.as_ref(), &text.style, text);
+        // A frame's own words are on one page: there is no other for a heading to move to.
+        for para in &mut story {
+            para.start = crate::flow::Start::Anywhere;
+        }
         let wide = text.base.rect.w.0;
         let mut frame = FrameBox::new(wide, text.base.rect.h.0);
         frame.inset = INSET;
@@ -501,10 +507,21 @@ impl<'a> Layouter<'a> {
             &self.book.language,
             &options,
         )?;
-        Ok((
-            frame_layout(&text.base.id, &laid, 0, &self.runs_info(&story)),
-            laid.overlong,
-        ))
+        let mut layout = frame_layout(&text.base.id, &laid, 0, &self.runs_info(&story));
+        // How the style sets the words, so an editor in place sets them the same way.
+        layout.text_align = Some(
+            match self
+                .styles
+                .resolve(&text.style, text.overrides.as_ref())
+                .align
+            {
+                crate::paragraph::Align::Left => folio_model::Align::Left,
+                crate::paragraph::Align::Center => folio_model::Align::Center,
+                crate::paragraph::Align::Right => folio_model::Align::Right,
+                crate::paragraph::Align::Justify => folio_model::Align::Justify,
+            },
+        );
+        Ok((layout, laid.overlong))
     }
 
     /// A frame set in a font that is neither bundled, kept in the book nor installed, so the layout
@@ -768,11 +785,17 @@ impl<'a> Layouter<'a> {
             let mut b = FrameBox::new(text.base.rect.w.0, text.base.rect.h.0);
             b.columns = text.columns.max(1);
             b.gutter = self.book.grid.gutter.0;
+            b.recto = self.frame_is_recto(id);
             boxes.push(b);
             order.push(id.clone());
         }
         if let Some(last) = boxes.last().cloned() {
-            boxes.extend(std::iter::repeat_n(last, extra));
+            // Pages alternate, so each extra frame is on the other side from the one before.
+            for k in 1..=extra {
+                let mut more = last.clone();
+                more.recto = last.recto.map(|r| r == (k % 2 == 0));
+                boxes.push(more);
+            }
         }
         // The story is laid out as the words of a frame are: the paragraphs' runs, a line break
         // between them, and a paragraph's own style given to its runs that have none.
@@ -813,6 +836,22 @@ impl<'a> Layouter<'a> {
             order,
             info: styles,
         })
+    }
+
+    /// Whether the page a frame is on is a right-hand one, when the frame is on a page.
+    fn frame_is_recto(&self, id: &FrameId) -> Option<bool> {
+        let spread = self.book.spreads.iter().find(|s| {
+            s.frames.iter().any(|f| match f {
+                Frame::Text(t) => t.base.id == *id,
+                _ => false,
+            })
+        })?;
+        let text = self.find_text_frame(id)?;
+        let middle = text.base.rect.x.0 + text.base.rect.w.0 / 2.0;
+        crate::preflight::page_rects(self.book, spread)
+            .into_iter()
+            .find(|p| middle >= p.rect.x.0 && middle < p.rect.x.0 + p.rect.w.0)
+            .map(|p| p.recto)
     }
 
     fn find_text_frame(&self, id: &FrameId) -> Option<&TextFrame> {
@@ -932,6 +971,7 @@ fn paragraph_from(spans: Vec<Span>, style: &ResolvedStyle) -> StoryParagraph {
     p.space_after = style.space_after;
     p.wrap = style.wrap;
     p.hyphenate = style.hyphenate;
+    p.start = style.start;
     p
 }
 
@@ -1035,6 +1075,7 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo) -> LayoutLine {
         width: placed.line.width,
         height: placed.line.height,
         runs,
+        paragraph: None,
     }
 }
 
@@ -1051,6 +1092,7 @@ fn frame_layout(id: &FrameId, flowed: &Flowed, frame: usize, info: &StoryInfo) -
         origin: None,
         text_box: None,
         text_align: None,
+        first_paragraph: None,
     }
 }
 
@@ -1064,6 +1106,7 @@ fn flow_frame(id: &FrameId, laid: &Flowed, index: Option<usize>, info: &StoryInf
             origin: None,
             text_box: None,
             text_align: None,
+            first_paragraph: None,
         };
     };
     FrameLayout {
@@ -1072,11 +1115,19 @@ fn flow_frame(id: &FrameId, laid: &Flowed, index: Option<usize>, info: &StoryInf
             .lines
             .iter()
             .filter(|l| l.frame == index)
-            .map(|l| wire_line(l, info))
+            .map(|l| LayoutLine {
+                paragraph: Some(l.paragraph as u32),
+                ..wire_line(l, info)
+            })
             .collect(),
         overset: laid.overset && index + 1 == laid.used_height.len(),
         origin: None,
         text_box: None,
         text_align: None,
+        first_paragraph: laid
+            .lines
+            .iter()
+            .find(|l| l.frame == index)
+            .map(|l| l.paragraph as u32),
     }
 }

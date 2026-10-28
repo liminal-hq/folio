@@ -1,6 +1,6 @@
 # Alt-text helper
 
-**Area:** Accessibility · **Prototype:** `Folio Accessibility.dc.html` · **Status:** artboard → merge into Folio
+**Area:** Accessibility · **Prototype:** `Folio Accessibility.dc.html` · **Status:** partly built — Book tools → Pictures → **Alt text** lists every picture with a box for what it shows, kept as one undo step (`SetFrameDescription`, up to 500 characters, an empty box takes it away); the context from nearby text, the examples and the decorative toggle are not built, and the Accessibility area itself is not
 
 ## What it does
 Walks through every picture asking for a short description, with examples and a length guide.

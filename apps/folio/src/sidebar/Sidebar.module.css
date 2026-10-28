@@ -7,6 +7,7 @@
 	border-radius: 12px;
 	background: var(--folio-bg-raised);
 	box-shadow: 0 4px 16px rgb(0 0 0 / 16%);
+	overflow-x: hidden;
 	overflow-y: auto;
 	display: flex;
 	flex-direction: column;
@@ -17,6 +18,7 @@
 
 .tabs {
 	display: flex;
+	flex-wrap: wrap;
 	gap: 2px;
 	padding: 2px;
 	border-radius: 8px;
@@ -24,7 +26,8 @@
 }
 
 .tab {
-	flex: 1;
+	flex: 1 1 auto;
+	min-inline-size: 0;
 	min-block-size: calc(var(--folio-hit-target) - 4px);
 	padding: 0 12px;
 	border: 0;

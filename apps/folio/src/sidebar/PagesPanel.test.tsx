@@ -85,4 +85,40 @@ describe('PagesPanel', () => {
 		).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: /Every page/ })).toBeNull();
 	});
+
+	it('lists the chapters and goes to the spread one begins on', async () => {
+		const onShow = vi.fn();
+		render(
+			<PagesPanel
+				book={book}
+				labels={['Cover', 'Pages 1–2']}
+				shown={0}
+				onShow={onShow}
+				onChange={vi.fn()}
+				onApply={vi.fn()}
+				chapters={[
+					{ title: 'The kettle', spread: 'a' },
+					{ title: 'The sea', spread: 'c' },
+				]}
+			/>,
+		);
+		const list = screen.getByRole('region', { name: 'Chapters' });
+		await userEvent.click(within(list).getByRole('button', { name: 'The kettle' }));
+		expect(onShow).toHaveBeenLastCalledWith(1);
+	});
+
+	it('has no chapter list for one chapter or none', () => {
+		render(
+			<PagesPanel
+				book={book}
+				labels={['Cover', 'Pages 1–2']}
+				shown={0}
+				onShow={vi.fn()}
+				onChange={vi.fn()}
+				onApply={vi.fn()}
+				chapters={[{ title: 'Only', spread: 'a' }]}
+			/>,
+		);
+		expect(screen.queryByRole('region', { name: 'Chapters' })).toBeNull();
+	});
 });

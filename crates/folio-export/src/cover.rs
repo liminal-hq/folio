@@ -12,8 +12,8 @@
 
 use folio_model::{
     paperback_cover, Align, Background, BarcodeChoice, Book, Colour, Frame, FrameBase, FrameId,
-    InlineContent, Page, PageId, Paper, Pt, Rect, Run, Shape, ShapeFrame, Size, Spread, SpreadId,
-    SpreadKind, StyleId, StyleOverrides, TextFrame,
+    InlineContent, Page, PageId, Paper, Pt, Rect, Run, Shape, ShapeFrame, Size, Spread, SpreadKind,
+    StyleId, StyleOverrides, TextFrame,
 };
 
 pub use folio_model::{spine_pages, SPINE_TEXT_FROM};
@@ -174,6 +174,44 @@ fn barcode_frames(isbn: &str, addon: Option<&str>, maths: &folio_model::CoverMat
     frames
 }
 
+/// Points inside the trimmed edge of a cover that text and pictures that need to stay keep to.
+const SAFE: f64 = 18.0;
+/// The same beside each fold of the spine.
+const SPINE_SAFE: f64 = 4.5;
+
+/// The lines the sheet canvas snaps to: the trimmed edges and folds, and the safe areas inside them.
+fn fold_guides(w: f64, h: f64, spine: f64) -> Vec<folio_model::Guide> {
+    use folio_model::{Axis, Guide};
+    let mut xs = vec![
+        0.0,
+        w,
+        w + spine,
+        2.0 * w + spine,
+        SAFE,
+        w - SAFE,
+        w + spine + SAFE,
+        2.0 * w + spine - SAFE,
+    ];
+    if spine > 2.0 * SPINE_SAFE {
+        xs.push(w + SPINE_SAFE);
+        xs.push(w + spine - SPINE_SAFE);
+    }
+    let mut guides: Vec<Guide> = xs
+        .into_iter()
+        .map(|x| Guide {
+            axis: Axis::X,
+            pos: Pt(x),
+            locked: true,
+        })
+        .collect();
+    guides.extend([0.0, SAFE, h - SAFE, h].map(|y| Guide {
+        axis: Axis::Y,
+        pos: Pt(y),
+        locked: true,
+    }));
+    guides
+}
+
 /// The cover sheet of `book` as a one-page book, or `None` when the book has no cover.
 pub fn cover_sheet(book: &Book, paper: Paper) -> Option<Book> {
     let cover = book
@@ -184,7 +222,6 @@ pub fn cover_sheet(book: &Book, paper: Paper) -> Option<Book> {
     let maths = paperback_cover(book.trim, pages, paper);
     let (w, h, spine) = (book.trim.w.0, book.trim.h.0, maths.spine.0);
     let sheet_w = 2.0 * w + spine;
-    let margin = Pt::from_in(0.5).0;
 
     // What fills the sheet: the cover's own background, which now runs across all three panels.
     let backgrounds = folio_model::resolve(&book.master_pages, cover);
@@ -194,22 +231,19 @@ pub fn cover_sheet(book: &Book, paper: Paper) -> Option<Book> {
         .flatten()
         .map(|resolved| resolved.bg);
 
-    let mut frames: Vec<Frame> = Vec::new();
-    // The back: the book's description.
-    if !book.metadata.description.trim().is_empty() {
-        frames.push(text_frame(
-            "blurb",
-            "body",
-            Rect {
-                x: Pt(margin),
-                y: Pt(margin * 1.5),
-                w: Pt(w - 2.0 * margin),
-                h: Pt(h - margin * 4.0),
-            },
-            0.0,
-            book.metadata.description.trim(),
-        ));
-    }
+    // What the person put on the sheet, in the sheet's own points; Folio's own drawing goes over it.
+    let mut frames: Vec<Frame> = cover
+        .frames
+        .iter()
+        .filter(|f| {
+            matches!(
+                f,
+                Frame::Text(_) | Frame::Image(_) | Frame::Shape(_) | Frame::Table(_)
+            )
+        })
+        .cloned()
+        .collect();
+    let generated_from = frames.len();
     // The barcode area, kept clear: KDP adds the barcode there when the book has none of its own.
     frames.push(Frame::Shape(ShapeFrame {
         base: base(
@@ -244,18 +278,6 @@ pub fn cover_sheet(book: &Book, paper: Paper) -> Option<Book> {
             frames.extend(barcode_frames(isbn, addon, &maths));
         }
     }
-    // The front: the cover as it is, moved along past the back and the spine.
-    for frame in &cover.frames {
-        let mut moved = frame.clone();
-        match &mut moved {
-            Frame::Text(f) => f.base.rect.x.0 += w + spine,
-            Frame::Image(f) => f.base.rect.x.0 += w + spine,
-            Frame::Shape(f) => f.base.rect.x.0 += w + spine,
-            Frame::Table(f) => f.base.rect.x.0 += w + spine,
-            _ => continue,
-        }
-        frames.push(moved);
-    }
     // The spine: the title and author, turned to read down it, when the book is thick enough.
     if pages >= SPINE_TEXT_FROM {
         let author = book
@@ -280,6 +302,17 @@ pub fn cover_sheet(book: &Book, paper: Paper) -> Option<Book> {
         ));
     }
 
+    // What Folio draws itself (the barcode and the spine) is not the person's to move on the canvas:
+    // its words are Book details and its place is the maths of the cover.
+    for frame in &mut frames[generated_from..] {
+        match frame {
+            Frame::Text(f) => f.base.locked = true,
+            Frame::Shape(f) => f.base.locked = true,
+            Frame::Image(f) => f.base.locked = true,
+            _ => {}
+        }
+    }
+
     let mut sheet = book.clone();
     sheet.trim = Size {
         w: Pt(sheet_w),
@@ -289,15 +322,18 @@ pub fn cover_sheet(book: &Book, paper: Paper) -> Option<Book> {
     sheet.master_pages.clear();
     sheet.flows.clear();
     sheet.spreads = vec![Spread {
-        id: SpreadId("sp_cover_sheet".into()),
+        id: cover.id.clone(),
         kind: SpreadKind::Single,
         pages: vec![Page {
-            id: PageId("pg_cover_sheet".into()),
+            id: cover
+                .pages
+                .first()
+                .map_or_else(|| PageId("pg_cover_sheet".into()), |p| p.id.clone()),
             master: None,
             bg,
         }],
         frames,
-        guides: Vec::new(),
+        guides: fold_guides(w, h, spine),
         master_overrides: Vec::new(),
         bg_span: None,
         section: None,

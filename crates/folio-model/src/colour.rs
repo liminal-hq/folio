@@ -11,6 +11,7 @@ use ts_rs::TS;
 /// A colour: `#rrggbb`, lower case. It is stored as the string so a book stays readable, and so a
 /// hand-edited or older book still opens: reading never fails on a colour. An intent checks it with
 /// [`Colour::parse`] before it stores one.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[ts(
     export,
@@ -21,6 +22,7 @@ use ts_rs::TS;
 pub struct Colour(pub String);
 
 /// Ink as printed, in whole percents of each plate (0 to 100): cyan, magenta, yellow and black.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Ink {
@@ -52,6 +54,7 @@ impl Ink {
 
 /// A colour a book names and keeps: shown as `display` everywhere, and printed as `ink` when it has
 /// one. A field that refers to it as `swatch:<id>` follows it when it is changed (D-40).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct BookSwatch {
@@ -157,6 +160,7 @@ impl Colour {
 }
 
 /// One colour along a gradient, `at` being how far along it is, 0 to 1.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct GradientStop {

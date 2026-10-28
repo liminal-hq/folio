@@ -392,6 +392,14 @@ describe('the Check book button', () => {
 	});
 });
 
+describe('the Spread templates button', () => {
+	it('is available on a page and asks for the gallery, but not while a master page is edited', () => {
+		expect(editorState(input()).available.has('templates')).toBe(true);
+		expect(editorAction('templates', undefined, input())).toEqual({ kind: 'templates' });
+		expect(editorState(input([], { master: true })).available.has('templates')).toBe(false);
+	});
+});
+
 describe('the Export buttons', () => {
 	it('are always available and ask for the dialog, quickly for Quick PDF', () => {
 		const state = editorState(input());

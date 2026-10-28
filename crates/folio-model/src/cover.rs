@@ -9,6 +9,7 @@ use ts_rs::TS;
 use crate::units::{Pt, Rect, Size};
 
 // ── Export maths ──
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
@@ -28,6 +29,7 @@ pub fn spine_factor(p: Paper) -> f64 {
     }
 }
 
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct CoverMaths {
@@ -40,6 +42,7 @@ pub struct CoverMaths {
 }
 
 /// Who makes the barcode on the back of the paperback cover.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -80,6 +83,37 @@ pub fn spine_pages(book: &crate::book::Book) -> u32 {
     (interior + interior % 2).max(24)
 }
 
+/// The width of the cover spread, which is the printed sheet inside its bleed: the back, the spine
+/// and the front side by side. The back starts at the origin and the front at `trim.w + spine`.
+pub fn cover_width(book: &crate::book::Book) -> Pt {
+    let spine = paperback_cover(book.trim, spine_pages(book), book.paper).spine;
+    Pt(book.trim.w.0 * 2.0 + spine.0)
+}
+
+/// How far in from the left of the cover spread the front cover starts.
+pub fn front_offset(book: &crate::book::Book) -> Pt {
+    Pt(cover_width(book).0 - book.trim.w.0)
+}
+
+/// `book` with its cover cut down to the front cover alone, as a page of the trim size, for what
+/// wants one cover picture: the eBook cover, the sharing PDF and the thumbnails. Frames of the back
+/// and the spine are moved off the page, where nothing draws them.
+pub fn front_cover_view(book: &crate::book::Book) -> crate::book::Book {
+    let mut view = book.clone();
+    let offset = front_offset(book).0;
+    if let Some(cover) = view
+        .spreads
+        .first_mut()
+        .filter(|s| s.kind == crate::spread::SpreadKind::Cover)
+    {
+        cover.kind = crate::spread::SpreadKind::Single;
+        for frame in &mut cover.frames {
+            frame.base_mut().rect.x.0 -= offset;
+        }
+    }
+    view
+}
+
 pub fn paperback_cover(trim: Size, pages: u32, paper: Paper) -> CoverMaths {
     let spine = Pt::from_in(pages as f64 * spine_factor(paper));
     let edge = Pt::from_in(0.125);
@@ -105,6 +139,24 @@ pub fn paperback_cover(trim: Size, pages: u32, paper: Paper) -> CoverMaths {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The same numbers are pinned in `apps/folio/src/books/coverMaths.test.ts`, which mirrors this
+    /// maths for the canvas.
+    #[test]
+    fn the_cover_is_as_wide_as_the_pages_and_the_paper_make_it() {
+        let trim = Size {
+            w: Pt(612.0),
+            h: Pt(612.0),
+        };
+        for (paper, factor) in [
+            (Paper::White, 0.002252),
+            (Paper::Cream, 0.0025),
+            (Paper::Colour, 0.002347),
+        ] {
+            let spine = paperback_cover(trim, 32, paper).spine.0;
+            assert!((spine - 32.0 * factor * 72.0).abs() < 1e-9);
+        }
+    }
 
     #[test]
     fn a_32_page_square_picture_book_has_a_spine_too_thin_for_text() {

@@ -22478,7 +22478,33 @@
       "schema": 1,
       "spreads": [
         {
-          "frames": [],
+          "frames": [
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 360.0,
+                "w": 432.0,
+                "x": 36.0,
+                "y": 54.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "About an otter."
+                  }
+                ]
+              },
+              "id": "blurb",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
           "guides": [],
           "id": "sp_cover",
           "kind": "cover",
@@ -22970,6 +22996,48 @@
     "patch": {
       "ops": [
         {
+          "op": "setSpread",
+          "spread": {
+            "frames": [
+              {
+                "baselineLock": false,
+                "box": {
+                  "h": 360.0,
+                  "w": 432.0,
+                  "x": 36.0,
+                  "y": 54.0
+                },
+                "columns": 1,
+                "content": {
+                  "inline": [
+                    {
+                      "bold": false,
+                      "italic": false,
+                      "style": null,
+                      "text": "About an otter."
+                    }
+                  ]
+                },
+                "id": "blurb",
+                "locked": false,
+                "rotation": 0.0,
+                "style": "body",
+                "type": "text"
+              }
+            ],
+            "guides": [],
+            "id": "sp_cover",
+            "kind": "cover",
+            "masterOverrides": [],
+            "pages": [
+              {
+                "id": "pg_c",
+                "master": null
+              }
+            ]
+          }
+        },
+        {
           "details": {
             "authors": [
               {
@@ -23351,7 +23419,33 @@
       "schema": 1,
       "spreads": [
         {
-          "frames": [],
+          "frames": [
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 360.0,
+                "w": 432.0,
+                "x": 36.0,
+                "y": 54.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "About an otter."
+                  }
+                ]
+              },
+              "id": "blurb",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
           "guides": [],
           "id": "sp_cover",
           "kind": "cover",
@@ -23563,6 +23657,22 @@
     "patch": {
       "ops": [
         {
+          "op": "setSpread",
+          "spread": {
+            "frames": [],
+            "guides": [],
+            "id": "sp_cover",
+            "kind": "cover",
+            "masterOverrides": [],
+            "pages": [
+              {
+                "id": "pg_c",
+                "master": null
+              }
+            ]
+          }
+        },
+        {
           "details": {
             "authors": [],
             "description": "",
@@ -23659,7 +23769,33 @@
       "schema": 1,
       "spreads": [
         {
-          "frames": [],
+          "frames": [
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 360.0,
+                "w": 432.0,
+                "x": 36.0,
+                "y": 54.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "About an otter."
+                  }
+                ]
+              },
+              "id": "blurb",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
           "guides": [],
           "id": "sp_cover",
           "kind": "cover",
@@ -24150,6 +24286,48 @@
     "patch": {
       "ops": [
         {
+          "op": "setSpread",
+          "spread": {
+            "frames": [
+              {
+                "baselineLock": false,
+                "box": {
+                  "h": 360.0,
+                  "w": 432.0,
+                  "x": 36.0,
+                  "y": 54.0
+                },
+                "columns": 1,
+                "content": {
+                  "inline": [
+                    {
+                      "bold": false,
+                      "italic": false,
+                      "style": null,
+                      "text": "About an otter."
+                    }
+                  ]
+                },
+                "id": "blurb",
+                "locked": false,
+                "rotation": 0.0,
+                "style": "body",
+                "type": "text"
+              }
+            ],
+            "guides": [],
+            "id": "sp_cover",
+            "kind": "cover",
+            "masterOverrides": [],
+            "pages": [
+              {
+                "id": "pg_c",
+                "master": null
+              }
+            ]
+          }
+        },
+        {
           "details": {
             "authors": [
               {
@@ -24251,7 +24429,33 @@
       "schema": 1,
       "spreads": [
         {
-          "frames": [],
+          "frames": [
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 360.0,
+                "w": 432.0,
+                "x": 36.0,
+                "y": 54.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "About an otter."
+                  }
+                ]
+              },
+              "id": "blurb",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
           "guides": [],
           "id": "sp_cover",
           "kind": "cover",
@@ -24536,7 +24740,33 @@
       "schema": 1,
       "spreads": [
         {
-          "frames": [],
+          "frames": [
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 360.0,
+                "w": 432.0,
+                "x": 36.0,
+                "y": 54.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "About an otter."
+                  }
+                ]
+              },
+              "id": "blurb",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
           "guides": [],
           "id": "sp_cover",
           "kind": "cover",
@@ -24911,7 +25141,33 @@
       "schema": 1,
       "spreads": [
         {
-          "frames": [],
+          "frames": [
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 360.0,
+                "w": 432.0,
+                "x": 36.0,
+                "y": 54.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "About an otter."
+                  }
+                ]
+              },
+              "id": "blurb",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
           "guides": [],
           "id": "sp_cover",
           "kind": "cover",
@@ -25208,7 +25464,33 @@
       "schema": 1,
       "spreads": [
         {
-          "frames": [],
+          "frames": [
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 360.0,
+                "w": 432.0,
+                "x": 36.0,
+                "y": 54.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "About an otter."
+                  }
+                ]
+              },
+              "id": "blurb",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
           "guides": [],
           "id": "sp_cover",
           "kind": "cover",
@@ -25595,7 +25877,33 @@
       "schema": 1,
       "spreads": [
         {
-          "frames": [],
+          "frames": [
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 360.0,
+                "w": 432.0,
+                "x": 36.0,
+                "y": 54.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "About an otter."
+                  }
+                ]
+              },
+              "id": "blurb",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
           "guides": [],
           "id": "sp_cover",
           "kind": "cover",
@@ -25892,7 +26200,33 @@
       "schema": 1,
       "spreads": [
         {
-          "frames": [],
+          "frames": [
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 360.0,
+                "w": 432.0,
+                "x": 36.0,
+                "y": 54.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "About an otter."
+                  }
+                ]
+              },
+              "id": "blurb",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
           "guides": [],
           "id": "sp_cover",
           "kind": "cover",
@@ -26296,7 +26630,33 @@
       "schema": 1,
       "spreads": [
         {
-          "frames": [],
+          "frames": [
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 360.0,
+                "w": 432.0,
+                "x": 36.0,
+                "y": 54.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "About an otter."
+                  }
+                ]
+              },
+              "id": "blurb",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
           "guides": [],
           "id": "sp_cover",
           "kind": "cover",
@@ -26593,7 +26953,33 @@
       "schema": 1,
       "spreads": [
         {
-          "frames": [],
+          "frames": [
+            {
+              "baselineLock": false,
+              "box": {
+                "h": 360.0,
+                "w": 432.0,
+                "x": 36.0,
+                "y": 54.0
+              },
+              "columns": 1,
+              "content": {
+                "inline": [
+                  {
+                    "bold": false,
+                    "italic": false,
+                    "style": null,
+                    "text": "About an otter."
+                  }
+                ]
+              },
+              "id": "blurb",
+              "locked": false,
+              "rotation": 0.0,
+              "style": "body",
+              "type": "text"
+            }
+          ],
           "guides": [],
           "id": "sp_cover",
           "kind": "cover",

@@ -66,6 +66,25 @@ pub struct PatchEvent {
     pub patch: Patch,
     pub can_undo: bool,
     pub can_redo: bool,
+    /// Who made the change when it was not the person at the window: `agent` for one an AI agent
+    /// made through the MCP server. A window can say so.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub by: Option<String>,
+}
+
+/// What a batch of intents did to a book.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct BatchOutcome {
+    /// The book's revision after the batch.
+    #[ts(type = "number")]
+    pub revision: u64,
+    /// How many intents were applied; all of them, or none.
+    pub applied: usize,
+    pub can_undo: bool,
+    pub can_redo: bool,
 }
 
 /// Sent to every window when books open, close, are saved, or become changed or clean.
@@ -209,6 +228,7 @@ pub struct KeepFontsReport {
 }
 
 /// A kind of file to make from a book.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
@@ -242,6 +262,7 @@ pub struct ExportedFile {
 }
 
 /// How print files hold colour: sRGB as drawn, or as ink.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
@@ -265,6 +286,49 @@ pub struct ProofPage {
     pub proofed: String,
     /// How much of the page, in per cent, is a colour the press cannot reproduce.
     pub outside: f64,
+}
+
+/// The paperback cover sheet as a page the canvas can draw and edit: the sheet as a book of one
+/// spread, and that spread laid out.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct CoverCanvas {
+    pub book: folio_model::Book,
+    pub layout: SpreadLayout,
+    /// The width of the cover (back or front) in points, and of the spine between them.
+    pub cover: f64,
+    pub spine: f64,
+}
+
+/// A chapter of a story: its title, and the spread its first words are on.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct StoryChapter {
+    pub title: String,
+    pub spread: String,
+}
+
+/// A swatch of the book as drawn and as a press would print it, each as `#rrggbb`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ProofColour {
+    pub name: String,
+    pub display: String,
+    pub proofed: String,
+    /// The press cannot reproduce it.
+    pub outside: bool,
+}
+
+/// A spread's pages through a press, and the book's swatches through it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ProofSpread {
+    pub pages: Vec<ProofPage>,
+    pub colours: Vec<ProofColour>,
 }
 
 /// The paperback cover sheet drawn, and where its parts are, in points from the sheet's top-left
@@ -404,4 +468,27 @@ pub struct BookSpelling {
     pub words: Vec<MisspeltWord>,
     /// There were more than are listed.
     pub truncated: bool,
+}
+
+/// The spread templates a book can add, the group to show first, and a picture of each as it would
+/// be laid out at this book's size.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct TemplateGallery {
+    /// The group of the book's own kind.
+    pub home: String,
+    pub templates: Vec<TemplateCard>,
+}
+
+/// One template in the gallery.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct TemplateCard {
+    pub id: String,
+    pub group: String,
+    pub name: String,
+    /// A `data:image/png` URI of the spread.
+    pub image: String,
 }

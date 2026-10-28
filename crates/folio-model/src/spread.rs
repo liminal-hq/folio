@@ -12,6 +12,7 @@ use crate::ids::{FrameId, MasterId, PageId, SpreadId};
 use crate::sections::Section;
 use crate::units::Pt;
 
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
@@ -23,6 +24,7 @@ pub enum SpreadKind {
     Closer,
 }
 
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase")]
@@ -44,6 +46,7 @@ pub struct Spread {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub section: Option<Section>,
 }
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Page {
@@ -53,6 +56,7 @@ pub struct Page {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bg: Option<Background>,
 }
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Guide {
@@ -60,6 +64,7 @@ pub struct Guide {
     pub pos: Pt,
     pub locked: bool,
 }
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "lowercase")]
@@ -67,6 +72,7 @@ pub enum Axis {
     X,
     Y,
 }
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase")]

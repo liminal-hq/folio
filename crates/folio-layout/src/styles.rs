@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 use folio_model::{Align as ModelAlign, StyleDef, StyleId, StyleOverrides, Styles};
 use serde_json::Value;
 
+use crate::flow::Start;
 use crate::fonts::{FALLBACK_SANS, FALLBACK_SERIF};
 use crate::paragraph::{Align, TextStyle, Wrap};
 
@@ -21,6 +22,7 @@ pub struct ResolvedStyle {
     pub space_after: f64,
     pub wrap: Wrap,
     pub hyphenate: bool,
+    pub start: Start,
 }
 
 /// The sizes used when a style is missing or leaves one out.
@@ -128,6 +130,11 @@ impl StyleSheet {
                 Wrap::Reflow
             },
             hyphenate: def.hyphenate.unwrap_or(!preserve),
+            start: match def.start.as_deref() {
+                Some("recto") => Start::Recto,
+                Some("page") => Start::Page,
+                _ => Start::Anywhere,
+            },
             align,
             text,
         }

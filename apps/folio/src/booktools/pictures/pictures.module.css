@@ -1,0 +1,121 @@
+.note {
+	margin: 0;
+	color: var(--folio-text-muted);
+}
+
+.summary {
+	margin: 0 0 12px;
+	color: var(--folio-text-secondary);
+}
+
+.table {
+	inline-size: 100%;
+	border-collapse: collapse;
+	font-size: 13px;
+}
+
+.table th {
+	padding: 6px 8px;
+	text-align: start;
+	color: var(--folio-text-muted);
+	font-weight: 600;
+	border-block-end: 1px solid var(--folio-border-subtle);
+}
+
+.table td {
+	padding: 6px 8px;
+	vertical-align: middle;
+	border-block-end: 1px solid var(--folio-border-subtle);
+}
+
+.thumb {
+	display: block;
+	inline-size: 56px;
+	block-size: 42px;
+	object-fit: cover;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 4px;
+}
+
+.blank {
+	display: block;
+	inline-size: 56px;
+	block-size: 42px;
+	border: 1px dashed var(--folio-border-subtle);
+	border-radius: 4px;
+}
+
+.status {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 999px;
+	background: var(--folio-control-bg);
+	font-size: 12px;
+}
+
+.status[data-status='low'],
+.status[data-status='unreadable'] {
+	color: var(--folio-warning);
+}
+
+.status[data-status='veryLow'],
+.status[data-status='missing'] {
+	color: var(--folio-danger);
+}
+
+.number {
+	margin-inline-start: 8px;
+	color: var(--folio-text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.button {
+	padding: 4px 10px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-control-bg);
+	color: var(--folio-text-primary);
+	font: inherit;
+	cursor: default;
+}
+
+.button:hover {
+	background: var(--folio-control-bg-hover);
+}
+
+.button:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: 1px;
+}
+
+.altList {
+	display: grid;
+	gap: 10px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.alt {
+	display: flex;
+	gap: 12px;
+	align-items: flex-start;
+}
+
+.altField {
+	display: grid;
+	flex: 1;
+	gap: 4px;
+	font-size: 13px;
+}
+
+.altField textarea {
+	inline-size: 100%;
+	padding: 6px 8px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-bg-raised);
+	color: var(--folio-text-primary);
+	font: inherit;
+	resize: vertical;
+}

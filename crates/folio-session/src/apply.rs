@@ -93,6 +93,8 @@ pub enum MergeKey {
     Text(FrameId),
     Paragraph(FlowId, usize),
     Style(FrameId),
+    Description(FrameId),
+    Keywords,
     Shape(FrameId),
     Focus(FrameId),
     Section(SpreadId),
@@ -352,6 +354,13 @@ fn ensure_free(frame: &Frame) -> Result<(), SessionError> {
     Ok(())
 }
 
+/// How many keywords a book tells a store, and how long each can be.
+const MAX_KEYWORDS: usize = 7;
+const MAX_KEYWORD_LENGTH: usize = 50;
+
+/// The most characters a frame's description can have.
+const MAX_FRAME_DESCRIPTION: usize = 500;
+
 /// Works out what `intent` touches, or says why it cannot be done.
 pub fn plan(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, SessionError> {
     let mut made = plan_one(book, intent, ids)?;
@@ -360,6 +369,7 @@ pub fn plan(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
     let restructures = matches!(
         intent,
         Intent::AddSpread { .. }
+            | Intent::AddSpreadWith { .. }
             | Intent::DeleteSpread { .. }
             | Intent::MoveSpread { .. }
             | Intent::AddFlowPages { .. }
@@ -810,6 +820,7 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             Ok(Plan {
                 touched,
                 new_spread: None,
+
                 flows: Vec::new(),
                 new_flow: None,
                 fresh: Vec::new(),
@@ -818,8 +829,15 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
         }
         Intent::SetDetails { details } => {
             check_details(details)?;
+            // The description on the back cover follows the book's, so a change reaches the cover.
+            let cover = book
+                .spreads
+                .first()
+                .filter(|s| s.kind == SpreadKind::Cover)
+                .filter(|_| details.description.trim() != book.metadata.description.trim())
+                .map(|s| s.id.clone());
             Ok(Plan {
-                touched: Vec::new(),
+                touched: cover.into_iter().collect(),
                 new_spread: None,
                 flows: Vec::new(),
                 new_flow: None,
@@ -1304,6 +1322,44 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             }
             Ok(plan)
         }
+        Intent::SetKeywords { keywords } => {
+            if keywords.len() > MAX_KEYWORDS
+                || keywords
+                    .iter()
+                    .any(|k| k.trim().is_empty() || k.chars().count() > MAX_KEYWORD_LENGTH)
+            {
+                return Err(SessionError::BadDetails(format!(
+                    "at most {MAX_KEYWORDS} keywords, each of 1 to {MAX_KEYWORD_LENGTH} characters"
+                )));
+            }
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                flows: Vec::new(),
+                new_flow: None,
+                fresh: Vec::new(),
+                merge: Some(MergeKey::Keywords),
+            })
+        }
+        Intent::SetFrameDescription {
+            on,
+            frame,
+            description,
+        } => {
+            if description
+                .as_deref()
+                .is_some_and(|d| d.chars().count() > MAX_FRAME_DESCRIPTION)
+            {
+                return Err(SessionError::BadDetails(format!(
+                    "a description is at most {MAX_FRAME_DESCRIPTION} characters"
+                )));
+            }
+            let frames = frames_on(book, on)?;
+            if !frames.iter().any(|f| &f.base().id == frame) {
+                return Err(SessionError::NotOnSpread(frame.0.clone(), named(on)));
+            }
+            Ok(by(on, Some(MergeKey::Description(frame.clone()))))
+        }
         Intent::DuplicateFrame { on, frame } | Intent::LockFrame { on, frame, .. } => {
             let frames = frames_on(book, on)?;
             if !frames.iter().any(|f| &f.base().id == frame) {
@@ -1318,6 +1374,30 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 .ok_or_else(|| SessionError::NotOnSpread(frame.0.clone(), named(on)))?;
             ensure_free(target)?;
             Ok(by(on, None))
+        }
+        Intent::AddSpreadWith { after, frames } => {
+            if spread(book, after)?.kind == SpreadKind::Cover {
+                return Err(SessionError::CoverFixed);
+            }
+            for frame in frames {
+                if let Some(taken) = book
+                    .spreads
+                    .iter()
+                    .flat_map(|s| &s.frames)
+                    .find(|f| f.base().id == frame.base().id)
+                {
+                    return Err(SessionError::DuplicateFrame(taken.base().id.0.clone()));
+                }
+            }
+            let id = SpreadId(ids("sp"));
+            Ok(Plan {
+                touched: vec![id.clone()],
+                new_spread: Some(id),
+                flows: Vec::new(),
+                new_flow: None,
+                fresh: Vec::new(),
+                merge: None,
+            })
         }
         Intent::AddSpread { after, .. } => {
             spread(book, after)?;
@@ -1392,6 +1472,7 @@ pub fn run(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
     let restructures = matches!(
         intent,
         Intent::AddSpread { .. }
+            | Intent::AddSpreadWith { .. }
             | Intent::DeleteSpread { .. }
             | Intent::MoveSpread { .. }
             | Intent::AddFlowPages { .. }
@@ -1630,7 +1711,11 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 });
             }
         }
-        Intent::SetDetails { details } => details.apply(book),
+        Intent::SetDetails { details } => {
+            let was = book.metadata.description.clone();
+            details.apply(book);
+            folio_model::sync_blurb(book, &was, &details.description);
+        }
         Intent::SetPreflightIgnore { keys } => book.preflight_ignore = keys,
         Intent::EndUndoStep => {}
         Intent::IgnoreWord { word } => {
@@ -1931,6 +2016,18 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 }
             }
         }
+        Intent::SetKeywords { keywords } => {
+            book.metadata.keywords = keywords.into_iter().map(|k| k.trim().to_owned()).collect();
+        }
+        Intent::SetFrameDescription {
+            on,
+            frame,
+            description,
+        } => {
+            if let Some(f) = frames_on_mut(book, &on).and_then(|frames| find_mut(frames, &frame)) {
+                f.base_mut().description = description.filter(|d| !d.trim().is_empty());
+            }
+        }
         Intent::LockFrame { on, frame, locked } => {
             if let Some(f) = frames_on_mut(book, &on).and_then(|frames| find_mut(frames, &frame)) {
                 f.base_mut().locked = locked;
@@ -2003,6 +2100,34 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 }
             };
             book.spreads.insert(at + 1, made);
+        }
+        Intent::AddSpreadWith { after, frames } => {
+            let Some(at) = book.spreads.iter().position(|sp| sp.id == after) else {
+                return;
+            };
+            let id = plan
+                .new_spread
+                .clone()
+                .unwrap_or_else(|| SpreadId(ids("sp")));
+            book.spreads.insert(
+                at + 1,
+                Spread {
+                    id,
+                    kind: SpreadKind::Spread,
+                    pages: (0..2)
+                        .map(|_| Page {
+                            id: folio_model::PageId(ids("pg")),
+                            master: None,
+                            bg: None,
+                        })
+                        .collect(),
+                    frames,
+                    guides: Vec::new(),
+                    master_overrides: Vec::new(),
+                    bg_span: None,
+                    section: None,
+                },
+            );
         }
         Intent::DeleteSpread { spread: s } => book.spreads.retain(|sp| sp.id != s),
         Intent::MoveSpread { spread: s, to } => {

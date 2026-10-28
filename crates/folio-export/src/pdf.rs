@@ -81,6 +81,22 @@ pub fn export_pdf(
     assets: &dyn Assets,
     options: &PdfOptions,
 ) -> Result<Vec<u8>, ExportError> {
+    // A print PDF is the interior only: the cover is made for the cover file.
+    let skip = usize::from(
+        options.target == PdfTarget::Print
+            && book
+                .spreads
+                .first()
+                .is_some_and(|s| s.kind == folio_model::SpreadKind::Cover),
+    );
+    // Only the cover file wants the whole cover: everything else wants the front, as a page.
+    let front;
+    let book = if options.target == PdfTarget::Cover {
+        book
+    } else {
+        front = folio_model::front_cover_view(book);
+        &front
+    };
     let layouter = Layouter::new(book, styles, fonts);
     let settings = SerializeSettings {
         compress_content_streams: true,
@@ -102,14 +118,6 @@ pub fn export_pdf(
     };
     let mut drawing = Drawing::new(fonts, assets, separator);
 
-    // A print PDF is the interior only: the cover is made for the cover file.
-    let skip = usize::from(
-        options.target == PdfTarget::Print
-            && book
-                .spreads
-                .first()
-                .is_some_and(|s| s.kind == folio_model::SpreadKind::Cover),
-    );
     let mut scenes = Vec::new();
     for spread in book.spreads.iter().skip(skip) {
         if let Some(scene) = layouter.scene_spread(&spread.id)? {

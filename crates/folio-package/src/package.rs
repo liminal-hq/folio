@@ -21,7 +21,7 @@ use crate::manifest::{
 };
 
 /// The newest `book.json` schema this build reads and writes.
-pub const SUPPORTED_SCHEMA: u32 = 2;
+pub const SUPPORTED_SCHEMA: u32 = 3;
 
 const MANIFEST_PATH: &str = "META-INF/manifest.json";
 const MIMETYPE_PATH: &str = "mimetype";
@@ -322,17 +322,29 @@ impl Package {
         ) {
             object.insert("styles".into(), styles);
         }
-        let book: Book = serde_json::from_value(book_value).map_err(|e| PackageError::Json {
-            file: "book.json".into(),
-            message: e.to_string(),
-        })?;
+        let mut book: Book =
+            serde_json::from_value(book_value).map_err(|e| PackageError::Json {
+                file: "book.json".into(),
+                message: e.to_string(),
+            })?;
+        let settings = read_json(&mut archive, "settings.json", path)?.unwrap_or_else(|| json!({}));
+        // Before schema 3 the cover was the front alone; from then it is the whole sheet.
+        folio_model::upgrade_cover(
+            &mut book,
+            match settings.get("paper").and_then(Value::as_str) {
+                Some("cream") => Some(folio_model::Paper::Cream),
+                Some("colour") => Some(folio_model::Paper::Colour),
+                Some(_) => Some(folio_model::Paper::White),
+                None => None,
+            },
+        );
 
         let mut package = Package {
             source: Some(path.to_path_buf()),
             created: manifest.created.clone(),
             book,
             masters: read_json(&mut archive, "masters.json", path)?.unwrap_or_else(|| json!({})),
-            settings: read_json(&mut archive, "settings.json", path)?.unwrap_or_else(|| json!({})),
+            settings,
             flows: BTreeMap::new(),
             assets: BTreeMap::new(),
             other: BTreeMap::new(),

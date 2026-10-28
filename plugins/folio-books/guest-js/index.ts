@@ -21,7 +21,14 @@ import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTa
 import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
 import type { FontChoice } from '@liminal-hq/folio-protocol/generated/FontChoice';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
-import type { ProofPage } from '@liminal-hq/folio-protocol/generated/ProofPage';
+import type { ToolFix } from '@liminal-hq/folio-protocol/generated/ToolFix';
+import type { ToolFixed } from '@liminal-hq/folio-protocol/generated/ToolFixed';
+import type { ToolReport } from '@liminal-hq/folio-protocol/generated/ToolReport';
+import type { ToolRequest } from '@liminal-hq/folio-protocol/generated/ToolRequest';
+import type { TemplateGallery } from '@liminal-hq/folio-protocol/generated/TemplateGallery';
+import type { CoverCanvas } from '@liminal-hq/folio-protocol/generated/CoverCanvas';
+import type { StoryChapter } from '@liminal-hq/folio-protocol/generated/StoryChapter';
+import type { ProofSpread } from '@liminal-hq/folio-protocol/generated/ProofSpread';
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
 import type { Misspelling } from '@liminal-hq/folio-protocol/generated/Misspelling';
@@ -40,6 +47,9 @@ const PREFIX = 'plugin:folio-books|';
 
 /** Sent to every window after a change to an open book; the payload is a `PatchEvent`. */
 export const PATCH_EVENT = 'folio-books://patch';
+
+/** Sent to every window when the main window shows another book; the payload is its id or `null`. */
+export const ACTIVE_EVENT = 'folio-books://active';
 
 /** Sent to every window when books open, close, save or become changed or clean; a `BooksChanged`. */
 export const CHANGED_EVENT = 'folio-books://changed';
@@ -246,8 +256,8 @@ export function readerPreview(id: string): Promise<ReaderPreview> {
 }
 
 /** A spread as a press would print it, through the CMYK ICC profile at `profile`. */
-export function proofSpread(id: string, spread: string, profile: string): Promise<ProofPage[]> {
-	return cmd<ProofPage[]>('proof_spread', { id, spread, profile });
+export function proofSpread(id: string, spread: string, profile: string): Promise<ProofSpread> {
+	return cmd<ProofSpread>('proof_spread', { id, spread, profile });
 }
 
 /** The cover of the book `spec` would make, as a `data:image/png` URI. */
@@ -270,8 +280,57 @@ export function exportBook(
 }
 
 /** Brings the words of a Markdown or plain text file in as the book's story, in one undo step. */
-export function importText(id: string, path: string): Promise<ImportReport> {
-	return cmd<ImportReport>('import_text', { id, path });
+export function importText(
+	id: string,
+	path: string,
+	mapping?: Record<string, string>,
+): Promise<ImportReport> {
+	return cmd<ImportReport>('import_text', { id, path, mapping: mapping ?? null });
+}
+
+/** Asks a Book tool about a book; the answer is worked out in Rust. */
+export function bookTool(id: string, request: ToolRequest): Promise<ToolReport> {
+	return cmd<ToolReport>('book_tool', { id, request });
+}
+
+/** Makes a Book tool's change to a book as one undo step. */
+export function bookToolFix(id: string, fix: ToolFix): Promise<ToolFixed> {
+	return cmd<ToolFixed>('book_tool_fix', { id, fix });
+}
+
+/** Says which book the main window is showing, so other windows can follow it. */
+export function setActiveBook(id: string | null): Promise<void> {
+	return cmd<void>('set_active_book', { id });
+}
+
+/** The book the main window is showing; `null` when none is. */
+export function activeBook(): Promise<string | null> {
+	return cmd<string | null>('active_book');
+}
+
+/** Called when the main window shows another book. */
+export function onActiveBook(listener: (id: string | null) => void): Promise<UnlistenFn> {
+	return listen<string | null>(ACTIVE_EVENT, (e) => listener(e.payload));
+}
+
+/** The spread templates a book can add, each drawn at the book's size. */
+export function templateGallery(id: string): Promise<TemplateGallery> {
+	return cmd<TemplateGallery>('template_gallery', { id });
+}
+
+/** Adds a spread template after a spread, as one undo step. */
+export function applyTemplate(id: string, template: string, after: string): Promise<Patch> {
+	return cmd<Patch>('apply_template', { id, template, after });
+}
+
+/** The cover sheet as a one-spread book with its layout, for the canvas; `null` with no cover. */
+export function coverSheetCanvas(id: string): Promise<CoverCanvas | null> {
+	return cmd<CoverCanvas | null>('cover_sheet_canvas', { id });
+}
+
+/** The chapters of the book's stories and the spread each begins on. */
+export function storyChapters(id: string): Promise<StoryChapter[]> {
+	return cmd<StoryChapter[]>('story_chapters', { id });
 }
 
 /** Shows a file in the system's file manager. */

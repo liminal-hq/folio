@@ -6,7 +6,9 @@
 import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
 import { useEffect, useState } from 'react';
+import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { CoverSheetPreview } from '@liminal-hq/folio-protocol/generated/CoverSheetPreview';
+import type { Details } from '@liminal-hq/folio-protocol/generated/Details';
 import type { BooksClient } from '../books/booksClient';
 import { t } from '../i18n/messages';
 import styles from './CoverSheetDialog.module.css';
@@ -18,16 +20,55 @@ interface CoverSheetDialogProps {
 	id: string;
 	/** Changes when the book does, so the sheet is drawn again. */
 	revision: number;
+	/** The book, whose title, author and description are the words on the sheet. */
+	book: Book;
+	/** Keeps new words for the sheet as the book's details (one undo step). */
+	onSave(details: Details): void;
+	/** Puts the book's description on the back cover, in the frame that holds it (one undo step). */
+	onPutDescription(text: string): void;
 }
 
-export function CoverSheetDialog({ open, onClose, client, id, revision }: CoverSheetDialogProps) {
+export function CoverSheetDialog({
+	open,
+	onClose,
+	client,
+	id,
+	revision,
+	book,
+	onSave,
+	onPutDescription,
+}: CoverSheetDialogProps) {
+	// The back cover follows the description until its words are changed, or the frame is deleted.
+	const description = book.metadata.description.trim();
+	const onCover = book.spreads[0]?.frames.find((f) => f.id === 'blurb');
+	const heldText =
+		onCover?.type === 'text' ? (onCover.content?.inline ?? []).map((r) => r.text).join('') : null;
+	const detached = description !== '' && heldText?.trim() !== description;
+	const [words, setWords] = useState(() => wordsOf(book));
+	useEffect(() => {
+		if (open) setWords(wordsOf(book));
+		// The fields start from the book each time the sheet opens, not as the book changes under them.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [open]);
+	const changed = JSON.stringify(words) !== JSON.stringify(wordsOf(book));
+	const keep = () => {
+		const [first, ...others] = book.authors;
+		const name = words.author.trim();
+		onSave({
+			title: words.title.trim() || book.title,
+			subtitle: book.subtitle ?? null,
+			authors: name ? [{ name, role: first?.role ?? 'author' }, ...others] : others,
+			description: words.description.trim(),
+			isbn: book.metadata.isbn,
+		});
+	};
 	const [picture, setPicture] = useState<CoverSheetPreview | null | undefined>(undefined);
 	const [guides, setGuides] = useState(true);
 	const [failed, setFailed] = useState(false);
 	useEffect(() => {
 		if (!open) return;
 		let live = true;
-		setPicture(undefined);
+		// The picture on show stays until the new one is drawn, so a change does not blink the dialog.
 		setFailed(false);
 		client
 			.previewCoverSheet(id)
@@ -59,9 +100,14 @@ export function CoverSheetDialog({ open, onClose, client, id, revision }: CoverS
 				</p>
 			)}
 			{picture === undefined && !failed && (
-				<p role="status" className={styles.hint}>
+				// A box the shape of the sheet, so the dialog is its full size before the picture arrives.
+				<div
+					role="status"
+					className={styles.waiting}
+					style={{ aspectRatio: `${2 * book.trim.w + 12} / ${book.trim.h + 18}` }}
+				>
 					{t('coverSheet.drawing')}
-				</p>
+				</div>
 			)}
 			{picture === null && <p className={styles.hint}>{t('coverSheet.none')}</p>}
 			{picture && (
@@ -80,8 +126,57 @@ export function CoverSheetDialog({ open, onClose, client, id, revision }: CoverS
 					{guides && <Guides sheet={picture} />}
 				</div>
 			)}
+			{picture && (
+				<div className={styles.words}>
+					<label className={styles.field}>
+						<span>{t('coverSheet.titleField')}</span>
+						<input
+							type="text"
+							value={words.title}
+							onChange={(event) => setWords({ ...words, title: event.target.value })}
+						/>
+					</label>
+					<label className={styles.field}>
+						<span>{t('coverSheet.authorField')}</span>
+						<input
+							type="text"
+							value={words.author}
+							onChange={(event) => setWords({ ...words, author: event.target.value })}
+						/>
+					</label>
+					<label className={styles.field}>
+						<span>{t('coverSheet.blurbField')}</span>
+						<textarea
+							rows={4}
+							value={words.description}
+							onChange={(event) => setWords({ ...words, description: event.target.value })}
+						/>
+					</label>
+					{detached && (
+						<div>
+							<DialogButton onClick={() => onPutDescription(description)}>
+								{t('coverSheet.putDescription')}
+							</DialogButton>
+						</div>
+					)}
+					<div>
+						<DialogButton variant="primary" disabled={!changed} onClick={keep}>
+							{t('coverSheet.update')}
+						</DialogButton>
+					</div>
+				</div>
+			)}
 		</Dialog>
 	);
+}
+
+/** The words the sheet carries, as the form holds them. */
+function wordsOf(book: Book) {
+	return {
+		title: book.title,
+		author: book.authors[0]?.name ?? '',
+		description: book.metadata.description,
+	};
 }
 
 /** Points from the edge of a trimmed cover the safe area keeps text and pictures that need to stay. */

@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::wire::{ExportColour, ExportTarget};
+use folio_engine::{ExportColour, ExportTarget};
 use std::sync::{Arc, Mutex};
 
 use folio_model::{Intent, Pt, Rect, SpreadId};
@@ -31,8 +31,8 @@ fn app() -> App {
     app
 }
 
-fn books(app: &App) -> tauri::State<'_, Books<MockRuntime>> {
-    app.state::<Books<MockRuntime>>()
+fn books(app: &App) -> tauri::State<'_, Arc<Books>> {
+    app.state::<Arc<Books>>()
 }
 
 fn hear<T: serde::de::DeserializeOwned + Send + 'static>(
@@ -895,7 +895,9 @@ fn a_book_a_crash_left_changes_in_comes_back_unsaved_and_a_save_clears_the_copy(
         books(&app).save(&id, Some(&saved_as)).unwrap();
         books(&app).apply(&id, nudge(&app, &id, 40.0)).unwrap();
         assert_eq!(books(&app).autosave(), 1);
-        // The app stops here without closing the book: a crash, or the power going.
+        // The app stops here without closing the book: a crash, or the power going, which also
+        // lets go of the book's lock.
+        books(&app).release_locks();
     }
 
     let app = app_keeping_copies_in(&dir.path().join("recovery"));
@@ -991,7 +993,7 @@ fn a_book_offers_the_bundled_families_first_and_says_where_each_comes_from() {
         .summary
         .id;
     let choices = books(&app).font_choices(&id).unwrap();
-    assert_eq!(choices[0].origin, crate::wire::FontOrigin::Bundled);
+    assert_eq!(choices[0].origin, folio_engine::FontOrigin::Bundled);
     assert!(choices.iter().any(|c| c.family == "Literata"));
     let mut names: Vec<String> = choices.iter().map(|c| c.family.to_lowercase()).collect();
     names.sort();
@@ -1016,7 +1018,7 @@ fn keeping_fonts_leaves_the_bundled_ones_alone_and_reports_what_is_not_installed
     assert_eq!(report.skipped[0].family, "No Such Family");
     assert_eq!(
         report.skipped[0].reason,
-        crate::wire::FontSkip::NotInstalled
+        folio_engine::FontSkip::NotInstalled
     );
     // Nothing was kept, so nothing changed and there is nothing to undo.
     assert!(books(&app).snapshot(&id).unwrap().book.fonts.is_empty());
@@ -1036,7 +1038,7 @@ fn an_installed_font_that_may_travel_is_kept_in_one_undo_step_and_laid_out_from_
         .font_choices(&id)
         .unwrap()
         .into_iter()
-        .filter(|c| c.origin == crate::wire::FontOrigin::System)
+        .filter(|c| c.origin == folio_engine::FontOrigin::System)
         .map(|c| c.family)
         .collect();
     let Some(family) = installed.into_iter().find(|f| {
@@ -1063,7 +1065,7 @@ fn an_installed_font_that_may_travel_is_kept_in_one_undo_step_and_laid_out_from_
         .find(|c| c.family == family)
         .unwrap()
         .origin;
-    assert_eq!(origin, crate::wire::FontOrigin::Book);
+    assert_eq!(origin, folio_engine::FontOrigin::Book);
     // Keeping it again changes nothing.
     let depth = books(&app).history_mark(&id).unwrap();
     books(&app)
@@ -1219,7 +1221,7 @@ fn the_reader_preview_is_the_chapters_and_css_the_epub_ships() {
 
 #[test]
 fn the_fonts_panel_lists_the_families_a_book_uses_and_a_kept_font_can_be_let_go() {
-    use crate::wire::{FontLicence, FontOrigin};
+    use folio_engine::{FontLicence, FontOrigin};
     let app = app();
     let id = books(&app)
         .new_book(&NewBookSpec::default())
@@ -1314,17 +1316,29 @@ fn a_spread_is_proofed_through_a_press_profile_and_a_bad_path_is_refused() {
     assert!(books(&app).proof_spread(&id, &spread, "/nope.icc").is_err());
     let press = "/usr/share/ghostscript/iccprofiles/default_cmyk.icc";
     if std::path::Path::new(press).exists() {
-        let pages = books(&app).proof_spread(&id, &spread, press).unwrap();
+        let proof = books(&app).proof_spread(&id, &spread, press).unwrap();
+        let pages = proof.pages;
         assert!(!pages.is_empty());
         assert!(pages[0].proofed.starts_with("data:image/png;base64,"));
         assert_ne!(pages[0].original, pages[0].proofed);
+        // The book's swatches are listed beside the pages, however many it has.
+        assert_eq!(
+            proof.colours.len(),
+            books(&app)
+                .snapshot(&id)
+                .unwrap()
+                .book
+                .styles
+                .swatches
+                .len()
+        );
     }
 }
 
 #[test]
 fn an_export_says_which_file_it_has_reached_and_stops_when_asked() {
-    use crate::wire::{ExportProgress, ExportReport};
     use crate::EXPORT_PROGRESS_EVENT;
+    use folio_engine::{ExportProgress, ExportReport};
     let app = app();
     let id = books(&app)
         .new_book(&NewBookSpec {
@@ -1357,7 +1371,7 @@ fn an_export_says_which_file_it_has_reached_and_stops_when_asked() {
     app.listen(EXPORT_PROGRESS_EVENT, move |e| {
         let p: ExportProgress = serde_json::from_str(e.payload()).unwrap();
         if p.done == 1 {
-            handle.state::<Books<MockRuntime>>().cancel_export();
+            handle.state::<Arc<Books>>().cancel_export();
         }
     });
     let stopped = books(&app)
@@ -1468,7 +1482,7 @@ fn a_markdown_file_becomes_the_books_story_in_one_undo_step_and_a_book_without_o
         .id;
     let refused = books(&app).import_text(&picture, &path).unwrap_err();
     assert!(refused.to_string().contains("no story"), "{refused}");
-    let doc = dir.path().join("story.docx");
+    let doc = dir.path().join("story.pages");
     std::fs::write(&doc, b"PK").unwrap();
     assert!(books(&app)
         .import_text(&novel, &doc.to_string_lossy())
@@ -1555,4 +1569,80 @@ fn a_story_that_shrinks_gives_back_the_pages_it_no_longer_needs_with_one_undo() 
         back.flows[0].paragraphs.len(),
         grown.flows[0].paragraphs.len()
     );
+}
+
+#[test]
+fn the_chapters_of_a_story_say_which_spread_they_begin_on() {
+    let app = app();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("story.md");
+    std::fs::write(
+        &file,
+        "# One\n\nFirst words.\n\n# Two\n\nSecond words.\n\n# Three\n\nThird.\n",
+    )
+    .unwrap();
+    let novel = books(&app)
+        .new_book(&NewBookSpec {
+            kind: folio_model::BookKind::Novel,
+            ..NewBookSpec::default()
+        })
+        .unwrap()
+        .summary
+        .id;
+    books(&app)
+        .import_text(&novel, &file.to_string_lossy())
+        .unwrap();
+    let chapters = books(&app).story_chapters(&novel).unwrap();
+    let titles: Vec<&str> = chapters.iter().map(|c| c.title.as_str()).collect();
+    assert_eq!(titles, vec!["One", "Two", "Three"]);
+    let book = books(&app).snapshot(&novel).unwrap().book;
+    let spreads: Vec<&str> = book.spreads.iter().map(|s| s.id.0.as_str()).collect();
+    // Each is on a spread of the book, and a later chapter is never on an earlier spread.
+    let places: Vec<usize> = chapters
+        .iter()
+        .map(|c| spreads.iter().position(|s| *s == c.spread).unwrap())
+        .collect();
+    assert!(places.windows(2).all(|w| w[0] <= w[1]), "{places:?}");
+    // A book with no story has no chapters.
+    let picture = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    assert!(books(&app).story_chapters(&picture).unwrap().is_empty());
+}
+
+#[test]
+fn the_cover_sheet_canvas_is_the_sheet_as_one_laid_out_spread_with_what_was_put_on_it() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let none = books(&app).cover_sheet_canvas(&id).unwrap().unwrap();
+    assert_eq!(none.book.spreads.len(), 1);
+    assert!(none.cover > 0.0 && none.spine > 0.0);
+    // A description typed for the book is put on the back cover, as a frame the person can edit.
+    let book = books(&app).snapshot(&id).unwrap().book;
+    let details = folio_model::Details {
+        title: book.title.clone(),
+        subtitle: book.subtitle.clone(),
+        authors: book.authors.clone(),
+        description: "Praise".into(),
+        isbn: book.metadata.isbn.clone(),
+    };
+    books(&app)
+        .apply(&id, folio_model::Intent::SetDetails { details })
+        .unwrap();
+    let with = books(&app).cover_sheet_canvas(&id).unwrap().unwrap();
+    assert!(with.book.spreads[0]
+        .frames
+        .iter()
+        .any(|f| f.base().id.0 == "blurb"));
+    assert!(with
+        .layout
+        .frames
+        .iter()
+        .any(|f| f.frame.0 == "blurb" && !f.lines.is_empty()));
 }

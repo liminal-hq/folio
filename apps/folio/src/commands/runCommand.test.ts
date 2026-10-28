@@ -26,16 +26,18 @@ function context(overrides: Partial<CommandContext['settings']> = {}) {
 	};
 	const closeWindow = vi.fn();
 	const openWindow = vi.fn();
+	const openBookTools = vi.fn();
 	const value: CommandContext = {
 		settings: { ...DEFAULT_SETTINGS, ...overrides },
 		update: async (patch) => {
 			patches.push(patch);
 		},
 		openWindow,
+		openBookTools,
 		closeWindow,
 		books,
 	};
-	return { value, patches, closeWindow, openWindow, books };
+	return { value, patches, closeWindow, openWindow, openBookTools, books };
 }
 
 describe('availableCommands', () => {
@@ -81,14 +83,20 @@ describe('runCommand', () => {
 		expect(off.patches).toEqual([{ jax: 'tips' }]);
 	});
 
-	it('opens Preferences, About and Book tools, and quits by closing the window', async () => {
+	it('opens Preferences and About, and quits by closing the window', async () => {
 		const { value, openWindow, closeWindow } = context();
 		await runCommand('app.preferences', value, NONE);
 		await runCommand('app.about', value, NONE);
-		await runCommand('app.bookTools', value, NONE);
-		expect(openWindow.mock.calls).toEqual([['Preferences'], ['About'], ['BookTools']]);
+		expect(openWindow.mock.calls).toEqual([['Preferences'], ['About']]);
 		await runCommand('app.quit', value, NONE);
 		expect(closeWindow).toHaveBeenCalledOnce();
+	});
+
+	it('opens the Book tools window on the group of tools asked for', async () => {
+		const { value, openBookTools } = context();
+		await runCommand('tools.pictures', value, NONE);
+		await runCommand('tools.structure', value, NONE);
+		expect(openBookTools.mock.calls).toEqual([['pictures'], ['structure']]);
 	});
 
 	it('runs the book commands', async () => {

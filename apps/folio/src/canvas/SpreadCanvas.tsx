@@ -22,6 +22,7 @@ import './fonts.css';
 import { PX_PER_POINT, spreadGeometry, type PlainRect } from './geometry';
 import type { FrameCommand } from './frameMenu';
 import { canEditText, TextEditor, type Speller } from './TextEditor';
+import { boxOf, linesOf } from '../story/rangeEdit';
 import { DEFAULT_MARK_COLOURS, DEFAULT_MARKS, type MarkColours, type Marks } from './marksModel';
 import { masterGuidesOn } from './masterGuides';
 import { masterFurniture } from './masterItems';
@@ -62,10 +63,21 @@ export interface SpreadCanvasProps {
 	/** An address to draw for each picture's asset path, once it has been read. */
 	images?: Record<string, string>;
 	onPageMenu?(at: { x: number; y: number }, point: { x: number; y: number }): void;
+	/** A frame was double-clicked: `true` when something took it, and it is not edited in place. */
+	onActivate?(id: string): boolean;
+	/** A line of grey words drawn in the middle of a box, for what can be done there; never printed. */
+	hint?: { box: { x: number; y: number; w: number; h: number }; text: string };
 	/** New words for a text frame, after it was edited in place. */
 	onEditText?(id: string, text: string): void;
 	/** A change to a table, from editing one of its cells. */
 	onEditTable?(id: string, edit: TableEdit): void;
+	/** A frame in a story was opened for editing: the story's words are edited as a whole, apart from the page. */
+	onEditStory?(flow: string, paragraph?: number): void;
+	/**
+	 * The paragraphs of a story from `from` on, as they were (`before`) and as the person has them
+	 * now (`after`), after the words of a frame of it were edited in place.
+	 */
+	onEditParagraphs?(flow: string, from: number, before: string[], after: string[]): void;
 	/** Underlines misspelt words in the editor, when spelling is on. */
 	speller?: Speller;
 	/** The cell being edited has changed: its row and column, or `null` when none is. */
@@ -247,7 +259,11 @@ export function SpreadCanvas({
 	onGuidePointerDown,
 	onGuideMenu,
 	guideDrag = null,
+	onActivate,
+	hint,
 	onEditText,
+	onEditStory,
+	onEditParagraphs,
 	onEditTable,
 	onEditingCell,
 	speller,
@@ -302,11 +318,43 @@ export function SpreadCanvas({
 			y: bounds.y + (event.clientY - (box?.top ?? 0)) / scale,
 		};
 	};
+	/** A paragraph of a story being edited over the frame it is in. */
+	const [storyEdit, setStoryEdit] = useState<{ frame: string; flow: string; from: number } | null>(
+		null,
+	);
+	/** The paragraphs of the stretch being edited as the book was last told them. */
+	const lastLines = useRef<string[]>([]);
 	const startEditing = (frame: Frame, at?: { x: number; y: number }) => {
+		if (onActivate?.(frame.id)) return;
 		if (frame.type === 'table') {
 			if (!onEditTable || frame.locked || frame.fromMaster) return;
 			const cell = at ? cellAt(frame, at) : { frame: frame.id, row: 0, col: 0 };
 			if (cell && cellText(frame, cell.row, cell.col) !== null) setEditing(cellId(cell));
+			return;
+		}
+		if (frame.type === 'text' && frame.flow && !frame.locked && !frame.fromMaster) {
+			const laid = byFrame.get(frame.id);
+			// The paragraph under the click: the line it fell on, else the nearest one, else the first
+			// the frame shows.
+			const y = at ? at.y - frame.box.y : 0;
+			const near = at
+				? laid?.lines.reduce<(typeof laid.lines)[number] | undefined>((best, line) => {
+						const gap = (l: typeof line) => Math.abs(y - (l.top + l.height / 2));
+						return best === undefined || gap(line) < gap(best) ? line : best;
+					}, undefined)
+				: undefined;
+			const para = near?.paragraph ?? laid?.firstParagraph ?? undefined;
+			// The whole of every paragraph the frame shows is edited together, one to a line.
+			const shown = laid?.lines.flatMap((l) => (l.paragraph == null ? [] : [l.paragraph])) ?? [];
+			const story = (book.flows ?? []).find((f) => f.id === frame.flow?.id);
+			if (onEditParagraphs && story && shown.length > 0) {
+				const from = Math.min(...shown);
+				const count = Math.max(...shown) - from + 1;
+				lastLines.current = boxOf(story.paragraphs, from, count).split('\n');
+				setStoryEdit({ frame: frame.id, flow: frame.flow.id, from });
+				return;
+			}
+			if (onEditStory) onEditStory(frame.flow.id, para ?? undefined);
 			return;
 		}
 		if (onEditText && (frame.type === 'text' || frame.type === 'shape') && canEditText(frame))
@@ -517,6 +565,20 @@ export function SpreadCanvas({
 							)}
 					</g>
 				))}
+				{hint && (
+					<text
+						data-testid="canvas-hint"
+						x={hint.box.x + hint.box.w / 2}
+						y={hint.box.y + hint.box.h / 2}
+						textAnchor="middle"
+						dominantBaseline="middle"
+						fontSize={6.5}
+						fill="#8a8f98"
+						pointerEvents="none"
+					>
+						{hint.text}
+					</text>
+				)}
 				{editable && (
 					<g role="listbox" aria-multiselectable="true" aria-label={label}>
 						{frames.map((frame) => (
@@ -729,6 +791,46 @@ export function SpreadCanvas({
 					}}
 				/>
 			)}
+			{storyEdit &&
+				(() => {
+					const host = spread.frames.find((f) => f.id === storyEdit.frame);
+					if (host?.type !== 'text') return null;
+					const keep = (text: string) => {
+						const after = linesOf(text);
+						const before = lastLines.current;
+						if (after.join('\n') === before.join('\n')) return;
+						onEditParagraphs?.(storyEdit.flow, storyEdit.from, before, after);
+						lastLines.current = after;
+					};
+					return (
+						<TextEditor
+							key={`${storyEdit.flow}:${storyEdit.from}`}
+							speller={speller}
+							frame={{
+								type: 'text',
+								box: host.box,
+								content: {
+									inline: [
+										{ text: lastLines.current.join('\n'), style: null, bold: false, italic: false },
+									],
+								},
+							}}
+							layout={byFrame.get(host.id)}
+							scale={scale}
+							rotation={host.rotation}
+							at={{
+								x: (host.box.x - bounds.x) * scale,
+								y: (host.box.y - bounds.y) * scale,
+							}}
+							onCheckpoint={keep}
+							onCommit={(text) => {
+								setStoryEdit(null);
+								if (text !== null) keep(text);
+								svg.current?.focus();
+							}}
+						/>
+					);
+				})()}
 			{editedFrame?.type === 'table' &&
 				editingCell &&
 				editingCell.row < editedFrame.rows.length &&

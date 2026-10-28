@@ -15,12 +15,13 @@ mod make;
 mod paints;
 mod paths;
 mod spec;
+pub mod templates;
 pub mod textures;
 
 pub use data::preset_styles;
 pub use data::{kind_infos, KindInfo, TrimChoice};
 pub use isbn::is_valid_isbn13;
-pub use make::{new_book, new_book_with_ids, NewBook};
+pub use make::{new_book, new_book_with_ids, random_id, NewBook};
 pub use paints::{paint_presets, GradientPreset, PaintPresets, Swatch};
 pub use paths::suggest_save_path;
 pub use spec::{Look, NewBookSpec, Paper, PresetError, Words};

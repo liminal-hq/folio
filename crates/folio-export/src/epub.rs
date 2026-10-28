@@ -310,6 +310,7 @@ fn css(book: &Book, families: &BTreeMap<String, Option<(String, bool)>>) -> Stri
             first_indent,
             space_before,
             space_after,
+            start,
             ..
         } = def;
         let mut rules = Vec::new();
@@ -324,6 +325,9 @@ fn css(book: &Book, families: &BTreeMap<String, Option<(String, bool)>>) -> Stri
         }
         if let Some(a) = align {
             rules.push(format!("text-align: {a}"));
+        }
+        if start.is_some() {
+            rules.push("page-break-before: always".into());
         }
         if let Some(indent) = first_indent {
             rules.push(format!("text-indent: {indent}em"));
