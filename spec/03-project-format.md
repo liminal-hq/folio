@@ -111,4 +111,5 @@ Try this · Wet a postcard-sized sheet edge to edge…
 
 - Unzipping a `.folio` gives you your words (`text/*.md`, or inline in `book.json`) and your original pictures (`assets/images/`). This is the sovereignty guarantee.
 - `folio export --format folder` writes the same tree unzipped, which is handy for Git.
+- Installed Debian and RPM packages identify `.folio` files as `application/vnd.liminal.folio+zip` and supply a folded-page icon carrying Folio's book mark. Windows NSIS and MSI installers register the same document artwork for Explorer. This document icon is separate from the application icon. Liminal HQ's shared AppImage workflow extracts the Debian package to inherit its MIME metadata and document icons; Tauri does not build the AppImage directly. A portable AppImage does not register this metadata with the host desktop by itself.
 - A thumbnailer for Linux (`folio-thumbnailer`, a `.thumbnailer` file + small binary) reads `thumbnails/cover.png`. Windows gets an `IThumbnailProvider` shell extension later.

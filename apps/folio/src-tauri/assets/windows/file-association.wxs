@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Register the document icon alongside Tauri's MSI file association -->
+<!-- (c) Copyright 2026 Liminal HQ, Scott Morris -->
+<!-- SPDX-License-Identifier: Apache-2.0 OR MIT -->
+<?if $(sys.BUILDARCH)="x86"?>
+	<?define FolioWin64 = "no" ?>
+<?else?>
+	<?define FolioWin64 = "yes" ?>
+<?endif?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+	<Fragment>
+		<DirectoryRef Id="INSTALLDIR">
+			<Component Id="FolioDocumentIcon" Guid="*" Win64="$(var.FolioWin64)">
+				<RegistryValue Root="HKLM" Key="Software\Classes\Folio.folio\DefaultIcon" Type="string" Value="&quot;[INSTALLDIR]file-icons\folio-document.ico&quot;,0" KeyPath="yes" />
+			</Component>
+		</DirectoryRef>
+	</Fragment>
+</Wix>

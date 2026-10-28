@@ -53,6 +53,8 @@ The copied chrome used Waypoint's `--wp-*` custom properties and `data-wp-theme`
 
 Bundle identifier `ca.liminalhq.folio`, which is also the name of the app's data and log directories. Product name Folio, publisher Liminal HQ, licence `Apache-2.0 OR MIT`.
 
+Saved books have a separate document icon: a folded paper sheet carrying Folio's book mark. Linux packages register the format's `application/vnd.liminal.folio+zip` MIME type and install its icons in `hicolor`; Windows installers assign a multiresolution ICO to the `Folio.folio` file class. Tauri's extension association remains the source of the open command, with small installer extensions supplying the document icon. Liminal HQ's shared AppImage workflow extracts the Debian package, inheriting its MIME metadata and document icons rather than configuring an AppImage target in Tauri. A portable AppImage still needs host desktop integration before it can register file types. See `docs/file-icons.md`.
+
 ## D-11 · Settings are Rust-owned and never in browser storage
 
 App-wide preferences (mode, theme, units, toolbar and sidebar layout, window geometry, recent books) live in a typed, versioned settings document owned by the `folio-settings` plugin, with a previous generation kept for recovery. `localStorage`, `sessionStorage` and IndexedDB are not used for app state. Per-book settings stay inside the `.folio` file.

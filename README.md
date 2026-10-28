@@ -21,6 +21,7 @@ Folio is a local-first book layout app for Linux and Windows 11. It sits somewhe
 - **From Word to Kindle, Kobo and print.** Bring in words from Word, Google Docs, ODT, Markdown or a paste, then export EPUB for Kindle and Kobo, KDP-ready interior and cover PDFs, PDF/X for print shops, and a share PDF — with fix-oriented preflight before every export.
 - **Covers that do the maths.** Spine width from page count and paper, barcode-safe areas, bleed and wrap for paperback, hardcover and dust jacket.
 - **Yours to keep.** A `.folio` file is an open zip of JSON, Markdown and your original pictures. Nothing leaves your computer unless you export it, and there is no account.
+- **Recognisable on your desktop.** Installed Linux packages and Windows installers give `.folio` books their own document icon in file explorers.
 - **Jax, if you want him.** An optional 3D otter companion gives gentle tips, a per-page checklist and offline "how do I…?" answers from a local model.
 
 ## Platforms

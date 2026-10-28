@@ -15,6 +15,7 @@
 		"tauri": "bun run --cwd apps/folio tauri",
 		"tauri:dev": "bun run --cwd apps/folio tauri:dev",
 		"build": "bun run --cwd apps/folio build",
+		"icons:files": "bash scripts/generate-file-icons.sh",
 		"typecheck": "bun run --cwd packages/chrome typecheck && bun run --cwd packages/ribbon typecheck && bun run --cwd apps/folio typecheck",
 		"test:js": "bun run --cwd packages/chrome test && bun run --cwd packages/ribbon test && bun run --cwd apps/folio test",
 		"test:js:ci": "bun run --cwd packages/chrome test:ci && bun run --cwd packages/ribbon test:ci && bun run --cwd apps/folio test:ci",
