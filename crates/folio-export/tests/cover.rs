@@ -362,3 +362,64 @@ fn the_blurb_follows_the_description_until_the_person_changes_the_words_in_it() 
     sync_blurb(&mut book, "Second words", "Third words");
     assert_eq!(text(&book).as_deref(), Some("My own words"));
 }
+
+/// The numbers before each `k` operator in a page's content: the cyan, magenta, yellow and black
+/// of every colour set in ink.
+fn ink_colours(doc: &Document) -> Vec<[f32; 4]> {
+    let page = *doc.get_pages().values().next().unwrap();
+    let content = doc.get_and_decode_page_content(page).unwrap();
+    content
+        .operations
+        .iter()
+        .filter(|op| op.operator == "k" && op.operands.len() == 4)
+        .map(|op| {
+            let n: Vec<f32> = op.operands.iter().map(|o| o.as_float().unwrap()).collect();
+            [n[0], n[1], n[2], n[3]]
+        })
+        .collect()
+}
+
+#[test]
+fn a_swatch_with_ink_prints_as_exactly_that_ink_and_one_without_is_separated() {
+    use folio_model::{BookSwatch, Colour, Ink, SwatchId};
+    let (mut book, styles) = sample(BookKind::Picture);
+    book.styles.swatches = vec![
+        BookSwatch {
+            id: SwatchId("brand".into()),
+            name: "Brand".into(),
+            display: Colour("#000000".into()),
+            ink: Some(Ink {
+                c: 20,
+                m: 100,
+                y: 80,
+                k: 10,
+            }),
+        },
+        BookSwatch {
+            id: SwatchId("plain".into()),
+            name: "Plain".into(),
+            display: Colour("#336699".into()),
+            ink: None,
+        },
+    ];
+    book.spreads[0].pages[0].bg = Some(folio_model::Background::Colour {
+        colour: Colour("swatch:brand".into()),
+    });
+    let doc = Document::load_mem(&cover_pdf(&book, &styles, Paper::White)).unwrap();
+    let near = |a: f32, b: f32| (a - b).abs() < 0.01;
+    // Twenty, a hundred, eighty and ten per cent of the plates, as the swatch says.
+    assert!(
+        ink_colours(&doc)
+            .iter()
+            .any(|c| near(c[0], 0.2) && near(c[1], 1.0) && near(c[2], 0.8) && near(c[3], 0.1)),
+        "{:?}",
+        ink_colours(&doc)
+    );
+    // A swatch without ink is separated from its display colour like any hex colour: a blue has
+    // cyan and little yellow.
+    book.spreads[0].pages[0].bg = Some(folio_model::Background::Colour {
+        colour: Colour("swatch:plain".into()),
+    });
+    let doc = Document::load_mem(&cover_pdf(&book, &styles, Paper::White)).unwrap();
+    assert!(ink_colours(&doc).iter().any(|c| c[0] > 0.4 && c[2] < c[0]));
+}
