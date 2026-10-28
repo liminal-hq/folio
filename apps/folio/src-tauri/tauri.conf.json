@@ -1,7 +1,7 @@
 {
 	"$schema": "https://schema.tauri.app/config/2",
 	"productName": "Folio",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"identifier": "ca.liminalhq.folio",
 	"build": {
 		"beforeDevCommand": "bun run dev",
@@ -17,6 +17,7 @@
 	},
 	"bundle": {
 		"active": true,
+		"createUpdaterArtifacts": true,
 		"targets": "all",
 		"icon": [
 			"icons/32x32.png",
@@ -30,6 +31,34 @@
 		"copyright": "Copyright 2026 Liminal HQ, Scott Morris",
 		"license": "Apache-2.0 OR MIT",
 		"category": "Productivity",
-		"shortDescription": "A local-first book layout app"
+		"shortDescription": "A local-first book layout app",
+		"longDescription": "Folio is a local-first book layout app for making print and ebook editions.",
+		"fileAssociations": [
+			{
+				"ext": ["folio"],
+				"name": "Folio book",
+				"description": "A Folio book project",
+				"mimeType": "application/x-folio",
+				"role": "Editor"
+			}
+		],
+		"linux": {
+			"deb": {
+				"desktopTemplate": "assets/folio.desktop"
+			},
+			"rpm": {
+				"desktopTemplate": "assets/folio.desktop"
+			}
+		}
+	},
+	"plugins": {
+		"updater": {
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEY5NDI2RjQ5NDUyNzJFQzMKUldURExpZEZTVzlDK1l1WThJMGF0d1U1TVVvVWhrYUhsRWRjOFhyYkRDdWhkd05vK2tXL0syRVIK",
+			"endpoints": ["https://github.com/liminal-hq/folio/releases/latest/download/latest.json"],
+			"requireSignedVersion": true,
+			"windows": {
+				"installMode": "passive"
+			}
+		}
 	}
 }

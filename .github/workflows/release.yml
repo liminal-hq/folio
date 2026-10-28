@@ -1,0 +1,212 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Optional release tag, for example v0.1.0
+        required: false
+        type: string
+      release_draft:
+        description: Create or keep the GitHub Release as a draft
+        required: false
+        default: false
+        type: boolean
+      release_prerelease:
+        description: Mark the GitHub Release as a prerelease
+        required: false
+        default: false
+        type: boolean
+      dry_run:
+        description: Build and stage artefacts without changing a GitHub Release
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  packages: read
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      draft: ${{ steps.release.outputs.draft }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+      dry_run: ${{ steps.release.outputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: release
+        env:
+          MANUAL_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${MANUAL_TAG}" ]]; then
+            tag="${MANUAL_TAG}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            tag="${GITHUB_REF_NAME}"
+          else
+            tag="v$(bash scripts/check-release-versions.sh --current-version)"
+          fi
+          [[ "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
+          git fetch origin main --tags
+          dry_run=false
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ inputs.dry_run }}" == "true" ]]; then dry_run=true; fi
+          if [[ "${dry_run}" == true ]]; then target="${GITHUB_SHA}"; else target="$(git rev-list -n 1 "${tag}")"; fi
+          git merge-base --is-ancestor "${target}" origin/main
+          git checkout --quiet "${target}"
+          version="$(bash scripts/check-release-versions.sh --current-version)"
+          [[ "v${version}" == "${tag}" ]]
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          draft=false
+          prerelease=false
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ inputs.release_draft }}" == "true" ]]; then draft=true; fi
+          # A prerelease tag always stays a prerelease; the manual flag can also opt a normal tag in.
+          if [[ "${tag}" == *-* ]] || [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ inputs.release_prerelease }}" == "true" ]]; then prerelease=true; fi
+          echo "draft=${draft}" >> "${GITHUB_OUTPUT}"
+          echo "prerelease=${prerelease}" >> "${GITHUB_OUTPUT}"
+          echo "dry_run=${dry_run}" >> "${GITHUB_OUTPUT}"
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          DRAFT: ${{ steps.release.outputs.draft }}
+          PRERELEASE: ${{ steps.release.outputs.prerelease }}
+          DRY_RUN: ${{ steps.release.outputs.dry_run }}
+        run: |
+          set -euo pipefail
+          [[ "${DRY_RUN}" == true ]] && exit 0
+          flags=()
+          [[ "${DRAFT}" == true ]] && flags+=(--draft)
+          [[ "${PRERELEASE}" == true ]] && flags+=(--prerelease)
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release edit "${TAG}" "${flags[@]}" --title "Folio ${TAG}"
+          else
+            gh release create "${TAG}" --generate-notes --title "Folio ${TAG}" "${flags[@]}"
+          fi
+
+  build-linux:
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Build natively: cross-compiling WebKitGTK bundles is not a supported release path.
+        include:
+          - runner: ubuntu-24.04
+            arch: x64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    container: ghcr.io/liminal-hq/tauri-ci-desktop:latest
+    env:
+      # The public key is committed in Tauri config; only CI receives the signing half of the pair.
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.FOLIO_TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.FOLIO_TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      - run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run release:version:check
+      - run: bun run tauri build --bundles deb,rpm
+      - name: Collect release assets
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets/linux
+          find target/release/bundle -type f \( -name '*.deb' -o -name '*.rpm' \) -exec cp {} release-assets/linux/ \;
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-release-assets-${{ matrix.arch }}
+          path: release-assets/linux/*
+          if-no-files-found: error
+
+  package-appimage:
+    name: AppImage (${{ matrix.arch }})
+    needs: [prepare, build-linux]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x64
+            deb-artifact: linux-release-assets-x64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+            deb-artifact: linux-release-assets-arm64
+    uses: liminal-hq/.github/.github/workflows/package-arch-appimage.yml@main
+    with:
+      runs-on: ${{ matrix.runner }}
+      deb-artifact-name: ${{ matrix.deb-artifact }}
+      app-version: ${{ needs.prepare.outputs.version }}
+    secrets: inherit
+
+  build-windows:
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows installers must be built on their target architecture for a supported updater payload.
+        include:
+          - runner: windows-latest
+            arch: x64
+          - runner: windows-11-arm
+            arch: arm64
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.FOLIO_TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.FOLIO_TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run release:version:check
+      - run: bun run tauri build --bundles msi,nsis
+      - name: Collect release assets
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets/windows
+          find target/release/bundle -type f \( -name '*.msi' -o -name '*.exe' \) -exec cp {} release-assets/windows/ \;
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-release-assets-${{ matrix.arch }}
+          path: release-assets/windows/*
+          if-no-files-found: error
+
+  publish:
+    needs: [prepare, build-linux, package-appimage, build-windows]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          # Each native matrix job supplies one architecture-specific directory.
+          pattern: 'linux-release-assets-*'
+          path: release-assets
+          merge-multiple: true
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: 'appimage-*'
+          path: release-assets
+          merge-multiple: true
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: 'windows-release-assets-*'
+          path: release-assets
+          merge-multiple: true
+      - run: (cd release-assets && sha256sum ./* > SHA256SUMS)
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
+        run: |
+          [[ "${DRY_RUN}" == true ]] && exit 0
+          gh release upload "${TAG}" release-assets/* --clobber

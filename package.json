@@ -1,7 +1,7 @@
 {
 	"name": "folio",
 	"private": true,
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"workspaces": [
 		"apps/*",
 		"packages/*",
@@ -29,7 +29,8 @@
 		"check:bindings": "bash scripts/check-bindings-drift.sh",
 		"bindings": "bash scripts/generate-protocol-bindings.sh",
 		"build:plugins": "bun run --cwd plugins/window-tearoff build && bun run --cwd plugins/window-effects build && bun run --cwd plugins/folio-settings build && bun run --cwd plugins/folio-books build",
-		"validate": "bun run format:check && bun run check:headers && bun run check:boundaries && bun run check:case && bun run check:storage && bun run check:licences && bun run check:bindings && bun run typecheck && bun run test:js && bun run build && cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings && bun run test:rust"
+		"validate": "bun run format:check && bun run check:headers && bun run check:boundaries && bun run check:case && bun run check:storage && bun run check:licences && bun run check:bindings && bun run typecheck && bun run test:js && bun run build && cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings && bun run test:rust",
+		"release:version:check": "bash scripts/check-release-versions.sh"
 	},
 	"devDependencies": {
 		"@rollup/plugin-typescript": "^12.1.4",
