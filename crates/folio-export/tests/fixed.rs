@@ -118,7 +118,7 @@ fn every_kind_of_book_makes_a_fixed_epub() {
 }
 
 #[test]
-fn a_word_is_one_span_with_the_space_after_it_and_a_line_is_one_box() {
+fn a_line_is_one_positioned_box_of_running_text_with_its_spaces_and_nothing_placed_inside_it() {
     let (_, bytes) = sample(BookKind::Picture);
     let (mut zip, names) = open(&bytes);
     let pages: String = names
@@ -126,22 +126,37 @@ fn a_word_is_one_span_with_the_space_after_it_and_a_line_is_one_box() {
         .filter(|n| n.contains("/text/page-"))
         .map(|n| read(&mut zip, n))
         .collect();
-    assert!(pages.contains("<div class=\"ln\""));
-    // The words of a line are separated in the text, not only by where they are placed.
-    let line = pages
+    let lines: Vec<&str> = pages
         .split("<div class=\"ln\"")
         .skip(1)
         .map(|l| l.split("</div>").next().unwrap_or(""))
-        .find(|l| l.matches("<span").count() > 1)
-        .expect("a line of more than one word");
-    let first_text = line
-        .split("</span>")
-        .next()
-        .unwrap()
-        .rsplit('>')
-        .next()
-        .unwrap();
-    assert!(first_text.ends_with(' '), "{first_text:?}");
+        .collect();
+    assert!(!lines.is_empty());
+    // Words are not each placed at a point, which a reader that sets them wider runs together.
+    assert!(lines
+        .iter()
+        .all(|l| !l.contains("left:") || l.starts_with(" style=\"position:absolute")));
+    assert!(lines
+        .iter()
+        .all(|l| l.matches("position:absolute").count() <= 1));
+    // The words of a line are in the text with spaces between them.
+    let spoken: Vec<String> = lines
+        .iter()
+        .map(|l| {
+            let mut text = String::new();
+            let mut tag = false;
+            for c in l.split_once('>').map_or("", |x| x.1).chars() {
+                match c {
+                    '<' => tag = true,
+                    '>' => tag = false,
+                    c if !tag => text.push(c),
+                    _ => {}
+                }
+            }
+            text
+        })
+        .collect();
+    assert!(spoken.iter().any(|t| t.trim().contains(' ')), "{spoken:?}");
 }
 
 #[test]

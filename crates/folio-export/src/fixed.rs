@@ -211,38 +211,44 @@ fn page_html(
                     if words.is_empty() {
                         continue;
                     }
-                    // A line is one box, and a reader that sets the words in a wider font than the
-                    // one the book was laid out in still has each word whole and the spaces between
-                    // them in the text.
+                    // A line is one positioned box with its words in it as running text, spaces
+                    // and all. A reader that sets a word wider than the book was laid out
+                    // moves the rest of the line along, where words each placed at a point would
+                    // run into each other (some readers also round every letter to whole
+                    // pixels), and a line that does not wrap cannot spill onto the next one.
                     inner.push_str(&format!(
-                        "<div class=\"ln\" style=\"position:absolute;left:{}px;top:{}px;width:{}px;height:{}px\">",
+                        "<div class=\"ln\" style=\"position:absolute;left:{}px;top:{}px;height:{}px;line-height:{}px\">",
                         px(line.x),
                         px(line.top),
-                        px(line.width),
+                        px(line.height),
                         px(line.height)
                     ));
+                    let mut open: Option<&Word> = None;
+                    let mut text = String::new();
+                    let flush = |inner: &mut String, word: Option<&Word>, text: &mut String| {
+                        if let Some(word) = word {
+                            inner.push_str(&format!(
+                                "<span style=\"{}\">{}</span>",
+                                word_style(word),
+                                esc(text)
+                            ));
+                        }
+                        text.clear();
+                    };
                     for (i, word) in words.iter().enumerate() {
-                        let spaced = words
+                        if open.is_some_and(|o| !o.same_style(word)) {
+                            flush(&mut inner, open, &mut text);
+                        }
+                        open = Some(word);
+                        text.push_str(&word.text);
+                        if words
                             .get(i + 1)
-                            .is_some_and(|next| next.x > word.end + 0.01);
-                        let text = if spaced {
-                            format!("{} ", word.text)
-                        } else {
-                            word.text.clone()
-                        };
-                        let style = format!(
-                            "position:absolute;left:{}px;top:0;white-space:pre;font-family:'{}';font-size:{}px;line-height:{}px;font-weight:{};font-style:{};letter-spacing:{}em;color:{}",
-                            px(word.x),
-                            esc(&word.family),
-                            px(word.size),
-                            px(line.height),
-                            word.weight,
-                            if word.italic { "italic" } else { "normal" },
-                            px(word.tracking),
-                            word.colour.as_ref().map_or("#1c1b20", |c| css_colour(c)),
-                        );
-                        inner.push_str(&format!("<span style=\"{style}\">{}</span>", esc(&text)));
+                            .is_some_and(|next| next.x > word.end + 0.01)
+                        {
+                            text.push(' ');
+                        }
                     }
+                    flush(&mut inner, open, &mut text);
                     inner.push_str("</div>\n");
                 }
                 inner.push_str("</div>\n");
@@ -269,6 +275,31 @@ struct Word {
     italic: bool,
     tracking: f64,
     colour: Option<Colour>,
+}
+
+impl Word {
+    /// Whether `other` is set in the same font, size, weight, style, tracking and colour.
+    fn same_style(&self, other: &Word) -> bool {
+        self.family == other.family
+            && self.size == other.size
+            && self.weight == other.weight
+            && self.italic == other.italic
+            && self.tracking == other.tracking
+            && self.colour == other.colour
+    }
+}
+
+/// The CSS for words set as `word` is.
+fn word_style(word: &Word) -> String {
+    format!(
+        "white-space:pre;font-family:'{}';font-size:{}px;font-weight:{};font-style:{};letter-spacing:{}em;color:{}",
+        esc(&word.family),
+        px(word.size),
+        word.weight,
+        if word.italic { "italic" } else { "normal" },
+        px(word.tracking),
+        word.colour.as_ref().map_or("#1c1b20", |c| css_colour(c)),
+    )
 }
 
 /// The words of a line. Pieces that touch and are set alike are one word; a hyphen drawn at the
