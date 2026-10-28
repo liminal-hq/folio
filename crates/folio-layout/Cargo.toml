@@ -16,7 +16,7 @@ hyphenation = { version = "0.8", default-features = false, features = ["embed_al
 rustybuzz = "0.20"
 serde = { workspace = true }
 serde_json = { workspace = true }
-sha2 = "0.10"
+sha2 = "0.11"
 thiserror = { workspace = true }
 ts-rs = { workspace = true }
 ttf-parser = "0.25"
