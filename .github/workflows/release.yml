@@ -244,12 +244,15 @@ jobs:
           merge-multiple: true
       - run: bash scripts/package-mcp.sh "${{ needs.prepare.outputs.version }}" mcp-binaries mcp-packages
       - run: npx --yes @anthropic-ai/mcpb@2.1.2 pack mcp-packages/mcpb "mcp-packages/folio-${{ needs.prepare.outputs.version }}.mcpb"
+      # One flat folder, so the release assets are files and nothing else.
+      - run: |
+          set -euo pipefail
+          mkdir mcp-assets
+          cp mcp-packages/npm/*.tgz mcp-packages/*.mcpb mcp-assets/
       - uses: actions/upload-artifact@v7
         with:
           name: mcp-packages
-          path: |
-            mcp-packages/npm/*.tgz
-            mcp-packages/*.mcpb
+          path: mcp-assets/*
           if-no-files-found: error
 
   publish:
@@ -337,6 +340,6 @@ jobs:
           set -euo pipefail
           tag=latest
           [[ "${PRERELEASE}" == true ]] && tag=next
-          for f in mcp-packages/npm/*-linux-*.tgz mcp-packages/npm/*-win32-*.tgz mcp-packages/npm/liminal-hq-folio-mcp-[0-9]*.tgz; do
+          for f in mcp-packages/*-linux-*.tgz mcp-packages/*-win32-*.tgz mcp-packages/liminal-hq-folio-mcp-[0-9]*.tgz; do
             npm publish "$f" --access public --tag "$tag"
           done
