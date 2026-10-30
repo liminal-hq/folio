@@ -76,6 +76,11 @@ fn the_package_says_the_pages_are_fixed_and_which_side_each_faces() {
     let (mut zip, _) = open(&bytes);
     let opf = read(&mut zip, "OEBPS/content.opf");
     assert!(opf.contains("<meta property=\"rendition:layout\">pre-paginated</meta>"));
+    assert!(opf.contains(&format!(
+        "<meta name=\"original-resolution\" content=\"{}x{}\"/>",
+        book.trim.w.0.round(),
+        book.trim.h.0.round()
+    )));
     assert!(opf.contains("rendition:spread"));
     assert!(opf.contains("page-spread-left") && opf.contains("page-spread-right"));
     assert!(opf.contains("properties=\"cover-image\""));
