@@ -35,6 +35,11 @@ log = { workspace = true }
 chrono = "0.4"
 tauri-plugin-updater = "2"
 
+[features]
+# Lets `FOLIO_UPDATE_ENDPOINT` name the update manifest, to try an update against a server of one's own.
+# Never on in a release build.
+update-endpoint-override = []
+
 [dev-dependencies]
 folio-presets = { path = "../../../crates/folio-presets" }
 tauri = { workspace = true, features = ["test"] }

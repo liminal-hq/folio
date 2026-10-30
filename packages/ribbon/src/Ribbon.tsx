@@ -11,6 +11,7 @@ import {
 	useState,
 	type FocusEvent,
 	type KeyboardEvent,
+	type ReactNode,
 } from 'react';
 import { defaultRibbonLabels, type RibbonLabels } from './labels';
 import styles from './Ribbon.module.css';
@@ -39,6 +40,8 @@ export interface RibbonProps {
 	density?: RibbonDensity;
 	showLabels?: boolean;
 	labels?: Partial<RibbonLabels>;
+	/** Shown at the right end, before the Easy and Expert switch. */
+	end?: ReactNode;
 }
 
 /** Splits items into columns of `perColumn` small buttons; large buttons and other controls stand alone. */
@@ -291,6 +294,7 @@ export function Ribbon(props: RibbonProps) {
 							{pinned ? labels.unpin : labels.pin}
 						</button>
 					)}
+					{props.end}
 					<RibbonModeSwitch
 						mode={mode}
 						labels={labels}

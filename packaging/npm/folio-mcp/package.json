@@ -29,6 +29,7 @@
 	"optionalDependencies": {
 		"@liminal-hq/folio-mcp-linux-x64": "0.1.0",
 		"@liminal-hq/folio-mcp-linux-arm64": "0.1.0",
-		"@liminal-hq/folio-mcp-win32-x64": "0.1.0"
+		"@liminal-hq/folio-mcp-win32-x64": "0.1.0",
+		"@liminal-hq/folio-mcp-win32-arm64": "0.1.0"
 	}
 }

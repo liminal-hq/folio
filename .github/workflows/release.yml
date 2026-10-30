@@ -118,12 +118,15 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run release:version:check
-      - run: bun run tauri build --bundles deb,rpm
+      # `tauri:bundle` builds `folio-mcp` for this machine and bundles it beside the app, which is
+      # where Connect an agent looks for it.
+      - run: bun run --cwd apps/folio tauri:bundle --bundles deb,rpm
       - name: Collect release assets
         run: |
           set -euo pipefail
           mkdir -p release-assets/linux
           find target/release/bundle -type f \( -name '*.deb' -o -name '*.rpm' \) -exec cp {} release-assets/linux/ \;
+          find target/release/bundle -type f \( -name '*.deb.sig' -o -name '*.rpm.sig' \) -exec cp {} release-assets/linux/ \;
       - uses: actions/upload-artifact@v7
         with:
           name: linux-release-assets-${{ matrix.arch }}
@@ -170,22 +173,88 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run release:version:check
-      - run: bun run tauri build --bundles msi,nsis
+        shell: bash
+      - run: bun run --cwd apps/folio tauri:bundle --bundles msi,nsis
+        shell: bash
       - name: Collect release assets
+        shell: bash
         run: |
           set -euo pipefail
           mkdir -p release-assets/windows
-          find target/release/bundle -type f \( -name '*.msi' -o -name '*.exe' \) -exec cp {} release-assets/windows/ \;
+          find target/release/bundle -type f \( -name '*.msi' -o -name '*.exe' -o -name '*.msi.sig' -o -name '*.exe.sig' \) -exec cp {} release-assets/windows/ \;
       - uses: actions/upload-artifact@v7
         with:
           name: windows-release-assets-${{ matrix.arch }}
           path: release-assets/windows/*
           if-no-files-found: error
 
-  publish:
-    needs: [prepare, build-linux, package-appimage, build-windows]
+  build-mcp:
+    name: folio-mcp (${{ matrix.platform }})
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux-x64
+            target: x86_64-unknown-linux-gnu
+            file: folio-mcp
+          - runner: ubuntu-24.04-arm
+            platform: linux-arm64
+            target: aarch64-unknown-linux-gnu
+            file: folio-mcp
+          - runner: windows-latest
+            platform: win32-x64
+            target: x86_64-pc-windows-msvc
+            file: folio-mcp.exe
+          - runner: windows-11-arm
+            platform: win32-arm64
+            target: aarch64-pc-windows-msvc
+            file: folio-mcp.exe
+    steps:
+      - uses: actions/checkout@v7
+      - run: cargo build --release --locked -p folio-mcp --target ${{ matrix.target }}
+      - name: Name the binary for its platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p mcp-binaries
+          ext=""
+          [[ "${{ matrix.file }}" == *.exe ]] && ext=".exe"
+          cp "target/${{ matrix.target }}/release/${{ matrix.file }}" "mcp-binaries/folio-mcp-${{ matrix.platform }}${ext}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mcp-binary-${{ matrix.platform }}
+          path: mcp-binaries/*
+          if-no-files-found: error
+
+  package-mcp:
+    name: npm packages and Claude Desktop bundle
+    needs: [prepare, build-mcp]
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: 'mcp-binary-*'
+          path: mcp-binaries
+          merge-multiple: true
+      - run: bash scripts/package-mcp.sh "${{ needs.prepare.outputs.version }}" mcp-binaries mcp-packages
+      - run: npx --yes @anthropic-ai/mcpb@2.1.2 pack mcp-packages/mcpb "mcp-packages/folio-${{ needs.prepare.outputs.version }}.mcpb"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mcp-packages
+          path: |
+            mcp-packages/npm/*.tgz
+            mcp-packages/*.mcpb
+          if-no-files-found: error
+
+  publish:
+    needs: [prepare, build-linux, package-appimage, build-windows, package-mcp]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           # Each native matrix job supplies one architecture-specific directory.
@@ -202,7 +271,39 @@ jobs:
           pattern: 'windows-release-assets-*'
           path: release-assets
           merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: mcp-packages
+          path: release-assets
+      # Tauri signs what it bundles; the AppImage was packed afterwards, so it is signed here.
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.FOLIO_TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.FOLIO_TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for f in release-assets/*.AppImage; do
+            bun run tauri signer sign "$f"
+          done
+      # The updater reads `latest.json` from the latest release; it lists the installers that have a
+      # signature (see `scripts/make-update-manifest.sh`).
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # The release's own notes are what the app shows; a dry run has no release yet.
+          notes="$(gh release view "${TAG}" --json body --jq .body 2>/dev/null || true)"
+          bash scripts/make-update-manifest.sh release-assets "${TAG}" "${{ github.repository }}" "${notes}"
       - run: (cd release-assets && sha256sum ./* > SHA256SUMS)
+      # A dry run publishes nothing, so keep what it staged to look at.
+      - if: needs.prepare.outputs.dry_run == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: staged-release-assets
+          path: release-assets/*
+          if-no-files-found: error
       - env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.prepare.outputs.tag }}
@@ -210,3 +311,29 @@ jobs:
         run: |
           [[ "${DRY_RUN}" == true ]] && exit 0
           gh release upload "${TAG}" release-assets/* --clobber
+
+  # Opt in with the repository variable PUBLISH_MCP_TO_NPM=true and an NPM_TOKEN secret. The platform
+  # packages go first so the launcher's dependencies exist when it is published.
+  publish-npm:
+    needs: [prepare, publish]
+    if: needs.prepare.outputs.dry_run != 'true' && needs.prepare.outputs.draft != 'true' && vars.PUBLISH_MCP_TO_NPM == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: mcp-packages
+          path: mcp-packages
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          tag=latest
+          [[ "${PRERELEASE}" == true ]] && tag=next
+          for f in mcp-packages/npm/*-linux-*.tgz mcp-packages/npm/*-win32-*.tgz mcp-packages/npm/liminal-hq-folio-mcp-[0-9]*.tgz; do
+            npm publish "$f" --access public --tag "$tag"
+          done

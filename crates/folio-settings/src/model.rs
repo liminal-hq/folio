@@ -110,6 +110,17 @@ impl Default for AutosaveSettings {
     }
 }
 
+/// Whether Folio looks for a newer version of itself on its own (D-50). A check asks github.com, so it
+/// is off until the person turns it on; `asked` records that they were offered the choice, so it is
+/// offered once.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct UpdateSettings {
+    pub automatic: bool,
+    pub asked: bool,
+}
+
 /// How often a copy is written by default, and the shortest and longest interval allowed.
 pub const AUTOSAVE_SECS_DEFAULT: u32 = 30;
 pub const AUTOSAVE_SECS_MIN: u32 = 5;
@@ -269,6 +280,7 @@ pub struct Settings {
     pub rulers: RulerSettings,
     pub spelling: SpellingSettings,
     pub autosave: AutosaveSettings,
+    pub updates: UpdateSettings,
     /// The paths of recently opened books, newest first.
     pub recent_books: Vec<String>,
 }
@@ -441,6 +453,19 @@ mod tests {
         assert_eq!(s.interface.toolbar, ToolbarLayout::Ribbon);
         assert_eq!(s.interface.sidebar_width, 292);
         assert!(s.validate().is_ok());
+    }
+
+    #[test]
+    fn updates_are_not_checked_for_until_the_person_says_so() {
+        let s = Settings::default();
+        assert!(!s.updates.automatic && !s.updates.asked);
+        let after = s
+            .patched(&json!({ "updates": { "automatic": true, "asked": true } }))
+            .unwrap();
+        assert!(after.updates.automatic && after.updates.asked);
+        // A settings file from before the section existed still loads.
+        let old: Settings = serde_json::from_value(json!({ "mode": "expert" })).unwrap();
+        assert_eq!(old.updates, UpdateSettings::default());
     }
 
     #[test]

@@ -58,6 +58,7 @@ export type CommandId =
 	| 'app.preferences'
 	| 'app.shortcuts'
 	| 'app.agents'
+	| 'app.updates'
 	| 'app.about'
 	| 'app.quit';
 
@@ -207,6 +208,7 @@ function helpItems(available: CommandAvailability): MenuItem[] {
 	return [
 		action('app.shortcuts', t('command.shortcuts'), <KeyboardIcon />, available, 'Ctrl+?'),
 		action('app.agents', t('command.agents'), <BookToolsIcon />, available),
+		action('app.updates', t('command.updates'), <AboutIcon />, available),
 		action('app.about', t('command.about'), <AboutIcon />, available),
 	];
 }

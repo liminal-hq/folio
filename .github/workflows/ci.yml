@@ -42,6 +42,8 @@ jobs:
       # Preferences and window state live in the settings plugin, never in browser storage.
       - name: Check for browser storage
         run: bash scripts/check-browser-storage.sh
+      - name: Test the update manifest script
+        run: bash scripts/test-make-update-manifest.sh
       # Every dependency is under a licence deny.toml allows (D-25).
       - uses: taiki-e/install-action@cargo-deny
       - name: Check dependency licences
@@ -138,6 +140,23 @@ jobs:
   windows-lint:
     name: Windows lint
     runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      # `bun run build` runs `tsc` first, so a module-name collision that only a case-insensitive file
+      # system sees fails here, before Cargo embeds a stale `dist`.
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - uses: Swatinem/rust-cache@v2
+      - name: Lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  # Windows on ARM builds its own installers, so the workspace has to compile and lint there too.
+  windows-arm-lint:
+    name: Windows ARM lint
+    runs-on: windows-11-arm
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2

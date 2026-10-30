@@ -13,7 +13,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const [platform, binary, out, version = '0.1.0'] = process.argv.slice(2);
-const known = ['linux-x64', 'linux-arm64', 'win32-x64'];
+const known = ['linux-x64', 'linux-arm64', 'win32-x64', 'win32-arm64'];
 if (!known.includes(platform) || !binary || !out) {
 	process.stderr.write(
 		`Usage: make-platform-package.js <${known.join('|')}> <binary> <out-dir> [version]\n`,

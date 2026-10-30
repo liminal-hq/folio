@@ -8,11 +8,12 @@ import type { Mode } from "./Mode";
 import type { RulerSettings } from "./RulerSettings";
 import type { SpellingSettings } from "./SpellingSettings";
 import type { Units } from "./Units";
+import type { UpdateSettings } from "./UpdateSettings";
 
 /**
  * The application settings: one document every window reads.
  */
-export type Settings = { mode: Mode, colourMode: ColourMode, units: Units, jax: JaxHelp, interface: InterfaceSettings, marks: MarksSettings, rulers: RulerSettings, spelling: SpellingSettings, autosave: AutosaveSettings, 
+export type Settings = { mode: Mode, colourMode: ColourMode, units: Units, jax: JaxHelp, interface: InterfaceSettings, marks: MarksSettings, rulers: RulerSettings, spelling: SpellingSettings, autosave: AutosaveSettings, updates: UpdateSettings, 
 /**
  * The paths of recently opened books, newest first.
  */

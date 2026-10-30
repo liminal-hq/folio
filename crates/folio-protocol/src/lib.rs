@@ -8,9 +8,11 @@
 mod agent;
 mod app_info;
 mod status;
+mod update;
 mod window;
 
 pub use agent::*;
 pub use app_info::*;
 pub use status::*;
+pub use update::*;
 pub use window::*;
