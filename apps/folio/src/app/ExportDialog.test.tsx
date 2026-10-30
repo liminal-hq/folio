@@ -93,6 +93,23 @@ describe('the Export dialog', () => {
 		expect(await screen.findByText('pip-fixed.epub')).toBeInTheDocument();
 	});
 
+	it('says where each file goes only when asked', async () => {
+		await setup();
+		await userEvent.click(
+			screen.getByRole('checkbox', { name: /Picture book \(fixed-layout EPUB\)/ }),
+		);
+		await userEvent.click(screen.getByRole('button', { name: 'Make files' }));
+		const files = await screen.findByRole('region', { name: 'The files that were made' });
+		expect(within(files).queryByText(/Upload this as the manuscript on Amazon KDP/)).toBeNull();
+		await userEvent.click(within(files).getByRole('button', { name: 'Where do these go?' }));
+		expect(
+			within(files).getByText(/Upload this as the manuscript on Amazon KDP/),
+		).toBeInTheDocument();
+		expect(within(files).getByText(/copy this file onto it/)).toBeInTheDocument();
+		await userEvent.click(within(files).getByRole('button', { name: 'Hide where these go' }));
+		expect(within(files).queryByText(/copy this file onto it/)).toBeNull();
+	});
+
 	it('cannot make nothing', async () => {
 		await setup();
 		await userEvent.click(screen.getByRole('checkbox', { name: /Sharing PDF/ }));
