@@ -29,6 +29,8 @@ files=(
 	"apps/folio/package.json:json"
 	"apps/folio/src-tauri/tauri.conf.json:json"
 	"apps/folio/src-tauri/Cargo.toml:toml"
+	"packaging/npm/folio-mcp/package.json:json"
+	"packaging/mcpb/manifest.json:json"
 )
 
 reference=""

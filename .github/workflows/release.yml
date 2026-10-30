@@ -188,8 +188,66 @@ jobs:
           path: release-assets/windows/*
           if-no-files-found: error
 
+  build-mcp:
+    name: folio-mcp (${{ matrix.platform }})
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux-x64
+            target: x86_64-unknown-linux-gnu
+            file: folio-mcp
+          - runner: ubuntu-24.04-arm
+            platform: linux-arm64
+            target: aarch64-unknown-linux-gnu
+            file: folio-mcp
+          - runner: windows-latest
+            platform: win32-x64
+            target: x86_64-pc-windows-msvc
+            file: folio-mcp.exe
+    steps:
+      - uses: actions/checkout@v7
+      - run: cargo build --release --locked -p folio-mcp --target ${{ matrix.target }}
+      - name: Name the binary for its platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p mcp-binaries
+          ext=""
+          [[ "${{ matrix.file }}" == *.exe ]] && ext=".exe"
+          cp "target/${{ matrix.target }}/release/${{ matrix.file }}" "mcp-binaries/folio-mcp-${{ matrix.platform }}${ext}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mcp-binary-${{ matrix.platform }}
+          path: mcp-binaries/*
+          if-no-files-found: error
+
+  package-mcp:
+    name: npm packages and Claude Desktop bundle
+    needs: [prepare, build-mcp]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: 'mcp-binary-*'
+          path: mcp-binaries
+          merge-multiple: true
+      - run: bash scripts/package-mcp.sh "${{ needs.prepare.outputs.version }}" mcp-binaries mcp-packages
+      - run: npx --yes @anthropic-ai/mcpb@2.1.2 pack mcp-packages/mcpb "mcp-packages/folio-${{ needs.prepare.outputs.version }}.mcpb"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mcp-packages
+          path: |
+            mcp-packages/npm/*.tgz
+            mcp-packages/*.mcpb
+          if-no-files-found: error
+
   publish:
-    needs: [prepare, build-linux, package-appimage, build-windows]
+    needs: [prepare, build-linux, package-appimage, build-windows, package-mcp]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -209,6 +267,10 @@ jobs:
           pattern: 'windows-release-assets-*'
           path: release-assets
           merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: mcp-packages
+          path: release-assets
       # The updater reads `latest.json` from the latest release; it lists the installers that have a
       # signature (see `scripts/make-update-manifest.sh`).
       - run: bash scripts/make-update-manifest.sh release-assets "${{ needs.prepare.outputs.tag }}" "${{ github.repository }}"
@@ -227,3 +289,29 @@ jobs:
         run: |
           [[ "${DRY_RUN}" == true ]] && exit 0
           gh release upload "${TAG}" release-assets/* --clobber
+
+  # Opt in with the repository variable PUBLISH_MCP_TO_NPM=true and an NPM_TOKEN secret. The platform
+  # packages go first so the launcher's dependencies exist when it is published.
+  publish-npm:
+    needs: [prepare, publish]
+    if: needs.prepare.outputs.dry_run != 'true' && needs.prepare.outputs.draft != 'true' && vars.PUBLISH_MCP_TO_NPM == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: mcp-packages
+          path: mcp-packages
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          tag=latest
+          [[ "${PRERELEASE}" == true ]] && tag=next
+          for f in mcp-packages/npm/*-linux-*.tgz mcp-packages/npm/*-win32-*.tgz mcp-packages/npm/liminal-hq-folio-mcp-[0-9]*.tgz; do
+            npm publish "$f" --access public --tag "$tag"
+          done
