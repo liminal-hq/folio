@@ -286,7 +286,8 @@ jobs:
         run: |
           set -euo pipefail
           for f in release-assets/*.AppImage; do
-            bun run tauri signer sign "$f"
+            # `bun run --cwd` changes directory, so the path has to be absolute.
+            bun run tauri signer sign "${GITHUB_WORKSPACE}/${f}"
           done
       # The updater reads `latest.json` from the latest release; it lists the installers that have a
       # signature (see `scripts/make-update-manifest.sh`).
