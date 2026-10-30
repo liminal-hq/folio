@@ -10,9 +10,10 @@ import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportRe
 import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
 import { useEffect, useRef, useState } from 'react';
 import type { BooksClient } from '../books/booksClient';
-import { t } from '../i18n/messages';
+import { t, type MessageKey } from '../i18n/messages';
 import styles from './ExportDialog.module.css';
 import { EXPORT_TARGETS } from './exportTargets';
+import { whereItGoes } from './uploadGuide';
 
 const targetName = (id: ExportTarget) =>
 	EXPORT_TARGETS.find((target) => target.id === id)?.name ?? 'export.title';
@@ -57,6 +58,7 @@ export function ExportDialog({
 	const [reached, setReached] = useState<ExportProgress | null>(null);
 	const [cmyk, setCmyk] = useState(false);
 	const [profile, setProfile] = useState('');
+	const [showWhere, setShowWhere] = useState(false);
 
 	const run = (targets: ExportTarget[]) => {
 		if (targets.length === 0) return;
@@ -202,6 +204,11 @@ export function ExportDialog({
 								<span className={styles.fileText}>
 									<span className={styles.fileName}>{fileName(file.path)}</span>
 									<span className={styles.fileSize}>{size(file.bytes)}</span>
+									{showWhere && whereItGoes(fileName(file.path)) && (
+										<span className={styles.fileWhere}>
+											{t(whereItGoes(fileName(file.path)) as MessageKey)}
+										</span>
+									)}
 								</span>
 								<button
 									type="button"
@@ -213,6 +220,14 @@ export function ExportDialog({
 							</li>
 						))}
 					</ul>
+					<button
+						type="button"
+						className={styles.show}
+						aria-expanded={showWhere}
+						onClick={() => setShowWhere((on) => !on)}
+					>
+						{t(showWhere ? 'export.where.hide' : 'export.where.show')}
+					</button>
 					<p className={styles.where}>{stage.report.folder}</p>
 				</section>
 			) : (

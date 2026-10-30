@@ -77,7 +77,12 @@ impl Target {
             Self::KdpCover => vec![format!("{slug}-paperback-cover.pdf")],
             Self::EbookCover => vec![format!("{slug}-ebook-cover.jpg")],
             Self::KindleEpub => vec![format!("{slug}-kindle.epub")],
-            Self::FixedEpub => vec![format!("{slug}-fixed.epub")],
+            // The same book twice: a Kobo picks its renderer for a sideloaded file by the name, and only
+            // the `.fxl.kepub.epub` one is its fixed-layout renderer.
+            Self::FixedEpub => vec![
+                format!("{slug}-fixed.epub"),
+                format!("{slug}-fixed.fxl.kepub.epub"),
+            ],
             Self::KoboEpub => vec![format!("{slug}.epub"), format!("{slug}.kepub.epub")],
         }
     }
@@ -155,7 +160,10 @@ pub fn export_target(
             vec![page_to_jpeg(&scene, fonts, assets, 1600, 2560)?]
         }
         Target::KindleEpub => vec![epub(EpubFlavour::Standard)?],
-        Target::FixedEpub => vec![export_fixed_epub(book, styles, fonts, assets)?],
+        Target::FixedEpub => {
+            let fixed = export_fixed_epub(book, styles, fonts, assets)?;
+            vec![fixed.clone(), fixed]
+        }
         Target::KoboEpub => vec![epub(EpubFlavour::Standard)?, epub(EpubFlavour::Kobo)?],
     };
     Ok(names
@@ -192,7 +200,10 @@ mod tests {
             ["pip-paperback-interior.pdf"]
         );
         assert_eq!(Target::KindleEpub.file_names("Pip"), ["pip-kindle.epub"]);
-        assert_eq!(Target::FixedEpub.file_names("Pip"), ["pip-fixed.epub"]);
+        assert_eq!(
+            Target::FixedEpub.file_names("Pip"),
+            ["pip-fixed.epub", "pip-fixed.fxl.kepub.epub"]
+        );
         assert_eq!(
             Target::KdpCover.file_names("Pip"),
             ["pip-paperback-cover.pdf"]

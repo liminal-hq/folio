@@ -439,6 +439,28 @@ export const messages = {
 	'export.files': 'The files that were made',
 	'export.made': 'Your files are ready.',
 	'export.show': 'Show in folder',
+	'export.where.show': 'Where do these go?',
+	'export.where.hide': 'Hide where these go',
+	'export.where.kindleEpub':
+		'Upload this as the manuscript on Amazon KDP (Kindle eBook, Content). The cover goes in separately, from the cover picture.',
+	'export.where.fixedEpub':
+		'Upload this as the manuscript on Amazon KDP, or to Apple Books and other stores. It is the file for Kindle; Kobo readers want the file ending .fxl.kepub.epub.',
+	'export.where.fixedKobo':
+		'For a Kobo e-reader: connect it by cable and copy this file onto it. The name makes the Kobo show the pages as laid out. It is not the file to upload to a store.',
+	'export.where.koboEpub':
+		'Upload this to Kobo Writing Life as the book, with the cover picture as its cover.',
+	'export.where.kepub':
+		'For a Kobo e-reader: connect it by cable and copy this file onto it for faster page turns. Upload the plain .epub to Kobo Writing Life instead.',
+	'export.where.ebookCover':
+		'The cover for the store page, 1600 × 2560 pixels. Upload it on Amazon KDP (Kindle eBook Content, Book Cover) and on Kobo Writing Life.',
+	'export.where.kdpInterior':
+		'Upload this on Amazon KDP (Paperback Content, Manuscript), with “I will use my own cover” and the paperback cover file.',
+	'export.where.kdpCover':
+		'Upload this on Amazon KDP (Paperback Content, Book Cover) as a print-ready PDF cover.',
+	'export.where.printShop':
+		'Send this to a print shop that asks for PDF/X-4: every page with its bleed and crop marks.',
+	'export.where.sharing':
+		'To read on a screen or send to someone: it is not for a store or printer.',
 
 	// New book wizard
 	'wizard.steps': 'Steps',
