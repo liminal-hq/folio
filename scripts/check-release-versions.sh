@@ -49,7 +49,7 @@ for spec in "${files[@]}"; do
 	fi
 done
 
-if [[ "${mode}" == "--current-version" ]]; then
+if [[ "${mode}" == "current-version" ]]; then
 	printf '%s\n' "${reference}"
 else
 	echo "Release versions are synchronised at ${reference}."
