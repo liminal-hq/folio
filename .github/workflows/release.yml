@@ -275,9 +275,27 @@ jobs:
         with:
           name: mcp-packages
           path: release-assets
+      # Tauri signs what it bundles; the AppImage was packed afterwards, so it is signed here.
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.FOLIO_TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.FOLIO_TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for f in release-assets/*.AppImage; do
+            bun run tauri signer sign "$f"
+          done
       # The updater reads `latest.json` from the latest release; it lists the installers that have a
       # signature (see `scripts/make-update-manifest.sh`).
-      - run: bash scripts/make-update-manifest.sh release-assets "${{ needs.prepare.outputs.tag }}" "${{ github.repository }}"
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # The release's own notes are what the app shows; a dry run has no release yet.
+          notes="$(gh release view "${TAG}" --json body --jq .body 2>/dev/null || true)"
+          bash scripts/make-update-manifest.sh release-assets "${TAG}" "${{ github.repository }}" "${notes}"
       - run: (cd release-assets && sha256sum ./* > SHA256SUMS)
       # A dry run publishes nothing, so keep what it staged to look at.
       - if: needs.prepare.outputs.dry_run == 'true'
