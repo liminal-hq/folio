@@ -22,7 +22,7 @@ lopdf = "0.34"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
 tiny-skia = "0.12"
 ttf-parser = "0.25"
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip = { version = "4", default-features = false, features = ["deflate"] }
 unicode-segmentation = "1"
 
 [dev-dependencies]

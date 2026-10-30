@@ -15,5 +15,5 @@ pulldown-cmark = { version = "0.13", default-features = false }
 serde = { workspace = true }
 quick-xml = "0.37"
 thiserror = { workspace = true }
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip = { version = "4", default-features = false, features = ["deflate"] }
 ts-rs = { workspace = true }
