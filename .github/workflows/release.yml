@@ -92,6 +92,10 @@ jobs:
           if gh release view "${TAG}" >/dev/null 2>&1; then
             gh release edit "${TAG}" "${flags[@]}" --title "Folio ${TAG}"
           else
+            # The hand-written notes for this version lead the release, when there are any; GitHub
+            # appends its list of changes.
+            notes="docs/releases/${TAG#v}.md"
+            [[ -f "${notes}" ]] && flags+=(--notes-file "${notes}")
             gh release create "${TAG}" --generate-notes --title "Folio ${TAG}" "${flags[@]}"
           fi
 
