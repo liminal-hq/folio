@@ -150,3 +150,20 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Lint
         run: cargo clippy --workspace --all-targets -- -D warnings
+
+  # Windows on ARM builds its own installers, so the workspace has to compile and lint there too.
+  windows-arm-lint:
+    name: Windows ARM lint
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      # `bun run build` runs `tsc` first, so a module-name collision that only a case-insensitive file
+      # system sees fails here, before Cargo embeds a stale `dist`.
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - uses: Swatinem/rust-cache@v2
+      - name: Lint
+        run: cargo clippy --workspace --all-targets -- -D warnings

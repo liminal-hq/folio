@@ -14,6 +14,7 @@ const PLATFORMS = {
 	'linux-x64': '@liminal-hq/folio-mcp-linux-x64',
 	'linux-arm64': '@liminal-hq/folio-mcp-linux-arm64',
 	'win32-x64': '@liminal-hq/folio-mcp-win32-x64',
+	'win32-arm64': '@liminal-hq/folio-mcp-win32-arm64',
 };
 
 /** The binary to run: the one `FOLIO_MCP_BINARY` names, or the platform package's. */

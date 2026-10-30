@@ -208,6 +208,10 @@ jobs:
             platform: win32-x64
             target: x86_64-pc-windows-msvc
             file: folio-mcp.exe
+          - runner: windows-11-arm
+            platform: win32-arm64
+            target: aarch64-pc-windows-msvc
+            file: folio-mcp.exe
     steps:
       - uses: actions/checkout@v7
       - run: cargo build --release --locked -p folio-mcp --target ${{ matrix.target }}

@@ -6,7 +6,8 @@
 
 # Usage: scripts/package-mcp.sh <version> <binaries-dir> <out-dir>
 #
-# <binaries-dir> holds `folio-mcp-linux-x64`, `folio-mcp-linux-arm64` and `folio-mcp-win32-x64.exe`.
+# <binaries-dir> holds `folio-mcp-linux-x64`, `folio-mcp-linux-arm64`, `folio-mcp-win32-x64.exe` and
+# `folio-mcp-win32-arm64.exe`.
 # <out-dir> gets `npm/*.tgz`, one for each platform package and the launcher, in the order they must
 # be published (platforms first), and `mcpb/`, the bundle's files, ready for `mcpb pack`. Sources
 # under `packaging/` keep their development version; this sets the release's in copies.
@@ -24,9 +25,9 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 mkdir -p "$out/npm"
-for platform in linux-x64 linux-arm64 win32-x64; do
+for platform in linux-x64 linux-arm64 win32-x64 win32-arm64; do
   binary="$bins/folio-mcp-$platform"
-  if [ "$platform" = win32-x64 ]; then binary="$binary.exe"; fi
+  case "$platform" in win32-*) binary="$binary.exe" ;; esac
   node "$root/packaging/npm/make-platform-package.js" "$platform" "$binary" "$work/$platform" "$version"
   (cd "$work/$platform" && npm pack --silent --pack-destination "$out/npm" >/dev/null)
 done
@@ -37,6 +38,6 @@ jq --arg v "$version" '.version = $v | .optionalDependencies |= with_entries(.va
   "$root/packaging/npm/folio-mcp/package.json" >"$work/launcher/package.json"
 (cd "$work/launcher" && npm pack --silent --pack-destination "$out/npm" >/dev/null)
 
-bash "$root/packaging/mcpb/build.sh" "$bins/folio-mcp-linux-x64" "$bins/folio-mcp-win32-x64.exe" "$out/mcpb"
+bash "$root/packaging/mcpb/build.sh" "$bins" "$out/mcpb"
 jq --arg v "$version" '.version = $v' "$root/packaging/mcpb/manifest.json" >"$out/mcpb/manifest.json"
 echo "Packaged folio-mcp $version in $out"
