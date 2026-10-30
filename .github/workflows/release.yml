@@ -126,6 +126,7 @@ jobs:
           set -euo pipefail
           mkdir -p release-assets/linux
           find target/release/bundle -type f \( -name '*.deb' -o -name '*.rpm' \) -exec cp {} release-assets/linux/ \;
+          find target/release/bundle -type f \( -name '*.deb.sig' -o -name '*.rpm.sig' \) -exec cp {} release-assets/linux/ \;
       - uses: actions/upload-artifact@v7
         with:
           name: linux-release-assets-${{ matrix.arch }}
@@ -180,7 +181,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release-assets/windows
-          find target/release/bundle -type f \( -name '*.msi' -o -name '*.exe' \) -exec cp {} release-assets/windows/ \;
+          find target/release/bundle -type f \( -name '*.msi' -o -name '*.exe' -o -name '*.msi.sig' -o -name '*.exe.sig' \) -exec cp {} release-assets/windows/ \;
       - uses: actions/upload-artifact@v7
         with:
           name: windows-release-assets-${{ matrix.arch }}
@@ -191,6 +192,7 @@ jobs:
     needs: [prepare, build-linux, package-appimage, build-windows]
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           # Each native matrix job supplies one architecture-specific directory.
@@ -207,7 +209,17 @@ jobs:
           pattern: 'windows-release-assets-*'
           path: release-assets
           merge-multiple: true
+      # The updater reads `latest.json` from the latest release; it lists the installers that have a
+      # signature (see `scripts/make-update-manifest.sh`).
+      - run: bash scripts/make-update-manifest.sh release-assets "${{ needs.prepare.outputs.tag }}" "${{ github.repository }}"
       - run: (cd release-assets && sha256sum ./* > SHA256SUMS)
+      # A dry run publishes nothing, so keep what it staged to look at.
+      - if: needs.prepare.outputs.dry_run == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: staged-release-assets
+          path: release-assets/*
+          if-no-files-found: error
       - env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.prepare.outputs.tag }}
