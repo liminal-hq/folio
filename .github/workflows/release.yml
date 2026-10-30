@@ -186,18 +186,18 @@ jobs:
     needs: [prepare, build-linux, package-appimage, build-windows]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           # Each native matrix job supplies one architecture-specific directory.
           pattern: 'linux-release-assets-*'
           path: release-assets
           merge-multiple: true
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: 'appimage-*'
           path: release-assets
           merge-multiple: true
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: 'windows-release-assets-*'
           path: release-assets
