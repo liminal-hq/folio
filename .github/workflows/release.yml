@@ -118,7 +118,9 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run release:version:check
-      - run: bun run tauri build --bundles deb,rpm
+      # `tauri:bundle` builds `folio-mcp` for this machine and bundles it beside the app, which is
+      # where Connect an agent looks for it.
+      - run: bun run --cwd apps/folio tauri:bundle --bundles deb,rpm
       - name: Collect release assets
         run: |
           set -euo pipefail
@@ -170,8 +172,11 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run release:version:check
-      - run: bun run tauri build --bundles msi,nsis
+        shell: bash
+      - run: bun run --cwd apps/folio tauri:bundle --bundles msi,nsis
+        shell: bash
       - name: Collect release assets
+        shell: bash
         run: |
           set -euo pipefail
           mkdir -p release-assets/windows
