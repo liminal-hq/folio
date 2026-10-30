@@ -6,7 +6,7 @@
 folio/
 ├─ apps/folio/                 # Tauri app (React + TS, Vite)
 │  ├─ src/                     # UI: editor, shelf, inspector, export, welcome, jax
-│  └─ src-tauri/               # thin shell: commands, window setup, menus, plugins
+│  └─ src-tauri/               # thin shell: commands, window setup, menus, plugins, the update check (`updates.rs`, D-50)
 ├─ crates/
 │  ├─ folio-model/             # document model (serde), units, ids, migrations — no IO
 │  ├─ folio-package/           # .folio zip read/write, manifest, a recovery copy of a book beside its file

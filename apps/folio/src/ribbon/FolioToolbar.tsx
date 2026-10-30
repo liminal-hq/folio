@@ -10,6 +10,8 @@ import type { RibbonCommand } from '@liminal-hq/folio-ribbon/types';
 import type { CommandId } from '../commands/appMenuModel';
 import { t } from '../i18n/messages';
 import { useSettings, useUpdateSettings } from '../settings/useSettings';
+import { UpdateChip } from '../app/UpdateChip';
+import { tauriUpdateClient, type UpdateClient } from '../services/updateClient';
 import styles from './FolioToolbar.module.css';
 import type { EditorState } from './editorCommands';
 import { buildRibbonModel, buildToolbarModel } from './ribbonModel';
@@ -26,6 +28,8 @@ export interface FolioToolbarProps {
 	editor?: EditorState;
 	/** Runs a document control; answers whether it took the command. */
 	onEditorCommand?: (command: RibbonCommand) => boolean;
+	/** Where the update chip hears about updates. */
+	updateClient?: UpdateClient;
 }
 
 const NO_CONTEXTUAL: readonly string[] = [];
@@ -36,6 +40,7 @@ export function FolioToolbar({
 	contextual = NO_CONTEXTUAL,
 	editor,
 	onEditorCommand,
+	updateClient = tauriUpdateClient,
 }: FolioToolbarProps) {
 	const settings = useSettings();
 	const update = useUpdateSettings();
@@ -69,15 +74,18 @@ export function FolioToolbar({
 				labels={labels}
 				label={t('region.toolbar')}
 				end={
-					<button
-						type="button"
-						className={styles.export}
-						disabled={!available.has('file.export')}
-						title={available.has('file.export') ? undefined : t('ribbon.unavailable')}
-						onClick={() => void run('file.export')}
-					>
-						{t('ribbon.item.exportBook')}
-					</button>
+					<>
+						<UpdateChip client={updateClient} />
+						<button
+							type="button"
+							className={styles.export}
+							disabled={!available.has('file.export')}
+							title={available.has('file.export') ? undefined : t('ribbon.unavailable')}
+							onClick={() => void run('file.export')}
+						>
+							{t('ribbon.item.exportBook')}
+						</button>
+					</>
 				}
 			/>
 		);
@@ -89,6 +97,7 @@ export function FolioToolbar({
 			contextual={contextual}
 			onCommand={onCommand}
 			labels={labels}
+			end={<UpdateChip client={updateClient} />}
 		/>
 	);
 }

@@ -1,0 +1,21 @@
+.chip {
+	flex: none;
+	padding: 3px 10px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 999px;
+	background: var(--folio-bg-raised);
+	color: var(--folio-text-primary);
+	font: inherit;
+	font-size: 12px;
+	white-space: nowrap;
+	cursor: default;
+}
+
+button.chip:hover {
+	background: var(--folio-bg-hover);
+}
+
+button.chip:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: 2px;
+}

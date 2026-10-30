@@ -1,0 +1,45 @@
+.note {
+	margin: 8px 0;
+	color: var(--folio-text-secondary);
+}
+
+.ok {
+	margin: 8px 0;
+	color: var(--folio-text-primary);
+}
+
+.bad {
+	margin: 8px 0;
+	color: var(--folio-danger);
+}
+
+.notes {
+	max-block-size: 220px;
+	margin: 8px 0;
+	padding: 10px 12px;
+	overflow: auto;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 8px;
+	background: var(--folio-bg-raised);
+	font: inherit;
+	font-size: 13px;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.automatic {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	margin-block-start: 16px;
+}
+
+.automatic > span {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.automaticName {
+	font-weight: 600;
+}

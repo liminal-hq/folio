@@ -124,6 +124,13 @@ describe('Ribbon', () => {
 		expect(screen.getByRole('group', { name: 'Masters' })).toBeInTheDocument();
 	});
 
+	it('shows what the app puts at its right end, before the Easy and Expert switch', () => {
+		setup({ end: <button type="button">Update 0.2.0</button> });
+		const extra = screen.getByRole('button', { name: 'Update 0.2.0' });
+		const easy = screen.getByRole('radio', { name: /Easy/ });
+		expect(extra.compareDocumentPosition(easy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+	});
+
 	it('shows contextual tabs only when listed', () => {
 		const { rerender, onCommand } = setup();
 		expect(screen.queryByRole('tab', { name: 'Picture' })).toBeNull();

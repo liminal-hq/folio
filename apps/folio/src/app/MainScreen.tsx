@@ -15,6 +15,9 @@ import { AgentChip } from './AgentChip';
 import { AGENT_EVENT } from './agentRequest';
 import { ConnectAgentDialog } from './ConnectAgentDialog';
 import { tauriAgentClient, type AgentClient } from '../services/agentClient';
+import { UPDATE_EVENT } from './updateRequest';
+import { UpdateDialog } from './UpdateDialog';
+import { tauriUpdateClient, type UpdateClient } from '../services/updateClient';
 import { tauriAppInfoClient, type AppInfoClient } from '../services/appInfoClient';
 import { tauriCloseRequests, type CloseRequests } from '../services/closeRequests';
 import { useSettings } from '../settings/useSettings';
@@ -60,10 +63,12 @@ export function MainScreen({
 	client = tauriAppInfoClient,
 	closeRequests = tauriCloseRequests,
 	agentClient = tauriAgentClient,
+	updateClient = tauriUpdateClient,
 }: {
 	client?: AppInfoClient;
 	closeRequests?: CloseRequests;
 	agentClient?: AgentClient;
+	updateClient?: UpdateClient;
 }) {
 	const settings = useSettings();
 	const [agentsOpen, setAgentsOpen] = useState(false);
@@ -74,6 +79,19 @@ export function MainScreen({
 	}, []);
 	const { ask, dialog } = useCloseQuestion();
 	const { actions } = useBooks();
+	const [updates, setUpdates] = useState<{ open: boolean; check: boolean }>({
+		open: false,
+		check: false,
+	});
+	useEffect(() => {
+		const open = (event: Event) =>
+			setUpdates({
+				open: true,
+				check: (event as CustomEvent<{ check?: boolean }>).detail?.check === true,
+			});
+		window.addEventListener(UPDATE_EVENT, open);
+		return () => window.removeEventListener(UPDATE_EVENT, open);
+	}, []);
 	// Closing the window (the ✕, Alt+F4 or Quit) asks about every book with changes first.
 	useEffect(() => {
 		let stop: (() => void) | undefined;
@@ -167,6 +185,13 @@ export function MainScreen({
 			</div>
 			{dialog}
 			{recovery.dialog}
+			<UpdateDialog
+				open={updates.open}
+				onClose={() => setUpdates((u) => ({ ...u, open: false }))}
+				client={updateClient}
+				checkOnOpen={updates.check}
+				beforeInstall={async () => (await actions.closeAll(ask)) === 'done'}
+			/>
 			<ConnectAgentDialog
 				open={agentsOpen}
 				onClose={() => setAgentsOpen(false)}

@@ -238,6 +238,23 @@ function HelpPage() {
 	);
 }
 
+function UpdatesPage() {
+	const settings = useSettings();
+	const update = useUpdateSettings();
+	return (
+		<SettingsSection>
+			<SettingsGroup>
+				<ToggleRow
+					label={t('preferences.updates')}
+					description={t('preferences.updates.description')}
+					checked={settings.updates.automatic}
+					onChange={(automatic) => void update({ updates: { automatic, asked: true } })}
+				/>
+			</SettingsGroup>
+		</SettingsSection>
+	);
+}
+
 function sections(): SettingsSectionDef[] {
 	return [
 		{ id: 'interface', label: t('preferences.section.interface'), render: () => <InterfacePage /> },
@@ -253,6 +270,7 @@ function sections(): SettingsSectionDef[] {
 			render: () => <SpellingPage />,
 		},
 		{ id: 'saving', label: t('preferences.section.saving'), render: () => <SavingPage /> },
+		{ id: 'updates', label: t('preferences.section.updates'), render: () => <UpdatesPage /> },
 		{ id: 'help', label: t('preferences.section.help'), render: () => <HelpPage /> },
 	];
 }
