@@ -85,6 +85,41 @@ fn companion() -> Option<PathBuf> {
     }))
 }
 
+/// Brings the copy of `folio-mcp` an AppImage keeps up to date with the one in this AppImage, so an
+/// agent program that was added earlier runs the version that goes with the app after Folio has
+/// updated. It only refreshes a copy that is already there: nothing is written for someone who has
+/// not connected an agent. Call once at start; it reads two programs, so it runs off the main thread.
+pub fn refresh_kept_copy() {
+    if std::env::var_os("APPIMAGE").is_none() {
+        return;
+    }
+    std::thread::spawn(|| {
+        let Some(at) = Places::here() else { return };
+        let dir = kept_dir(
+            &at.home,
+            std::env::var_os("XDG_DATA_HOME").map(PathBuf::from),
+        );
+        let Some(beside) = std::env::current_exe()
+            .ok()
+            .and_then(|exe| Some(exe.parent()?.join("folio-mcp")))
+            .filter(|p| p.is_file())
+        else {
+            return;
+        };
+        if let Err(e) = refresh(&beside, &dir) {
+            log::warn!("could not refresh the kept folio-mcp: {e}");
+        }
+    });
+}
+
+/// Makes the copy of `folio-mcp` in `dir` match `source`, if there is a copy there to begin with.
+fn refresh(source: &Path, dir: &Path) -> std::io::Result<()> {
+    if dir.join("folio-mcp").is_file() {
+        keep_copy(source, dir)?;
+    }
+    Ok(())
+}
+
 /// Where an AppImage keeps its copy of `folio-mcp`: the data folder, under the app's identifier.
 fn kept_dir(home: &Path, xdg_data: Option<PathBuf>) -> PathBuf {
     xdg_data
@@ -202,6 +237,22 @@ mod tests {
         assert_eq!(std::fs::read(&kept).unwrap(), b"two");
         // Nothing is left behind but the program.
         assert_eq!(std::fs::read_dir(&into).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn a_kept_copy_follows_the_app_but_none_is_made_for_someone_who_never_connected() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("folio-mcp-in-appimage");
+        let into = dir.path().join("bin");
+        std::fs::write(&source, b"new").unwrap();
+
+        refresh(&source, &into).unwrap();
+        assert!(!into.exists());
+
+        keep_copy(&source, &into).unwrap();
+        std::fs::write(&source, b"newer").unwrap();
+        refresh(&source, &into).unwrap();
+        assert_eq!(std::fs::read(into.join("folio-mcp")).unwrap(), b"newer");
     }
 
     #[cfg(unix)]
