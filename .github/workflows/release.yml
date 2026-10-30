@@ -122,6 +122,8 @@ jobs:
       # where Connect an agent looks for it.
       - run: bun run --cwd apps/folio tauri:bundle --bundles deb,rpm
       - name: Collect release assets
+        # The build container's default shell is `sh`, which has no `pipefail`.
+        shell: bash
         run: |
           set -euo pipefail
           mkdir -p release-assets/linux
