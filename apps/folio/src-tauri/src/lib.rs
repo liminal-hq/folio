@@ -9,6 +9,7 @@ mod com;
 mod recents;
 mod settings;
 mod storage;
+mod updates;
 mod windows;
 
 use folio_protocol::WindowKind;
@@ -65,6 +66,10 @@ pub fn run() {
             agent::agent_install,
             agent::agent_status,
             app_info::app_info,
+            updates::update_state,
+            updates::update_check,
+            updates::update_download,
+            updates::update_install,
             windows::open_window,
             windows::open_book_tools,
             windows::book_tools_area
@@ -73,6 +78,7 @@ pub fn run() {
             tauri::Manager::manage(app, windows::ToolsArea::default());
             recents::wire(app.handle());
             agent::serve(app.handle());
+            updates::watch(app.handle());
             windows::open_or_focus(app.handle(), WindowKind::Main)?;
             Ok(())
         });
