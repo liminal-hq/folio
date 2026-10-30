@@ -12,7 +12,18 @@
 
 Folio is a local-first book layout app for Linux and Windows 11. It sits somewhere between Scribus and a friendly word processor: in **Easy** mode, someone who has never heard of bleed can make a picture book and send it to Amazon KDP, and **Expert** mode exposes baseline grids, master pages, PDF/X and colour profiles.
 
-> **Status:** early development. The product specification and a design prototype are written, and the application is being scaffolded from the window outwards. There is nothing to download yet.
+> **Status:** early development. Version 0.1.0 is the first public release: it opens, lays out and exports books, but it is young. From this release a change to the book file format comes with a migration, so books made now keep opening; still, keep a copy of anything that matters.
+
+## Download
+
+Each release on [GitHub Releases](https://github.com/liminal-hq/folio/releases) has:
+
+- **Windows 11:** an installer (`…-setup.exe`) or `.msi`, for x64 and ARM64.
+- **Linux:** a `.deb`, an `.rpm`, or an `.AppImage` (make it executable and run it), for x64 and arm64.
+- **For AI agents:** `folio-0.1.0.mcpb`, a one-click bundle for Claude Desktop, and the `@liminal-hq/folio-mcp` npm package (see `packaging/README.md`).
+- `SHA256SUMS` to check the downloads.
+
+Folio only looks for a newer version when you ask it to (Help → Check for updates…) or turn on the check in Preferences → Updates.
 
 ## What Folio is for
 
