@@ -9,7 +9,7 @@
 // (D-45). Setting `FOLIO_AGENTS=off` leaves it closed.
 
 use std::io::ErrorKind;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use folio_mcp::install::{self, Client, Places, Target};
@@ -55,7 +55,9 @@ pub fn stop() {
     }
 }
 
-/// The `folio-mcp` program that goes with the app: beside it, as the bundle puts it.
+/// The `folio-mcp` program that goes with the app: beside it, as the bundle puts it. An AppImage
+/// runs from a mount that is gone once Folio quits, so an agent program is given a copy kept in the
+/// user's data folder instead.
 fn companion() -> Option<PathBuf> {
     let name = if cfg!(windows) {
         "folio-mcp.exe"
@@ -63,7 +65,53 @@ fn companion() -> Option<PathBuf> {
         "folio-mcp"
     };
     let beside = std::env::current_exe().ok()?.parent()?.join(name);
-    beside.is_file().then_some(beside)
+    if !beside.is_file() {
+        return None;
+    }
+    if std::env::var_os("APPIMAGE").is_none() {
+        return Some(beside);
+    }
+    let kept = Places::here()
+        .map(|at| {
+            kept_dir(
+                &at.home,
+                std::env::var_os("XDG_DATA_HOME").map(PathBuf::from),
+            )
+        })
+        .and_then(|dir| keep_copy(&beside, &dir).ok());
+    Some(kept.unwrap_or_else(|| {
+        log::warn!("could not keep a copy of folio-mcp outside the AppImage");
+        beside
+    }))
+}
+
+/// Where an AppImage keeps its copy of `folio-mcp`: the data folder, under the app's identifier.
+fn kept_dir(home: &Path, xdg_data: Option<PathBuf>) -> PathBuf {
+    xdg_data
+        .filter(|d| d.is_absolute())
+        .unwrap_or_else(|| home.join(".local/share"))
+        .join("ca.liminalhq.folio/bin")
+}
+
+/// Copies `source` into `dir` as `folio-mcp`, unless the copy there is already the same, and says
+/// where it is. The copy is written beside its place and renamed over it, so an agent program that
+/// is running it never sees half a file.
+fn keep_copy(source: &Path, dir: &Path) -> std::io::Result<PathBuf> {
+    let target = dir.join("folio-mcp");
+    let bytes = std::fs::read(source)?;
+    if std::fs::read(&target).is_ok_and(|kept| kept == bytes) {
+        return Ok(target);
+    }
+    std::fs::create_dir_all(dir)?;
+    let partial = dir.join(".folio-mcp.partial");
+    std::fs::write(&partial, &bytes)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&partial, std::fs::Permissions::from_mode(0o755))?;
+    }
+    std::fs::rename(&partial, &target)?;
+    Ok(target)
 }
 
 /// What the Connect an agent window shows: whether agents can reach the books, and the programs
@@ -114,5 +162,59 @@ pub async fn agent_install(program: String) -> Result<String, String> {
                 Err(String::from_utf8_lossy(&output.stderr).trim().to_owned())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_copy_goes_in_the_data_folder_under_the_app_identifier() {
+        let home = Path::new("/home/mom");
+        assert_eq!(
+            kept_dir(home, None),
+            Path::new("/home/mom/.local/share/ca.liminalhq.folio/bin")
+        );
+        assert_eq!(
+            kept_dir(home, Some("/data".into())),
+            Path::new("/data/ca.liminalhq.folio/bin")
+        );
+        // A relative XDG_DATA_HOME is ignored, as the specification says.
+        assert_eq!(
+            kept_dir(home, Some("data".into())),
+            Path::new("/home/mom/.local/share/ca.liminalhq.folio/bin")
+        );
+    }
+
+    #[test]
+    fn a_copy_is_kept_once_and_replaced_when_the_program_changes() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("mounted-folio-mcp");
+        let into = dir.path().join("data/bin");
+        std::fs::write(&source, b"one").unwrap();
+        let kept = keep_copy(&source, &into).unwrap();
+        assert_eq!(std::fs::read(&kept).unwrap(), b"one");
+        assert_eq!(keep_copy(&source, &into).unwrap(), kept);
+
+        std::fs::write(&source, b"two").unwrap();
+        keep_copy(&source, &into).unwrap();
+        assert_eq!(std::fs::read(&kept).unwrap(), b"two");
+        // Nothing is left behind but the program.
+        assert_eq!(std::fs::read_dir(&into).unwrap().count(), 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_kept_copy_can_be_run() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("folio-mcp");
+        std::fs::write(&source, b"program").unwrap();
+        let kept = keep_copy(&source, &dir.path().join("bin")).unwrap();
+        assert_eq!(
+            std::fs::metadata(kept).unwrap().permissions().mode() & 0o777,
+            0o755
+        );
     }
 }
