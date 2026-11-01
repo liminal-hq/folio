@@ -78,6 +78,7 @@ pub fn run() {
             tauri::Manager::manage(app, windows::ToolsArea::default());
             recents::wire(app.handle());
             agent::serve(app.handle());
+            agent::refresh_kept_copy();
             updates::watch(app.handle());
             windows::open_or_focus(app.handle(), WindowKind::Main)?;
             Ok(())
