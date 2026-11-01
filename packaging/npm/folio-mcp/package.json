@@ -1,6 +1,6 @@
 {
 	"name": "@liminal-hq/folio-mcp",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "An MCP server that lets an AI agent make, edit, check and export books in Folio",
 	"license": "Apache-2.0 OR MIT",
 	"repository": {

@@ -2,7 +2,7 @@
 	"manifest_version": "0.2",
 	"name": "folio",
 	"display_name": "Folio",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Make, edit, check and export books in Folio, the local-first book layout app.",
 	"long_description": "Lets Claude make a book, bring a manuscript in, change its pages, look at them, run preflight and export a PDF or EPUB. If Folio is open, Claude works on the book you have open and you can undo what it does.",
 	"author": {
