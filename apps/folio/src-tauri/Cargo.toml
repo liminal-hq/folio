@@ -34,6 +34,8 @@ serde_json = { workspace = true }
 log = { workspace = true }
 chrono = "0.4"
 tauri-plugin-updater = "2"
+# A second launch (a double-clicked book) goes to the running app instead of starting another.
+tauri-plugin-single-instance = "2"
 
 [features]
 # Lets `FOLIO_UPDATE_ENDPOINT` name the update manifest, to try an update against a server of one's own.
