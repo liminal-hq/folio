@@ -20,6 +20,8 @@ import { UpdateDialog } from './UpdateDialog';
 import { tauriUpdateClient, type UpdateClient } from '../services/updateClient';
 import { tauriAppInfoClient, type AppInfoClient } from '../services/appInfoClient';
 import { tauriCloseRequests, type CloseRequests } from '../services/closeRequests';
+import { tauriOpenFilesClient, type OpenFilesClient } from '../services/openFilesClient';
+import { useOpenFiles } from './useOpenFiles';
 import { useSettings } from '../settings/useSettings';
 import { WelcomeScreen } from '../welcome/WelcomeScreen';
 import { AppMenu } from './AppMenu';
@@ -64,11 +66,13 @@ export function MainScreen({
 	closeRequests = tauriCloseRequests,
 	agentClient = tauriAgentClient,
 	updateClient = tauriUpdateClient,
+	openFilesClient = tauriOpenFilesClient,
 }: {
 	client?: AppInfoClient;
 	closeRequests?: CloseRequests;
 	agentClient?: AgentClient;
 	updateClient?: UpdateClient;
+	openFilesClient?: OpenFilesClient;
 }) {
 	const settings = useSettings();
 	const [agentsOpen, setAgentsOpen] = useState(false);
@@ -107,6 +111,7 @@ export function MainScreen({
 	}, [closeRequests, actions, ask]);
 	const recovery = useRecoveryQuestion();
 	const menu = useAppMenu(ask, recovery.ask);
+	useOpenFiles(openFilesClient, menu.run);
 	useAutosave();
 	useBookKeys(menu.run);
 	const version = useAppVersion(client);
