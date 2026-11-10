@@ -9,6 +9,7 @@ import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
+import { cuttable } from '../clipboard/frameClipboard';
 import type { RulerUnit } from '@liminal-hq/folio-protocol/generated/RulerUnit';
 import { RULER_UNIT_ORDER } from '../canvas/rulerMath';
 import {
@@ -102,7 +103,8 @@ export type EditorAction =
 	| { kind: 'bookSize' }
 	| { kind: 'pageMargins' }
 	| { kind: 'cover' }
-	| { kind: 'link'; frame: string };
+	| { kind: 'link'; frame: string }
+	| { kind: 'clipboard'; op: 'copy' | 'cut' | 'paste' | 'pasteInPlace' };
 
 const ALIGNS: Record<string, 'left' | 'center' | 'right' | 'justify'> = {
 	alignL: 'left',
@@ -216,6 +218,9 @@ export function editorState(input: EditorInput): EditorState {
 		'marginsT',
 	]);
 	if (input.hasCover) available.add('cover');
+	// What is on the system clipboard cannot be read from here, so Paste is there whenever there is a page.
+	available.add('paste');
+	available.add('pasteSpecial');
 	if (input.jax) available.add('askJax');
 	const active: Record<string, boolean> = {
 		margins: marks.margins,
@@ -267,6 +272,8 @@ export function editorState(input: EditorInput): EditorState {
 		for (const id of Object.keys(ALIGN_CONTROLS)) available.add(id);
 	}
 	if (movable.length >= 3) for (const id of Object.keys(DISTRIBUTE_CONTROLS)) available.add(id);
+	if (selected.length > 0) available.add('copy');
+	if (cuttable(selected).length > 0) available.add('cut');
 	const words = texts(selected);
 	if (words.length > 0) {
 		for (const id of ['bold', 'italic', ...Object.keys(ALIGNS), 'size']) available.add(id);
@@ -326,6 +333,7 @@ export function editorState(input: EditorInput): EditorState {
 		['ribbon', t('ribbon.option.toolbar.ribbon')],
 		['classic', t('ribbon.option.toolbar.classic')],
 	];
+	options.pasteSpecial = [['inPlace', t('ribbon.option.paste.inPlace')]];
 	options.paragraphStyle = choices.map((c) => [c.id, c.name] as const);
 	if (input.fonts) options.font = fontOptions(input.fonts, input.fontsInUse ?? []);
 	return { available, active, values, texts: shown, options, contextual };
@@ -399,6 +407,12 @@ export function editorAction(
 			if (only?.type !== 'text' || only.locked || only.fromMaster || only.flow) return null;
 			return { kind: 'link', frame: only.id };
 		}
+		case 'copy':
+		case 'cut':
+		case 'paste':
+			return { kind: 'clipboard', op: id };
+		case 'pasteSpecial':
+			return value === 'inPlace' ? { kind: 'clipboard', op: 'pasteInPlace' } : null;
 		case 'askJax':
 			return { kind: 'jax' };
 		case 'baseline':

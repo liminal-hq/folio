@@ -740,3 +740,43 @@ describe('Link text', () => {
 		}
 	});
 });
+
+describe('the Home tab’s clipboard', () => {
+	it('always offers Paste, and Copy and Cut for a selection', () => {
+		const none = editorState(input()).available;
+		expect(none.has('paste')).toBe(true);
+		expect(none.has('pasteSpecial')).toBe(true);
+		expect(none.has('copy')).toBe(false);
+		expect(none.has('cut')).toBe(false);
+		const some = editorState(input([text()])).available;
+		expect(some.has('copy') && some.has('cut')).toBe(true);
+	});
+
+	it('cannot cut what is locked or a master’s, but can copy it', () => {
+		const locked = editorState(input([text({ locked: true })])).available;
+		expect(locked.has('copy')).toBe(true);
+		expect(locked.has('cut')).toBe(false);
+		const fromMaster = editorState(input([text({ fromMaster: 'mst_a' })])).available;
+		expect(fromMaster.has('copy')).toBe(true);
+		expect(fromMaster.has('cut')).toBe(false);
+		expect(editorState(input([text({ locked: true }), image()])).available.has('cut')).toBe(true);
+	});
+
+	it('asks for the clipboard, and for a paste in place from the Paste special menu', () => {
+		expect(editorAction('copy', undefined, input([text()]))).toEqual({
+			kind: 'clipboard',
+			op: 'copy',
+		});
+		expect(editorAction('cut', undefined, input([text()]))).toEqual({
+			kind: 'clipboard',
+			op: 'cut',
+		});
+		expect(editorAction('paste', undefined, input())).toEqual({ kind: 'clipboard', op: 'paste' });
+		expect(editorState(input()).options.pasteSpecial?.map(([id]) => id)).toEqual(['inPlace']);
+		expect(editorAction('pasteSpecial', 'inPlace', input())).toEqual({
+			kind: 'clipboard',
+			op: 'pasteInPlace',
+		});
+		expect(editorAction('pasteSpecial', 'nonsense', input())).toBeNull();
+	});
+});

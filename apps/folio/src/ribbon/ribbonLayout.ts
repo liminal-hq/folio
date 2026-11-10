@@ -32,6 +32,15 @@ export const RIBBON_LAYOUT: readonly LayoutTab[] = [
 		id: 'home',
 		groups: [
 			{
+				id: 'home.clipboard',
+				items: [
+					{ id: 'paste', large: true },
+					{ id: 'pasteSpecial', kind: 'menu', icon: 'paste' },
+					{ id: 'copy' },
+					{ id: 'cut' },
+				],
+			},
+			{
 				id: 'home.history',
 				items: [
 					{

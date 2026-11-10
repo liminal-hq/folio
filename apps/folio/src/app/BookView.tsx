@@ -660,6 +660,11 @@ export function BookView({
 				setSpreadIndex(0);
 				select([]);
 				break;
+			case 'clipboard':
+				if (action.op === 'copy') void clipboard.copy();
+				else if (action.op === 'cut') void clipboard.cut();
+				else clipboard.paste(action.op === 'pasteInPlace' ? { kind: 'inPlace' } : undefined);
+				break;
 			case 'link':
 				// The Properties group says to choose the box the words continue in.
 				setGroup('properties');

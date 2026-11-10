@@ -192,6 +192,19 @@ describe('the menus of the ribbon', () => {
 	});
 });
 
+describe('the Home tab', () => {
+	it('starts with the clipboard: a large Paste, Paste special below it, then Copy and Cut', () => {
+		const home = RIBBON_LAYOUT.find((tab) => tab.id === 'home')!;
+		expect(home.groups[0]!.id).toBe('home.clipboard');
+		expect(home.groups[0]!.items!.map((i) => [i.id, i.kind ?? 'button', !!i.large])).toEqual([
+			['paste', 'button', true],
+			['pasteSpecial', 'menu', false],
+			['copy', 'button', false],
+			['cut', 'button', false],
+		]);
+	});
+});
+
 describe('the Font list', () => {
 	it('carries the heading of each font through to the select', () => {
 		const editor = editorState({

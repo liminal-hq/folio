@@ -26,6 +26,8 @@ export const RIBBON_ICONS: Readonly<Record<string, string>> = {
 	chapter: 'M3 2.5h10M3 5.5h6M2 9.5h12M2 12.5h12',
 	check: 'M8 1.5a6.5 6.5 0 110 13 6.5 6.5 0 010-13zM5 8.2l2 2 4-4.2',
 	clear: 'M3 3.5h8M7 3.5L5 12.5M10 9l4 4M14 9l-4 4',
+	copy: 'M5.5 6.5a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1h-6a1 1 0 01-1-1zM10.5 3.5v-1a1 1 0 00-1-1h-7a1 1 0 00-1 1v7a1 1 0 001 1h1',
+	cut: 'M4 9.5a2 2 0 110 4 2 2 0 010-4zM12 9.5a2 2 0 110 4 2 2 0 010-4zM5.2 9.9L11 2M10.8 9.9L5 2',
 	colAdd: 'M2.5 2v12h4V2zM9.5 2v7M13.5 2v7M12 9.5v5M9.5 12h5',
 	colDel: 'M2.5 2v12h4V2zM9.5 2v7M13.5 2v7M9.5 12h5',
 	colour: 'M4 12L7.5 2.5h1L12 12M5.3 8.5h5.4M2.5 14.5h11',
@@ -81,6 +83,8 @@ export const RIBBON_ICONS: Readonly<Record<string, string>> = {
 		'M8 3c-2 0-3.5 1.5-3.5 3.5 0 1.5 1 2.5 2 2.5S8 8 8 7M8 3c2 0 3.5 1.5 3.5 3.5 0 1.5-1 2.5-2 2.5S8 8 8 7M8 7v6.5M5 13.5h6',
 	paraSpacing: 'M2 2.5h12M2 5h12M2 11h12M2 13.5h12M8 6.5v3.5',
 	print: 'M4.5 6V2h7v4M4.5 11.5H2V6h12v5.5h-2.5M4.5 9h7v5h-7z',
+	paste:
+		'M5 3H3.5a1 1 0 00-1 1v9.5a1 1 0 001 1h9a1 1 0 001-1V4a1 1 0 00-1-1H11M6 1.5h4a1 1 0 011 1v1a1 1 0 01-1 1H6a1 1 0 01-1-1v-1a1 1 0 011-1z',
 	punctuation:
 		'M2.5 5.5h3v3h-3zM5.5 5.5c0 2-.8 3.5-2.2 4.2M9.5 5.5h3v3h-3zM12.5 5.5c0 2-.8 3.5-2.2 4.2',
 	rect: 'M2.5 3.5h11v9h-11z',

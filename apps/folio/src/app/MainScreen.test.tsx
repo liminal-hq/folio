@@ -368,6 +368,28 @@ describe('a book in the main window', () => {
 		await waitFor(() => expect(applied('DeleteFrame')).toBeGreaterThan(before));
 	});
 
+	it('copies and pastes with the Home tab’s Clipboard buttons', async () => {
+		const { books } = setup();
+		await startBook();
+		await userEvent.click(
+			within(screen.getByRole('list', { name: 'Spreads' })).getAllByRole('button')[1]!,
+		);
+		const group = screen.getByRole('group', { name: 'Clipboard' });
+		expect(within(group).getByRole('button', { name: 'Copy' })).toBeDisabled();
+		expect(within(group).getByRole('button', { name: 'Paste' })).toBeEnabled();
+		const hits = () => Array.from(document.querySelectorAll('[data-hit]'));
+		await waitFor(() => expect(hits().length).toBeGreaterThan(0));
+		fireEvent.pointerDown(hits()[0]!, { button: 0, clientX: 10, clientY: 10 });
+		fireEvent.pointerUp(hits()[0]!, { button: 0, clientX: 10, clientY: 10 });
+		await userEvent.click(await within(group).findByRole('button', { name: 'Copy' }));
+		await userEvent.click(within(group).getByRole('button', { name: 'Paste' }));
+		const added = () => books.calls.filter((c) => c.includes('AddFrame')).length;
+		await waitFor(() => expect(added()).toBe(1));
+		await userEvent.click(within(group).getByRole('button', { name: 'Paste special' }));
+		await userEvent.click(await screen.findByRole('menuitem', { name: 'Paste in place' }));
+		await waitFor(() => expect(added()).toBe(2));
+	});
+
 	it('leaves copy, cut and paste to a field being typed in', async () => {
 		setup();
 		await startBook();
