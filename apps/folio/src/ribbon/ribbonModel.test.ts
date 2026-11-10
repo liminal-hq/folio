@@ -9,6 +9,8 @@ import type { CommandId } from '../commands/appMenuModel';
 import { messages } from '../i18n/messages';
 import type { Settings } from '@liminal-hq/folio-protocol/generated/Settings';
 import { DEFAULT_SETTINGS } from '../settings/fakeSettingsClient';
+import { DEFAULT_MARKS } from '../canvas/marksModel';
+import { editorState } from './editorCommands';
 import { RIBBON_ICONS } from './ribbonIcons';
 import { RIBBON_LAYOUT } from './ribbonLayout';
 import { RIBBON_COMMANDS, buildRibbonModel, buildToolbarModel } from './ribbonModel';
@@ -138,6 +140,52 @@ describe('buildRibbonModel', () => {
 			expect(item.label, item.id).not.toBe('');
 		}
 		expect(items.find((i) => i.id === 'text')?.size).toBe('large');
+	});
+});
+
+describe('the menus of the ribbon', () => {
+	it('gives the menus that are live their choices, so none opens empty', () => {
+		const editor = editorState({
+			spread: { id: 'sp', kind: 'spread', pages: [], frames: [], guides: [] } as never,
+			spreadIndex: 1,
+			spreadCount: 3,
+			selected: [],
+			layout: null,
+			choices: [],
+			marks: DEFAULT_MARKS,
+			snap: true,
+			rulers: false,
+			jax: true,
+		});
+		const items = allItems(
+			buildRibbonModel({ settings: DEFAULT_SETTINGS, available: none, editor }),
+		);
+		for (const id of ['rulerUnits', 'toolbarLayout', 'shapeMenu']) {
+			const item = items.find((i) => i.id === id);
+			expect(item?.kind, id).toBe('menu');
+			expect(item?.disabled, id).toBe(false);
+			expect(item?.options?.length, id).toBeGreaterThan(1);
+		}
+		expect(items.find((i) => i.id === 'rulerUnits')?.options).toContainEqual([
+			'millimetres',
+			'Millimetres',
+		]);
+		for (const id of ['baseline', 'columns', 'shape', 'askJax']) {
+			expect(items.find((i) => i.id === id)?.disabled, id).toBe(false);
+		}
+	});
+
+	it('opens Contents in Book tools, and leaves the unbuilt layouts unavailable', () => {
+		expect(RIBBON_COMMANDS.toc).toBe('tools.structure');
+		const items = allItems(
+			buildRibbonModel({
+				settings: DEFAULT_SETTINGS,
+				available: new Set<CommandId>(['tools.structure']),
+			}),
+		);
+		expect(items.find((i) => i.id === 'toc')?.disabled).toBe(false);
+		expect(items.find((i) => i.id === 'sidebarLayout')?.disabled).toBe(true);
+		expect(items.find((i) => i.id === 'importLayout')?.disabled).toBe(true);
 	});
 });
 

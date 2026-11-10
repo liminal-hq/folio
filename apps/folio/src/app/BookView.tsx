@@ -211,6 +211,7 @@ export function BookView({
 				snap,
 				rulers: rulers.on,
 				preview,
+				jax: settings.jax !== 'off',
 				master: master !== null,
 				cell: editingCell,
 				swatches: (book.styles?.swatches ?? []).map((s) => ({ id: s.id, name: s.name })),
@@ -228,6 +229,7 @@ export function BookView({
 			marks,
 			snap,
 			rulers.on,
+			settings.jax,
 			editingCell,
 			book.styles,
 		],
@@ -610,6 +612,15 @@ export function BookView({
 				break;
 			case 'exportBook':
 				setExporting({ quick: action.quick });
+				break;
+			case 'rulerUnit':
+				void update({ rulers: { units: action.unit } } as SettingsPatch);
+				break;
+			case 'toolbar':
+				void update({ interface: { toolbar: action.toolbar } } as SettingsPatch);
+				break;
+			case 'jax':
+				setJaxOpen((open) => !open);
 				break;
 			case 'editMaster': {
 				if (editing !== null) setEditing(null);

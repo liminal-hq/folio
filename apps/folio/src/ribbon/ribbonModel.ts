@@ -28,6 +28,7 @@ export const RIBBON_COMMANDS: Readonly<Record<string, CommandId>> = {
 	importText: 'file.importText',
 	zoomIn: 'view.zoomIn',
 	zoomOut: 'view.zoomOut',
+	toc: 'tools.structure',
 	menubar: 'view.menuBar',
 	ribbonToggle: 'view.ribbon',
 };
@@ -111,6 +112,10 @@ function toRibbonItem(
 			),
 		];
 		item.width = source.id === 'font' ? 150 : 130;
+	}
+	if (kind === 'menu') {
+		const choices = context.editor?.options[source.id];
+		if (choices) item.options = choices.map(([value, text]) => [value, text] as [string, string]);
 	}
 	if (source.id === 'size') Object.assign(item, { min: 4, max: 96, step: 1, defaultValue: 12 });
 	return item;

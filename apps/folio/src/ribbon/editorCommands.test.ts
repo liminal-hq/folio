@@ -526,3 +526,107 @@ describe('the text colour list', () => {
 		});
 	});
 });
+
+describe('the controls that were listed but never live', () => {
+	it('offers the six ruler units and sets the one chosen', () => {
+		const state = editorState(input());
+		expect(state.available.has('rulerUnits')).toBe(true);
+		expect(state.options.rulerUnits?.map(([unit]) => unit)).toEqual([
+			'inches',
+			'millimetres',
+			'centimetres',
+			'points',
+			'picas',
+			'pixels',
+		]);
+		expect(editorAction('rulerUnits', 'picas', input())).toEqual({
+			kind: 'rulerUnit',
+			unit: 'picas',
+		});
+		expect(editorAction('rulerUnits', 'cubits', input())).toBeNull();
+	});
+
+	it('toggles the baseline grid and the columns on their own, and shows them pressed', () => {
+		const state = editorState(input([], { marks: { ...DEFAULT_MARKS, baseline: true } }));
+		expect(state.available.has('baseline')).toBe(true);
+		expect(state.available.has('columns')).toBe(true);
+		expect(state.active.baseline).toBe(true);
+		expect(state.active.columns).toBe(DEFAULT_MARKS.columns);
+		expect(editorAction('baseline', true, input())).toEqual({
+			kind: 'marks',
+			marks: { baseline: !DEFAULT_MARKS.baseline },
+		});
+		expect(editorAction('columns', true, input())).toEqual({
+			kind: 'marks',
+			marks: { columns: !DEFAULT_MARKS.columns },
+		});
+	});
+
+	it('adds a note box from the Insert tab and a shape from the Shape menu', () => {
+		const state = editorState(input());
+		expect(state.available.has('shape')).toBe(true);
+		expect(editorAction('shape', undefined, input())).toEqual({ kind: 'add', shape: 'note' });
+		expect(state.options.shapeMenu?.map(([id]) => id)).toEqual([
+			'rect',
+			'round',
+			'ellipse',
+			'line',
+		]);
+		expect(editorAction('shapeMenu', 'ellipse', input())).toEqual({
+			kind: 'add',
+			shape: 'ellipse',
+		});
+		expect(editorAction('shapeMenu', 'star', input())).toBeNull();
+	});
+
+	it('switches the toolbar between the ribbon and the classic toolbar', () => {
+		const state = editorState(input());
+		expect(state.available.has('toolbarLayout')).toBe(true);
+		expect(state.options.toolbarLayout?.map(([id]) => id)).toEqual(['ribbon', 'classic']);
+		expect(editorAction('toolbarLayout', 'classic', input())).toEqual({
+			kind: 'toolbar',
+			toolbar: 'classic',
+		});
+		expect(editorAction('toolbarLayout', 'rail', input())).toBeNull();
+	});
+
+	it('asks Jax only while Jax is switched on', () => {
+		expect(editorState(input()).available.has('askJax')).toBe(false);
+		expect(editorState(input([], { jax: true })).available.has('askJax')).toBe(true);
+		expect(editorAction('askJax', undefined, input([], { jax: true }))).toEqual({ kind: 'jax' });
+	});
+
+	it('leaves the layouts that are not built, and the layout importer, unavailable', () => {
+		const state = editorState(input([text()], { jax: true }));
+		expect(state.available.has('sidebarLayout')).toBe(false);
+		expect(state.available.has('importLayout')).toBe(false);
+	});
+
+	it('sets the paragraph style of the free text frames selected', () => {
+		const choices = [
+			{ id: 'body', name: 'Body', size: 13 },
+			{ id: 'title', name: 'Title', size: 28 },
+		];
+		const state = editorState(input([text()], { choices }));
+		expect(state.available.has('paragraphStyle')).toBe(true);
+		expect(state.texts.paragraphStyle).toBe('body');
+		expect(state.options.paragraphStyle).toEqual([
+			['body', 'Body'],
+			['title', 'Title'],
+		]);
+		expect(
+			editorAction('paragraphStyle', 'title', input([text(), text({ id: 'u' })], { choices })),
+		).toEqual({
+			kind: 'intents',
+			intents: [
+				{ type: 'SetStyle', frame: 't', style: 'title' },
+				{ type: 'SetStyle', frame: 'u', style: 'title' },
+			],
+		});
+		expect(editorAction('paragraphStyle', '', input([text()], { choices }))).toBeNull();
+		expect(editorState(input([], { choices })).available.has('paragraphStyle')).toBe(false);
+		expect(
+			editorState(input([text({ locked: true })], { choices })).available.has('paragraphStyle'),
+		).toBe(false);
+	});
+});

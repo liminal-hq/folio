@@ -9,6 +9,8 @@ import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
+import type { RulerUnit } from '@liminal-hq/folio-protocol/generated/RulerUnit';
+import { RULER_UNIT_ORDER } from '../canvas/rulerMath';
 import type { TextSelection } from '../canvas/textSelection';
 import type { Marks } from '../canvas/marksModel';
 import { surfaceOf } from '../canvas/masterView';
@@ -41,6 +43,8 @@ export interface EditorInput {
 	swatches?: { id: string; name: string }[];
 	/** The words selected in the open text editor: bold, italic and the font apply to just those. */
 	selection?: TextSelection | null;
+	/** Whether Jax is switched on, which is what Ask Jax needs. */
+	jax?: boolean;
 }
 
 /** What the controls show: which can be used now, which are pressed, the numbers, the extra tabs. */
@@ -78,7 +82,10 @@ export type EditorAction =
 	| { kind: 'bookDetails' }
 	| { kind: 'exportBook'; quick: boolean }
 	| { kind: 'editMaster' }
-	| { kind: 'pageBackground' };
+	| { kind: 'pageBackground' }
+	| { kind: 'rulerUnit'; unit: RulerUnit }
+	| { kind: 'toolbar'; toolbar: 'ribbon' | 'classic' }
+	| { kind: 'jax' };
 
 const ALIGNS: Record<string, 'left' | 'center' | 'right' | 'justify'> = {
 	alignL: 'left',
@@ -129,6 +136,9 @@ const TEXT_COLOURS: ReadonlyArray<readonly [hex: string, name: MessageKey]> = [
 	['#ffffff', 'colour.white'],
 ];
 
+/** The shapes the Shape menu draws. */
+const SHAPE_CHOICES = ['rect', 'round', 'ellipse', 'line'] as const;
+
 const free = (frames: Frame[]) => frames.filter((f) => !f.locked && !f.fromMaster);
 
 export function editorState(input: EditorInput): EditorState {
@@ -157,10 +167,19 @@ export function editorState(input: EditorInput): EditorState {
 		'zoomIn',
 		'zoomOut',
 		'fit',
+		'shape',
+		'shapeMenu',
+		'rulerUnits',
+		'baseline',
+		'columns',
+		'toolbarLayout',
 	]);
+	if (input.jax) available.add('askJax');
 	const active: Record<string, boolean> = {
 		margins: marks.margins,
 		grid: marks.columns || marks.baseline,
+		baseline: marks.baseline,
+		columns: marks.columns,
 		bleed: marks.bleed,
 		guides: marks.frameEdges,
 		rulers: input.rulers,
@@ -212,6 +231,10 @@ export function editorState(input: EditorInput): EditorState {
 		available.add('font');
 		available.add('colour');
 		shown.font = first.overrides?.font ?? '';
+		if (choices.length > 0) {
+			available.add('paragraphStyle');
+			shown.paragraphStyle = first.style;
+		}
 	}
 	const only = selected.length === 1 ? selected[0]! : null;
 	if (only?.type === 'image') {
@@ -245,6 +268,13 @@ export function editorState(input: EditorInput): EditorState {
 		...TEXT_COLOURS.map(([hex, name]) => [hex, t(name)] as const),
 		...(input.swatches ?? []).map((s) => [`swatch:${s.id}`, s.name] as const),
 	];
+	options.rulerUnits = RULER_UNIT_ORDER.map((unit) => [unit, t(`ruler.unit.${unit}`)] as const);
+	options.shapeMenu = SHAPE_CHOICES.map((id) => [id, t(`ribbon.item.${id}`)] as const);
+	options.toolbarLayout = [
+		['ribbon', t('ribbon.option.toolbar.ribbon')],
+		['classic', t('ribbon.option.toolbar.classic')],
+	];
+	options.paragraphStyle = choices.map((c) => [c.id, c.name] as const);
 	if (input.fonts) options.font = input.fonts.map((f) => [f.family, f.family] as const);
 	return { available, active, values, texts: shown, options, contextual };
 }
@@ -294,6 +324,32 @@ export function editorAction(
 			return { kind: 'add', shape: id };
 		case 'bubble':
 			return { kind: 'add', shape: 'speech' };
+		case 'shape':
+			return { kind: 'add', shape: 'note' };
+		case 'shapeMenu': {
+			const shape = SHAPE_CHOICES.find((each) => each === value);
+			return shape ? { kind: 'add', shape } : null;
+		}
+		case 'rulerUnits': {
+			const unit = RULER_UNIT_ORDER.find((each) => each === value);
+			return unit ? { kind: 'rulerUnit', unit } : null;
+		}
+		case 'toolbarLayout':
+			return value === 'ribbon' || value === 'classic' ? { kind: 'toolbar', toolbar: value } : null;
+		case 'askJax':
+			return { kind: 'jax' };
+		case 'baseline':
+			return { kind: 'marks', marks: { baseline: !input.marks.baseline } };
+		case 'columns':
+			return { kind: 'marks', marks: { columns: !input.marks.columns } };
+		case 'paragraphStyle': {
+			// The list's first entry, the style a box already has, changes nothing.
+			if (typeof value !== 'string' || value === '') return null;
+			return {
+				kind: 'intents',
+				intents: texts(selected).map((f) => ({ type: 'SetStyle', frame: f.id, style: value })),
+			};
+		}
 		case 'addPage':
 			return { kind: 'page', op: 'add' };
 		case 'dupPage':

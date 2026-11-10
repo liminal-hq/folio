@@ -1140,6 +1140,8 @@ export const messages = {
 	'ribbon.group.home.add': 'Add',
 	'ribbon.item.shapeMenu': 'Shape',
 	'ribbon.item.bubble': 'Bubble',
+	'ribbon.option.toolbar.ribbon': 'Ribbon',
+	'ribbon.option.toolbar.classic': 'Classic toolbar',
 	'ribbon.value.paragraphStyle': 'Story text',
 	'ribbon.value.font': 'Style’s font',
 	'ribbon.value.colour': 'Colour from style',
