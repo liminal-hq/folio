@@ -69,6 +69,10 @@ describe('the app menu', () => {
 		expect(find(open, 'file.close')).toMatchObject({ disabled: false });
 		expect(find(open, 'edit.undo')).toMatchObject({ disabled: false });
 		expect(find(open, 'edit.redo')).toMatchObject({ disabled: true });
+		for (const id of ['edit.cut', 'edit.copy', 'edit.paste']) {
+			expect(find(open, id), id).toMatchObject({ disabled: false });
+			expect(find(closed, id) ?? null, id).toBeNull();
+		}
 		// New and Open work whatever is open; Export needs a book.
 		expect(find(closed, 'file.new')).toMatchObject({ disabled: false });
 		expect(find(closed, 'file.open')).toMatchObject({ disabled: false });

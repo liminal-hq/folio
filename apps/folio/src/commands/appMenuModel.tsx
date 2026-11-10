@@ -12,6 +12,9 @@ import {
 	AboutIcon,
 	BookToolsIcon,
 	CloseBookIcon,
+	CopyIcon,
+	CutIcon,
+	PasteIcon,
 	EditIcon,
 	ExpertIcon,
 	ExportIcon,
@@ -44,6 +47,9 @@ export type CommandId =
 	| 'file.close'
 	| 'file.saveAs'
 	| 'file.export'
+	| 'edit.cut'
+	| 'edit.copy'
+	| 'edit.paste'
 	| 'edit.undo'
 	| 'edit.redo'
 	| 'view.menuBar'
@@ -258,6 +264,10 @@ export function buildMenuBar(settings: Settings, available: CommandAvailability)
 			items: [
 				action('edit.undo', t('command.undo'), <UndoIcon />, available, 'Ctrl+Z'),
 				action('edit.redo', t('command.redo'), <RedoIcon />, available, 'Ctrl+Shift+Z'),
+				{ type: 'separator' },
+				action('edit.cut', t('command.cut'), <CutIcon />, available, 'Ctrl+X'),
+				action('edit.copy', t('command.copy'), <CopyIcon />, available, 'Ctrl+C'),
+				action('edit.paste', t('command.paste'), <PasteIcon />, available, 'Ctrl+V'),
 				{ type: 'separator' },
 				action(
 					'app.preferences',

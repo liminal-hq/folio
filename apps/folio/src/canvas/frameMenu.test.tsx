@@ -15,6 +15,19 @@ describe('frameMenuItems', () => {
 	it('gives every row an icon', () => {
 		expectEveryItemHasIcon(frameMenuItems([frame(false)]));
 	});
+	it('offers Cut, Copy and Paste first, and cannot cut what is locked', () => {
+		const free = frameMenuItems([frame(false)]);
+		expect(free.slice(0, 3).map((i) => i.id)).toEqual(['cut', 'copy', 'paste']);
+		expect(free[0]).toMatchObject({ shortcut: 'Ctrl+X' });
+		expect(free.find((i) => i.id === 'cut')).not.toHaveProperty('disabled', true);
+		expect(frameMenuItems([frame(true)]).find((i) => i.id === 'cut')).toMatchObject({
+			disabled: true,
+		});
+		expect(frameMenuItems([frame(true)]).find((i) => i.id === 'copy')).not.toHaveProperty(
+			'disabled',
+			true,
+		);
+	});
 	it('offers Lock for free frames and Unlock for locked ones, which cannot be deleted', () => {
 		const free = frameMenuItems([frame(false)]);
 		expect(free.map((i) => i.id)).toContain('lock');
@@ -35,6 +48,11 @@ describe('frameIntents', () => {
 		expect(frameIntents('unlock', { spread: 's' }, frame(true))).toEqual([
 			{ type: 'LockFrame', on: { spread: 's' }, frame: 'f', locked: false },
 		]);
+	});
+	it('leaves the clipboard commands to the book view, which has the frames together', () => {
+		for (const command of ['cut', 'copy', 'paste'] as const) {
+			expect(frameIntents(command, { spread: 's' }, frame(false))).toEqual([]);
+		}
 	});
 	it('does not delete a locked frame', () => {
 		expect(frameIntents('delete', { spread: 's' }, frame(true))).toEqual([]);

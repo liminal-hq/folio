@@ -316,6 +316,67 @@ describe('a book in the main window', () => {
 		expect(screen.getByRole('tab', { name: 'Properties', selected: true })).toBeInTheDocument();
 	});
 
+	it('copies, pastes and cuts the selected frames with the keys, without the webview’s own copy', async () => {
+		const { books } = setup();
+		await startBook();
+		await userEvent.click(
+			within(screen.getByRole('list', { name: 'Spreads' })).getAllByRole('button')[1]!,
+		);
+		const hits = () => Array.from(document.querySelectorAll('[data-hit]'));
+		await waitFor(() => expect(hits().length).toBeGreaterThan(0));
+		fireEvent.pointerDown(hits()[0]!, { button: 0, clientX: 10, clientY: 10 });
+		fireEvent.pointerUp(hits()[0]!, { button: 0, clientX: 10, clientY: 10 });
+		const applied = (type: string) =>
+			books.calls.filter((c) => c.startsWith('apply(') && c.includes(type)).length;
+
+		// Copy is the program’s, so the webview is not asked to copy.
+		expect(fireEvent.keyDown(document.body, { key: 'c', ctrlKey: true })).toBe(false);
+		expect(applied('AddFrame')).toBe(0);
+		// What the system clipboard then holds is the words of the copy, which is how a paste knows it.
+		const copied = await waitFor(async () => {
+			const words = await navigator.clipboard.readText();
+			expect(words).not.toBe('');
+			return words;
+		});
+		const holdingCopy = {
+			clipboardData: {
+				getData: (type: string) => (type === 'text/plain' ? copied : ''),
+				files: [],
+			},
+		};
+		fireEvent.paste(window, holdingCopy);
+		await waitFor(() => expect(applied('AddFrame')).toBe(1));
+		fireEvent.paste(window, holdingCopy);
+		await waitFor(() => expect(applied('AddFrame')).toBe(2));
+
+		// Words copied in another program are not taken for the frames.
+		fireEvent.paste(window, {
+			clipboardData: {
+				getData: (type: string) => (type === 'text/plain' ? 'Elsewhere' : ''),
+				files: [],
+				types: [],
+			},
+		});
+		expect(applied('AddFrame')).toBe(2);
+
+		// Cut copies and takes the frame off the page. (The fake book does not grow the pasted frames, so
+		// the first one is chosen again.)
+		fireEvent.pointerDown(hits()[0]!, { button: 0, clientX: 10, clientY: 10 });
+		fireEvent.pointerUp(hits()[0]!, { button: 0, clientX: 10, clientY: 10 });
+		const before = applied('DeleteFrame');
+		expect(fireEvent.keyDown(document.body, { key: 'x', ctrlKey: true })).toBe(false);
+		await waitFor(() => expect(applied('DeleteFrame')).toBeGreaterThan(before));
+	});
+
+	it('leaves copy, cut and paste to a field being typed in', async () => {
+		setup();
+		await startBook();
+		render(<input aria-label="Name" />);
+		const input = screen.getByLabelText('Name');
+		expect(fireEvent.keyDown(input, { key: 'c', ctrlKey: true })).toBe(true);
+		expect(fireEvent.keyDown(input, { key: 'x', ctrlKey: true })).toBe(true);
+	});
+
 	it('saves with Ctrl+S, asking where the first time', async () => {
 		setup({ save: '/books/Pip/Pip' });
 		await startBook();

@@ -24,6 +24,8 @@ export interface BookCommands {
 	exportBook(): Promise<void>;
 	/** Asks for a Markdown or text file and brings its words into the book being shown. */
 	importText(): Promise<void>;
+	/** Copies, cuts or pastes the page objects of the book being shown. */
+	clipboard(kind: 'copy' | 'cut' | 'paste'): void;
 }
 
 /** What a command needs from its window. */
@@ -70,9 +72,18 @@ export interface CommandState {
 export function availableCommands(state: CommandState): ReadonlySet<CommandId> {
 	const available = new Set<CommandId>(ALWAYS_AVAILABLE);
 	if (state.hasBook) {
-		(['file.save', 'file.saveAs', 'file.close', 'file.export', 'file.importText'] as const).forEach(
-			(id) => available.add(id),
-		);
+		(
+			[
+				'file.save',
+				'file.saveAs',
+				'file.close',
+				'file.export',
+				'file.importText',
+				'edit.cut',
+				'edit.copy',
+				'edit.paste',
+			] as const
+		).forEach((id) => available.add(id));
 	}
 	if (state.canUndo) available.add('edit.undo');
 	if (state.canRedo) available.add('edit.redo');
@@ -143,6 +154,12 @@ export async function runCommand(
 		case 'edit.redo':
 			keepWords(true);
 			return books.redo();
+		case 'edit.cut':
+			return books.clipboard('cut');
+		case 'edit.copy':
+			return books.clipboard('copy');
+		case 'edit.paste':
+			return books.clipboard('paste');
 		default:
 			return;
 	}

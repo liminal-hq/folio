@@ -13,7 +13,7 @@ import { shelfLabels } from '../books/shelfLabels';
 import type { OpenBookCopy } from '../books/booksStore';
 import { useBooks } from '../books/useBooks';
 import { backgroundAssets } from '../canvas/backgrounds';
-import { frameIntents } from '../canvas/frameMenu';
+import { CLIPBOARD_COMMANDS, frameIntents } from '../canvas/frameMenu';
 import { boxAt, newFrame, type NewFrameKind } from '../canvas/newFrames';
 import { spreadGeometry } from '../canvas/geometry';
 import { masterFurniture, pageAt } from '../canvas/masterItems';
@@ -32,6 +32,7 @@ import { ImportReportDialog, type ImportOutcome } from './ImportReportDialog';
 import { StoryEditorDialog } from '../story/StoryEditorDialog';
 import { rangeIntents } from '../story/rangeEdit';
 import { BookDetailsDialog } from './BookDetailsDialog';
+import { useFrameClipboard } from '../clipboard/useFrameClipboard';
 import { BarcodeDialog } from './BarcodeDialog';
 import { BookSizeDialog } from './BookSizeDialog';
 import { MarginsDialog } from './MarginsDialog';
@@ -306,6 +307,14 @@ export function BookView({
 		void store.apply({ type: 'EndUndoStep' });
 		void store.apply(intent);
 	};
+
+	const clipboard = useFrameClipboard({
+		active: preview === 'print',
+		selected,
+		surface,
+		apply,
+		select,
+	});
 
 	/** Puts a new frame of `kind` on the spread, centred on `point` (in points) or the first page. */
 	const addFrame = (kind: NewFrameKind, point?: { x: number; y: number }) => {
@@ -803,7 +812,8 @@ export function BookView({
 									addNote: 'note',
 								};
 								const kind = kinds[command];
-								if (kind) addFrame(kind, point);
+								if (command === 'paste') clipboard.paste({ kind: 'point', ...point });
+								else if (kind) addFrame(kind, point);
 								else if (command === 'pageBackground')
 									setBackground({ page: pageAt(book, spread, point) });
 								else if (command.startsWith('editMaster:'))
@@ -833,6 +843,12 @@ export function BookView({
 								}
 							}}
 							onCommand={(command, ids) => {
+								if (CLIPBOARD_COMMANDS.includes(command)) {
+									if (command === 'paste') clipboard.paste();
+									else if (command === 'copy') void clipboard.copy();
+									else void clipboard.cut();
+									return;
+								}
 								for (const frameId of ids) {
 									const target = spread.frames.find((f) => f.id === frameId);
 									if (!target) continue;

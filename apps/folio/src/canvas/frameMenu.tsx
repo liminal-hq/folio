@@ -9,7 +9,10 @@ import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { Surface } from '@liminal-hq/folio-protocol/generated/Surface';
 import {
 	BringToFrontIcon,
+	CopyIcon,
+	CutIcon,
 	DuplicateIcon,
+	PasteIcon,
 	LockIcon,
 	SendToBackIcon,
 	TrashIcon,
@@ -17,12 +20,40 @@ import {
 } from '../icons/AppIcons';
 import { t } from '../i18n/messages';
 
-export type FrameCommand = 'duplicate' | 'front' | 'back' | 'lock' | 'unlock' | 'delete';
+export type FrameCommand =
+	'cut' | 'copy' | 'paste' | 'duplicate' | 'front' | 'back' | 'lock' | 'unlock' | 'delete';
+
+/** The commands that act on the clipboard, which the book view answers, not the frames one by one. */
+export const CLIPBOARD_COMMANDS: readonly FrameCommand[] = ['cut', 'copy', 'paste'];
 
 /** The rows of the menu for the selected `frames` (the one pressed, or all of them). */
 export function frameMenuItems(frames: Frame[]): MenuItem[] {
 	const allLocked = frames.every((f) => f.locked);
 	return [
+		{
+			type: 'action',
+			id: 'cut',
+			label: t('command.cut'),
+			shortcut: 'Ctrl+X',
+			icon: <CutIcon />,
+			// A locked frame cannot come off the page, so there is nothing to cut.
+			disabled: allLocked,
+		},
+		{
+			type: 'action',
+			id: 'copy',
+			label: t('command.copy'),
+			shortcut: 'Ctrl+C',
+			icon: <CopyIcon />,
+		},
+		{
+			type: 'action',
+			id: 'paste',
+			label: t('command.paste'),
+			shortcut: 'Ctrl+V',
+			icon: <PasteIcon />,
+		},
+		{ type: 'separator' },
 		{
 			type: 'action',
 			id: 'duplicate',
@@ -55,6 +86,10 @@ export function frameMenuItems(frames: Frame[]): MenuItem[] {
 export function frameIntents(command: FrameCommand, surface: Surface, frame: Frame): Intent[] {
 	const on = { on: surface, frame: frame.id };
 	switch (command) {
+		case 'cut':
+		case 'copy':
+		case 'paste':
+			return [];
 		case 'duplicate':
 			return [{ type: 'DuplicateFrame', ...on }];
 		case 'front':

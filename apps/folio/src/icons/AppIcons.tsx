@@ -210,6 +210,26 @@ export const DuplicateIcon = () => (
 		<path d="M10.5 3.5v-1a1 1 0 0 0-1-1h-7a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h1" />
 	</Glyph>
 );
+export const CopyIcon = () => (
+	<Glyph>
+		<rect x="5.5" y="5.5" width="8" height="8" rx="1.2" />
+		<path d="M10.5 3.5v-1a1 1 0 0 0-1-1h-7a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h1" />
+		<path d="M8 8.5h3.5M8 10.5h3.5" />
+	</Glyph>
+);
+export const CutIcon = () => (
+	<Glyph>
+		<circle cx="4" cy="11.5" r="2" />
+		<circle cx="12" cy="11.5" r="2" />
+		<path d="M5.2 9.9 11 2M10.8 9.9 5 2" />
+	</Glyph>
+);
+export const PasteIcon = () => (
+	<Glyph>
+		<path d="M5 3H3.5a1 1 0 0 0-1 1v9.5a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H11" />
+		<rect x="5" y="1.5" width="6" height="3" rx="1" />
+	</Glyph>
+);
 export const BringToFrontIcon = () => (
 	<Glyph>
 		<rect x="1.5" y="1.5" width="8" height="8" rx="1.2" />

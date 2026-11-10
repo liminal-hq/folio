@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import { requestClipboard } from '../clipboard/clipboardRequest';
 import { requestExport } from './exportRequest';
 import { requestImportText } from './importRequest';
 import type { MenuItem, SelectableMenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
@@ -80,6 +81,7 @@ export function useAppMenu(
 			redo: () => store.redo(),
 			exportBook: async () => requestExport(),
 			importText: async () => requestImportText(),
+			clipboard: (kind) => requestClipboard(kind),
 		};
 	}, [active, actions, ask, askRecovered, store]);
 
