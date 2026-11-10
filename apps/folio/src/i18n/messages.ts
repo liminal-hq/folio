@@ -1141,7 +1141,7 @@ export const messages = {
 	'ribbon.item.shapeMenu': 'Shape',
 	'ribbon.item.bubble': 'Bubble',
 	'ribbon.value.paragraphStyle': 'Story text',
-	'ribbon.value.font': 'Font from style',
+	'ribbon.value.font': 'Style’s font',
 	'ribbon.value.colour': 'Colour from style',
 	'colour.ink': 'Ink',
 	'colour.plum': 'Plum',

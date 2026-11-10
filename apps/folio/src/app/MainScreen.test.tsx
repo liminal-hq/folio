@@ -250,6 +250,35 @@ describe('a book in the main window', () => {
 		expect(screen.getByRole('button', { name: 'Fit' })).toHaveAttribute('aria-pressed', 'true');
 	});
 
+	it('keeps the sidebar group the writer opened while a frame stays selected', async () => {
+		setup();
+		await startBook();
+		await userEvent.click(screen.getByRole('radio', { name: 'Expert' }));
+		const shelf = within(screen.getByRole('list', { name: 'Spreads' })).getAllByRole('button');
+		await userEvent.click(shelf[1]!);
+		const hits = () => Array.from(document.querySelectorAll('[data-hit]'));
+		await waitFor(() => expect(hits().length).toBeGreaterThan(0));
+		const frames = hits();
+		fireEvent.pointerDown(frames[0]!, { button: 0, clientX: 10, clientY: 10 });
+		fireEvent.pointerUp(frames[0]!, { button: 0, clientX: 10, clientY: 10 });
+		await waitFor(() =>
+			expect(hits().filter((h) => h.getAttribute('aria-selected') === 'true').length).toBe(1),
+		);
+		const sidebar = screen.getByRole('complementary', { name: 'Sidebar' });
+		expect(within(sidebar).getByRole('tab', { name: 'Properties' })).toHaveAttribute(
+			'aria-selected',
+			'true',
+		);
+		for (const name of ['Fonts', 'Pages', 'Swatches']) {
+			await userEvent.click(within(sidebar).getByRole('tab', { name }));
+			await act(async () => {
+				await new Promise((r) => setTimeout(r, 20));
+			});
+			expect(within(sidebar).getByRole('tab', { name })).toHaveAttribute('aria-selected', 'true');
+			expect(hits().filter((h) => h.getAttribute('aria-selected') === 'true').length).toBe(1);
+		}
+	});
+
 	it('saves with Ctrl+S, asking where the first time', async () => {
 		setup({ save: '/books/Pip/Pip' });
 		await startBook();

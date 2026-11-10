@@ -481,10 +481,13 @@ export function BookView({
 	const [group, setGroup] = useState<SidebarGroup>('properties');
 	const fontUses = useFontsInUse(client, id, copy.revision, group === 'fonts');
 	const chapters = useStoryChapters(client, id, copy.revision, group === 'pages');
+	// `useSelection` hands back a new array on every render, so the effect keys on the ids themselves:
+	// opening Fonts or Swatches with a frame selected must not bring Properties back.
+	const selectionKey = selection.join('|');
 	useEffect(() => {
 		// The Proofing list is a task: showing a word selects it, and the list stays.
-		if (selection.length > 0) setGroup((open) => (open === 'proofing' ? open : 'properties'));
-	}, [selection]);
+		if (selectionKey !== '') setGroup((open) => (open === 'proofing' ? open : 'properties'));
+	}, [selectionKey]);
 	// What spelling finds in the whole book, read when the Proofing group is open and read again a
 	// moment after the book, the dictionary or the words added for every book change.
 	const [proofing, setProofing] = useState<BookSpelling | null>(null);

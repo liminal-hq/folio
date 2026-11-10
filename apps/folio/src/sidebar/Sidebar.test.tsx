@@ -7,7 +7,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
-import { Sidebar, type SidebarGroup } from './Sidebar';
+import { EXPERT_GROUPS, Sidebar, type SidebarGroup } from './Sidebar';
 
 function Harness({ start = 'properties' as SidebarGroup }) {
 	const [group, setGroup] = useState<SidebarGroup>(start);
@@ -66,5 +66,24 @@ describe('Sidebar', () => {
 		expect(screen.getByRole('tab', { name: 'Fonts' })).toHaveFocus();
 		await userEvent.keyboard('{Home}');
 		expect(properties).toHaveFocus();
+	});
+
+	it('wraps back from the first tab to the last of however many groups there are', async () => {
+		function Expert() {
+			const [group, setGroup] = useState<SidebarGroup>('properties');
+			return (
+				<Sidebar
+					group={group}
+					onGroup={setGroup}
+					groups={EXPERT_GROUPS}
+					panels={{ properties: <p>The properties</p>, swatches: <p>The swatches</p> }}
+				/>
+			);
+		}
+		render(<Expert />);
+		screen.getByRole('tab', { name: 'Properties' }).focus();
+		await userEvent.keyboard('{ArrowLeft}');
+		expect(screen.getByRole('tab', { name: 'Swatches' })).toHaveFocus();
+		expect(screen.getByRole('tabpanel', { name: 'Swatches' })).toHaveTextContent('The swatches');
 	});
 });
