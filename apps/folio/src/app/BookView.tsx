@@ -62,6 +62,10 @@ import { JaxPanel } from '../jax/JaxPanel';
 import rowStyles from '../jax/shelfSlot.module.css';
 import { SoftProofDialog } from './SoftProofDialog';
 import { EXPORT_EVENT } from './exportRequest';
+import { FindBar } from '../find/FindBar';
+import { FIND_EVENT } from '../find/findRequest';
+import { onShown } from '../find/matches';
+import { useFind } from '../find/useFind';
 import { ReaderView } from './ReaderView';
 import { PageBackgroundDialog } from '../canvas/PageBackgroundDialog';
 import { Stage, type ZoomApi } from '../canvas/Stage';
@@ -593,6 +597,42 @@ export function BookView({
 		window.addEventListener(EXPORT_EVENT, open);
 		return () => window.removeEventListener(EXPORT_EVENT, open);
 	}, []);
+	// Find and replace: the bar is opened by Ctrl+F and Ctrl+H (and the ribbon's Find & replace), and
+	// the page goes to the match it is on.
+	const find = useFind(client, id, copy.revision, editing);
+	useEffect(() => {
+		const open = (event: Event) =>
+			find.show((event as CustomEvent<{ replace?: boolean }>).detail?.replace === true);
+		window.addEventListener(FIND_EVENT, open);
+		return () => window.removeEventListener(FIND_EVENT, open);
+	}, [find.show]);
+	const foundAt = find.focus?.match;
+	useEffect(() => {
+		if (!foundAt) return;
+		if (foundAt.master) {
+			if (masterSpread(book, foundAt.master)) setEditing(foundAt.master);
+		} else {
+			const at = book.spreads.findIndex((s) => s.id === foundAt.spread);
+			if (at >= 0) {
+				setEditing(null);
+				setSpreadIndex(at);
+			}
+		}
+		// Only a new request moves the page; the book changing under it does not.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [find.focus?.nonce]);
+	const closeFind = () => {
+		find.close();
+		// The words being edited, or the page, get the keyboard back.
+		queueMicrotask(() =>
+			(
+				document.querySelector<HTMLElement>('[data-text-sink]') ??
+				document.querySelector<HTMLElement>('svg[role="group"]')
+			)?.focus(),
+		);
+	};
+	const marked =
+		find.open && spread ? find.matches.filter((m) => onShown(m, spread.id, editing)) : [];
 	const [reveal, setReveal] = useState<{ spread: string; frame: string } | null>(null);
 	useEffect(() => {
 		if (reveal && spread?.id === reveal.spread) {
@@ -711,6 +751,9 @@ export function BookView({
 				setPendingLook(action.frame, action.change);
 				// An installed font is kept inside the book, so it opens the same on another computer.
 				if (action.keep) void client.keepFonts(id, [action.keep]).catch(() => undefined);
+				break;
+			case 'find':
+				find.show(false);
 				break;
 			case 'spelling':
 				void update({ spelling: { enabled: !settings.spelling.enabled } } as SettingsPatch);
@@ -844,6 +887,7 @@ export function BookView({
 				}
 			>
 				<div className={styles.stage}>
+					{find.open && <FindBar find={{ ...find, close: closeFind }} expert={expert} />}
 					{notice && (
 						<div className={styles.masterBanner} role="status">
 							<span>{notice}</span>
@@ -944,6 +988,15 @@ export function BookView({
 									keepAsStep(intent);
 							}}
 							speller={speller}
+							find={
+								find.open
+									? {
+											matches: marked,
+											current: find.index === null ? null : (find.matches[find.index] ?? null),
+											focus: find.focus,
+										}
+									: undefined
+							}
 							onEditingCell={(cell) => cell && setEditingCell(cell)}
 							editableMasters={settings.mode === 'expert'}
 							demoteTo={demoteTo}

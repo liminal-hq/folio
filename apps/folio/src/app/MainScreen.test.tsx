@@ -306,7 +306,7 @@ describe('a book in the main window', () => {
 			['publishing', 'publishing.keywords'],
 			['pictures', 'pictures.alt'],
 		]);
-		expect(screen.getByRole('button', { name: 'Find & replace' })).toBeDisabled();
+		expect(screen.getByRole('button', { name: 'Find & replace' })).toBeEnabled();
 	});
 
 	it('reads the fonts the book uses without the Fonts group being open', async () => {
@@ -773,5 +773,90 @@ describe('books the system asks Folio to open', () => {
 		await waitFor(() => expect(files.report).toHaveBeenCalledTimes(1));
 		expect(files.report).toHaveBeenCalledWith(expect.stringContaining('/b/broken.folio'));
 		expect(files.report).toHaveBeenCalledWith(expect.stringContaining('that is not a Folio book'));
+	});
+});
+
+describe('find and replace', () => {
+	const match = (from: number) => ({
+		target: { type: 'frame' as const, frame: 'a' },
+		para: 0,
+		from,
+		to: from + 3,
+		spread: 'nowhere',
+		context: 'a cat and a cat',
+		locked: false,
+	});
+
+	it('opens with Ctrl+F, counts the matches, steps through them and closes with Escape', async () => {
+		const { books } = setup();
+		books.found.push(match(2), match(12));
+		await startBook();
+		expect(screen.queryByRole('search')).not.toBeInTheDocument();
+		fireEvent.keyDown(window, { key: 'f', ctrlKey: true });
+		const bar = await screen.findByRole('search', { name: 'Find in the book' });
+		const field = within(bar).getByRole('textbox', { name: 'Find' });
+		expect(field).toHaveFocus();
+		await userEvent.type(field, 'cat');
+		await within(bar).findByText('1 of 2');
+		expect(books.calls.some((c) => c.startsWith('find('))).toBe(true);
+		await userEvent.click(within(bar).getByRole('button', { name: 'Next match' }));
+		expect(within(bar).getByText('2 of 2')).toBeInTheDocument();
+		fireEvent.keyDown(field, { key: 'Enter', shiftKey: true });
+		expect(within(bar).getByText('1 of 2')).toBeInTheDocument();
+		fireEvent.keyDown(field, { key: 'Escape' });
+		expect(screen.queryByRole('search')).not.toBeInTheDocument();
+	});
+
+	it('takes the page to the spread of the match it is on', async () => {
+		const { books } = setup();
+		await startBook();
+		const [summary] = await books.client.list();
+		const spreads = (await books.client.snapshot(summary!.id)).book.spreads;
+		expect(spreads.length).toBeGreaterThan(2);
+		const page = () =>
+			[...document.querySelectorAll('li')].findIndex(
+				(li) => li.querySelector('button[aria-current="true"]') !== null,
+			);
+		const before = page();
+		books.found.push({ ...match(2), spread: spreads[2]!.id });
+		fireEvent.keyDown(window, { key: 'f', ctrlKey: true });
+		const bar = await screen.findByRole('search', { name: 'Find in the book' });
+		await userEvent.type(within(bar).getByRole('textbox', { name: 'Find' }), 'cat');
+		await within(bar).findByText('1 of 1');
+		expect(before).toBeGreaterThanOrEqual(0);
+		await waitFor(() => expect(page()).toBe(2));
+	});
+
+	it('opens the replace bar with Ctrl+H and replaces all the matches', async () => {
+		const { books } = setup();
+		books.found.push(match(2), match(12));
+		await startBook();
+		fireEvent.keyDown(window, { key: 'h', ctrlKey: true });
+		const bar = await screen.findByRole('search', { name: 'Find and replace in the book' });
+		await userEvent.type(within(bar).getByRole('textbox', { name: 'Find' }), 'cat');
+		await within(bar).findByText('1 of 2');
+		await userEvent.type(within(bar).getByRole('textbox', { name: 'Replace with' }), 'dog');
+		await userEvent.click(within(bar).getByRole('button', { name: 'Replace all' }));
+		expect(await within(bar).findByText('Replaced 2.')).toBeInTheDocument();
+		expect(books.calls.some((c) => /replace\(.*"cat", "dog", "all"\)/.test(c))).toBe(true);
+	});
+
+	it('opens from the Find & replace button of the ribbon, and from the Edit menu command', async () => {
+		setup();
+		await startBook();
+		await userEvent.click(await screen.findByRole('button', { name: /Find & replace/ }));
+		expect(await screen.findByRole('search', { name: 'Find in the book' })).toBeInTheDocument();
+	});
+
+	it('shows the options only in Expert', async () => {
+		setup();
+		await startBook();
+		fireEvent.keyDown(window, { key: 'f', ctrlKey: true });
+		const bar = await screen.findByRole('search', { name: 'Find in the book' });
+		expect(within(bar).queryByRole('button', { name: 'Options' })).not.toBeInTheDocument();
+		const toolbar = screen.getByRole('group', { name: 'Toolbar' });
+		await userEvent.click(within(toolbar).getByRole('radio', { name: 'Expert' }));
+		await userEvent.click(await within(bar).findByRole('button', { name: 'Options' }));
+		expect(within(bar).getByRole('checkbox', { name: 'Regular expression' })).toBeInTheDocument();
 	});
 });

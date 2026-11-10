@@ -29,6 +29,8 @@ import type { TextPos } from '@liminal-hq/folio-protocol/generated/TextPos';
 import { paragraphsOf } from '../text/edit';
 import type { FlowFrame } from '../text/flowGeometry';
 import { TextSurface } from '../text/TextSurface';
+import { selectionRects } from '../text/caretGeometry';
+import { framesShowing, laidOut, matchKey, type FindDisplay } from '../find/matches';
 import { boxOf, linesOf } from '../story/rangeEdit';
 import { DEFAULT_MARK_COLOURS, DEFAULT_MARKS, type MarkColours, type Marks } from './marksModel';
 import { masterGuidesOn } from './masterGuides';
@@ -99,6 +101,8 @@ export interface SpreadCanvasProps {
 	speller?: Speller;
 	/** The cell being edited has changed: its row and column, or `null` when none is. */
 	onEditingCell?(cell: { row: number; col: number } | null): void;
+	/** The words found by the find bar to mark on the page, and the match to select in the editor. */
+	find?: FindDisplay;
 	/** The accessible name of the page area. */
 	label: string;
 }
@@ -291,6 +295,7 @@ export function SpreadCanvas({
 	onEditTable,
 	onEditingCell,
 	speller,
+	find,
 	onPageMenu,
 	images = {},
 }: SpreadCanvasProps) {
@@ -352,6 +357,7 @@ export function SpreadCanvas({
 	const lastLines = useRef<string[]>([]);
 	const startEditing = (frame: Frame, at?: { x: number; y: number }) => {
 		if (onActivate?.(frame.id)) return;
+		setReveal(null);
 		if (frame.type === 'table') {
 			if (!onEditTable || frame.locked || frame.fromMaster) return;
 			const cell = at ? cellAt(frame, at) : { frame: frame.id, row: 0, col: 0 };
@@ -470,6 +476,45 @@ export function SpreadCanvas({
 		return null;
 	})();
 	const surfaceEdits = surface !== null;
+	// The find bar's current match is selected in the editor, which does not take the focus for it.
+	const [reveal, setReveal] = useState<{
+		key: string;
+		anchor: TextPos;
+		focus: TextPos;
+		nonce: number;
+	} | null>(null);
+	const revealed = useRef(0);
+	useEffect(() => {
+		const asked = find?.focus;
+		if (!asked || revealed.current === asked.nonce) return;
+		const { match } = asked;
+		const shown = framesShowing(match, frames).find(({ layoutKey }) =>
+			laidOut(byFrame.get(layoutKey), match),
+		);
+		// Not laid out yet (another spread was just opened): this runs again with the layout.
+		if (!shown) return;
+		revealed.current = asked.nonce;
+		const { frame, layoutKey } = shown;
+		const openable =
+			newEditor &&
+			onEditRequest !== undefined &&
+			!frame.locked &&
+			!frame.fromMaster &&
+			(frame.type === 'table' ||
+				(frame.type === 'text' && frame.flow !== undefined && frame.flow !== null) ||
+				((frame.type === 'text' || frame.type === 'shape') && canEditText(frame)));
+		if (!openable) return;
+		setEditStart(undefined);
+		setEditing(layoutKey);
+		setReveal({
+			key: layoutKey,
+			anchor: { para: match.para, offset: match.from },
+			focus: { para: match.para, offset: match.to },
+			nonce: asked.nonce,
+		});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [find?.focus, frames, layout]);
+	const currentKey = find?.current ? matchKey(find.current) : null;
 	const furniture = masterFurniture(book, spread);
 	const grid = book.grid;
 	/** One frame as it is drawn: its art, its edges, and the words laid out in it. */
@@ -487,6 +532,33 @@ export function SpreadCanvas({
 					stroke={colours.frameEdges}
 					strokeWidth={0.5}
 				/>
+			)}
+			{find?.matches.map((match) =>
+				framesShowing(match, [frame]).flatMap(({ layoutKey }) => {
+					const laid = byFrame.get(layoutKey);
+					if (!laid) return [];
+					const current = matchKey(match) === currentKey;
+					return selectionRects(
+						laid,
+						{ para: match.para, offset: match.from },
+						{ para: match.para, offset: match.to },
+					).map((r, i) => (
+						<rect
+							key={`${matchKey(match)}:${layoutKey}:${i}`}
+							data-find-match={current ? 'current' : 'other'}
+							x={frame.box.x + r.x}
+							y={frame.box.y + r.y}
+							width={r.w}
+							height={r.h}
+							rx={1}
+							style={{ fill: 'var(--folio-accent)' }}
+							fillOpacity={current ? 0.45 : 0.22}
+							stroke={current ? 'var(--folio-accent)' : 'none'}
+							strokeWidth={current ? 1 / scale : 0}
+							pointerEvents="none"
+						/>
+					));
+				}),
 			)}
 			{byFrame.has(frame.id) && (frame.id !== editing || surfaceEdits) && (
 				<Lines id={frame.id} at={frame.box} layout={byFrame.get(frame.id)!} />
@@ -929,6 +1001,7 @@ export function SpreadCanvas({
 					scale={scale}
 					rotation={editedFrame.rotation}
 					start={editStart}
+					reveal={reveal && reveal.key === editing ? reveal : undefined}
 					speller={speller}
 					onEdit={onEditRequest}
 					onUndo={onEditUndo}
@@ -952,6 +1025,7 @@ export function SpreadCanvas({
 							: undefined
 					}
 					onClose={() => {
+						setReveal(null);
 						setEditing(null);
 						svg.current?.focus();
 					}}

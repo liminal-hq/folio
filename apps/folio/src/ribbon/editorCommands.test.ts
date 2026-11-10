@@ -47,6 +47,15 @@ const shape = (extra = {}) =>
 		...extra,
 	}) as unknown as Frame;
 
+describe('the find and replace button', () => {
+	it('is always available and asks for the find bar', () => {
+		expect(editorState(input()).available.has('find')).toBe(true);
+		expect(editorAction('find', undefined, input())).toEqual({ kind: 'find' });
+		expect(editorState(input()).available.has('toolFind')).toBe(true);
+		expect(editorAction('toolFind', undefined, input())).toEqual({ kind: 'find' });
+	});
+});
+
 describe('the spelling toggle', () => {
 	it('is always available and asks to be switched', () => {
 		expect(editorState(input()).available.has('spell')).toBe(true);

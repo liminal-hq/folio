@@ -289,7 +289,7 @@ describe('the Tools tab', () => {
 		for (const item of items) expect(homeIds).not.toContain(item.id);
 	});
 
-	it('runs the tools without a selection, switches Spelling and leaves Find unavailable', () => {
+	it('runs the tools without a selection, switches Spelling and opens Find', () => {
 		const available = new Set<CommandId>(Object.keys(TOOL_COMMANDS) as CommandId[]);
 		const editor = editorState({
 			spread: { id: 'sp', kind: 'spread', pages: [], frames: [], guides: [] } as never,
@@ -309,8 +309,7 @@ describe('the Tools tab', () => {
 		}
 		expect(byId('toolSpelling').disabled).toBe(false);
 		expect(byId('toolSpelling').active).toBe(true);
-		expect(byId('toolFind').disabled).toBe(true);
-		expect(byId('toolFind').desc).toBe('Not available yet');
+		expect(byId('toolFind').disabled).toBe(false);
 	});
 
 	it('marks the technical tool for Expert mode', () => {

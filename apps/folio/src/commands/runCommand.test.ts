@@ -22,6 +22,7 @@ function context(overrides: Partial<CommandContext['settings']> = {}) {
 		redo: vi.fn(async () => {}),
 		exportBook: vi.fn(async () => {}),
 		importText: vi.fn(async () => {}),
+		find: vi.fn(async () => {}),
 		clipboard: vi.fn(),
 	};
 	const closeWindow = vi.fn();
@@ -134,6 +135,7 @@ describe('runCommand', () => {
 		await runCommand('file.close', value, OPEN);
 		await runCommand('file.export', value, OPEN);
 		await runCommand('file.importText', value, OPEN);
+		await runCommand('edit.find', value, OPEN);
 		await runCommand('edit.undo', value, OPEN);
 		await runCommand('edit.redo', value, OPEN);
 		await runCommand('edit.cut', value, OPEN);
@@ -148,6 +150,17 @@ describe('runCommand', () => {
 		const { value, books } = context();
 		for (const id of ['edit.cut', 'edit.copy', 'edit.paste']) await runCommand(id, value, NONE);
 		expect(books.clipboard).not.toHaveBeenCalled();
+	});
+
+	it('opens the find bar, or the replace bar, only with a book open', async () => {
+		const { value, books } = context();
+		await runCommand('edit.find', value, OPEN);
+		expect(books.find).toHaveBeenLastCalledWith(false);
+		await runCommand('edit.replace', value, OPEN);
+		expect(books.find).toHaveBeenLastCalledWith(true);
+		expect(books.find).toHaveBeenCalledTimes(2);
+		await runCommand('edit.find', value, NONE);
+		expect(books.find).toHaveBeenCalledTimes(2);
 	});
 
 	it('opens a recent book by the path in its id, even with nothing open', async () => {

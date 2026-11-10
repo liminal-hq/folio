@@ -18,6 +18,7 @@ import {
 	EditIcon,
 	ExpertIcon,
 	ExportIcon,
+	FindIcon,
 	ImportIcon,
 	JaxIcon,
 	KeyboardIcon,
@@ -53,6 +54,8 @@ export type CommandId =
 	| 'edit.paste'
 	| 'edit.undo'
 	| 'edit.redo'
+	| 'edit.find'
+	| 'edit.replace'
 	| 'edit.smartPunctuation'
 	| 'view.menuBar'
 	| 'view.ribbon'
@@ -284,6 +287,9 @@ export function buildMenuBar(settings: Settings, available: CommandAvailability)
 				action('edit.cut', t('command.cut'), <CutIcon />, available, 'Ctrl+X'),
 				action('edit.copy', t('command.copy'), <CopyIcon />, available, 'Ctrl+C'),
 				action('edit.paste', t('command.paste'), <PasteIcon />, available, 'Ctrl+V'),
+				{ type: 'separator' },
+				action('edit.find', t('command.find'), <FindIcon />, available, 'Ctrl+F'),
+				action('edit.replace', t('command.replace'), <FindIcon />, available, 'Ctrl+H'),
 				{ type: 'separator' },
 				...editToggles(settings, available),
 				{ type: 'separator' },

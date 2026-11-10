@@ -115,6 +115,7 @@ export type EditorAction =
 			keep?: string | null;
 	  }
 	| { kind: 'editMaster' }
+	| { kind: 'find' }
 	| { kind: 'pageBackground' }
 	| { kind: 'rulerUnit'; unit: RulerUnit }
 	| { kind: 'toolbar'; toolbar: 'ribbon' | 'classic' }
@@ -245,6 +246,8 @@ export function editorState(input: EditorInput): EditorState {
 	}
 	if (input.master) active.master = true;
 	available.add('master');
+	available.add('find');
+	available.add('toolFind');
 	available.add('preflight');
 	if (!input.master) available.add('templates');
 	available.add('softProof');
@@ -487,6 +490,9 @@ export function editorAction(
 		case 'spell':
 		case 'toolSpelling':
 			return { kind: 'spelling' };
+		case 'find':
+		case 'toolFind':
+			return { kind: 'find' };
 		case 'rguides':
 			return { kind: 'marks', marks: { guides: !input.marks.guides } };
 		case 'master':

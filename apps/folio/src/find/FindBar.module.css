@@ -1,0 +1,90 @@
+/* The find bar floats over the top of the page area and never over the paper's colour. */
+.bar {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px 12px;
+	background: var(--folio-bg-raised);
+	border-block-end: 1px solid var(--folio-border-subtle);
+	color: var(--folio-text-primary);
+	font-size: 13px;
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.field {
+	flex: 1 1 16rem;
+	min-inline-size: 8rem;
+	max-inline-size: 28rem;
+	min-block-size: 28px;
+	padding: 2px 8px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-field-bg);
+	color: inherit;
+	font: inherit;
+}
+
+.field:focus-visible,
+.button:focus-visible,
+.text:focus-visible,
+.option input:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: 1px;
+}
+
+.field[aria-invalid='true'] {
+	border-color: var(--folio-danger);
+}
+
+.count {
+	min-inline-size: 5.5rem;
+	color: var(--folio-text-secondary);
+	font-variant-numeric: tabular-nums;
+}
+
+.button,
+.text {
+	min-block-size: 28px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-control-bg);
+	color: inherit;
+	font: inherit;
+	cursor: default;
+}
+
+.button {
+	min-inline-size: 28px;
+	padding: 0;
+}
+
+.text {
+	padding: 0 10px;
+}
+
+.button:hover:not(:disabled),
+.text:hover:not(:disabled) {
+	background: var(--folio-control-bg-hover);
+}
+
+.button:disabled,
+.text:disabled {
+	color: var(--folio-text-muted);
+}
+
+.option {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.notice {
+	margin: 0;
+	color: var(--folio-text-secondary);
+}

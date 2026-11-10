@@ -24,6 +24,8 @@ export interface BookCommands {
 	exportBook(): Promise<void>;
 	/** Asks for a Markdown or text file and brings its words into the book being shown. */
 	importText(): Promise<void>;
+	/** Opens the find bar on the book being shown, or with `replace` the find and replace bar. */
+	find(replace: boolean): Promise<void>;
 	/** Copies, cuts or pastes the page objects of the book being shown. */
 	clipboard(kind: 'copy' | 'cut' | 'paste'): void;
 }
@@ -80,6 +82,8 @@ export function availableCommands(state: CommandState): ReadonlySet<CommandId> {
 				'file.close',
 				'file.export',
 				'file.importText',
+				'edit.find',
+				'edit.replace',
 				'edit.cut',
 				'edit.copy',
 				'edit.paste',
@@ -151,6 +155,10 @@ export async function runCommand(
 			return books.exportBook();
 		case 'file.importText':
 			return books.importText();
+		case 'edit.find':
+			return books.find(false);
+		case 'edit.replace':
+			return books.find(true);
 		// Words being typed are kept first, and the editing closes, so the undo or redo that follows
 		// acts on the book as it stands and not on the box.
 		case 'edit.undo':

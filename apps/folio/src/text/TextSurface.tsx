@@ -78,6 +78,11 @@ export interface TextSurfaceProps {
 	speller?: Speller;
 	/** Tab was pressed; without this it does nothing. */
 	onTab?(back: boolean): void;
+	/**
+	 * Selects these words (the find bar's current match). Each `nonce` is applied once. The editor
+	 * does not take the focus for it, so the find bar keeps typing and Enter.
+	 */
+	reveal?: { anchor: TextPos; focus: TextPos; nonce: number };
 }
 
 /** What one keystroke asks of the words. */
@@ -117,6 +122,7 @@ export function TextSurface({
 	onRedo,
 	onTab,
 	speller,
+	reveal,
 }: TextSurfaceProps) {
 	const surface = useRef<HTMLDivElement | null>(null);
 	const sink = useRef<HTMLTextAreaElement | null>(null);
@@ -234,8 +240,21 @@ export function TextSurface({
 		}
 	}, [layout, ownLayout, start, setSelection, target.type]);
 
+	// The find bar selects a match without taking the focus from itself.
+	const revealed = useRef<number | null>(null);
+	useLayoutEffect(() => {
+		if (!reveal || revealed.current === reveal.nonce) return;
+		revealed.current = reveal.nonce;
+		placed.current = true;
+		setSelection({
+			anchor: clampPos(textsRef.current, reveal.anchor),
+			focus: clampPos(textsRef.current, reveal.focus),
+		});
+	}, [reveal, setSelection]);
+
 	useEffect(() => {
-		sink.current?.focus({ preventScroll: true });
+		if (!reveal) sink.current?.focus({ preventScroll: true });
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	// Edits go one at a time: a key pressed while one is in flight waits, and takes its place from
@@ -730,6 +749,7 @@ export function TextSurface({
 				ref={sink}
 				className={composing === null ? styles.sink : `${styles.sink} ${styles.composing}`}
 				aria-label={t('stage.edit.text')}
+				data-text-sink=""
 				rows={1}
 				wrap="off"
 				spellCheck={false}
@@ -747,7 +767,7 @@ export function TextSurface({
 				onBlur={(event) => {
 					// A list in the ribbon takes the focus to open, and the words stay selected for it to style.
 					const to = event.relatedTarget;
-					if (to instanceof Element && to.closest('[data-ribbon]')) return;
+					if (to instanceof Element && to.closest('[data-ribbon], [data-find-bar]')) return;
 					// The spelling menu takes the focus while it is up; that is not the end of the editing.
 					if (menuUp.current) return;
 					onClose();

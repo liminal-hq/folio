@@ -89,6 +89,8 @@ export interface StageProps {
 	onEditStory?(flow: string, paragraph?: number): void;
 	onEditParagraphs?(flow: string, from: number, before: string[], after: string[]): void;
 	speller?: Speller;
+	/** The words the find bar found, marked on the page. */
+	find?: SpreadCanvasProps['find'];
 	onEditingCell?(cell: { row: number; col: number } | null): void;
 	/** A choice from the page menu; `point` is where it was asked for, in points on the spread. */
 	onPageCommand?(command: PageCommand, point: { x: number; y: number }): void;
@@ -134,6 +136,7 @@ export function Stage({
 	onEditParagraphs,
 	onEditingCell,
 	speller,
+	find,
 	onPageCommand,
 	editableMasters = false,
 	demoteTo = null,
@@ -357,6 +360,7 @@ export function Stage({
 							onEditStory={onEditStory}
 							onEditParagraphs={onEditParagraphs}
 							speller={speller}
+							find={find}
 							onEditingCell={onEditingCell}
 							onPageMenu={(at, point) => setPageMenu({ at, point })}
 							onFrameMenu={(_, at) => setMenu(at)}
