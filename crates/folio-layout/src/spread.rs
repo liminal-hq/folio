@@ -15,7 +15,8 @@ use std::sync::{Arc, Mutex};
 use crate::assets::AssetFacts;
 use crate::error::LayoutError;
 use crate::flow::{
-    flow_cached, FlowOptions, Flowed, FrameBox, ParagraphCache, PlacedLine, StoryParagraph,
+    flow_cached, flow_extent, FlowOptions, Flowed, FrameBox, ParagraphCache, PlacedLine,
+    StoryParagraph,
 };
 use crate::fonts::{FontBook, FontRequest};
 use crate::paragraph::{Span, Wrap};
@@ -670,9 +671,12 @@ impl<'a> Layouter<'a> {
                 text_style.colour = Some(colour.clone());
             }
             // A character the run's font lacks is set in one that has it.
-            for piece in
-                crate::fallback::split_with_fallback(self.fonts, &Span::new(&run.text, text_style))
-            {
+            let span = Span::new(&run.text, text_style);
+            let pieces = match self.paragraphs {
+                Some(cache) => cache.split_with_fallback(self.fonts, &span),
+                None => crate::fallback::split_with_fallback(self.fonts, &span),
+            };
+            for piece in pieces {
                 spans.push((piece, resolved.clone()));
             }
         }
@@ -734,22 +738,37 @@ impl<'a> Layouter<'a> {
     }
 
     /// How many more frames, each like the last one of the flow, its story needs to be shown whole:
-    /// none when it already fits. The story is laid out once with more frames than it can need, and
-    /// the frames it reaches are counted; if even those are not enough, it is laid out again with
-    /// twice as many.
+    /// none when it already fits. See [`Layouter::page_fit`].
     pub fn frames_needed(&self, flow: &FlowId) -> Result<usize, LayoutError> {
+        Ok(self.page_fit(flow)?.map_or(0, |fit| fit.needed))
+    }
+
+    /// How many of the flow's own frames its story reaches: at least one, and the story's frames
+    /// after those hold nothing. `None` when there is no such flow.
+    pub fn frames_used(&self, flow: &FlowId) -> Result<Option<usize>, LayoutError> {
+        Ok(self.page_fit(flow)?.map(|fit| fit.used))
+    }
+
+    /// How a story sits in its frames: how many more it needs and how many of its own it reaches,
+    /// from one pass over the story. `None` when there is no such flow or it has no frames.
+    ///
+    /// The story is poured through its own frames once, placing every line but keeping none. When
+    /// it fits that is all; when it does not, it is poured again with more frames than it can need,
+    /// and the frames it reaches are counted; if even those are not enough, again with twice as many.
+    pub fn page_fit(&self, flow: &FlowId) -> Result<Option<PageFit>, LayoutError> {
         /// A story that needs more frames than this is not laid out further.
         const MOST: usize = 1024;
         let Some(chain) = self.book.flows.iter().find(|f| &f.id == flow) else {
-            return Ok(0);
+            return Ok(None);
         };
         if chain.frames.is_empty() {
-            return Ok(0);
+            return Ok(None);
         }
         let own = chain.frames.len();
-        let first = self.flow_chain_with(chain, 0)?;
-        if !first.flowed.overset {
-            return Ok(0);
+        let first = self.flow_extent_with(chain, 0)?;
+        let used = first.frames_reached.max(1);
+        if !first.overset {
+            return Ok(Some(PageFit { needed: 0, used }));
         }
         // A frame holds at least a few hundred characters, so this is more than the story needs.
         let characters: usize = chain
@@ -759,43 +778,19 @@ impl<'a> Layouter<'a> {
             .sum();
         let mut extra = (characters / 150 + 2).min(MOST);
         loop {
-            let laid = self.flow_chain_with(chain, extra)?;
-            if !laid.flowed.overset || extra >= MOST {
-                let reached = laid
-                    .flowed
-                    .lines
-                    .iter()
-                    .map(|l| l.frame + 1)
-                    .max()
-                    .unwrap_or(0);
-                return Ok(reached.saturating_sub(own).max(1));
+            let laid = self.flow_extent_with(chain, extra)?;
+            if !laid.overset || extra >= MOST {
+                return Ok(Some(PageFit {
+                    needed: laid.frames_reached.saturating_sub(own).max(1),
+                    used,
+                }));
             }
             extra = (extra * 2).min(MOST);
         }
     }
 
-    /// How many of the flow's own frames its story reaches: at least one, and the story's frames
-    /// after those hold nothing. `None` when there is no such flow.
-    pub fn frames_used(&self, flow: &FlowId) -> Result<Option<usize>, LayoutError> {
-        let Some(chain) = self.book.flows.iter().find(|f| &f.id == flow) else {
-            return Ok(None);
-        };
-        if chain.frames.is_empty() {
-            return Ok(None);
-        }
-        let laid = self.flow_chain_with(chain, 0)?;
-        let reached = laid
-            .flowed
-            .lines
-            .iter()
-            .map(|l| l.frame + 1)
-            .max()
-            .unwrap_or(0);
-        Ok(Some(reached.max(1)))
-    }
-
-    /// A flow laid out in its own frames and `extra` more like the last of them.
-    fn flow_chain_with(&self, chain: &Flow, extra: usize) -> Result<FlowLayout, LayoutError> {
+    /// The frames of a chain with `extra` more like the last of them, in order, as boxes.
+    fn chain_boxes(&self, chain: &Flow, extra: usize) -> ChainBoxes<'_> {
         let mut boxes = Vec::new();
         let mut order = Vec::new();
         let mut style = StyleId("body".to_string());
@@ -825,6 +820,17 @@ impl<'a> Layouter<'a> {
                 boxes.push(more);
             }
         }
+        ChainBoxes {
+            boxes,
+            order,
+            style,
+            lock,
+            first_frame,
+        }
+    }
+
+    /// The paragraphs of a chain's story, as they are laid out.
+    fn chain_story(&self, chain: &Flow, laid: &ChainBoxes<'_>) -> Vec<StoryParagraph> {
         // The story is laid out as the words of a frame are: the paragraphs' runs, a line break
         // between them, and a paragraph's own style given to its runs that have none.
         let mut runs: Vec<folio_model::Run> = Vec::new();
@@ -851,18 +857,42 @@ impl<'a> Layouter<'a> {
             inline: runs,
             looks: folio_model::looks_of(&chain.paragraphs),
         };
-        let story: Vec<StoryParagraph> = match first_frame {
-            Some(text) => self.story_of(Some(&content), &style, text),
+        match laid.first_frame {
+            Some(text) => self.story_of(Some(&content), &laid.style, text),
             None => Vec::new(),
-        };
+        }
+    }
+
+    /// How a chain's story sits in its frames and `extra` more, without keeping its lines.
+    fn flow_extent_with(&self, chain: &Flow, extra: usize) -> Result<Flowed, LayoutError> {
+        let laid = self.chain_boxes(chain, extra);
+        let story = self.chain_story(chain, &laid);
         let mut options = self.options();
-        if !lock {
+        if !laid.lock {
+            options.baseline_grid = None;
+        }
+        flow_extent(
+            self.fonts,
+            &story,
+            &laid.boxes,
+            &self.book.language,
+            &options,
+            self.paragraphs,
+        )
+    }
+
+    /// A flow laid out in its own frames and `extra` more like the last of them.
+    fn flow_chain_with(&self, chain: &Flow, extra: usize) -> Result<FlowLayout, LayoutError> {
+        let laid_out = self.chain_boxes(chain, extra);
+        let story = self.chain_story(chain, &laid_out);
+        let mut options = self.options();
+        if !laid_out.lock {
             options.baseline_grid = None;
         }
         let laid = flow_cached(
             self.fonts,
             &story,
-            &boxes,
+            &laid_out.boxes,
             &self.book.language,
             &options,
             self.paragraphs,
@@ -871,7 +901,7 @@ impl<'a> Layouter<'a> {
         Ok(FlowLayout {
             id: chain.id.0.clone(),
             flowed: laid,
-            order,
+            order: laid_out.order,
             info: styles,
         })
     }
@@ -967,6 +997,24 @@ impl<'a> Layouter<'a> {
             misses,
         }
     }
+}
+
+/// How a story sits in its frames: what [`Layouter::page_fit`] answers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PageFit {
+    /// How many more frames, like the last of the flow, the story needs; none when it fits.
+    pub needed: usize,
+    /// How many of the flow's own frames it reaches: at least one.
+    pub used: usize,
+}
+
+/// The frames of a chain as boxes, with what the first frame says about the story's style.
+struct ChainBoxes<'a> {
+    boxes: Vec<FrameBox>,
+    order: Vec<FrameId>,
+    style: StyleId,
+    lock: bool,
+    first_frame: Option<&'a TextFrame>,
 }
 
 /// What is known of a story's paragraphs besides where their lines fall.

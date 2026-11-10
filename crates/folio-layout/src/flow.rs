@@ -10,6 +10,7 @@
 
 use crate::error::LayoutError;
 use crate::fonts::FontBook;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
@@ -140,6 +141,9 @@ pub struct Flowed {
     pub overlong: bool,
     /// The tallest the text reached in each frame, to size a frame to its text.
     pub used_height: Vec<f64>,
+    /// How many frames the placed lines reach: the last frame holding a line, counted from one;
+    /// none when no line was placed.
+    pub frames_reached: usize,
 }
 
 struct Column {
@@ -204,6 +208,9 @@ fn half_leading(line: &Line) -> f64 {
 #[derive(Default)]
 pub struct ParagraphCache {
     laid: Mutex<HashMap<u64, Arc<ParagraphLayout>>>,
+    /// Runs whose font covers every character they hold, found by what the run says and the font
+    /// it asks for, so a story's runs are not checked again character by character.
+    covered: Mutex<std::collections::HashSet<u64>>,
 }
 
 /// The most paragraphs kept; past it the cache starts again.
@@ -221,6 +228,34 @@ impl ParagraphCache {
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// `span` split at the characters its font lacks, as [`crate::fallback::split_with_fallback`]
+    /// does it; a run found to need no split is not checked again.
+    pub fn split_with_fallback(&self, fonts: &FontBook, span: &Span) -> Vec<Span> {
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        span.text.hash(&mut h);
+        span.style.family.hash(&mut h);
+        span.style.weight.hash(&mut h);
+        span.style.italic.hash(&mut h);
+        let key = h.finish();
+        if self
+            .covered
+            .lock()
+            .expect("the cache is not poisoned")
+            .contains(&key)
+        {
+            return vec![span.clone()];
+        }
+        let pieces = crate::fallback::split_with_fallback(fonts, span);
+        if pieces.len() == 1 && pieces[0] == *span {
+            let mut covered = self.covered.lock().expect("the cache is not poisoned");
+            if covered.len() >= PARAGRAPHS_KEPT {
+                covered.clear();
+            }
+            covered.insert(key);
+        }
+        pieces
     }
 
     fn lay(
@@ -293,6 +328,32 @@ pub fn flow_cached(
     options: &FlowOptions,
     cache: Option<&ParagraphCache>,
 ) -> Result<Flowed, LayoutError> {
+    flow_with(book, story, frames, language, options, cache, true)
+}
+
+/// As [`flow_cached`], placing every line but keeping none: `lines` is empty and the rest of the
+/// answer (`overset`, `frames_reached`, `used_height`) is what a full flow gives. It is what asking
+/// how much room a story needs wants, without copying a long story's lines to throw them away.
+pub fn flow_extent(
+    book: &FontBook,
+    story: &[StoryParagraph],
+    frames: &[FrameBox],
+    language: &str,
+    options: &FlowOptions,
+    cache: Option<&ParagraphCache>,
+) -> Result<Flowed, LayoutError> {
+    flow_with(book, story, frames, language, options, cache, false)
+}
+
+fn flow_with(
+    book: &FontBook,
+    story: &[StoryParagraph],
+    frames: &[FrameBox],
+    language: &str,
+    options: &FlowOptions,
+    cache: Option<&ParagraphCache>,
+    keep_lines: bool,
+) -> Result<Flowed, LayoutError> {
     let columns = columns_of(frames);
     let mut out = Flowed {
         lines: Vec::new(),
@@ -300,6 +361,7 @@ pub fn flow_cached(
         overset_from: None,
         overlong: false,
         used_height: vec![0.0; frames.len()],
+        frames_reached: 0,
     };
     let mut col = 0;
     let mut y = 0.0;
@@ -334,7 +396,17 @@ pub fn flow_cached(
                 out.overset_from = Some((p, from));
                 return Ok(out);
             };
-            let clipped = clip_spans(&para.spans, from);
+            // A paragraph from its start is its spans as they are (but for a run of empty ones at the
+            // head, which `clip_spans` drops); only the rest of one that carried over is cut.
+            let whole = from == 0
+                && !(para.spans.len() > 1
+                    && para.spans[0].text.is_empty()
+                    && para.spans[1].text.is_empty());
+            let clipped: Cow<'_, [Span]> = if whole {
+                Cow::Borrowed(&para.spans)
+            } else {
+                Cow::Owned(clip_spans(&para.spans, from))
+            };
             let measure = (column.width - para.indent - para.indent_right).max(1.0);
             let mut spec = ParagraphSpec::new(&clipped, language);
             spec.align = para.align;
@@ -413,16 +485,19 @@ pub fn flow_cached(
                 let (top, baseline) = placed[k];
                 out.used_height[column.frame] =
                     out.used_height[column.frame].max(column.y + top + line.height);
-                out.lines.push(PlacedLine {
-                    paragraph: p,
-                    offset: from,
-                    frame: column.frame,
-                    column: column.index,
-                    x: column.x + para.indent + line.x,
-                    top: column.y + top,
-                    baseline: column.y + baseline,
-                    line: line.clone(),
-                });
+                out.frames_reached = out.frames_reached.max(column.frame + 1);
+                if keep_lines {
+                    out.lines.push(PlacedLine {
+                        paragraph: p,
+                        offset: from,
+                        frame: column.frame,
+                        column: column.index,
+                        x: column.x + para.indent + line.x,
+                        top: column.y + top,
+                        baseline: column.y + baseline,
+                        line: line.clone(),
+                    });
+                }
             }
             if fit == total {
                 y = placed.last().map_or(y, |(top, _)| *top)

@@ -2128,16 +2128,18 @@ impl Books {
                     .map(|f| f.id.clone())
                     .collect();
                 for flow in flows {
-                    let needed = with_paragraphs(
+                    // One pass over the story says both how many frames it needs and how many it uses.
+                    let fit = with_paragraphs(
                         Layouter::new(session.book(), &styles, fonts),
                         paragraphs.as_deref(),
                     )
-                    .frames_needed(&flow)
+                    .page_fit(&flow)
                     .map_err(Error::from)?;
-                    if needed > 0 {
+                    let Some(fit) = fit else { continue };
+                    if fit.needed > 0 {
                         let more = session.apply(Intent::AddFlowPages {
                             flow,
-                            count: needed,
+                            count: fit.needed,
                         })?;
                         patch.ops.extend(more.ops);
                         patch.revision = more.revision;
@@ -2148,19 +2150,17 @@ impl Books {
                     if !edits_words {
                         continue;
                     }
-                    let layouter = with_paragraphs(
-                        Layouter::new(session.book(), &styles, fonts),
-                        paragraphs.as_deref(),
-                    );
-                    let used = layouter.frames_used(&flow).map_err(Error::from)?;
                     let have = session
                         .book()
                         .flows
                         .iter()
                         .find(|f| f.id == flow)
                         .map_or(0, |f| f.frames.len());
-                    if let Some(used) = used.filter(|u| *u < have) {
-                        let less = session.apply(Intent::TrimFlowPages { flow, keep: used })?;
+                    if fit.used < have {
+                        let less = session.apply(Intent::TrimFlowPages {
+                            flow,
+                            keep: fit.used,
+                        })?;
                         patch.ops.extend(less.ops);
                         patch.revision = less.revision;
                     }
