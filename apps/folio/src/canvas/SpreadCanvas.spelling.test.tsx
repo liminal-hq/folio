@@ -46,6 +46,7 @@ const run = (text: string, x: number, miss?: [number, number][]) => ({
 	italic: false,
 	tracking: 0,
 	hyphen: false,
+	start: 0,
 	...(miss ? { miss } : {}),
 });
 

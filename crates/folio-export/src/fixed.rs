@@ -657,6 +657,8 @@ mod tests {
             colour: None,
             hyphen: false,
             miss: Vec::new(),
+            start: 0,
+            stops: Vec::new(),
             face_key: String::new(),
             glyphs: Vec::new(),
         }

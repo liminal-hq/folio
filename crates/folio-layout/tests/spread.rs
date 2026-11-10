@@ -1845,7 +1845,7 @@ fn a_frame_in_a_story_says_which_paragraph_its_words_begin_with() {
 }
 
 #[test]
-fn each_line_of_a_story_names_its_paragraph_and_other_lines_name_none() {
+fn each_line_names_its_paragraph_in_the_story_or_in_the_frames_own_words() {
     let (book, styles) = sample(BookKind::Novel);
     let flow = &book.flows[0];
     let mut story_lines = 0;
@@ -1859,7 +1859,8 @@ fn each_line_of_a_story_names_its_paragraph_and_other_lines_name_none() {
                         .paragraph
                         .is_some_and(|p| (p as usize) < flow.paragraphs.len()));
                 } else {
-                    assert_eq!(line.paragraph, None);
+                    // A frame's own words are paragraphs too, counted from 0 within the frame.
+                    assert!(line.paragraph.is_some());
                 }
             }
         }

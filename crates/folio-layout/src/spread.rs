@@ -913,9 +913,19 @@ impl<'a> Layouter<'a> {
             Some(find) => texts.iter().map(|t| find(t)).collect(),
             None => Vec::new(),
         };
+        let mut next = 0;
+        let bases = texts
+            .iter()
+            .map(|t| {
+                let base = next;
+                next += t.matches('\n').count() as u32 + 1;
+                base
+            })
+            .collect();
         StoryInfo {
             styles,
             texts,
+            bases,
             misses,
         }
     }
@@ -927,6 +937,9 @@ struct StoryInfo {
     styles: Vec<Vec<RunStyle>>,
     /// The text of each paragraph.
     texts: Vec<String>,
+    /// Where each paragraph starts among the wire's paragraphs: a paragraph that keeps its line
+    /// breaks counts as one for each.
+    bases: Vec<u32>,
     /// The misspelt words of each paragraph, as ranges of bytes of its text; empty when spelling is
     /// not being checked.
     misses: Vec<Vec<Range<usize>>>,
@@ -975,22 +988,16 @@ fn paragraph_from(spans: Vec<Span>, style: &ResolvedStyle) -> StoryParagraph {
     p
 }
 
-/// The misspelt parts of each run of a line, as UTF-16 ranges of the run's own text. Each run is
-/// found in the paragraph's text where the line is, and what a misspelt word shares with it is what
-/// is marked.
+/// The misspelt parts of each run of a line, as code points from the start of the run's own text.
+/// What a misspelt word shares with the run is what is marked.
 fn run_marks(placed: &PlacedLine, info: &StoryInfo) -> Vec<Vec<(u32, u32)>> {
     let none = || vec![Vec::new(); placed.line.runs.len()];
-    let (Some(text), Some(misses)) = (
-        info.texts.get(placed.paragraph),
-        info.misses.get(placed.paragraph),
-    ) else {
+    let Some(misses) = info.misses.get(placed.paragraph) else {
         return none();
     };
     if misses.is_empty() {
         return none();
     }
-    let line = placed.offset + placed.line.text.start..placed.offset + placed.line.text.end;
-    let mut at = line.start;
     placed
         .line
         .runs
@@ -999,19 +1006,15 @@ fn run_marks(placed: &PlacedLine, info: &StoryInfo) -> Vec<Vec<(u32, u32)>> {
             if run.hyphen {
                 return Vec::new();
             }
-            let Some(found) = text.get(at..line.end).and_then(|rest| rest.find(&run.text)) else {
-                return Vec::new();
-            };
-            let (start, end) = (at + found, at + found + run.text.len());
-            at = end;
+            let start = placed.offset + run.start;
+            let end = start + run.text.len();
             misses
                 .iter()
                 .filter_map(|m| {
                     let (from, to) = (m.start.max(start), m.end.min(end));
                     (from < to).then(|| {
-                        let utf16 =
-                            |bytes: usize| run.text[..bytes - start].encode_utf16().count() as u32;
-                        (utf16(from), utf16(to))
+                        let chars = |bytes: usize| run.text[..bytes - start].chars().count() as u32;
+                        (chars(from), chars(to))
                     })
                 })
                 .collect()
@@ -1019,7 +1022,70 @@ fn run_marks(placed: &PlacedLine, info: &StoryInfo) -> Vec<Vec<(u32, u32)>> {
         .collect()
 }
 
-fn wire_line(placed: &PlacedLine, info: &StoryInfo) -> LayoutLine {
+/// Where a line is in its paragraph, in the wire's units.
+struct LineSpan {
+    paragraph: u32,
+    start: u32,
+    end: u32,
+}
+
+/// The paragraph and code point a byte of layout paragraph `para` is at. A layout paragraph that
+/// keeps its line breaks (verse) is several paragraphs on the wire, one to a line break, as the
+/// editor counts them.
+fn wire_pos(info: &StoryInfo, para: usize, byte: usize) -> (u32, u32) {
+    let text = &info.texts[para];
+    let byte = byte.min(text.len());
+    let head = &text[..byte];
+    let breaks = head.matches('\n').count() as u32;
+    let line_start = head.rfind('\n').map_or(0, |i| i + 1);
+    (
+        info.bases[para] + breaks,
+        head[line_start..].chars().count() as u32,
+    )
+}
+
+/// The place of every line of a flow in its paragraph. The lines of a paragraph tile it, so the
+/// spaces a line ends on belong to it and a click past its last word lands at its end.
+fn line_spans(lines: &[PlacedLine], info: &StoryInfo) -> Vec<LineSpan> {
+    (0..lines.len())
+        .map(|k| {
+            let placed = &lines[k];
+            let p = placed.paragraph;
+            let Some(text) = info.texts.get(p) else {
+                return LineSpan {
+                    paragraph: p as u32,
+                    start: 0,
+                    end: 0,
+                };
+            };
+            let first = k == 0 || lines[k - 1].paragraph != p;
+            let start = if first {
+                0
+            } else {
+                placed.offset + placed.line.text.start
+            };
+            let mut end = match lines.get(k + 1) {
+                Some(next) if next.paragraph == p => next.offset + next.line.text.start,
+                _ => text.len(),
+            };
+            let start = start.min(text.len());
+            end = end.clamp(start, text.len());
+            // A line break ends a verse line without being part of it.
+            if end > start && text.as_bytes()[end - 1] == b'\n' {
+                end -= 1;
+            }
+            let (paragraph, from) = wire_pos(info, p, start);
+            let (_, to) = wire_pos(info, p, end);
+            LineSpan {
+                paragraph,
+                start: from,
+                end: to,
+            }
+        })
+        .collect()
+}
+
+fn wire_line(placed: &PlacedLine, info: &StoryInfo, span: &LineSpan) -> LayoutLine {
     let marks = run_marks(placed, info);
     let runs = placed
         .line
@@ -1041,6 +1107,9 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo) -> LayoutLine {
                     colour: None,
                     face_key: String::new(),
                 });
+            let start = info.texts.get(placed.paragraph).map_or(0, |_| {
+                wire_pos(info, placed.paragraph, placed.offset + r.start).1
+            });
             LayoutRun {
                 text: r.text.clone(),
                 x: r.x,
@@ -1053,6 +1122,12 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo) -> LayoutLine {
                 colour: s.colour,
                 hyphen: r.hyphen,
                 miss,
+                start,
+                stops: r
+                    .stops
+                    .iter()
+                    .map(|x| (x * 100.0).round() / 100.0)
+                    .collect(),
                 face_key: s.face_key,
                 glyphs: r
                     .glyphs
@@ -1075,7 +1150,9 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo) -> LayoutLine {
         width: placed.line.width,
         height: placed.line.height,
         runs,
-        paragraph: None,
+        paragraph: Some(span.paragraph),
+        start: span.start,
+        end: span.end,
     }
 }
 
@@ -1085,8 +1162,9 @@ fn frame_layout(id: &FrameId, flowed: &Flowed, frame: usize, info: &StoryInfo) -
         lines: flowed
             .lines
             .iter()
-            .filter(|l| l.frame == frame)
-            .map(|l| wire_line(l, info))
+            .zip(line_spans(&flowed.lines, info))
+            .filter(|(l, _)| l.frame == frame)
+            .map(|(l, span)| wire_line(l, info, &span))
             .collect(),
         overset: flowed.overset && frame + 1 == flowed.used_height.len().max(1),
         origin: None,
@@ -1114,11 +1192,9 @@ fn flow_frame(id: &FrameId, laid: &Flowed, index: Option<usize>, info: &StoryInf
         lines: laid
             .lines
             .iter()
-            .filter(|l| l.frame == index)
-            .map(|l| LayoutLine {
-                paragraph: Some(l.paragraph as u32),
-                ..wire_line(l, info)
-            })
+            .zip(line_spans(&laid.lines, info))
+            .filter(|(l, _)| l.frame == index)
+            .map(|(l, span)| wire_line(l, info, &span))
             .collect(),
         overset: laid.overset && index + 1 == laid.used_height.len(),
         origin: None,

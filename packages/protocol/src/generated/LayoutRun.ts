@@ -22,6 +22,19 @@ colour?: Colour | null,
  */
 hyphen: boolean, 
 /**
- * The misspelt parts of `text`, each as where it starts and ends in UTF-16 code units.
+ * The misspelt parts of `text`, each as where it starts and ends in code points from the start
+ * of `text`.
  */
-miss?: Array<[number, number]>, };
+miss?: Array<[number, number]>, 
+/**
+ * Where `text` starts in its paragraph, in code points. A hyphen run has no text of the
+ * paragraph's: it holds where the run before it ends.
+ */
+start: number, 
+/**
+ * Where every code point boundary of `text` falls, in points from `x`: one more stop than
+ * `text` has code points, the first 0 and the last the run's width. Inside a ligature or a
+ * cluster the stops are spread evenly, and the page snaps them to grapheme boundaries. Empty
+ * for a hyphen.
+ */
+stops?: Array<number>, };

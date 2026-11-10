@@ -27,9 +27,19 @@ pub struct LayoutRun {
     pub colour: Option<Colour>,
     /// A hyphen drawn at the end of a line; it is not part of the text.
     pub hyphen: bool,
-    /// The misspelt parts of `text`, each as where it starts and ends in UTF-16 code units.
+    /// The misspelt parts of `text`, each as where it starts and ends in code points from the start
+    /// of `text`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub miss: Vec<(u32, u32)>,
+    /// Where `text` starts in its paragraph, in code points. A hyphen run has no text of the
+    /// paragraph's: it holds where the run before it ends.
+    pub start: u32,
+    /// Where every code point boundary of `text` falls, in points from `x`: one more stop than
+    /// `text` has code points, the first 0 and the last the run's width. Inside a ligature or a
+    /// cluster the stops are spread evenly, and the page snaps them to grapheme boundaries. Empty
+    /// for a hyphen.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stops: Vec<f64>,
     /// The key of the font file the run was shaped with (`Font::face_key`). Not sent to the page:
     /// the page draws text itself, and only the exporters want this.
     #[serde(skip)]
@@ -63,9 +73,15 @@ pub struct LayoutLine {
     pub width: f64,
     pub height: f64,
     pub runs: Vec<LayoutRun>,
-    /// For a line of a story: the paragraph it is from, so a click on it finds its words.
+    /// The paragraph the line is from (a line break in a frame's own words, a paragraph of a
+    /// story), so a click on it finds its words.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub paragraph: Option<u32>,
+    /// The code points of the paragraph this line stands for. The lines of a paragraph tile it: a
+    /// line's end is the next line's start, so the spaces a line ends on are in it though they are
+    /// not drawn, and the first line starts at 0. A paragraph's last line ends at its length.
+    pub start: u32,
+    pub end: u32,
 }
 
 /// A rectangle in points, from a frame's top-left.

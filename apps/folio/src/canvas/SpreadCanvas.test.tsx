@@ -51,6 +51,8 @@ const layout: SpreadLayout = {
 					baseline: 10,
 					width: 60,
 					height: 14,
+					start: 0,
+					end: 0,
 					runs: [
 						{
 							text: 'Once upon a',
@@ -62,6 +64,7 @@ const layout: SpreadLayout = {
 							italic: false,
 							tracking: 0,
 							hyphen: false,
+							start: 0,
 						},
 						{
 							text: 'tim',
@@ -73,6 +76,7 @@ const layout: SpreadLayout = {
 							italic: true,
 							tracking: 0,
 							hyphen: true,
+							start: 0,
 						},
 					],
 				},
@@ -277,6 +281,8 @@ describe('master pages', () => {
 							baseline: 10,
 							width: 10,
 							height: 12,
+							start: 0,
+							end: 0,
 							runs: [
 								{
 									text: '7',
@@ -288,6 +294,7 @@ describe('master pages', () => {
 									italic: false,
 									tracking: 0,
 									hyphen: false,
+									start: 0,
 								},
 							],
 						},

@@ -7,6 +7,13 @@ export type LayoutLine = {
  */
 x: number, top: number, baseline: number, width: number, height: number, runs: Array<LayoutRun>, 
 /**
- * For a line of a story: the paragraph it is from, so a click on it finds its words.
+ * The paragraph the line is from (a line break in a frame's own words, a paragraph of a
+ * story), so a click on it finds its words.
  */
-paragraph?: number | null, };
+paragraph?: number | null, 
+/**
+ * The code points of the paragraph this line stands for. The lines of a paragraph tile it: a
+ * line's end is the next line's start, so the spaces a line ends on are in it though they are
+ * not drawn, and the first line starts at 0. A paragraph's last line ends at its length.
+ */
+start: number, end: number, };

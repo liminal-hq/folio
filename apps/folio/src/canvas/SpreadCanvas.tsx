@@ -132,8 +132,11 @@ function Lines({
 							</text>
 							{run.miss?.map(([from, to]) => {
 								// The marked part of a word, along the word as it is drawn.
-								const x1 = run.x + (run.width * from) / (run.text.length || 1);
-								const x2 = run.x + (run.width * to) / (run.text.length || 1);
+								// `from` and `to` count code points, and `stops` has a boundary for each.
+								const points = Array.from(run.text).length || 1;
+								const at = (n: number) => run.stops?.[n] ?? (run.width * n) / points;
+								const x1 = run.x + at(from);
+								const x2 = run.x + at(to);
 								return (
 									<path
 										key={`${from}-${to}`}
