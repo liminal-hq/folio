@@ -907,6 +907,7 @@ export function SpreadCanvas({
 					scale={scale}
 					rotation={editedFrame.rotation}
 					start={editStart}
+					speller={speller}
 					onEdit={onEditRequest}
 					onUndo={onEditUndo}
 					onRedo={onEditRedo}

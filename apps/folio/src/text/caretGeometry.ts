@@ -170,6 +170,30 @@ export function hitTest(
 	return { para: line.paragraph, offset: snap ? snap(line.paragraph, offset) : offset };
 }
 
+/** A misspelt word: the paragraph it is in and where it starts and ends, in code points. */
+export interface Misspelt {
+	para: number;
+	start: number;
+	end: number;
+}
+
+/** Every misspelt word the layout marks, in reading order; a word broken across lines is one. */
+export function misspellings(layout: FrameLayout): Misspelt[] {
+	const out: Misspelt[] = [];
+	for (const line of layout.lines) {
+		if (line.paragraph == null) continue;
+		for (const run of line.runs) {
+			for (const [from, to] of run.miss ?? []) {
+				const word = { para: line.paragraph, start: run.start + from, end: run.start + to };
+				const last = out[out.length - 1];
+				if (last && last.para === word.para && last.end === word.start) last.end = word.end;
+				else out.push(word);
+			}
+		}
+	}
+	return out;
+}
+
 /** The length of a paragraph as the layout knows it: where its last line ends. */
 export function paragraphLength(layout: FrameLayout, para: number): number {
 	const own = layout.lines.filter((l) => l.paragraph === para);

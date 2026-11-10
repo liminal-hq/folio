@@ -349,3 +349,60 @@ describe('copying with the look', () => {
 		expect(calls[1]).toMatchObject({ insert: { type: 'text', text: 'plain' } });
 	});
 });
+
+describe('spelling', () => {
+	// "hello wrold": the second word is marked.
+	const marked = (() => {
+		const base = layoutOf([['hello wrold']]);
+		const run = base.lines[0]!.runs[1]!;
+		run.miss = [[0, 5]];
+		return base;
+	})();
+	const speller = () => ({
+		check: async () => [],
+		suggest: vi.fn(async () => ['world', 'wild']),
+		ignore: vi.fn(),
+		addToDictionary: vi.fn(),
+	});
+
+	it('selects the next misspelt word on Alt+F7', () => {
+		const { onEdit } = editor(['hello wrold']);
+		const { sink } = mount(onEdit, { layout: marked, texts: ['hello wrold'], speller: speller() });
+		fireEvent.keyDown(sink, { key: 'Home' });
+		fireEvent.keyDown(sink, { key: 'F7', altKey: true });
+		const rect = document.querySelector('[data-selection]') as HTMLElement;
+		expect(rect.style.left).toBe(`${6 * CHAR_W}px`);
+		expect(rect.style.width).toBe(`${5 * CHAR_W}px`);
+	});
+
+	it('offers corrections for the word under a right click, and a pick replaces it as a step of its own', async () => {
+		const { calls, onEdit } = editor(['hello wrold']);
+		const s = speller();
+		const { container } = mount(onEdit, { layout: marked, texts: ['hello wrold'], speller: s });
+		const surface = container.querySelector('[data-text-surface]') as HTMLElement;
+		await act(async () => {
+			fireEvent.contextMenu(surface, { clientX: 8 * CHAR_W, clientY: LINE_H / 2 });
+		});
+		expect(s.suggest).toHaveBeenCalledWith('wrold');
+		await act(async () => {
+			fireEvent.click(await screen.findByText('world'));
+		});
+		await act(async () => undefined);
+		expect(calls[0]).toMatchObject({
+			from: { para: 0, offset: 6 },
+			to: { para: 0, offset: 11 },
+			insert: { type: 'text', text: 'world' },
+			step: 'own',
+		});
+	});
+
+	it('leaves a word that is spelt right to the usual menu', async () => {
+		const { onEdit } = editor(['hello wrold']);
+		const s = speller();
+		const { container } = mount(onEdit, { layout: marked, texts: ['hello wrold'], speller: s });
+		const surface = container.querySelector('[data-text-surface]') as HTMLElement;
+		const event = fireEvent.contextMenu(surface, { clientX: 2 * CHAR_W, clientY: LINE_H / 2 });
+		expect(event).toBe(true);
+		expect(s.suggest).not.toHaveBeenCalled();
+	});
+});

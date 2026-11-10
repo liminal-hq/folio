@@ -20,10 +20,13 @@ import {
 } from '../canvas/textSelection';
 import { t } from '../i18n/messages';
 import { FOLIO_TEXT_MIME, fromClipboard, sliceParagraphs, toHtml, toPlain } from './clipboard';
-import { caretRect, hitTest, selectionRects } from './caretGeometry';
+import { ContextMenu } from '@liminal-hq/folio-chrome/ContextMenu';
+import type { MenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
+import type { Speller } from '../canvas/TextEditor';
+import { caretRect, hitTest, misspellings, selectionRects, type Misspelt } from './caretGeometry';
 import { clampPos, endOf, flatOffset, ordered, replaceInTexts, samePos, textBetween } from './edit';
 import { moveGrapheme, moveLineEdge, moveVertical, moveWord, wordAt } from './navigate';
-import { cpLength, snapToGrapheme } from './units';
+import { cpLength, cpSlice, snapToGrapheme } from './units';
 import styles from './TextSurface.module.css';
 
 /** The two ends of a selection: where it began and where the caret is. */
@@ -62,6 +65,8 @@ export interface TextSurfaceProps {
 	 */
 	onUndo?(): Promise<EditCaret | null> | void;
 	onRedo?(): Promise<EditCaret | null> | void;
+	/** Offers corrections for misspelt words (the layout marks them) and Alt+F7 to find the next. */
+	speller?: Speller;
 	/** Tab was pressed; without this it does nothing. */
 	onTab?(back: boolean): void;
 }
@@ -99,6 +104,7 @@ export function TextSurface({
 	onUndo,
 	onRedo,
 	onTab,
+	speller,
 }: TextSurfaceProps) {
 	const surface = useRef<HTMLDivElement | null>(null);
 	const sink = useRef<HTMLTextAreaElement | null>(null);
@@ -387,6 +393,23 @@ export function TextSurface({
 		} else if (mod && key.toLowerCase() === 'a') {
 			handled();
 			setSelection({ anchor: { para: 0, offset: 0 }, focus: endOf(words) });
+		} else if (speller && key === 'F7' && event.altKey) {
+			handled();
+			nextMiss();
+		} else if (speller && ((key === 'F10' && shift) || key === 'ContextMenu')) {
+			const word = missAt(focus);
+			if (!word) return;
+			handled();
+			const rect = lay ? caretRect(lay, focus) : undefined;
+			const bounds = surface.current?.getBoundingClientRect();
+			openMenu(
+				word,
+				{
+					x: (bounds?.left ?? 0) + (rect?.x ?? 0) * scale,
+					y: (bounds?.top ?? 0) + ((rect?.y ?? 0) + (rect?.h ?? 0)) * scale,
+				},
+				true,
+			);
 		} else if (key === 'Enter') {
 			handled();
 			type('\n', 'own');
@@ -503,6 +526,70 @@ export function TextSurface({
 		if (text) type(text, 'typing');
 	};
 
+	// The spelling menu: the word, what else it might be and where on screen to open.
+	const [menu, setMenu] = useState<{
+		at: { x: number; y: number };
+		word: Misspelt;
+		text: string;
+		suggestions: string[];
+		keyboard: boolean;
+	} | null>(null);
+	const menuUp = useRef(false);
+	menuUp.current = menu !== null;
+
+	const openMenu = (word: Misspelt, at: { x: number; y: number }, keyboard: boolean) => {
+		if (!speller) return;
+		const text = cpSlice(textsRef.current[word.para] ?? '', word.start, word.end);
+		void speller
+			.suggest(text)
+			.catch(() => [] as string[])
+			.then((suggestions) =>
+				setMenu({ at, word, text, suggestions: suggestions.slice(0, 6), keyboard }),
+			);
+	};
+	const missAt = (pos: TextPos) =>
+		layoutRef.current
+			? misspellings(layoutRef.current).find(
+					(m) => m.para === pos.para && pos.offset >= m.start && pos.offset <= m.end,
+				)
+			: undefined;
+	const onContextMenu = (event: React.MouseEvent) => {
+		if (!speller || !layout) return;
+		const p = toLocal(event.clientX, event.clientY);
+		const hit = hitTest(layout, p.x, p.y, snap);
+		const word = hit && missAt(hit);
+		if (!word) return;
+		event.preventDefault();
+		openMenu(word, { x: event.clientX, y: event.clientY }, false);
+	};
+	/** Alt+F7: the next misspelt word after the caret, selected. */
+	const nextMiss = () => {
+		if (!layoutRef.current) return;
+		const all = misspellings(layoutRef.current);
+		const at = selRef.current.focus;
+		const next =
+			all.find((m) => m.para > at.para || (m.para === at.para && m.start > at.offset)) ?? all[0];
+		if (next) {
+			setSelection({
+				anchor: { para: next.para, offset: next.start },
+				focus: { para: next.para, offset: next.end },
+			});
+		}
+	};
+	const menuItems = (): MenuItem[] => {
+		if (!menu) return [];
+		const words: MenuItem[] =
+			menu.suggestions.length > 0
+				? menu.suggestions.map((word, i) => ({ type: 'action', id: `fix:${i}`, label: word }))
+				: [{ type: 'action', id: 'none', label: t('spell.noSuggestions'), disabled: true }];
+		return [
+			...words,
+			{ type: 'separator' },
+			{ type: 'action', id: 'ignore', label: t('spell.ignore') },
+			{ type: 'action', id: 'add', label: t('spell.add') },
+		];
+	};
+
 	const caret = layout ? caretRect(layout, selection.focus) : undefined;
 	const rects =
 		layout && !samePos(selection.anchor, selection.focus)
@@ -526,6 +613,7 @@ export function TextSurface({
 				transformOrigin: rotation ? `${(box.w * scale) / 2}px ${(box.h * scale) / 2}px` : undefined,
 			}}
 			onMouseDown={onMouseDown}
+			onContextMenu={onContextMenu}
 		>
 			{rects.map((r, i) => (
 				<div
@@ -565,6 +653,8 @@ export function TextSurface({
 					// A list in the ribbon takes the focus to open, and the words stay selected for it to style.
 					const to = event.relatedTarget;
 					if (to instanceof Element && to.closest('[data-ribbon]')) return;
+					// The spelling menu takes the focus while it is up; that is not the end of the editing.
+					if (menuUp.current) return;
 					onClose();
 				}}
 				style={{
@@ -577,6 +667,36 @@ export function TextSurface({
 					width: composing === null ? 2 : Math.max(4, (composing.length + 1) * size * 0.6),
 				}}
 			/>
+			{menu && (
+				<ContextMenu
+					items={menuItems()}
+					position={menu.at}
+					ariaLabel={t('spell.menu')}
+					openedWithKeyboard={menu.keyboard}
+					returnFocusTo={sink.current}
+					onSelect={(item) => {
+						const { word, text } = menu;
+						setMenu(null);
+						if (item.id.startsWith('fix:')) {
+							const fix = menu.suggestions[Number(item.id.slice(4))];
+							if (fix !== undefined) {
+								queue(() => ({
+									from: { para: word.para, offset: word.start },
+									to: { para: word.para, offset: word.end },
+									text: fix,
+									step: 'own',
+								}));
+							}
+						} else if (item.id === 'ignore') speller?.ignore(text);
+						else if (item.id === 'add') speller?.addToDictionary(text);
+						sink.current?.focus({ preventScroll: true });
+					}}
+					onClose={() => {
+						setMenu(null);
+						sink.current?.focus({ preventScroll: true });
+					}}
+				/>
+			)}
 		</div>
 	);
 }
