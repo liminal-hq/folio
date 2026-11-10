@@ -410,7 +410,7 @@ export function SpreadCanvas({
 				target: { type: 'story', flow: story.id } as const,
 				frameId: editedFrame.id,
 				texts: story.paragraphs.map((p) => p.inline.map((r) => r.text).join('')),
-				content: { inline: runs },
+				content: { inline: runs, looks: story.paragraphs.map((p) => p.look ?? {}) },
 				layoutKey: editedFrame.id,
 			};
 		}

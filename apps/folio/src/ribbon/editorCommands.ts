@@ -27,6 +27,9 @@ import type { NewFrameKind } from '../canvas/newFrames';
 import { t, type MessageKey } from '../i18n/messages';
 import type { StyleChoice } from '../inspector/styleChoices';
 import { effectiveSize, withOverrides } from '../inspector/textFacts';
+import type { TextParagraphs } from '../canvas/textSelection';
+import { paragraphIntents, paragraphState } from './paragraphCommands';
+import type { StoryPara } from '@liminal-hq/folio-protocol/generated/StoryPara';
 
 export interface EditorInput {
 	spread: Spread;
@@ -63,6 +66,10 @@ export interface EditorInput {
 	/** The caret in the open editor when nothing is selected, and the look already set at it. */
 	caret?: { frame: string; offset: number } | null;
 	pending?: { bold?: boolean; italic?: boolean; colour?: string } | null;
+	/** The paragraphs the open editor's caret or selection is in: the Paragraph group acts on those. */
+	paragraphs?: TextParagraphs | null;
+	/** The book's stories, for the looks of the paragraphs of a frame that flows. */
+	flows?: readonly { id: string; paragraphs: readonly StoryPara[] }[];
 }
 
 /** What the controls show: which can be used now, which are pressed, the numbers, the extra tabs. */
@@ -335,6 +342,8 @@ export function editorState(input: EditorInput): EditorState {
 			shown.paragraphStyle = first.style;
 		}
 	}
+	const options: Record<string, ReadonlyArray<readonly [string, string, string?]>> = {};
+	paragraphState(input, available, active, options);
 	const only = selected.length === 1 ? selected[0]! : null;
 	if (only?.type === 'image') {
 		contextual.push('picture');
@@ -366,7 +375,6 @@ export function editorState(input: EditorInput): EditorState {
 		available.add('rotL');
 		available.add('rotR');
 	}
-	const options: Record<string, ReadonlyArray<readonly [string, string, string?]>> = {};
 	options.colour = [
 		...TEXT_COLOURS.map(([hex, name]) => [hex, t(name)] as const),
 		...(input.swatches ?? []).map((s) => [`swatch:${s.id}`, s.name] as const),
@@ -610,10 +618,22 @@ export function editorAction(
 				})),
 			};
 		}
+		case 'lineSpacing':
+		case 'spaceBefore':
+		case 'spaceAfter':
+		case 'indentLess':
+		case 'indentMore':
+		case 'firstIndent': {
+			const intents = paragraphIntents(id, value, input);
+			return intents ? { kind: 'intents', intents } : null;
+		}
 		case 'alignL':
 		case 'alignC':
 		case 'alignR':
-		case 'justify':
+		case 'justify': {
+			// Each paragraph keeps its own alignment; a frame with no paragraphs to name is aligned whole.
+			const intents = paragraphIntents(id, value, input);
+			if (intents) return { kind: 'intents', intents };
 			return {
 				kind: 'intents',
 				intents: texts(selected).map((f) => ({
@@ -622,6 +642,7 @@ export function editorAction(
 					overrides: withOverrides(f, { align: ALIGNS[id]! }),
 				})),
 			};
+		}
 		case 'colour': {
 			// The selected words, or all of them when none are selected.
 			const hex = typeof value === 'string' ? value : '';

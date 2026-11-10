@@ -4,7 +4,15 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { RibbonCommand } from '@liminal-hq/folio-ribbon/types';
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useSyncExternalStore,
+	type CSSProperties,
+} from 'react';
 import { usePaintPresets } from './usePaintPresets';
 import { useFontChoices } from './useFontChoices';
 import { useFontsInUse } from './useFontsInUse';
@@ -30,8 +38,10 @@ import { ExportDialog } from './ExportDialog';
 import {
 	getPendingLook,
 	getTextCaret,
+	getTextParagraphs,
 	getTextSelection,
 	setPendingLook,
+	subscribeTextParagraphs,
 } from '../canvas/textSelection';
 import { IMPORT_TEXT_EVENT } from './importRequest';
 import { ImportReportDialog, type ImportOutcome } from './ImportReportDialog';
@@ -227,6 +237,8 @@ export function BookView({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[spelling, client, id, personal],
 	);
+	// The paragraphs the open editor's caret is in, which the Paragraph controls act on.
+	const textParagraphs = useSyncExternalStore(subscribeTextParagraphs, getTextParagraphs);
 	const input: EditorInput | null = spread
 		? {
 				spread,
@@ -247,6 +259,8 @@ export function BookView({
 				master: master !== null,
 				cell: editingCell,
 				swatches: (book.styles?.swatches ?? []).map((s) => ({ id: s.id, name: s.name })),
+				paragraphs: textParagraphs,
+				flows: book.flows ?? [],
 			}
 		: null;
 	const editor = useMemo(
@@ -269,6 +283,8 @@ export function BookView({
 			book.margins,
 			editingCell,
 			book.styles,
+			book.flows,
+			textParagraphs,
 		],
 	);
 
@@ -792,6 +808,8 @@ export function BookView({
 			// With the caret alone in the words, a bold or colour is for the words typed next.
 			caret: settings.mode === 'expert' ? getTextCaret() : null,
 			pending: getTextCaret() ? getPendingLook(getTextCaret()!.frame) : null,
+			// Paragraph controls act on the paragraphs the caret is in, in Easy as well as Expert.
+			paragraphs: getTextParagraphs(),
 		});
 		if (!action) return false;
 		perform(action);
@@ -1005,6 +1023,7 @@ export function BookView({
 								marks={marks}
 								onMarks={(next) => setMarks(next)}
 								apply={apply}
+								paragraphs={textParagraphs}
 								paints={paints}
 								images={images}
 								choosePicture={(frame) => void choosePicture(frame)}

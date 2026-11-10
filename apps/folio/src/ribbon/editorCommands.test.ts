@@ -257,7 +257,7 @@ describe('editorAction', () => {
 
 	it('sets the alignment and the size within bounds', () => {
 		expect(editorAction('alignR', undefined, input([text()]))).toMatchObject({
-			intents: [{ overrides: { align: 'right' } }],
+			intents: [{ type: 'SetParagraphLook', change: { set: { align: 'right' } } }],
 		});
 		expect(editorAction('size', 500, input([text()]))).toMatchObject({
 			intents: [{ overrides: { size: 200 } }],

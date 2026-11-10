@@ -17,6 +17,7 @@ import {
 	clearPendingLook,
 	getPendingLook,
 	setTextCaret,
+	setTextParagraphs,
 	setTextSelection,
 } from '../canvas/textSelection';
 import { t } from '../i18n/messages';
@@ -166,9 +167,22 @@ export function TextSurface({
 			collapsed ? { frame: frameId, offset: flatOffset(textsRef.current, selection.focus) } : null,
 		);
 	}, [selection, target.type, frameId]);
+	// The paragraph controls act on the paragraphs the selection is in.
+	const looks = content?.looks;
+	useEffect(() => {
+		const [a, b] = ordered(selection.anchor, selection.focus);
+		setTextParagraphs({
+			target,
+			frame: frameId,
+			from: a.para,
+			to: b.para,
+			looks: looks ?? [],
+		});
+	}, [selection, target, frameId, looks]);
 	useEffect(
 		() => () => {
 			setTextSelection(null);
+			setTextParagraphs(null);
 			setTextCaret(null);
 			clearPendingLook();
 		},

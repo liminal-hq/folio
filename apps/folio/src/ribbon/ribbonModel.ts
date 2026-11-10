@@ -60,6 +60,20 @@ const CLASSIC_ICONS: Readonly<Record<string, string>> = {
 	style: 'tabs',
 };
 
+/** Controls whose tooltip says what they do beyond their name. */
+const TIPS: ReadonlySet<string> = new Set([
+	'alignL',
+	'alignC',
+	'alignR',
+	'justify',
+	'lineSpacing',
+	'spaceBefore',
+	'spaceAfter',
+	'indentLess',
+	'indentMore',
+	'firstIndent',
+]);
+
 const label = (id: string) => t(`ribbon.item.${id}` as MessageKey);
 
 /** The File button's menu: the commands the backstage will gather. */
@@ -130,6 +144,9 @@ function toRibbonItem(
 		const choices = context.editor?.options[source.id];
 		if (choices) item.options = choices.map(([value, text]) => [value, text] as [string, string]);
 	}
+	const tip =
+		TIPS.has(source.id) && enabled ? t(`ribbon.tip.${source.id}` as MessageKey) : undefined;
+	if (tip) item.desc = tip;
 	if (source.id === 'size') Object.assign(item, { min: 4, max: 96, step: 1, defaultValue: 12 });
 	return item;
 }
