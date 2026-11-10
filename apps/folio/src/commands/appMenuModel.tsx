@@ -30,6 +30,7 @@ import {
 	RedoIcon,
 	RibbonIcon,
 	SaveIcon,
+	SmartPunctuationIcon,
 	UndoIcon,
 	ViewIcon,
 	ZoomInIcon,
@@ -52,6 +53,7 @@ export type CommandId =
 	| 'edit.paste'
 	| 'edit.undo'
 	| 'edit.redo'
+	| 'edit.smartPunctuation'
 	| 'view.menuBar'
 	| 'view.ribbon'
 	| 'view.expert'
@@ -175,6 +177,19 @@ function fileItems(settings: Settings, available: CommandAvailability): MenuItem
 	];
 }
 
+/** The switches for how words are edited, which are the person's own whatever book is open. */
+function editToggles(settings: Settings, available: CommandAvailability): MenuItem[] {
+	return [
+		toggle(
+			'edit.smartPunctuation',
+			t('command.smartPunctuation'),
+			<SmartPunctuationIcon />,
+			settings.editing.smartPunctuation,
+			available,
+		),
+	];
+}
+
 function interfaceToggles(settings: Settings, available: CommandAvailability): MenuItem[] {
 	return [
 		toggle(
@@ -227,6 +242,7 @@ export function buildAppMenu(settings: Settings, available: CommandAvailability)
 		...fileItems(settings, available),
 		{ type: 'separator' },
 		...interfaceToggles(settings, available),
+		...editToggles(settings, available),
 		{ type: 'separator' },
 		{
 			type: 'submenu',
@@ -268,6 +284,8 @@ export function buildMenuBar(settings: Settings, available: CommandAvailability)
 				action('edit.cut', t('command.cut'), <CutIcon />, available, 'Ctrl+X'),
 				action('edit.copy', t('command.copy'), <CopyIcon />, available, 'Ctrl+C'),
 				action('edit.paste', t('command.paste'), <PasteIcon />, available, 'Ctrl+V'),
+				{ type: 'separator' },
+				...editToggles(settings, available),
 				{ type: 'separator' },
 				action(
 					'app.preferences',

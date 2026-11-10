@@ -8,4 +8,9 @@ export type EditingSettings = {
  * Edit words with the editor that draws the page's own lines (D-53) rather than a text box
  * over the frame. On; the text box stays as a fallback (D-54).
  */
-newEditor: boolean, };
+newEditor: boolean, 
+/**
+ * Set straight quotes, double hyphens and three dots the way a book sets them as words are
+ * typed and pasted (D-57). A personal setting, on unless turned off.
+ */
+smartPunctuation: boolean, };

@@ -39,6 +39,7 @@ export const RIBBON_COMMANDS: Readonly<Record<string, CommandId>> = {
 	toolKeywords: 'tool.keywords',
 	toolRoyalty: 'tool.royalty',
 	menubar: 'view.menuBar',
+	smartPunct: 'edit.smartPunctuation',
 	ribbonToggle: 'view.ribbon',
 };
 
@@ -108,6 +109,7 @@ function toRibbonItem(
 	const shownText = context.editor?.texts[source.id];
 	if (shownText !== undefined) item.value = shownText;
 	if (source.id === 'menubar') item.active = context.settings.interface.menuBar;
+	if (source.id === 'smartPunct') item.active = context.settings.editing.smartPunctuation;
 	if (source.id === 'spell' || source.id === 'toolSpelling')
 		item.active = context.settings.spelling.enabled;
 	const pressed = context.editor?.active[source.id];

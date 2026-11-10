@@ -145,6 +145,12 @@ export const EditIcon = () => (
 	</Glyph>
 );
 
+export const SmartPunctuationIcon = () => (
+	<Glyph>
+		<path d="M2.5 5.5h3v3h-3zM5.5 5.5c0 2-.8 3.5-2.2 4.2M9.5 5.5h3v3h-3zM12.5 5.5c0 2-.8 3.5-2.2 4.2" />
+	</Glyph>
+);
+
 export const BookToolsIcon = () => (
 	<Glyph>
 		<path d="M9.5 2.5a3 3 0 00-2.8 4L2 11.2 4.8 14l4.7-4.7a3 3 0 004-2.8l-2 2-2-.5-.5-2z" />

@@ -83,6 +83,17 @@ describe('runCommand', () => {
 		expect(off.patches).toEqual([{ jax: 'tips' }]);
 	});
 
+	it('toggles smart punctuation without a book open', async () => {
+		const on = context();
+		await runCommand('edit.smartPunctuation', on.value, NONE);
+		expect(on.patches).toEqual([{ editing: { smartPunctuation: false } }]);
+		const off = context({
+			editing: { ...DEFAULT_SETTINGS.editing, smartPunctuation: false },
+		});
+		await runCommand('edit.smartPunctuation', off.value, NONE);
+		expect(off.patches).toEqual([{ editing: { smartPunctuation: true } }]);
+	});
+
 	it('opens Preferences and About, and quits by closing the window', async () => {
 		const { value, openWindow, closeWindow } = context();
 		await runCommand('app.preferences', value, NONE);

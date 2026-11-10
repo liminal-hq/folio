@@ -49,6 +49,7 @@ export const ALWAYS_AVAILABLE: ReadonlySet<CommandId> = new Set<CommandId>([
 	'view.ribbon',
 	'view.expert',
 	'view.jax',
+	'edit.smartPunctuation',
 	'tools.structure',
 	'tools.typesetting',
 	'tools.pictures',
@@ -115,6 +116,10 @@ export async function runCommand(
 		case 'view.jax':
 			// Switching Jax back on returns to the gentle default rather than the last choice.
 			return context.update({ jax: settings.jax === 'off' ? 'tips' : 'off' });
+		case 'edit.smartPunctuation':
+			return context.update({
+				editing: { smartPunctuation: !settings.editing.smartPunctuation },
+			});
 		case 'tools.structure':
 		case 'tools.typesetting':
 		case 'tools.pictures':

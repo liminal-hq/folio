@@ -104,6 +104,22 @@ describe('buildRibbonModel', () => {
 		expect(find(off)?.active).toBe(false);
 	});
 
+	it('shows the smart punctuation toggle pressed by default, and runs the edit command', () => {
+		const off = {
+			...DEFAULT_SETTINGS,
+			editing: { ...DEFAULT_SETTINGS.editing, smartPunctuation: false },
+		};
+		const find = (settings: Settings) =>
+			allItems(buildRibbonModel({ settings, available: new Set(['edit.smartPunctuation']) })).find(
+				(i) => i.id === 'smartPunct',
+			);
+		expect(find(DEFAULT_SETTINGS)?.kind).toBe('toggle');
+		expect(find(DEFAULT_SETTINGS)?.active).toBe(true);
+		expect(find(DEFAULT_SETTINGS)?.disabled).toBe(false);
+		expect(find(off)?.active).toBe(false);
+		expect(RIBBON_COMMANDS.smartPunct).toBe('edit.smartPunctuation');
+	});
+
 	it('puts the commands that can run in the File menu', () => {
 		const model = buildRibbonModel({ settings: DEFAULT_SETTINGS, available: some });
 		expect(model.file?.items?.map(([id, label]) => [id, label])).toEqual([['file.save', 'Save']]);

@@ -149,6 +149,12 @@ function EditingPage() {
 					checked={settings.editing.newEditor}
 					onChange={(newEditor) => void update({ editing: { newEditor } })}
 				/>
+				<ToggleRow
+					label={t('preferences.smartPunctuation')}
+					description={t('preferences.smartPunctuation.description')}
+					checked={settings.editing.smartPunctuation}
+					onChange={(smartPunctuation) => void update({ editing: { smartPunctuation } })}
+				/>
 			</SettingsGroup>
 		</SettingsSection>
 	);

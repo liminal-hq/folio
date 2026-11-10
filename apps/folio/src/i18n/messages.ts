@@ -33,6 +33,7 @@ export const messages = {
 	'command.useRibbon': 'Use the ribbon',
 	'command.expertMode': 'Expert mode',
 	'command.jax': 'Jax',
+	'command.smartPunctuation': 'Smart punctuation as I type',
 	'command.bookTools': 'Book tools',
 	'command.tools.structure': 'Book structure…',
 	'command.tools.typesetting': 'Typesetting checks…',
@@ -567,6 +568,9 @@ export const messages = {
 	'preferences.newEditor': 'Edit text on the page itself',
 	'preferences.newEditor.description':
 		'Type in a text frame with the same lines, line breaks and formatting the page has. Turn this off to use a plain text box instead.',
+	'preferences.smartPunctuation': 'Smart punctuation as I type',
+	'preferences.smartPunctuation.description':
+		'Straight quotes become curly (or « » in French, „ “ in German), -- becomes a dash and ... an ellipsis as you type or paste. Backspace straight afterwards puts back what you typed.',
 	'preferences.section.spelling': 'Spelling',
 	'preferences.section.saving': 'Saving',
 	'preferences.autosave': 'Keep a recovery copy while I work',
@@ -1284,6 +1288,7 @@ export const messages = {
 	'ribbon.item.snap': 'Snap',
 	'ribbon.item.speech': 'Speech',
 	'ribbon.item.spell': 'Spelling',
+	'ribbon.item.smartPunct': 'Smart punctuation',
 	'ribbon.item.strike': 'Strikethrough',
 	'ribbon.item.stroke': 'Outline',
 	'ribbon.item.style': 'Style',
