@@ -616,6 +616,7 @@ export const messages = {
 	'welcome.importWords': 'Import words…',
 	'welcome.importLayout': 'Open a layout…',
 	'welcome.error': 'That did not work: {message}',
+	'openFile.failed': 'Folio could not open “{path}”. {message}',
 
 	// The book in the main window
 	'window.main.book': '{title} — {kind}',

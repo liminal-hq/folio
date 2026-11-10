@@ -34,6 +34,8 @@ serde_json = { workspace = true }
 log = { workspace = true }
 chrono = "0.4"
 tauri-plugin-updater = "2"
+# A second launch (a double-clicked book) goes to the running app instead of starting another.
+tauri-plugin-single-instance = "2"
 # Disables the native WebView context menu, devtools and reload shortcuts in release builds.
 tauri-plugin-prevent-default = "6"
 

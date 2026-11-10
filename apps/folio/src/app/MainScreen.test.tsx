@@ -13,6 +13,7 @@ import { createFakeBooksClient } from '../books/fakeBooksClient';
 import type { FileDialogs } from '../books/dialogs';
 import type { AppInfoClient } from '../services/appInfoClient';
 import type { CloseRequests } from '../services/closeRequests';
+import type { OpenFilesClient } from '../services/openFilesClient';
 import { createFakeSettingsClient } from '../settings/fakeSettingsClient';
 import { SettingsProvider } from '../settings/SettingsProvider';
 import { MainScreen } from './MainScreen';
@@ -53,6 +54,7 @@ function closableWindow() {
 function setup(
 	picks: { open?: string | null; save?: string | null } = {},
 	closing?: CloseRequests,
+	openFiles?: OpenFilesClient,
 ) {
 	const settings = createFakeSettingsClient();
 	const books = createFakeBooksClient();
@@ -68,7 +70,11 @@ function setup(
 			<WindowChromeProvider controls={controls}>
 				<BooksProvider client={books.client} dialogs={dialogs}>
 					<WindowsContext.Provider value={windows}>
-						<MainScreen client={info} {...(closing ? { closeRequests: closing } : {})} />
+						<MainScreen
+							client={info}
+							{...(closing ? { closeRequests: closing } : {})}
+							{...(openFiles ? { openFilesClient: openFiles } : {})}
+						/>
 					</WindowsContext.Provider>
 				</BooksProvider>
 			</WindowChromeProvider>
@@ -433,5 +439,91 @@ describe('a book in the main window', () => {
 		await userEvent.click(screen.getByRole('button', { name: 'Marks' }));
 		await userEvent.click(screen.getByRole('button', { name: 'Margins colour 3' }));
 		await waitFor(async () => expect((await settings.get()).settings.marks.margins.colour).toBe(2));
+	});
+});
+
+/** A stand-in for the hand-off from Rust: paths waiting at start-up, and ones that arrive later. */
+function openFilesFrom(waiting: string[]) {
+	let wake: (() => void) | undefined;
+	const report = vi.fn(async () => {});
+	const client: OpenFilesClient = {
+		take: async () => waiting.splice(0),
+		onWaiting: async (listener) => {
+			wake = listener;
+			return () => {
+				wake = undefined;
+			};
+		},
+		report,
+	};
+	return {
+		client,
+		report,
+		arrive: (...paths: string[]) => {
+			waiting.push(...paths);
+			act(() => wake?.());
+		},
+	};
+}
+
+describe('books the system asks Folio to open', () => {
+	it('opens the book that was double-clicked on a cold start', async () => {
+		const files = openFilesFrom(['C:\\My Books\\Naïve café.folio']);
+		const { books } = setup({}, undefined, files.client);
+		await screen.findByRole('toolbar', { name: 'Toolbar' });
+		expect(books.calls).toContain('openBook("C:\\\\My Books\\\\Naïve café.folio")');
+		expect(files.report).not.toHaveBeenCalled();
+	});
+
+	it('opens a book asked for while Folio is already running', async () => {
+		const files = openFilesFrom([]);
+		const { books } = setup({}, undefined, files.client);
+		await screen.findByRole('heading', { name: 'What are you making?' });
+		files.arrive('/home/me/second.folio');
+		await screen.findByRole('toolbar', { name: 'Toolbar' });
+		expect(books.calls).toContain('openBook("/home/me/second.folio")');
+	});
+
+	it('opens several books in the order asked', async () => {
+		const files = openFilesFrom([]);
+		const { books } = setup({}, undefined, files.client);
+		await screen.findByRole('heading', { name: 'What are you making?' });
+		files.arrive('/b/one.folio', '/b/two.folio');
+		await waitFor(() =>
+			expect(books.calls.filter((c) => c.startsWith('openBook'))).toHaveLength(2),
+		);
+		const opened = books.calls.filter((c) => c.startsWith('openBook'));
+		expect(opened).toEqual(['openBook("/b/one.folio")', 'openBook("/b/two.folio")']);
+	});
+
+	it('says why a book could not be opened rather than staying quietly on the start page', async () => {
+		const files = openFilesFrom(['/b/broken.folio']);
+		const fake = createFakeBooksClient();
+		fake.refuseNext('openBook', 'notFolio', 'that is not a Folio book');
+		const settings = createFakeSettingsClient();
+		render(
+			<SettingsProvider client={settings}>
+				<WindowChromeProvider controls={controls}>
+					<BooksProvider
+						client={fake.client}
+						dialogs={{
+							pickBook: async () => null,
+							pickSavePath: async () => null,
+							pickImage: async () => null,
+							pickText: async () => null,
+						}}
+					>
+						<WindowsContext.Provider
+							value={{ open: vi.fn(async () => {}), openBookTools: vi.fn(async () => {}) }}
+						>
+							<MainScreen client={info} openFilesClient={files.client} />
+						</WindowsContext.Provider>
+					</BooksProvider>
+				</WindowChromeProvider>
+			</SettingsProvider>,
+		);
+		await waitFor(() => expect(files.report).toHaveBeenCalledTimes(1));
+		expect(files.report).toHaveBeenCalledWith(expect.stringContaining('/b/broken.folio'));
+		expect(files.report).toHaveBeenCalledWith(expect.stringContaining('that is not a Folio book'));
 	});
 });

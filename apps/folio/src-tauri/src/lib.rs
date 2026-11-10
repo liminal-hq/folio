@@ -6,6 +6,7 @@
 mod agent;
 mod app_info;
 mod com;
+mod open_files;
 mod recents;
 mod settings;
 mod storage;
@@ -30,6 +31,15 @@ pub fn run() {
 
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
+        // First, so a second launch (a double-clicked book while Folio is open) stops here and hands
+        // its book to the running app rather than starting another.
+        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+            open_files::queue(
+                app,
+                open_files::book_paths(&args, Some(std::path::Path::new(&cwd))),
+                true,
+            );
+        }))
         // `tauri-plugin-log`'s own `plugin:log|log` command is what `src/services/logger.ts`
         // forwards the webview's `console.*` calls into, so forwarded messages land in the same
         // stdout stream and log file as native `log::info!()` calls.
@@ -81,12 +91,19 @@ pub fn run() {
             updates::update_check,
             updates::update_download,
             updates::update_install,
+            open_files::take_open_files,
             windows::open_window,
             windows::open_book_tools,
             windows::book_tools_area
         ])
         .setup(|app| {
             tauri::Manager::manage(app, windows::ToolsArea::default());
+            tauri::Manager::manage(app, open_files::PendingOpens::default());
+            open_files::queue(
+                app.handle(),
+                open_files::book_paths(std::env::args(), None),
+                false,
+            );
             recents::wire(app.handle());
             agent::serve(app.handle());
             agent::refresh_kept_copy();
