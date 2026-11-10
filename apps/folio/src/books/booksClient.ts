@@ -38,6 +38,7 @@ import {
 	removeDictionary,
 	onDictionaryProgress,
 	importImage,
+	importImageBytes,
 	fontsInUse,
 	unkeepFonts,
 	readerPreview,
@@ -149,6 +150,8 @@ export interface BooksClient {
 	layoutMaster(id: string, master: string): Promise<SpreadLayoutResult>;
 	/** Reads a picture file into the book; resolves to its path inside the book. */
 	importImage(id: string, path: string): Promise<string>;
+	/** Puts picture bytes (one pasted from the clipboard) into the book; resolves to its path inside. */
+	importImageBytes(id: string, bytes: Uint8Array, extension: string): Promise<string>;
 	/** One of the book's pictures as raw bytes. */
 	assetData(id: string, asset: string): Promise<ArrayBuffer>;
 	/** The words of `text` the book's dictionary does not know, by UTF-16 range, and whether it has a dictionary. */
@@ -228,6 +231,7 @@ export const tauriBooksClient: BooksClient = {
 	layoutSpread,
 	layoutMaster,
 	importImage,
+	importImageBytes,
 	assetData,
 	spellCheck,
 	spellCheckBook,

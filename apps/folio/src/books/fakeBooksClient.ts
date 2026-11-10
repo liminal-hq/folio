@@ -589,6 +589,11 @@ export function createFakeBooksClient(): FakeBooks {
 			find(id);
 			return `assets/images/${path.split('/').pop() ?? 'picture'}`;
 		},
+		async importImageBytes(id, bytes, extension) {
+			await call('importImageBytes', [id, extension, bytes.length]);
+			find(id);
+			return `assets/images/pasted-${bytes.length}.${extension}`;
+		},
 		async assetData(id, asset) {
 			await call('assetData', [id, asset]);
 			find(id);

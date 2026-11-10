@@ -221,3 +221,23 @@ export async function writeSystem(json: string, plain: string): Promise<boolean>
 	}
 	return false;
 }
+
+/** The file extension Folio gives a picture of each kind the clipboard can bring. */
+const PICTURE_EXTENSIONS: Readonly<Record<string, string>> = {
+	'image/png': 'png',
+	'image/jpeg': 'jpg',
+	'image/gif': 'gif',
+	'image/webp': 'webp',
+	'image/svg+xml': 'svg',
+};
+
+/** The first picture among the files a paste brings, with the extension to store it under. */
+export function pictureFromPaste(
+	files: ArrayLike<File> | null | undefined,
+): { file: File; extension: string } | null {
+	for (const file of Array.from(files ?? [])) {
+		const extension = PICTURE_EXTENSIONS[file.type.toLowerCase()];
+		if (extension) return { file, extension };
+	}
+	return null;
+}

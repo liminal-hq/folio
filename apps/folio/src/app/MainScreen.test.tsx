@@ -390,6 +390,38 @@ describe('a book in the main window', () => {
 		await waitFor(() => expect(added()).toBe(2));
 	});
 
+	it('pastes a picture from the clipboard as a picture frame holding it', async () => {
+		const { books } = setup();
+		await startBook();
+		const png = new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'shot.png', {
+			type: 'image/png',
+		});
+		fireEvent.paste(window, {
+			clipboardData: { getData: () => '', files: [png], types: ['Files'] },
+		});
+		await waitFor(() =>
+			expect(books.calls.some((c) => c.startsWith('importImageBytes('))).toBe(true),
+		);
+		expect(books.calls.find((c) => c.startsWith('importImageBytes('))).toContain('"png"');
+		await waitFor(() =>
+			expect(
+				books.calls.filter((c) => c.startsWith('apply(')).map((c) => c.match(/Add|SetImage/)?.[0]),
+			).toEqual(['Add', 'SetImage']),
+		);
+	});
+
+	it('says so when a pasted picture is refused', async () => {
+		const { books } = setup();
+		await startBook();
+		const spy = vi.spyOn(books.client, 'importImageBytes').mockRejectedValue({ kind: 'image' });
+		const png = new File([new Uint8Array([1, 2, 3])], 'bad.png', { type: 'image/png' });
+		fireEvent.paste(window, {
+			clipboardData: { getData: () => '', files: [png], types: ['Files'] },
+		});
+		expect(await screen.findByText(/could not be pasted/)).toBeInTheDocument();
+		spy.mockRestore();
+	});
+
 	it('leaves copy, cut and paste to a field being typed in', async () => {
 		setup();
 		await startBook();

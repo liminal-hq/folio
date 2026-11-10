@@ -314,6 +314,7 @@ export function BookView({
 		surface,
 		apply,
 		select,
+		pastePicture: (picture) => void pastePicture(picture),
 	});
 
 	/** Puts a new frame of `kind` on the spread, centred on `point` (in points) or the first page. */
@@ -328,6 +329,24 @@ export function BookView({
 		const frame = newFrame(kind, boxAt(kind, at, page.trim), defaultTextStyle(choices));
 		apply({ type: 'AddFrame', on: surface, frame });
 		select([frame.id]);
+		return frame;
+	};
+
+	/** Brings a picture the clipboard held into the book and puts it on the page as an Add → Picture frame. */
+	const pastePicture = async ({ file, extension }: { file: File; extension: string }) => {
+		try {
+			const asset = await client.importImageBytes(
+				id,
+				new Uint8Array(await file.arrayBuffer()),
+				extension,
+			);
+			// The book on show may have changed while the picture was read.
+			if (store.state.getState().activeId !== id) return;
+			const frame = addFrame('picture');
+			await store.apply({ type: 'SetImage', frame: frame.id, asset, fit: null });
+		} catch {
+			setNotice(t('clipboard.pictureRefused'));
+		}
 	};
 
 	const pageOp = (op: 'add' | 'duplicate' | 'remove', index = shown) => {

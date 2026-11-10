@@ -45,6 +45,8 @@ export const messages = {
 	'command.agents': 'Connect an agent…',
 	'command.updates': 'Check for updates…',
 	'command.quit': 'Quit',
+	'clipboard.pictureRefused':
+		'That picture could not be pasted. Folio places PNG, JPEG, GIF, WebP and SVG pictures.',
 	'command.cut': 'Cut',
 	'command.copy': 'Copy',
 	'command.paste': 'Paste',

@@ -30,6 +30,7 @@ permissions = [
   "allow-layout-spread",
   "allow-layout-master",
   "allow-import-image",
+  "allow-import-image-bytes",
   "allow-asset-data",
   "allow-spell-check",
   "allow-spell-suggest",

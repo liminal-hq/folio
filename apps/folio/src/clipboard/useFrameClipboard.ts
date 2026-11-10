@@ -17,6 +17,7 @@ import {
 	holding,
 	nextStep,
 	parseFrames,
+	pictureFromPaste,
 	pasteIntents,
 	writeSystem,
 	type PasteAt,
@@ -31,6 +32,8 @@ export interface FrameClipboardInput {
 	apply(intent: Intent): void;
 	/** Selects frames, which is what a paste does with the ones it made. */
 	select(ids: string[]): void;
+	/** Puts a picture the clipboard brought on the page as a picture frame. */
+	pastePicture(picture: { file: File; extension: string }): void;
 }
 
 /** Whether typing here belongs to the field, so copy, cut and paste are its own. */
@@ -112,10 +115,15 @@ export function useFrameClipboard(input: FrameClipboardInput): FrameClipboard {
 		const onPaste = (event: ClipboardEvent) => {
 			if (!latest.current.active || event.defaultPrevented || elsewhere(event)) return;
 			const data = event.clipboardData;
-			const frames = framesFromPaste(
-				{ json: data?.getData(FRAMES_MIME) ?? '', plain: data?.getData('text/plain') ?? '' },
-				holding(),
-			);
+			const json = data?.getData(FRAMES_MIME) ?? '';
+			// Folio's own frames come first; a picture is something another program copied.
+			const picture = json ? null : pictureFromPaste(data?.files);
+			if (picture) {
+				event.preventDefault();
+				latest.current.pastePicture(picture);
+				return;
+			}
+			const frames = framesFromPaste({ json, plain: data?.getData('text/plain') ?? '' }, holding());
 			if (!frames) return;
 			event.preventDefault();
 			board.pasteFrames(frames, { kind: 'offset', step: nextStep() });

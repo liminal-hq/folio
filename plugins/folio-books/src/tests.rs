@@ -493,6 +493,65 @@ fn a_file_that_is_not_what_its_name_says_and_a_link_are_refused() {
     }
 }
 
+#[test]
+fn picture_bytes_from_the_clipboard_are_stored_like_a_file_and_once() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let png = [b"\x89PNG\r\n\x1a\n".as_slice(), b"and some bytes"].concat();
+    let asset = books(&app)
+        .import_image_bytes(&id, png.clone(), "png")
+        .unwrap();
+    assert!(
+        asset.starts_with("assets/images/") && asset.ends_with(".png"),
+        "{asset}"
+    );
+    assert_eq!(books(&app).asset_data(&id, &asset).unwrap(), png);
+    // The same bytes give the same path, from a file or from the clipboard, with a dot or capitals.
+    assert_eq!(
+        books(&app)
+            .import_image_bytes(&id, png.clone(), ".PNG")
+            .unwrap(),
+        asset
+    );
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("same.png");
+    std::fs::write(&file, &png).unwrap();
+    assert_eq!(books(&app).import_image(&id, &file).unwrap(), asset);
+}
+
+#[test]
+fn picture_bytes_that_are_not_what_they_say_or_too_large_are_refused_with_a_typed_error() {
+    let app = app();
+    let id = books(&app)
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id;
+    let kind = |e: Error| serde_json::to_value(&e).unwrap()["kind"].clone();
+    // Text called a picture, and a kind of file that is not a picture.
+    let words = books(&app)
+        .import_image_bytes(&id, b"just words".to_vec(), "png")
+        .unwrap_err();
+    assert_eq!(kind(words), "image");
+    let other = books(&app)
+        .import_image_bytes(&id, b"\x89PNG\r\n\x1a\nbytes".to_vec(), "txt")
+        .unwrap_err();
+    assert_eq!(kind(other), "image");
+    let huge = vec![0u8; 101 * 1024 * 1024];
+    let big = books(&app)
+        .import_image_bytes(&id, huge, "png")
+        .unwrap_err();
+    assert_eq!(kind(big), "image");
+    assert!(matches!(
+        books(&app).import_image_bytes("bk_none", b"\x89PNG\r\n\x1a\nbytes".to_vec(), "png"),
+        Err(Error::NoSuchBook(_))
+    ));
+}
+
 /// A PNG header that says it is `w` × `h` pixels; enough for the book to read its size.
 fn png_of(w: u32, h: u32) -> Vec<u8> {
     let mut png = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR".to_vec();

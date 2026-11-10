@@ -349,6 +349,39 @@ pub async fn import_image<R: Runtime>(
         .expect("the import task does not panic")
 }
 
+/// A picture's bytes (one pasted from the clipboard) into a book, answering with its path in the
+/// book's package. The bytes are the request's raw body, so they cross as they are and not as a
+/// list of numbers; the book's `id` and the picture's file `extension` are headers.
+#[tauri::command]
+pub async fn import_image_bytes<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    request: tauri::ipc::Request<'_>,
+) -> Result<String, Error> {
+    let header = |name: &str| {
+        request
+            .headers()
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_owned)
+    };
+    let (Some(id), Some(extension)) = (header("id"), header("extension")) else {
+        return Err(Error::BadImage(
+            "a pasted picture needs the book's id and the picture's extension".into(),
+        ));
+    };
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err(Error::BadImage("a pasted picture arrives as bytes".into()));
+    };
+    let bytes = bytes.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Arc<Books>>()
+            .import_image_bytes(&id, bytes, &extension)
+    })
+    .await
+    .expect("the import task does not panic")
+}
+
 /// One of a book's pictures, as raw bytes.
 #[tauri::command]
 pub async fn asset_data<R: Runtime>(
