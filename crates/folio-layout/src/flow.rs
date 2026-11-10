@@ -289,6 +289,7 @@ fn paragraph_key(spec: &ParagraphSpec<'_>, measure: f64) -> u64 {
         span.text.hash(&mut h);
         let st = &span.style;
         st.family.hash(&mut h);
+        st.lang.hash(&mut h);
         st.size_pt.to_bits().hash(&mut h);
         st.weight.hash(&mut h);
         st.italic.hash(&mut h);

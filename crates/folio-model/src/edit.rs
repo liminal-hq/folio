@@ -104,7 +104,7 @@ fn chars_in(runs: &[Run]) -> usize {
 
 /// A run that looks like the words at `at` and holds none: the one before the place, or the first
 /// when the place is the start.
-fn look_at(runs: &[Run], at: usize) -> Run {
+pub fn look_at(runs: &[Run], at: usize) -> Run {
     let mut seen = 0;
     for run in runs {
         let len = run.text.chars().count();

@@ -335,3 +335,25 @@ fn words_with_their_own_size_and_tracking_are_spans_in_ems_of_the_paragraph() {
     }
     assert!(found, "{want}");
 }
+
+#[test]
+fn words_in_another_language_are_marked_with_it() {
+    let mut book = sample(BookKind::Novel);
+    let at = book.flows[0]
+        .paragraphs
+        .iter()
+        .position(|p| p.text().starts_with("Mara had kept the light"))
+        .expect("the opening paragraph");
+    book.flows[0].paragraphs[at].inline[0].lang = Some("fr-CA".into());
+    let (mut zip, names) = files(&epub(&book, &NoAssets, EpubFlavour::Standard));
+    let mut found = false;
+    for name in names
+        .iter()
+        .filter(|n| n.ends_with(".xhtml") && !n.ends_with("nav.xhtml"))
+    {
+        let text = read(&mut zip, name);
+        assert!(well_formed(&text), "{name}");
+        found |= text.contains("<span lang=\"fr-CA\" xml:lang=\"fr-CA\">Mara had kept the light");
+    }
+    assert!(found);
+}

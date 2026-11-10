@@ -832,8 +832,23 @@ impl Books {
         let speller = spelling
             .and_then(|_| self.spelling.for_language(&book.language))
             .map(|(_, checker)| checker);
-        let find = |text: &str| -> Vec<std::ops::Range<usize>> {
-            speller
+        // A stretch in another language is checked with that language's dictionary, found once.
+        let others: std::cell::RefCell<std::collections::HashMap<String, Option<_>>> =
+            Default::default();
+        let find = |text: &str, lang: Option<&str>| -> Vec<std::ops::Range<usize>> {
+            let own = lang.and_then(|tag| {
+                others
+                    .borrow_mut()
+                    .entry(tag.to_owned())
+                    .or_insert_with(|| self.spelling.for_language(tag).map(|(_, c)| c))
+                    .clone()
+            });
+            // A language with no dictionary is not checked, which is not the book's dictionary.
+            let checker = match (lang, own) {
+                (Some(_), found) => found,
+                (None, _) => speller.clone(),
+            };
+            checker
                 .as_deref()
                 .map(|checker| {
                     find_misspellings(checker, text, &ignore)
@@ -912,11 +927,23 @@ impl Books {
             let open = inner.books.iter().find(|b| b.id == id)?;
             let book = open.session.book();
             let para = folio_session::paragraph_text(book, &edit.target, edit.from.para)?;
+            // The quotes follow the language of the words typed into: one chosen for the next words
+            // (`look.lang`), else the run before the place, else the book's.
+            let own = match edit.look.as_ref().and_then(|l| l.lang.as_deref()) {
+                Some("") => None,
+                Some(chosen) => folio_model::clean_lang(chosen),
+                None => folio_session::paragraph_lang(
+                    book,
+                    &edit.target,
+                    edit.from.para,
+                    edit.from.offset,
+                ),
+            };
             (
                 para.chars()
                     .take(edit.from.offset as usize)
                     .collect::<String>(),
-                book.language.clone(),
+                own.unwrap_or_else(|| book.language.clone()),
             )
         };
         let set = folio_model::smarten(
@@ -1031,9 +1058,35 @@ impl Books {
         ignore.extend_from_slice(personal);
         let mut words = Vec::new();
         let mut truncated = false;
-        let mut look =
-            |spread: &str, frame: &str, cell: Option<(u32, u32)>, text: &str, replaceable: bool| {
-                for m in find_misspellings(&*speller, text, &ignore) {
+        // A stretch in another language is checked with that language's dictionary, found once; a
+        // language with no dictionary is not checked.
+        let mut others: std::collections::HashMap<String, Option<_>> = Default::default();
+        let mut look = |spread: &str,
+                        frame: &str,
+                        cell: Option<(u32, u32)>,
+                        text: &str,
+                        langs: &[(std::ops::Range<usize>, Option<String>)],
+                        replaceable: bool| {
+            let mut found = Vec::new();
+            for (range, lang) in langs {
+                let checker = match lang {
+                    None => Some(speller.clone()),
+                    Some(tag) => others
+                        .entry(tag.clone())
+                        .or_insert_with(|| self.spelling.for_language(tag).map(|(_, c)| c))
+                        .clone(),
+                };
+                let Some(checker) = checker else { continue };
+                let chars = text[..range.start].chars().count();
+                for mut m in find_misspellings(&*checker, &text[range.clone()], &ignore) {
+                    m.start += chars;
+                    m.end += chars;
+                    m.bytes = m.bytes.start + range.start..m.bytes.end + range.start;
+                    found.push(m);
+                }
+            }
+            {
+                for m in found {
                     if words.len() >= MAX_LISTED_WORDS {
                         truncated = true;
                         return;
@@ -1066,16 +1119,20 @@ impl Books {
                         replaceable,
                     });
                 }
-            };
-        let plain = |content: &Option<InlineContent>| -> (String, bool) {
+            }
+        };
+        let plain = |content: &Option<InlineContent>| -> (String, Vec<_>, bool) {
             let runs = content
                 .as_ref()
                 .map(|c| c.inline.as_slice())
                 .unwrap_or_default();
+            // Words with a language of their own are changed by a replacement that keeps their runs
+            // (it does not, here), so they are not offered one.
             (
                 runs.iter().map(|r| r.text.as_str()).collect(),
+                folio_model::lang_ranges(runs),
                 runs.iter()
-                    .all(|r| !r.bold && !r.italic && r.style.is_none()),
+                    .all(|r| !r.bold && !r.italic && r.style.is_none() && r.lang.is_none()),
             )
         };
         let mut flowed = std::collections::HashSet::new();
@@ -1083,8 +1140,8 @@ impl Books {
             for frame in folio_model::leaves(&spread.frames) {
                 match frame {
                     Frame::Text(t) if t.flow.is_none() => {
-                        let (text, ok) = plain(&t.content);
-                        look(&spread.id.0, &t.base.id.0, None, &text, ok);
+                        let (text, langs, ok) = plain(&t.content);
+                        look(&spread.id.0, &t.base.id.0, None, &text, &langs, ok);
                     }
                     Frame::Text(t) => {
                         // Flowing text is one story across its frames: look at it once, at its first frame.
@@ -1094,29 +1151,51 @@ impl Books {
                             .and_then(|s| book.flows.iter().find(|f| f.id == s.id))
                         {
                             if flowed.insert(flow.id.0.clone()) {
-                                look(&spread.id.0, &t.base.id.0, None, &flow.text(), false);
+                                // The paragraphs are joined by a line break the ranges skip.
+                                let mut langs = Vec::new();
+                                let mut base = 0;
+                                for p in &flow.paragraphs {
+                                    langs.extend(
+                                        folio_model::lang_ranges(&p.inline).into_iter().map(
+                                            |(range, lang)| {
+                                                (range.start + base..range.end + base, lang)
+                                            },
+                                        ),
+                                    );
+                                    base += p.text().len() + 1;
+                                }
+                                look(
+                                    &spread.id.0,
+                                    &t.base.id.0,
+                                    None,
+                                    &flow.text(),
+                                    &langs,
+                                    false,
+                                );
                             }
                         }
                     }
                     Frame::Shape(sh) => {
-                        let (text, ok) = plain(&sh.content);
+                        let (text, langs, ok) = plain(&sh.content);
                         look(
                             &spread.id.0,
                             &sh.base.id.0,
                             None,
                             &text,
+                            &langs,
                             ok && sh.shape.holds_text(),
                         );
                     }
                     Frame::Table(tb) => {
                         for (r, row) in tb.rows.iter().enumerate() {
                             for (c, cell) in row.iter().enumerate() {
-                                let (text, ok) = plain(&cell.content);
+                                let (text, langs, ok) = plain(&cell.content);
                                 look(
                                     &spread.id.0,
                                     &tb.base.id.0,
                                     Some((r as u32, c as u32)),
                                     &text,
+                                    &langs,
                                     ok,
                                 );
                             }

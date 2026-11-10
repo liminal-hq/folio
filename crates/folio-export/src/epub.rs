@@ -336,8 +336,14 @@ impl Writer {
                     f64::from(tracking) / 1000.0
                 ));
             }
+            // Words in another language say so, for a reader's speech, hyphenation and quotes.
+            let lang = run.lang.as_deref().map_or(String::new(), |l| {
+                format!(" lang=\"{0}\" xml:lang=\"{0}\"", escape(l))
+            });
             if !rules.is_empty() {
-                text = format!("<span style=\"{}\">{text}</span>", rules.join(";"));
+                text = format!("<span{lang} style=\"{}\">{text}</span>", rules.join(";"));
+            } else if !lang.is_empty() {
+                text = format!("<span{lang}>{text}</span>");
             }
             if run.strike {
                 text = format!("<s>{text}</s>");

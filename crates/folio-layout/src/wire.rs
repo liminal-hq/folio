@@ -31,6 +31,9 @@ pub struct LayoutRun {
     /// A line through the words, when they are struck through.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strike: Option<Stroke>,
+    /// The language of the words when it is not the book's (a BCP 47 tag).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lang: Option<String>,
     /// A hyphen drawn at the end of a line; it is not part of the text.
     pub hyphen: bool,
     /// The misspelt parts of `text`, each as where it starts and ends in code points from the start

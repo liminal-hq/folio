@@ -242,3 +242,114 @@ fn the_tool_sets_table_cells_in_the_language_of_the_book() {
         "Il dit «\u{a0}oui\u{a0}»—vraiment"
     );
 }
+
+impl Fixture {
+    /// Sets the language of the characters `start..end` of the frame's words.
+    fn language(&self, start: u32, end: u32, lang: &str) {
+        self.books
+            .apply(
+                &self.id,
+                Intent::StyleRange {
+                    frame: self.frame.clone(),
+                    start,
+                    end,
+                    change: folio_model::RunChange {
+                        lang: Some(lang.into()),
+                        ..Default::default()
+                    },
+                },
+            )
+            .unwrap();
+    }
+}
+
+#[test]
+fn quotes_follow_the_language_of_the_words_typed_into_before_the_books() {
+    // An English book with a French phrase: a quote typed after the phrase is French.
+    let f = fixture("en-CA", "Il dit ");
+    f.language(0, 7, "fr-CA");
+    f.type_at(7, "\"", true);
+    assert_eq!(f.words(), "Il dit «\u{a0}");
+    // After English words in the same book it is English.
+    let g = fixture("en-CA", "He said Il dit ");
+    g.language(8, 15, "fr");
+    g.type_at(8, "\"", true);
+    assert_eq!(g.words(), "He said “Il dit ");
+}
+
+#[test]
+fn a_language_chosen_for_the_next_words_decides_their_quotes() {
+    let f = fixture("en-CA", "Er sagte ");
+    let at = TextPos { para: 0, offset: 9 };
+    f.books
+        .edit_text(
+            &f.id,
+            EditRequest {
+                target: TextTarget::Frame {
+                    frame: f.frame.clone(),
+                },
+                from: at,
+                to: at,
+                insert: TextInsert::Text { text: "\"".into() },
+                look: Some(folio_model::RunChange {
+                    lang: Some("de".into()),
+                    ..Default::default()
+                }),
+                step: EditStep::Own,
+                smart: Some(true),
+            },
+            &f.spread,
+            None,
+        )
+        .unwrap();
+    assert_eq!(f.words(), "Er sagte „");
+}
+
+#[test]
+fn the_tool_sets_a_paragraph_in_the_language_all_of_its_words_share() {
+    let f = fixture("en-CA", "Il dit \"oui\"");
+    f.language(0, 12, "fr");
+    f.books
+        .book_tool_fix(
+            &f.id,
+            &ToolFix::Punctuation {
+                rules: vec![PunctuationRule::Quotes],
+            },
+        )
+        .unwrap();
+    assert_eq!(f.words(), "Il dit «\u{a0}oui\u{a0}»");
+}
+
+#[test]
+fn spelling_checks_a_stretch_with_the_dictionary_of_its_own_language() {
+    // `zorblat` is not English. In a language with no dictionary here it is not checked at all.
+    let f = fixture("en-CA", "zorblat zorblat");
+    f.language(8, 15, "fr");
+    let layout = f
+        .books
+        .layout_spread(&f.id, &f.spread, Some(&[]))
+        .unwrap()
+        .layout;
+    let frame = layout.frames.iter().find(|l| l.frame == f.frame).unwrap();
+    let runs: Vec<_> = frame.lines.iter().flat_map(|l| &l.runs).collect();
+    // A long word is hyphenated, so it is several runs.
+    let english: Vec<_> = runs.iter().filter(|r| r.lang.is_none()).collect();
+    let french: Vec<_> = runs
+        .iter()
+        .filter(|r| r.lang.as_deref() == Some("fr"))
+        .collect();
+    assert!(!french.is_empty() && !english.is_empty());
+    assert!(
+        english.iter().any(|r| !r.miss.is_empty()),
+        "the book's words are checked"
+    );
+    assert!(
+        french.iter().all(|r| r.miss.is_empty()),
+        "words in a language with no dictionary are not"
+    );
+    // The proofing list holds only the book's own, and offers no replacement for the other stretch's.
+    let listed = f.books.spell_check_book(&f.id, &[]).unwrap();
+    assert_eq!(listed.words.len(), 1);
+    assert_eq!((listed.words[0].start, listed.words[0].end), (0, 7));
+    assert!(!listed.words[0].replaceable, "it has a run with a language");
+}

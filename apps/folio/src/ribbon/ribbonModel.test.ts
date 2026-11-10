@@ -242,7 +242,7 @@ describe('the Font list', () => {
 			buildRibbonModel({ settings: DEFAULT_SETTINGS, available: none, editor }),
 		).find((i) => i.id === 'font');
 		expect(font?.options).toEqual([
-			['', 'Style’s font'],
+			['', 'Font from style'],
 			['Literata', 'Literata', 'In this book'],
 			['Arial', 'Arial', 'Installed'],
 		]);

@@ -14,6 +14,11 @@ size?: number,
  */
 tracking?: number, 
 /**
+ * A language tag for the words; an empty one takes the words' own away, so the book's shows
+ * again. A tag that is not shaped like one is ignored.
+ */
+lang?: string, 
+/**
  * Takes the words' own size away, so the style's shows again.
  */
 clearSize?: boolean, 

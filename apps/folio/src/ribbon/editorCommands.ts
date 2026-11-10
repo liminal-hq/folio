@@ -46,6 +46,8 @@ export interface EditorInput {
 	fonts?: FontChoice[];
 	/** The families the book uses, which the Font list shows under the book's own heading. */
 	fontsInUse?: readonly string[];
+	/** The languages a run can be set in, as the language list of the Properties card offers them. */
+	languages?: readonly { value: string; label: string }[];
 	marks: Marks;
 	snap: boolean;
 	/** Whether the rulers show. */
@@ -189,6 +191,31 @@ const TRACKINGS: ReadonlyArray<readonly [number, MessageKey]> = [
 	[80, 'ribbon.tracking.veryLoose'],
 ];
 
+/**
+ * The languages the list offers and the one it shows: the run's own language is matched to a choice
+ * by its code, else by its language alone (`fr-CA` is `fr`), and is added as a choice when none is
+ * the same. `null` is words in several languages, and is shown as such.
+ */
+export function languageOptions(
+	choices: readonly { value: string; label: string }[],
+	current: string | null,
+): { options: ReadonlyArray<readonly [string, string]>; shown: string } {
+	const list: Array<readonly [string, string]> = choices.map((c) => [c.value, c.label] as const);
+	if (current === null)
+		return { options: [...list, [MIXED, t('ribbon.lang.mixed')]], shown: MIXED };
+	if (current === '') return { options: list, shown: '' };
+	const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+	const primary = current.split('-')[0]!;
+	const match =
+		choices.find((c) => same(c.value, current)) ??
+		choices.find((c) => same(c.value.split('-')[0]!, primary));
+	if (match) return { options: list, shown: match.value };
+	return { options: [...list, [current, current]], shown: current };
+}
+
+/** The value of the list's entry that stands for words in several languages, which does nothing. */
+const MIXED = '\u0000mixed';
+
 /** The size of a run's words: its own, else its style's, else the frame's. */
 function runSize(
 	frame: Frame,
@@ -256,6 +283,7 @@ export function editorState(input: EditorInput): EditorState {
 	};
 	const values: Record<string, number> = {};
 	const mixed: Record<string, boolean> = {};
+	let language: string | null = '';
 	let tracking: { own: number | undefined; mixed: boolean } = { own: undefined, mixed: false };
 	const shown: Record<string, string> = {};
 	const contextual: string[] = [];
@@ -317,6 +345,9 @@ export function editorState(input: EditorInput): EditorState {
 		const runs = words.flatMap((f) => (f.content?.inline ?? []).filter((r) => r.text !== ''));
 		active.underline = runs.length > 0 && runs.every((r) => r.underline === true);
 		active.strike = runs.length > 0 && runs.every((r) => r.strike === true);
+		available.add('lang');
+		const spoken = new Set(runs.map((r) => r.lang ?? ''));
+		language = spoken.size === 1 ? [...spoken][0]! : null;
 		const spacings = new Set(runs.map((r) => r.tracking ?? null));
 		tracking = {
 			own: spacings.size === 1 ? ([...spacings][0] ?? undefined) : undefined,
@@ -352,6 +383,7 @@ export function editorState(input: EditorInput): EditorState {
 		])
 			available.add(id);
 		const look = lookOf(scope, runSize(scope.frame, input.layout, choices));
+		available.add('lang');
 		const typed = scope.collapsed ? input.pending : null;
 		active.bold = typed?.bold ?? look.bold;
 		active.italic = typed?.italic ?? look.italic;
@@ -361,6 +393,7 @@ export function editorState(input: EditorInput): EditorState {
 		// The words' size, or the first one's with the control marked mixed when they differ.
 		values.size = typed?.size ?? look.size;
 		mixed.size = typed?.size === undefined && look.sizeMixed;
+		language = typed?.lang ?? look.lang;
 		tracking = {
 			own: typed?.clearTracking ? undefined : (typed?.tracking ?? look.tracking),
 			mixed: typed?.tracking === undefined && !typed?.clearTracking && look.trackingMixed,
@@ -381,6 +414,11 @@ export function editorState(input: EditorInput): EditorState {
 				: t('ribbon.para.fromStyle'),
 		] as const,
 	]);
+	{
+		const { options: listed, shown: spoken } = languageOptions(input.languages ?? [], language);
+		options.lang = listed;
+		shown.lang = spoken;
+	}
 	paragraphState(input, available, active, options);
 	const only = selected.length === 1 ? selected[0]! : null;
 	if (only?.type === 'image') {
@@ -752,6 +790,27 @@ export function editorAction(
 						overrides: family === '' ? rest : { ...rest, font: family },
 					};
 				}),
+			};
+		}
+		case 'lang': {
+			// An empty choice is the book's language; the entry for mixed languages does nothing.
+			const tag = typeof value === 'string' ? value : '';
+			if (tag.startsWith('\u0000')) return null;
+			const scope = lookScope(input);
+			if (scope?.collapsed)
+				return { kind: 'pending', frame: scope.frame.id, change: { lang: tag } };
+			if (scope) return { kind: 'intents', intents: [styleIntent(scope, { lang: tag })] };
+			return {
+				kind: 'intents',
+				intents: texts(selected)
+					.map((f) => ({
+						type: 'StyleRange' as const,
+						frame: f.id,
+						start: 0,
+						end: [...(f.content?.inline ?? []).map((r) => r.text).join('')].length,
+						change: { lang: tag },
+					}))
+					.filter((r) => r.end > r.start),
 			};
 		}
 		case 'tracking': {

@@ -149,6 +149,11 @@ pub struct Run {
     /// Space added after every letter of these words, in thousandths of an em, over the style's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tracking: Option<i32>,
+    /// The language of these words alone (a BCP 47 tag: `fr-CA`), over the book's. It picks the
+    /// dictionary spelling checks them against, how they are hyphenated and which quotes smart
+    /// punctuation sets.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lang: Option<String>,
 }
 
 fn is_false(value: &bool) -> bool {

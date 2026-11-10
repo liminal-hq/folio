@@ -33,6 +33,10 @@ pub struct RunChange {
     /// Letter spacing in thousandths of an em, kept between `MIN_TRACKING` and `MAX_TRACKING`.
     #[ts(optional)]
     pub tracking: Option<i32>,
+    /// A language tag for the words; an empty one takes the words' own away, so the book's shows
+    /// again. A tag that is not shaped like one is ignored.
+    #[ts(optional)]
+    pub lang: Option<String>,
     /// Takes the words' own size away, so the style's shows again.
     #[ts(optional)]
     pub clear_size: Option<bool>,
@@ -59,6 +63,7 @@ impl RunChange {
             && self.strike.is_none()
             && self.size.is_none()
             && self.tracking.is_none()
+            && self.lang.is_none()
             && self.clear_size.is_none()
             && self.clear_tracking.is_none()
     }
@@ -88,6 +93,13 @@ impl RunChange {
         if let Some(tracking) = self.tracking {
             run.tracking = Some(tracking.clamp(MIN_TRACKING, MAX_TRACKING));
         }
+        if let Some(lang) = &self.lang {
+            if lang.is_empty() {
+                run.lang = None;
+            } else if let Some(tag) = clean_lang(lang) {
+                run.lang = Some(tag);
+            }
+        }
         if let Some(font) = &self.font {
             run.font = Some(font.clone()).filter(|f| !f.is_empty());
         }
@@ -113,6 +125,59 @@ pub(crate) fn alike(a: &Run, b: &Run) -> bool {
         && a.strike == b.strike
         && a.size == b.size
         && a.tracking == b.tracking
+        && a.lang == b.lang
+}
+
+/// A language tag in its usual case (`fr-CA`, `zh-Hant`), or `None` when `tag` is not shaped like
+/// one: a language of two or three letters, then parts of up to eight letters or digits.
+pub fn clean_lang(tag: &str) -> Option<String> {
+    let tag = tag.trim().replace('_', "-");
+    let mut parts = tag.split('-');
+    let language = parts.next()?;
+    if !(2..=3).contains(&language.len()) || !language.chars().all(|c| c.is_ascii_alphabetic()) {
+        return None;
+    }
+    // Codes for "no language", "undetermined", "uncoded" and "several" name nothing to check.
+    if matches!(
+        language.to_ascii_lowercase().as_str(),
+        "zxx" | "und" | "mis" | "mul"
+    ) {
+        return None;
+    }
+    let mut out = language.to_ascii_lowercase();
+    for part in parts {
+        if part.is_empty() || part.len() > 8 || !part.chars().all(|c| c.is_ascii_alphanumeric()) {
+            return None;
+        }
+        out.push('-');
+        out.push_str(&match part.len() {
+            // A script (`Hant`) is capitalised and a region (`CA`, `419`) is upper case.
+            4 if part.chars().all(|c| c.is_ascii_alphabetic()) => {
+                let (head, rest) = part.split_at(1);
+                head.to_ascii_uppercase() + &rest.to_ascii_lowercase()
+            }
+            2 | 3 if part.chars().all(|c| c.is_ascii_alphabetic()) => part.to_ascii_uppercase(),
+            _ => part.to_ascii_lowercase(),
+        });
+    }
+    Some(out)
+}
+
+/// Where each language begins and ends in the words of `runs` joined, as byte ranges: neighbouring
+/// runs in the same language are one range, and a run with none (the book's language) is `None`.
+/// The ranges cover the words, in order.
+pub fn lang_ranges(runs: &[Run]) -> Vec<(std::ops::Range<usize>, Option<String>)> {
+    let mut out: Vec<(std::ops::Range<usize>, Option<String>)> = Vec::new();
+    let mut at = 0;
+    for run in runs {
+        let end = at + run.text.len();
+        match out.last_mut() {
+            Some((range, lang)) if *lang == run.lang => range.end = end,
+            _ => out.push((at..end, run.lang.clone())),
+        }
+        at = end;
+    }
+    out
 }
 
 /// Joins neighbouring runs that look the same, and drops empty ones (keeping one if all are).
@@ -544,5 +609,93 @@ mod size_tests {
         assert!(!written.contains("size") && !written.contains("tracking"));
         let sized = serde_json::to_string(&typed[0]).unwrap();
         assert!(sized.contains("\"size\":20.0"));
+    }
+}
+
+#[cfg(test)]
+mod lang_tests {
+    use super::*;
+
+    #[test]
+    fn a_language_is_set_cleaned_and_taken_away() {
+        let runs = [plain("Hello bonjour world".into())];
+        let set = RunChange {
+            lang: Some("fr_ca".into()),
+            ..RunChange::default()
+        };
+        let out = style_range(&runs, 6, 13, &set);
+        assert_eq!(out.len(), 3);
+        assert_eq!(out[1].lang.as_deref(), Some("fr-CA"));
+        assert!(out[0].lang.is_none() && out[2].lang.is_none());
+        // Runs in different languages are kept apart.
+        assert_eq!(tidy(vec![out[0].clone(), out[1].clone()]).len(), 2);
+        // Not a tag: ignored. Empty: the book's language again.
+        let bad = RunChange {
+            lang: Some("not a tag".into()),
+            ..RunChange::default()
+        };
+        assert_eq!(style_range(&runs, 0, 5, &bad).len(), 1);
+        let away = RunChange {
+            lang: Some(String::new()),
+            ..RunChange::default()
+        };
+        assert!(!away.is_empty());
+        assert_eq!(style_range(&out, 6, 13, &away).len(), 1);
+    }
+
+    #[test]
+    fn tags_are_written_in_their_usual_case_and_odd_ones_are_refused() {
+        for (given, clean) in [
+            ("en", "en"),
+            ("EN-ca", "en-CA"),
+            ("zh_hant_tw", "zh-Hant-TW"),
+            ("es-419", "es-419"),
+        ] {
+            assert_eq!(clean_lang(given).as_deref(), Some(clean), "{given}");
+        }
+        for bad in [
+            "",
+            "e",
+            "english",
+            "fr-",
+            "fr--CA",
+            "fr-toolongpart",
+            "zxx",
+            "fr CA",
+            "12",
+        ] {
+            assert_eq!(clean_lang(bad), None, "{bad}");
+        }
+    }
+
+    #[test]
+    fn language_ranges_join_neighbours_and_count_bytes() {
+        let fr = |t: &str| Run {
+            lang: Some("fr".into()),
+            ..plain(t.into())
+        };
+        let runs = [plain("ab".into()), fr("é"), fr("c"), plain("d".into())];
+        assert_eq!(
+            lang_ranges(&runs),
+            vec![(0..2, None), (2..5, Some("fr".to_string())), (5..6, None)]
+        );
+        assert!(lang_ranges(&[]).is_empty());
+    }
+
+    #[test]
+    fn words_typed_in_a_stretch_take_its_language_and_old_books_open_unchanged() {
+        let fr = Run {
+            lang: Some("fr".into()),
+            ..plain("bonjour".into())
+        };
+        let typed = retext(&[fr], "bonjour!");
+        assert_eq!(typed.len(), 1);
+        assert_eq!(typed[0].lang.as_deref(), Some("fr"));
+        let old: Run = serde_json::from_str(r#"{"text":"hi","style":null}"#).unwrap();
+        assert_eq!(old.lang, None);
+        assert!(!serde_json::to_string(&old).unwrap().contains("lang"));
+        assert!(serde_json::to_string(&typed[0])
+            .unwrap()
+            .contains("\"lang\":\"fr\""));
     }
 }

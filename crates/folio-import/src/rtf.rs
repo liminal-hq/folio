@@ -9,7 +9,7 @@
 
 use folio_model::{join_runs, Run, StoryPara};
 
-use crate::{keep_unusual_sizes, ImportReport, Imported};
+use crate::{keep_unusual_looks, ImportReport, Imported};
 
 /// Why an RTF file could not be read.
 #[derive(Debug, thiserror::Error)]
@@ -40,7 +40,7 @@ const SKIPPED: &[&str] = &[
     "private",
 ];
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Default)]
 struct State {
     bold: bool,
     italic: bool,
@@ -49,9 +49,32 @@ struct State {
     /// The size in points, and the letter spacing in points.
     size: Option<f64>,
     spacing: Option<f64>,
+    lang: Option<String>,
     skip: bool,
     /// Characters a `\uN` escape still has to step over (`\ucN`).
     skip_chars: u32,
+}
+
+/// The language tag of a Windows language identifier (`\\lang1036`), for the ones Folio can check.
+fn language_of(id: i32) -> Option<String> {
+    let tag = match id {
+        1033 => "en-US",
+        2057 => "en-GB",
+        4105 => "en-CA",
+        3081 => "en-AU",
+        1036 => "fr-FR",
+        3084 => "fr-CA",
+        2060 => "fr-BE",
+        1031 => "de-DE",
+        1034 | 3082 => "es-ES",
+        1046 => "pt-BR",
+        2070 => "pt-PT",
+        1043 => "nl-NL",
+        1040 => "it-IT",
+        1053 => "sv-SE",
+        _ => return None,
+    };
+    Some(tag.to_owned())
 }
 
 /// Reads an `.rtf` held in `bytes` into a story.
@@ -81,6 +104,7 @@ pub fn import_rtf(bytes: &[u8]) -> Result<Imported, RtfError> {
                 underline: state.underline,
                 strike: state.strike,
                 size: state.size,
+                lang: state.lang.clone(),
                 tracking: state.spacing.and_then(|pt| {
                     crate::tracking_of(pt, state.size.unwrap_or(crate::REFERENCE_SIZE))
                 }),
@@ -105,7 +129,7 @@ pub fn import_rtf(bytes: &[u8]) -> Result<Imported, RtfError> {
         match b {
             b'{' => {
                 flush_text(&mut pending, &mut runs, &state);
-                stack.push(state);
+                stack.push(state.clone());
                 i += 1;
             }
             b'}' => {
@@ -220,6 +244,10 @@ pub fn import_rtf(bytes: &[u8]) -> Result<Imported, RtfError> {
                                 state.spacing =
                                     param.filter(|n| *n != 0).map(|n| f64::from(n) / 20.0);
                             }
+                            "lang" => {
+                                flush_text(&mut pending, &mut runs, &state);
+                                state.lang = param.and_then(language_of);
+                            }
                             "plain" => {
                                 flush_text(&mut pending, &mut runs, &state);
                                 state = State {
@@ -276,7 +304,7 @@ pub fn import_rtf(bytes: &[u8]) -> Result<Imported, RtfError> {
         &mut report,
         "Headings and quotations in a Rich Text file are not told apart; every paragraph came in as body text. Use Word (.docx) or OpenDocument (.odt) to keep them.",
     );
-    keep_unusual_sizes(&mut story);
+    keep_unusual_looks(&mut story);
     report.paragraphs = story.len() as u32;
     Ok(Imported { story, report })
 }

@@ -34,6 +34,9 @@ pub struct TextStyle {
     pub underline: bool,
     /// A line through the words.
     pub strike: bool,
+    /// The language of the words when it is not the paragraph's: it picks their hyphenation
+    /// patterns and the language the font's features are shaped for.
+    pub lang: Option<String>,
 }
 
 impl TextStyle {
@@ -49,6 +52,7 @@ impl TextStyle {
             colour: None,
             underline: false,
             strike: false,
+            lang: None,
         }
     }
 }
@@ -275,8 +279,17 @@ impl Shaper<'_> {
         run.weight = f.weight;
         run.tracking_em = style.tracking_em;
         run.features = &f.features;
-        run.language = Some(self.language);
+        run.language = Some(self.language_of(span));
         shape(&f.font, &run)
+    }
+
+    /// The language of a span: its own, else the paragraph's.
+    fn language_of(&self, span: usize) -> &str {
+        self.spans[span]
+            .style
+            .lang
+            .as_deref()
+            .unwrap_or(self.language)
     }
 
     fn width(&self, span: usize, text: &str) -> f64 {
@@ -344,7 +357,9 @@ fn word_slots(
         let core_end = spoken.rfind(char::is_alphabetic).map_or(lead, |at| {
             at + spoken[at..].chars().next().map_or(0, char::len_utf8)
         });
-        hyphenation_points(&spoken[lead..core_end], shaper.language)
+        // A word is hyphenated by the language of the span its first letter is in.
+        let first = span_at(ends, word.start + lead);
+        hyphenation_points(&spoken[lead..core_end], shaper.language_of(first))
             .into_iter()
             .map(|p| word.start + lead + p)
             .filter(|&p| {

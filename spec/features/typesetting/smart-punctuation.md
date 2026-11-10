@@ -17,7 +17,7 @@ On by default, a personal setting: **Preferences → Editing → Smart punctuati
 - Characters already set the way a book sets them are left alone.
 
 ## Language
-The quote style comes from the book's language (`book.language`; per-run `lang` later): English and en-CA “ ” ‘ ’; French and fr-CA « » with non-breaking spaces inside and ‘ ’ within; German „ “ ‚ ’; any other language gets the English style.
+The quote style comes from the book's language (`book.language`, or a run's own `lang` when it has one, D-65: a quote typed after words in French is French in an English book, and the Book tool sets a paragraph by the language all of its words share): English and en-CA “ ” ‘ ’; French and fr-CA « » with non-breaking spaces inside and ‘ ’ within; German „ “ ‚ ’; any other language gets the English style.
 
 ## Import
 Word, OpenDocument and Rich Text imports and Markdown are set by the same rules when the setting is on, so `--` is an em dash everywhere; code spans are left as written.

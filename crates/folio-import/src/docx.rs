@@ -181,6 +181,12 @@ fn read_document(xml: &str, has_comments: bool, map: &StyleMap) -> Imported {
                         .and_then(|v| v.parse::<f64>().ok())
                         .map(|twentieths| twentieths / 20.0)
                 }
+                // `w:lang` names a language tag.
+                b"lang" if in_run_props => {
+                    look.lang = attr(&e, b"val")
+                        .as_deref()
+                        .and_then(folio_model::clean_lang)
+                }
                 // `w:u` names a line style; `none` (or `0`) is no line.
                 b"u" if in_run_props => {
                     look.underline = attr(&e, b"val").is_none_or(|v| v != "none" && v != "0")
@@ -190,14 +196,14 @@ fn read_document(xml: &str, has_comments: bool, map: &StyleMap) -> Imported {
                 }
                 b"tab" | b"br" if in_table == 0 && deleted == 0 => {
                     if let Some(p) = para.as_mut() {
-                        p.runs = join_runs(&p.runs, &[run(" ", look)]);
+                        p.runs = join_runs(&p.runs, &[run(" ", &look)]);
                     }
                 }
                 _ => {}
             },
             Event::Text(t) if in_text && deleted == 0 && in_table == 0 => {
                 if let (Some(p), Ok(text)) = (para.as_mut(), t.unescape()) {
-                    p.runs = join_runs(&p.runs, &[run(&text, look)]);
+                    p.runs = join_runs(&p.runs, &[run(&text, &look)]);
                 }
             }
             Event::End(e) => match e.local_name().as_ref() {
@@ -215,14 +221,14 @@ fn read_document(xml: &str, has_comments: bool, map: &StyleMap) -> Imported {
             _ => {}
         }
     }
-    crate::keep_unusual_sizes(&mut story);
+    crate::keep_unusual_looks(&mut story);
     report.paragraphs = story.len() as u32;
     report.styles = tally.into_styles();
     Imported { story, report }
 }
 
 /// The look of the run being read.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Default)]
 struct Look {
     bold: bool,
     italic: bool,
@@ -231,9 +237,10 @@ struct Look {
     /// The size in points, and the letter spacing in points.
     size: Option<f64>,
     spacing: Option<f64>,
+    lang: Option<String>,
 }
 
-fn run(text: &str, look: Look) -> Run {
+fn run(text: &str, look: &Look) -> Run {
     Run {
         text: text.to_owned(),
         bold: look.bold,
@@ -241,6 +248,7 @@ fn run(text: &str, look: Look) -> Run {
         underline: look.underline,
         strike: look.strike,
         size: look.size,
+        lang: look.lang.clone(),
         tracking: look
             .spacing
             .and_then(|pt| crate::tracking_of(pt, look.size.unwrap_or(crate::REFERENCE_SIZE))),
@@ -264,7 +272,7 @@ fn finish(
     let style = tally.see(name, para.style, map, words.trim());
     let mut runs = para.runs;
     if para.list {
-        runs.insert(0, run("\u{2013} ", Look::default()));
+        runs.insert(0, run("\u{2013} ", &Look::default()));
         note(
             report,
             "List items became paragraphs that start with a dash.",

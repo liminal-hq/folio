@@ -352,16 +352,19 @@ enum Source {
         flow: folio_model::FlowId,
         para: usize,
         text: String,
+        lang: Option<String>,
     },
     Frame {
         frame: folio_model::FrameId,
         text: String,
+        lang: Option<String>,
     },
     Cell {
         frame: folio_model::FrameId,
         row: usize,
         col: usize,
         text: String,
+        lang: Option<String>,
     },
 }
 
@@ -373,6 +376,28 @@ impl Source {
             | Source::Cell { text, .. } => text,
         }
     }
+
+    /// The quote style of the words: their own language when every run of them has the same one,
+    /// else the book's.
+    fn quotes(&self, book: &Book) -> folio_model::QuoteStyle {
+        let (Source::Paragraph { lang, .. }
+        | Source::Frame { lang, .. }
+        | Source::Cell { lang, .. }) = self;
+        folio_model::QuoteStyle::for_language(lang.as_deref().unwrap_or(&book.language))
+    }
+}
+
+/// The language every run of some words has, when they all have the same one.
+fn shared_lang(runs: &[folio_model::Run]) -> Option<String> {
+    let mut found: Option<&String> = None;
+    for run in runs.iter().filter(|r| !r.text.is_empty()) {
+        let lang = run.lang.as_ref()?;
+        if found.is_some_and(|f| f != lang) {
+            return None;
+        }
+        found = Some(lang);
+    }
+    found.cloned()
 }
 
 fn sources(book: &Book) -> Vec<Source> {
@@ -383,6 +408,7 @@ fn sources(book: &Book) -> Vec<Source> {
                 flow: flow.id.clone(),
                 para,
                 text: folio_model::text_of(&p.inline),
+                lang: shared_lang(&p.inline),
             });
         }
     }
@@ -394,6 +420,7 @@ fn sources(book: &Book) -> Vec<Source> {
                         out.push(Source::Frame {
                             frame: t.base.id.clone(),
                             text: folio_model::text_of(&content.inline),
+                            lang: shared_lang(&content.inline),
                         });
                     }
                 }
@@ -402,6 +429,7 @@ fn sources(book: &Book) -> Vec<Source> {
                         out.push(Source::Frame {
                             frame: s.base.id.clone(),
                             text: folio_model::text_of(&content.inline),
+                            lang: shared_lang(&content.inline),
                         });
                     }
                 }
@@ -414,6 +442,7 @@ fn sources(book: &Book) -> Vec<Source> {
                                     row,
                                     col,
                                     text: folio_model::text_of(&content.inline),
+                                    lang: shared_lang(&content.inline),
                                 });
                             }
                         }
@@ -428,7 +457,6 @@ fn sources(book: &Book) -> Vec<Source> {
 
 fn punctuation_found(book: &Book) -> Vec<PunctuationFound> {
     let all = sources(book);
-    let style = folio_model::QuoteStyle::for_language(&book.language);
     punctuation::RULES
         .iter()
         .filter_map(|&rule| {
@@ -436,6 +464,7 @@ fn punctuation_found(book: &Book) -> Vec<PunctuationFound> {
             let mut examples = Vec::new();
             for source in &all {
                 let text = source.text();
+                let style = source.quotes(book);
                 let (_, n) = punctuation::apply(text, rule, style);
                 count += n as u32;
                 if n > 0 && examples.len() < 3 {
@@ -508,12 +537,14 @@ pub fn fix_intents(
     match fix {
         ToolFix::CopyrightPage { fields } => frontmatter::copyright_intents(book, fields, k),
         ToolFix::ContentsPage => frontmatter::contents_intents(book, &findings.contents, k),
-        ToolFix::Punctuation { rules } => {
-            let style = folio_model::QuoteStyle::for_language(&book.language);
-            sources(book)
-                .into_iter()
-                .filter_map(|source| match source {
-                    Source::Paragraph { flow, para, text } => {
+        ToolFix::Punctuation { rules } => sources(book)
+            .into_iter()
+            .filter_map(|source| {
+                let style = source.quotes(book);
+                match source {
+                    Source::Paragraph {
+                        flow, para, text, ..
+                    } => {
                         let new = punctuation::smarten(&text, rules, style);
                         (new != text).then_some(Intent::SetParagraphText {
                             flow,
@@ -521,7 +552,7 @@ pub fn fix_intents(
                             text: new,
                         })
                     }
-                    Source::Frame { frame, text } => {
+                    Source::Frame { frame, text, .. } => {
                         let new = punctuation::smarten(&text, rules, style);
                         (new != text).then_some(Intent::SetText { frame, text: new })
                     }
@@ -530,6 +561,7 @@ pub fn fix_intents(
                         row,
                         col,
                         text,
+                        ..
                     } => {
                         let new = punctuation::smarten(&text, rules, style);
                         (new != text).then_some(Intent::EditTable {
@@ -541,9 +573,9 @@ pub fn fix_intents(
                             },
                         })
                     }
-                })
-                .collect()
-        }
+                }
+            })
+            .collect(),
         ToolFix::ResetStyles { frames } => style_strays(book)
             .into_iter()
             .filter(|stray| frames.contains(&stray.frame))

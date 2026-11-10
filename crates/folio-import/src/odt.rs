@@ -31,7 +31,7 @@ fn attr(e: &BytesStart, name: &[u8]) -> Option<String> {
         .and_then(|a| a.unescape_value().ok().map(|v| v.into_owned()))
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Default)]
 struct Look {
     bold: bool,
     italic: bool,
@@ -40,6 +40,7 @@ struct Look {
     /// The size in points, and the letter spacing in points.
     size: Option<f64>,
     spacing: Option<f64>,
+    lang: Option<String>,
 }
 
 /// A length in points (`12pt`); other units are not read.
@@ -47,7 +48,7 @@ fn points(value: &str) -> Option<f64> {
     value.trim().strip_suffix("pt")?.trim().parse().ok()
 }
 
-fn run(text: &str, look: Look) -> Run {
+fn run(text: &str, look: &Look) -> Run {
     Run {
         text: text.to_owned(),
         bold: look.bold,
@@ -55,6 +56,7 @@ fn run(text: &str, look: Look) -> Run {
         underline: look.underline,
         strike: look.strike,
         size: look.size,
+        lang: look.lang.clone(),
         tracking: look
             .spacing
             .and_then(|pt| crate::tracking_of(pt, look.size.unwrap_or(crate::REFERENCE_SIZE))),
@@ -160,9 +162,9 @@ fn read_content(xml: &str, map: &StyleMap) -> Imported {
                     }
                     b"span" if in_para => {
                         let look = attr(&e, b"style-name")
-                            .and_then(|n| looks.get(&n).copied())
+                            .and_then(|n| looks.get(&n).cloned())
                             .unwrap_or_default();
-                        let outer = spans.last().copied().unwrap_or_default();
+                        let outer = spans.last().cloned().unwrap_or_default();
                         spans.push(Look {
                             bold: outer.bold || look.bold,
                             italic: outer.italic || look.italic,
@@ -170,6 +172,7 @@ fn read_content(xml: &str, map: &StyleMap) -> Imported {
                             strike: outer.strike || look.strike,
                             size: look.size.or(outer.size),
                             spacing: look.spacing.or(outer.spacing),
+                            lang: look.lang.or(outer.lang),
                         });
                     }
                     _ => {}
@@ -191,13 +194,20 @@ fn read_content(xml: &str, map: &StyleMap) -> Imported {
                                 strike: line(b"text-line-through-style"),
                                 size: attr(&e, b"font-size").as_deref().and_then(points),
                                 spacing: attr(&e, b"letter-spacing").as_deref().and_then(points),
+                                lang: attr(&e, b"language").and_then(|language| {
+                                    let tag = match attr(&e, b"country") {
+                                        Some(country) => format!("{language}-{country}"),
+                                        None => language,
+                                    };
+                                    folio_model::clean_lang(&tag)
+                                }),
                             },
                         );
                     }
                 }
                 b"s" | b"tab" | b"line-break" if in_para => {
-                    let look = spans.last().copied().unwrap_or_default();
-                    runs = join_runs(&runs, &[run(" ", look)]);
+                    let look = spans.last().cloned().unwrap_or_default();
+                    runs = join_runs(&runs, &[run(" ", &look)]);
                 }
                 b"frame" => note(
                     &mut report,
@@ -207,8 +217,8 @@ fn read_content(xml: &str, map: &StyleMap) -> Imported {
             },
             Event::Text(t) if in_para => {
                 if let Ok(text) = t.unescape() {
-                    let look = spans.last().copied().unwrap_or_default();
-                    runs = join_runs(&runs, &[run(&text, look)]);
+                    let look = spans.last().cloned().unwrap_or_default();
+                    runs = join_runs(&runs, &[run(&text, &look)]);
                 }
             }
             Event::End(e) => match e.local_name().as_ref() {
@@ -227,7 +237,7 @@ fn read_content(xml: &str, map: &StyleMap) -> Imported {
                             report.headings += 1;
                         }
                         if list > 0 && applied.is_none() {
-                            inline.insert(0, run("\u{2013} ", Look::default()));
+                            inline.insert(0, run("\u{2013} ", &Look::default()));
                             note(
                                 &mut report,
                                 "List items became paragraphs that start with a dash.",
@@ -247,7 +257,7 @@ fn read_content(xml: &str, map: &StyleMap) -> Imported {
             _ => {}
         }
     }
-    crate::keep_unusual_sizes(&mut story);
+    crate::keep_unusual_looks(&mut story);
     report.paragraphs = story.len() as u32;
     report.styles = tally.into_styles();
     Imported { story, report }

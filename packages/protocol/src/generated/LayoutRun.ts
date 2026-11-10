@@ -27,6 +27,10 @@ underline?: Stroke | null,
  */
 strike?: Stroke | null, 
 /**
+ * The language of the words when it is not the book's (a BCP 47 tag).
+ */
+lang?: string | null, 
+/**
  * A hyphen drawn at the end of a line; it is not part of the text.
  */
 hyphen: boolean, 

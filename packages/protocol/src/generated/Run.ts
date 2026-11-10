@@ -26,4 +26,10 @@ size?: number | null,
 /**
  * Space added after every letter of these words, in thousandths of an em, over the style's.
  */
-tracking?: number | null, };
+tracking?: number | null, 
+/**
+ * The language of these words alone (a BCP 47 tag: `fr-CA`), over the book's. It picks the
+ * dictionary spelling checks them against, how they are hyphenated and which quotes smart
+ * punctuation sets.
+ */
+lang?: string | null, };

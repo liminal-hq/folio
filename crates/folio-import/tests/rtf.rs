@@ -68,3 +68,16 @@ fn sizes_and_expansion_come_across_when_they_are_not_the_bodys() {
         .filter(|r| r.text != "Big")
         .all(|r| r.size.is_none() && r.tracking.is_none()));
 }
+
+#[test]
+fn a_language_that_is_not_the_bodys_comes_across() {
+    let rtf = br"{\rtf1\ansi\pard\lang4105 The body goes on in the usual language for a while, and then \lang3084 bonjour\par}";
+    let s = import_rtf(rtf).unwrap().story;
+    let bonjour = s[0]
+        .inline
+        .iter()
+        .find(|r| r.text.contains("bonjour"))
+        .unwrap();
+    assert_eq!(bonjour.lang.as_deref(), Some("fr-CA"));
+    assert!(s[0].inline.iter().any(|r| r.lang.is_none()));
+}

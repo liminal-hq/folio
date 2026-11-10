@@ -18,7 +18,7 @@ mod masters;
 mod patch;
 mod session;
 
-pub use apply::paragraph_text;
+pub use apply::{paragraph_lang, paragraph_text};
 pub use error::SessionError;
 pub use patch::{Patch, PatchOp};
 pub use session::{IdSource, Session, COALESCE_WINDOW, UNDO_DEPTH};

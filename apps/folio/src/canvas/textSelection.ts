@@ -106,6 +106,8 @@ export interface PendingLook {
 	size?: number;
 	tracking?: number;
 	clearTracking?: boolean;
+	/** A language tag for the words typed next; empty for the book's. */
+	lang?: string;
 	font?: string;
 	colour?: string;
 }

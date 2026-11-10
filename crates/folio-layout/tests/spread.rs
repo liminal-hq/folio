@@ -1266,8 +1266,10 @@ fn page_and_section_tokens_follow_the_sections_of_the_book() {
 }
 
 /// Marks every occurrence of the given words, as a speller would.
-fn flag<'a>(wrong: &'a [&'a str]) -> impl Fn(&str) -> Vec<std::ops::Range<usize>> + 'a {
-    move |text: &str| {
+fn flag<'a>(
+    wrong: &'a [&'a str],
+) -> impl Fn(&str, Option<&str>) -> Vec<std::ops::Range<usize>> + 'a {
+    move |text: &str, _lang: Option<&str>| {
         let mut found = Vec::new();
         let mut at = 0;
         for word in text.split(' ') {
@@ -2064,4 +2066,61 @@ fn a_run_with_its_own_tracking_is_set_looser_and_a_tracking_of_nothing_overrides
     assert_eq!(by("loose").tracking, 0.25);
     assert_eq!(by("tight").tracking, -0.05);
     assert!(by("plain").tracking != 0.25);
+}
+
+#[test]
+fn a_run_in_another_language_says_so_and_is_proofed_in_it() {
+    use std::cell::RefCell;
+    let mut frame = text_frame("langs", "body", 60.0, 60.0, 300.0, 80.0, "plain words ");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    text.content.as_mut().unwrap().inline.push(Run {
+        text: "bonjour tout".into(),
+        lang: Some("fr-CA".into()),
+        ..Default::default()
+    });
+    let (mut book, styles) = sample(BookKind::Picture);
+    book.spreads[1].frames.push(frame);
+    let asked = RefCell::new(Vec::new());
+    let find = |text: &str, lang: Option<&str>| {
+        asked
+            .borrow_mut()
+            .push((text.to_owned(), lang.map(str::to_owned)));
+        Vec::new()
+    };
+    let fonts = FontBook::bundled();
+    let id = book.spreads[1].id.clone();
+    let layout = Layouter::new(&book, &styles, &fonts)
+        .with_proofing(&find)
+        .layout_spread(&id)
+        .unwrap()
+        .unwrap();
+    // The paragraph is checked in two stretches, each in its own language.
+    let asked = asked.borrow();
+    assert!(asked.contains(&("plain words ".to_owned(), None)));
+    assert_eq!(
+        asked[asked.len() - 2..],
+        [
+            ("plain words ".to_owned(), None),
+            ("bonjour tout".to_owned(), Some("fr-CA".to_owned()))
+        ]
+    );
+    let runs: Vec<_> = layout
+        .frames
+        .iter()
+        .find(|f| f.frame.0 == "langs")
+        .unwrap()
+        .lines
+        .iter()
+        .flat_map(|l| &l.runs)
+        .collect();
+    assert!(runs
+        .iter()
+        .filter(|r| r.text.contains("bonjour") || r.text.contains("tout"))
+        .all(|r| r.lang.as_deref() == Some("fr-CA")));
+    assert!(runs
+        .iter()
+        .filter(|r| r.text.contains("plain"))
+        .all(|r| r.lang.is_none()));
 }

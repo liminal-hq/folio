@@ -244,6 +244,23 @@ export function BookView({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[spelling, client, id, personal],
 	);
+	const [dictionaryTick, setDictionaryTick] = useState(0);
+	// The dictionaries there are, for the language list: read once and again after a download.
+	const [dictionaries, setDictionaries] = useState<DictionaryStatus[]>([]);
+	useEffect(() => {
+		let live = true;
+		client
+			.dictionaries()
+			.then((found) => live && setDictionaries(found))
+			.catch(() => undefined);
+		return () => {
+			live = false;
+		};
+	}, [client, dictionaryTick]);
+	const languages = useMemo(
+		() => languageChoices(dictionaries, book.language),
+		[dictionaries, book.language],
+	);
 	// The paragraphs the open editor's caret is in, which the Paragraph controls act on.
 	const textParagraphs = useSyncExternalStore(subscribeTextParagraphs, getTextParagraphs);
 	// What is selected or under the caret, so the controls show the look of those words (Expert only).
@@ -259,6 +276,7 @@ export function BookView({
 				choices,
 				...(fonts ? { fonts } : {}),
 				...(fontUses ? { fontsInUse: fontUses.map((u) => u.family) } : {}),
+				languages: languages.choices,
 				marks,
 				snap,
 				rulers: rulers.on,
@@ -300,6 +318,7 @@ export function BookView({
 			textParagraphs,
 			textLook,
 			expert,
+			languages,
 		],
 	);
 
@@ -696,24 +715,7 @@ export function BookView({
 	// What spelling finds in the whole book, read when the Proofing group is open and read again a
 	// moment after the book, the dictionary or the words added for every book change.
 	const [proofing, setProofing] = useState<BookSpelling | null>(null);
-	const [dictionaryTick, setDictionaryTick] = useState(0);
 	const personalKey = settings.spelling.personal.join('\u0000');
-	// The dictionaries there are, for the language list: read once and again after a download.
-	const [dictionaries, setDictionaries] = useState<DictionaryStatus[]>([]);
-	useEffect(() => {
-		let live = true;
-		client
-			.dictionaries()
-			.then((found) => live && setDictionaries(found))
-			.catch(() => undefined);
-		return () => {
-			live = false;
-		};
-	}, [client, dictionaryTick]);
-	const languages = useMemo(
-		() => languageChoices(dictionaries, book.language),
-		[dictionaries, book.language],
-	);
 	useEffect(() => {
 		if (group !== 'proofing') return;
 		let live = true;

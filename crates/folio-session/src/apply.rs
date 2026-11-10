@@ -2561,6 +2561,18 @@ pub fn paragraph_text(book: &Book, target: &TextTarget, para: u32) -> Option<Str
         .map(|p| folio_model::text_of(&p.inline))
 }
 
+/// The language of the words a character typed at `offset` of paragraph `para` of `target` would
+/// take its look from: the run before the place. `None` when that run has none of its own (the
+/// book's language), or the paragraph is not there.
+pub fn paragraph_lang(book: &Book, target: &TextTarget, para: u32, offset: u32) -> Option<String> {
+    let paras = match target {
+        TextTarget::Story { flow } => story_paragraphs(book, flow).ok()?,
+        _ => frame_paragraphs(book, target).ok()?,
+    };
+    let p = paras.get(para as usize)?;
+    folio_model::look_at(&p.inline, offset as usize).lang
+}
+
 /// Makes an edit the plan has already checked.
 fn edit_text(
     book: &mut Book,

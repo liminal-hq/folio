@@ -243,3 +243,27 @@ fn underlined_and_struck_words_are_set_with_text_decoration() {
         .collect();
     assert!(pages.contains("text-decoration:underline line-through"));
 }
+
+#[test]
+fn words_in_another_language_are_spans_with_it() {
+    let (mut book, _) = sample(BookKind::Picture);
+    for frame in book.spreads.iter_mut().flat_map(|s| s.frames.iter_mut()) {
+        if let folio_model::Frame::Text(t) = frame {
+            for run in t.content.iter_mut().flat_map(|c| c.inline.iter_mut()) {
+                run.lang = Some("de".into());
+            }
+        }
+    }
+    let styles = StyleSheet::from_styles(&book.styles);
+    let bytes = export_fixed_epub(&book, &styles, &FontBook::bundled(), &NoAssets).unwrap();
+    let (mut zip, names) = open(&bytes);
+    let pages: String = names
+        .iter()
+        .filter(|n| n.contains("/text/page-"))
+        .map(|n| read(&mut zip, n))
+        .collect();
+    assert!(pages.contains("<span lang=\"de\" xml:lang=\"de\" style="));
+    for name in names.iter().filter(|n| n.contains("/text/page-")) {
+        assert!(well_formed(&read(&mut zip, name)), "{name}");
+    }
+}

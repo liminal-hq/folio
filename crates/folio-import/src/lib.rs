@@ -26,29 +26,40 @@ pub(crate) fn tracking_of(spacing_pt: f64, size_pt: f64) -> Option<i32> {
     (thousandths.is_finite() && thousandths != 0.0).then_some(thousandths as i32)
 }
 
-/// Takes the size away from the runs that are set in the size most of the words are. Word and Rich
-/// Text files name the body size on nearly every run, and keeping it would pin each run over the
-/// Folio style the paragraph is given; the runs that differ from it (a larger word, a smaller note)
-/// keep theirs.
-pub(crate) fn keep_unusual_sizes(story: &mut [StoryPara]) {
-    let mut counts: std::collections::BTreeMap<Option<i64>, usize> = Default::default();
+/// Takes the size and the language away from the runs that are set in the size and language most
+/// of the words are. Word and Rich Text files name the body size and language on nearly every run,
+/// and keeping them would pin each run over the Folio style and the book's language; the runs that
+/// differ (a larger word, a phrase in French) keep theirs.
+pub(crate) fn keep_unusual_looks(story: &mut [StoryPara]) {
+    keep_unusual(
+        story,
+        |r| r.size.map(|s| (s * 100.0).round() as i64),
+        |r| r.size = None,
+    );
+    keep_unusual(story, |r| r.lang.clone(), |r| r.lang = None);
+}
+
+/// Clears `key` from the runs that have the value most characters have, when that is a value and
+/// not "none", and joins the runs that then look alike.
+fn keep_unusual<K: Ord + Clone>(
+    story: &mut [StoryPara],
+    key: impl Fn(&Run) -> Option<K>,
+    clear: impl Fn(&mut Run),
+) {
+    let mut counts: std::collections::BTreeMap<Option<K>, usize> = Default::default();
     for run in story.iter().flat_map(|p| &p.inline) {
-        let key = run.size.map(|s| (s * 100.0).round() as i64);
-        *counts.entry(key).or_default() += run.text.chars().count();
+        *counts.entry(key(run)).or_default() += run.text.chars().count();
     }
     let usual = counts
         .iter()
-        .max_by_key(|(key, count)| (**count, key.is_none()))
-        .and_then(|(key, _)| *key);
+        .max_by_key(|(k, count)| (**count, k.is_none()))
+        .and_then(|(k, _)| k.clone());
     let Some(usual) = usual else { return };
     for para in story.iter_mut() {
         let mut changed = false;
         for run in para.inline.iter_mut() {
-            if run
-                .size
-                .is_some_and(|s| (s * 100.0).round() as i64 == usual)
-            {
-                run.size = None;
+            if key(run).as_ref() == Some(&usual) {
+                clear(run);
                 changed = true;
             }
         }

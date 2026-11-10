@@ -333,3 +333,22 @@ fn a_word_with_punctuation_is_still_hyphenated() {
     assert!(layout(&comma, 60.0, |_| {}).lines.len() >= 2);
     assert!(layout(&quoted, 60.0, |_| {}).lines.len() >= 2);
 }
+
+#[test]
+fn words_in_another_language_are_hyphenated_by_it_and_say_what_it_is() {
+    let long = "extraordinarily unquestionable misunderstanding";
+    let hyphens = |lang: Option<&str>| {
+        let mut style = style();
+        style.lang = lang.map(str::to_owned);
+        let spans = [Span::new(long, style)];
+        layout(&spans, 90.0, |_| {})
+            .lines
+            .iter()
+            .filter(|l| l.hyphenated)
+            .count()
+    };
+    assert!(hyphens(None) > 0, "the paragraph's English hyphenates");
+    // A language with no patterns keeps its words whole, however narrow the line.
+    assert_eq!(hyphens(Some("ja")), 0);
+    assert!(hyphens(Some("fr-CA")) > 0, "and French has its own");
+}

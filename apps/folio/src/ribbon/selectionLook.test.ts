@@ -439,3 +439,85 @@ describe('size and letter spacing', () => {
 		expect(state.options.tracking?.find(([v]) => v === '80')?.[1]).toBe('✓ Very loose');
 	});
 });
+
+describe('language', () => {
+	const languages = [
+		{ value: 'en-CA', label: 'English (Canada)' },
+		{ value: 'fr', label: 'French' },
+	];
+	const own = {
+		type: 'text',
+		id: 'g',
+		box: {},
+		locked: false,
+		style: 'body',
+		content: {
+			inline: [run('Hello '), run('bonjour', { lang: 'fr-CA' }), run(' tout', { lang: 'fr-CA' })],
+		},
+	} as unknown as Frame;
+	const range = (start: number, end: number) => ({ frame: 'g', start, end });
+	const at = (start: number, end: number, extra: Partial<EditorInput> = {}) =>
+		editorState(input([own], { selection: range(start, end), languages, ...extra }));
+
+	it('is offered for a selection and shows the choice that matches the words', () => {
+		expect(at(6, 17).available.has('lang')).toBe(true);
+		// "fr-CA" is the French choice, which names the language alone.
+		expect(at(6, 17).texts.lang).toBe('fr');
+		expect(at(0, 5).texts.lang).toBe('');
+		expect(at(0, 5).options.lang?.map(([v]) => v)).toEqual(['en-CA', 'fr']);
+	});
+
+	it('shows words in several languages as mixed, and a language with no choice as itself', () => {
+		const mixed = at(0, 17);
+		expect(mixed.texts.lang).toBe('\u0000mixed');
+		expect(mixed.options.lang?.at(-1)?.[1]).toBe('Mixed languages');
+		const odd = {
+			...own,
+			content: { inline: [run('guten', { lang: 'de-AT' })] },
+		} as unknown as Frame;
+		const state = editorState(
+			input([odd], { selection: { frame: 'g', start: 0, end: 5 }, languages }),
+		);
+		expect(state.texts.lang).toBe('de-AT');
+		expect(state.options.lang?.at(-1)).toEqual(['de-AT', 'de-AT']);
+	});
+
+	it('sets the language of the selection, takes it away, and ignores the mixed entry', () => {
+		expect(editorAction('lang', 'fr', input([own], { selection: range(0, 5) }))).toEqual({
+			kind: 'intents',
+			intents: [{ type: 'StyleRange', frame: 'g', start: 0, end: 5, change: { lang: 'fr' } }],
+		});
+		expect(editorAction('lang', '', input([own], { selection: range(6, 11) }))).toMatchObject({
+			intents: [{ change: { lang: '' } }],
+		});
+		expect(
+			editorAction('lang', '\u0000mixed', input([own], { selection: range(0, 17) })),
+		).toBeNull();
+	});
+
+	it('is for the words typed next at a caret, and for all of a selected frame when no editor is open', () => {
+		const caret = { frame: 'g', offset: 3 };
+		expect(editorAction('lang', 'fr', input([own], { caret }))).toEqual({
+			kind: 'pending',
+			frame: 'g',
+			change: { lang: 'fr' },
+		});
+		expect(
+			editorState(input([own], { caret, languages, pending: { lang: 'fr' } })).texts.lang,
+		).toBe('fr');
+		expect(editorAction('lang', 'fr', input([own]))).toMatchObject({
+			intents: [{ type: 'StyleRange', start: 0, end: 18, change: { lang: 'fr' } }],
+		});
+		const story = {
+			frame: 'fr_flow',
+			start: 1,
+			end: 2,
+			target: { type: 'story', flow: 'fl' },
+			from: { para: 0, offset: 0 },
+			to: { para: 1, offset: 3 },
+		} as const;
+		expect(editorAction('lang', 'fr', input([flowed], { selection: story }))).toMatchObject({
+			intents: [{ type: 'StyleText', change: { lang: 'fr' } }],
+		});
+	});
+});

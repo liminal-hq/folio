@@ -137,6 +137,8 @@ export interface ScopeLook {
 	/** The letter spacing they share in em thousandths (`undefined`: the style's), and whether they differ. */
 	tracking: number | undefined;
 	trackingMixed: boolean;
+	/** The one language they share ('' when it is the book's), or `null` when they differ. */
+	lang: string | null;
 	/** The one typeface they share ('' when it is the style's), or `null` when they differ. */
 	font: string | null;
 }
@@ -156,9 +158,11 @@ export function lookOf(scope: LookScope, sizeOf: (run: Run) => number = () => 12
 			sizeMixed: false,
 			tracking: undefined,
 			trackingMixed: false,
+			lang: '',
 			font: '',
 		};
 	const fonts = new Set(runs.map((r) => r.font ?? ''));
+	const langs = new Set(runs.map((r) => r.lang ?? ''));
 	const sizes = new Set(runs.map(sizeOf));
 	const trackings = new Set(runs.map((r) => r.tracking ?? null));
 	return {
@@ -170,6 +174,7 @@ export function lookOf(scope: LookScope, sizeOf: (run: Run) => number = () => 12
 		sizeMixed: sizes.size > 1,
 		tracking: trackings.size === 1 ? ([...trackings][0] ?? undefined) : undefined,
 		trackingMixed: trackings.size > 1,
+		lang: langs.size === 1 ? [...langs][0]! : null,
 		font: fonts.size === 1 ? [...fonts][0]! : null,
 	};
 }

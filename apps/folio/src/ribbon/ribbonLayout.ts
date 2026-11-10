@@ -232,6 +232,12 @@ export const RIBBON_LAYOUT: readonly LayoutTab[] = [
 						kind: 'toggle',
 						icon: 'punctuation',
 					},
+					{
+						id: 'lang',
+						kind: 'select',
+						icon: 'spell',
+						expert: true,
+					},
 				],
 			},
 			{

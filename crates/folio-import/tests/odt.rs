@@ -144,3 +144,35 @@ fn a_spans_size_and_letter_spacing_come_across() {
     assert_eq!(large.tracking, Some(50));
     assert!(story[0].inline.iter().any(|r| r.size.is_none()));
 }
+
+#[test]
+fn a_spans_language_comes_across_and_the_bodys_is_left_to_the_book() {
+    let mut out = Cursor::new(Vec::new());
+    {
+        let mut zip = zip::ZipWriter::new(&mut out);
+        zip.start_file("content.xml", zip::write::SimpleFileOptions::default())
+            .unwrap();
+        write!(
+            zip,
+            "<office:document-content xmlns:office=\"o\" xmlns:text=\"t\" xmlns:style=\"s\" xmlns:fo=\"f\">\
+             <office:automatic-styles>\
+             <style:style style:name=\"E\" style:family=\"text\"><style:text-properties fo:language=\"en\" fo:country=\"CA\"/></style:style>\
+             <style:style style:name=\"F\" style:family=\"text\"><style:text-properties fo:language=\"fr\" fo:country=\"CA\"/></style:style>\
+             <style:style style:name=\"N\" style:family=\"text\"><style:text-properties fo:language=\"zxx\"/></style:style>\
+             </office:automatic-styles><office:body><office:text>\
+             <text:p><text:span text:style-name=\"E\">The body goes on in the usual language for a while, and then </text:span><text:span text:style-name=\"F\">bonjour</text:span><text:span text:style-name=\"N\"> code</text:span></text:p>\
+             </office:text></office:body></office:document-content>"
+        )
+        .unwrap();
+        zip.finish().unwrap();
+    }
+    let runs = import_odt(&out.into_inner()).unwrap().story[0]
+        .inline
+        .clone();
+    let bonjour = runs.iter().find(|r| r.text == "bonjour").unwrap();
+    assert_eq!(bonjour.lang.as_deref(), Some("fr-CA"));
+    assert!(runs
+        .iter()
+        .filter(|r| r.text != "bonjour")
+        .all(|r| r.lang.is_none()));
+}

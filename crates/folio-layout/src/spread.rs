@@ -27,8 +27,9 @@ use crate::wire::{
     SceneGlyph, SpreadLayout, Stroke,
 };
 
-/// Finds the misspelt words of some text, as ranges of its bytes.
-pub type Proofer<'a> = &'a dyn Fn(&str) -> Vec<Range<usize>>;
+/// Finds the misspelt words of some text, as ranges of its bytes. The second argument is the
+/// language of the text when it is not the book's.
+pub type Proofer<'a> = &'a dyn Fn(&str, Option<&str>) -> Vec<Range<usize>>;
 
 /// Lays out the text of a book. Cheap to make; holds nothing but what it was given.
 pub struct Layouter<'a> {
@@ -676,6 +677,9 @@ impl<'a> Layouter<'a> {
             if let Some(tracking) = run.tracking {
                 text_style.tracking_em = f64::from(tracking) / 1000.0;
             }
+            if let Some(lang) = &run.lang {
+                text_style.lang = Some(lang.clone());
+            }
             text_style.underline |= run.underline;
             text_style.strike |= run.strike;
             // A character the run's font lacks is set in one that has it.
@@ -966,6 +970,7 @@ impl<'a> Layouter<'a> {
                         };
                         let rules = found.as_ref().ok().map(|r| r.font.metrics(s.style.size_pt));
                         RunStyle {
+                            lang: s.style.lang.clone(),
                             underline: rules.filter(|_| s.style.underline).map(|m| m.underline),
                             strike: rules.filter(|_| s.style.strike).map(|m| m.strike),
                             family,
@@ -988,8 +993,33 @@ impl<'a> Layouter<'a> {
             .iter()
             .map(|p| p.spans.iter().map(|s| s.text.as_str()).collect())
             .collect();
+        // Each stretch of a paragraph in one language is checked in that language.
         let misses = match self.proofing {
-            Some(find) => texts.iter().map(|t| find(t)).collect(),
+            Some(find) => story
+                .iter()
+                .zip(&texts)
+                .map(|(p, text)| {
+                    let mut at = 0;
+                    let mut stretches: Vec<(Range<usize>, Option<&str>)> = Vec::new();
+                    for span in &p.spans {
+                        let end = at + span.text.len();
+                        let lang = span.style.lang.as_deref();
+                        match stretches.last_mut() {
+                            Some((range, was)) if *was == lang => range.end = end,
+                            _ => stretches.push((at..end, lang)),
+                        }
+                        at = end;
+                    }
+                    stretches
+                        .into_iter()
+                        .flat_map(|(range, lang)| {
+                            find(&text[range.clone()], lang)
+                                .into_iter()
+                                .map(move |m| m.start + range.start..m.end + range.start)
+                        })
+                        .collect()
+                })
+                .collect(),
             None => Vec::new(),
         };
         let mut next = 0;
@@ -1060,6 +1090,7 @@ struct RunStyle {
     colour: Option<Colour>,
     underline: Option<Rule>,
     strike: Option<Rule>,
+    lang: Option<String>,
     face_key: String,
 }
 
@@ -1257,6 +1288,7 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo, span: &LineSpan) -> LayoutLi
                     colour: None,
                     underline: None,
                     strike: None,
+                    lang: None,
                     face_key: String::new(),
                 });
             let start = info.texts.get(placed.paragraph).map_or(0, |_| {
@@ -1274,6 +1306,7 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo, span: &LineSpan) -> LayoutLi
                 colour: s.colour,
                 underline,
                 strike,
+                lang: s.lang,
                 hyphen: r.hyphen,
                 miss,
                 start,

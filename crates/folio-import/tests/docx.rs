@@ -165,3 +165,17 @@ fn sizes_that_the_body_shares_are_left_to_the_style_and_unusual_ones_and_spacing
     // A point of spacing at 20 points is fifty thousandths of an em.
     assert_eq!(runs[1].tracking, Some(50));
 }
+
+#[test]
+fn a_language_that_is_not_the_bodys_comes_across() {
+    let body = r#"
+        <w:p><w:r><w:rPr><w:lang w:val="en-CA"/></w:rPr><w:t xml:space="preserve">The body goes on in the usual language for a while, and then </w:t></w:r>
+        <w:r><w:rPr><w:lang w:val="fr_ca"/></w:rPr><w:t>bonjour</w:t></w:r></w:p>
+    "#;
+    let runs = import_docx(&docx(body, false)).unwrap().story[0]
+        .inline
+        .clone();
+    assert_eq!(runs.len(), 2, "{runs:?}");
+    assert_eq!(runs[0].lang, None);
+    assert_eq!(runs[1].lang.as_deref(), Some("fr-CA"));
+}

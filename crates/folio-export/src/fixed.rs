@@ -231,8 +231,11 @@ fn page_html(
                     let mut text = String::new();
                     let flush = |inner: &mut String, word: Option<&Word>, text: &mut String| {
                         if let Some(word) = word {
+                            let lang = word.lang.as_deref().map_or(String::new(), |l| {
+                                format!(" lang=\"{0}\" xml:lang=\"{0}\"", esc(l))
+                            });
                             inner.push_str(&format!(
-                                "<span style=\"{}\">{}</span>",
+                                "<span{lang} style=\"{}\">{}</span>",
                                 word_style(word),
                                 esc(text)
                             ));
@@ -281,6 +284,7 @@ struct Word {
     colour: Option<Colour>,
     underline: bool,
     strike: bool,
+    lang: Option<String>,
 }
 
 impl Word {
@@ -294,6 +298,7 @@ impl Word {
             && self.colour == other.colour
             && self.underline == other.underline
             && self.strike == other.strike
+            && self.lang == other.lang
     }
 }
 
@@ -337,7 +342,8 @@ fn words_of(runs: &[folio_layout::wire::LayoutRun]) -> Vec<Word> {
                 && last.tracking == run.tracking
                 && last.colour == run.colour
                 && last.underline == run.underline.is_some()
-                && last.strike == run.strike.is_some();
+                && last.strike == run.strike.is_some()
+                && last.lang == run.lang;
             if alike && (run.x - last.end).abs() < 0.01 {
                 last.text.push_str(&text);
                 last.end = run.x + run.width;
@@ -356,6 +362,7 @@ fn words_of(runs: &[folio_layout::wire::LayoutRun]) -> Vec<Word> {
             colour: run.colour.clone(),
             underline: run.underline.is_some(),
             strike: run.strike.is_some(),
+            lang: run.lang.clone(),
         });
     }
     words
@@ -671,6 +678,7 @@ mod tests {
             colour: None,
             underline: None,
             strike: None,
+            lang: None,
             hyphen: false,
             miss: Vec::new(),
             start: 0,

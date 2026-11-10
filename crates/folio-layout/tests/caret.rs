@@ -69,7 +69,7 @@ fn lay_proofed(style: &str, width: f64, text: &str, proofer: Option<&Proofer>) -
         .expect("the frame is laid out")
 }
 
-type Proofer = dyn Fn(&str) -> Vec<std::ops::Range<usize>>;
+type Proofer = dyn Fn(&str, Option<&str>) -> Vec<std::ops::Range<usize>>;
 
 fn paragraphs(text: &str) -> Vec<Vec<char>> {
     text.split('\n').map(|p| p.chars().collect()).collect()
@@ -181,7 +181,7 @@ fn ligatures_combining_marks_and_joined_emoji_keep_one_stop_for_each_code_point(
 #[test]
 fn misspelling_marks_count_code_points_from_the_start_of_the_run() {
     let text = "caf\u{e9} \u{1f600} zorb word";
-    let find = |t: &str| -> Vec<std::ops::Range<usize>> {
+    let find = |t: &str, _: Option<&str>| -> Vec<std::ops::Range<usize>> {
         t.match_indices("zorb")
             .map(|(i, w)| i..i + w.len())
             .collect()
