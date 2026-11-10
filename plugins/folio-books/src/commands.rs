@@ -16,9 +16,9 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow};
 use folio_engine::DICTIONARY_PROGRESS_EVENT;
 use folio_engine::{
     BookSnapshot, BookSpelling, BookSummary, Books, CoverCanvas, CoverSheetPreview,
-    DictionaryProgress, DictionaryStatus, ExportColour, ExportReport, ExportTarget, FontChoice,
-    FontUse, KeepFontsReport, ProofSpread, ReaderPreview, Recoverable, SpellCheck,
-    SpreadLayoutResult, StoryChapter,
+    DictionaryProgress, DictionaryStatus, EditAnswer, EditRequest, ExportColour, ExportReport,
+    ExportTarget, FontChoice, FontUse, KeepFontsReport, ProofSpread, ReaderPreview, Recoverable,
+    SpellCheck, SpreadLayoutResult, StoryChapter,
 };
 use folio_engine::{Error, TemplateGallery, ToolFix, ToolFixed, ToolReport, ToolRequest};
 use folio_import::ImportReport;
@@ -318,6 +318,25 @@ pub async fn layout_spread<R: Runtime>(
     })
     .await
     .expect("the layout task does not panic")
+}
+
+/// Makes an edit to some words and answers with the patch, the spread laid out again and the
+/// caret, in one call, so a keystroke is a single trip. Every window is also sent the patch.
+#[tauri::command]
+pub async fn edit_text<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    edit: EditRequest,
+    spread: String,
+    spelling: Option<Vec<String>>,
+) -> Result<EditAnswer, Error> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Arc<Books>>()
+            .edit_text(&id, edit, &spread, spelling.as_deref())
+    })
+    .await
+    .expect("the edit task does not panic")
 }
 
 /// Lays out the text of one master page of a book, with `{page}` and the other tokens as written.

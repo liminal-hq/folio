@@ -51,6 +51,7 @@ project_open(path) -> BookSnapshot           project_save(path?) -> SaveResult
 apply_intent(intent) -> Patch                 undo() / redo() -> Patch
 history_mark() -> usize                       rewind_history(mark)   // undo back to a mark, a patch each
 layout_spread(spread_id) -> SpreadLayout      // shaped lines for the canvas
+edit_text(edit, spread_id) -> { patch, layout, caret }  // an EditText intent and the spread laid out again, in one call (D-53)
 layout_master(master_id) -> SpreadLayout      // a master's own text, with {page} etc. as written
 reader_preview(target)         // the export's own XHTML and CSS, served to a webview that paginates it
 preflight(targets) -> Vec<Issue>

@@ -372,6 +372,62 @@ fn a_spread_is_laid_out_at_the_revision_the_book_is_at() {
 }
 
 #[test]
+fn an_edit_answers_with_the_patch_the_spread_and_the_caret_in_one_call() {
+    use folio_engine::EditRequest;
+    use folio_model::{EditStep, Frame, TextInsert, TextPos, TextTarget};
+    let app = app();
+    let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();
+    let id = snapshot.summary.id.clone();
+    let spread = &snapshot.book.spreads[1];
+    let frame = spread
+        .frames
+        .iter()
+        .find_map(|f| match f {
+            Frame::Text(t) if t.flow.is_none() => Some(t.base.id.clone()),
+            _ => None,
+        })
+        .expect("a text frame of its own");
+    let edit = EditRequest {
+        target: TextTarget::Frame { frame },
+        from: TextPos { para: 0, offset: 0 },
+        to: TextPos { para: 0, offset: 0 },
+        insert: TextInsert::Text {
+            text: "Zq\u{e9}x\n".into(),
+        },
+        look: None,
+        step: EditStep::Own,
+    };
+    let answer = books(&app)
+        .edit_text(&id, edit, &spread.id.0, None)
+        .unwrap();
+    assert_eq!(answer.patch.revision, snapshot.revision + 1);
+    assert_eq!(answer.layout.revision, answer.patch.revision);
+    assert_eq!(answer.caret, TextPos { para: 1, offset: 0 });
+    let shown: String = answer
+        .layout
+        .layout
+        .frames
+        .iter()
+        .flat_map(|f| f.lines.iter())
+        .flat_map(|l| l.runs.iter())
+        .map(|r| r.text.as_str())
+        .collect();
+    assert!(shown.contains("Zq\u{e9}x"), "{shown}");
+    // A range outside the words is refused and changes nothing.
+    let bad = EditRequest {
+        target: TextTarget::Frame {
+            frame: folio_model::FrameId("nope".into()),
+        },
+        from: TextPos { para: 0, offset: 0 },
+        to: TextPos { para: 0, offset: 0 },
+        insert: TextInsert::Text { text: "x".into() },
+        look: None,
+        step: EditStep::Own,
+    };
+    assert!(books(&app).edit_text(&id, bad, &spread.id.0, None).is_err());
+}
+
+#[test]
 fn a_master_page_is_laid_out_with_its_tokens_as_written() {
     let app = app();
     let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();

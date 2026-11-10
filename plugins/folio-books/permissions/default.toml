@@ -28,6 +28,7 @@ permissions = [
   "allow-rewind-history",
   "allow-redo",
   "allow-layout-spread",
+  "allow-edit-text",
   "allow-layout-master",
   "allow-import-image",
   "allow-import-image-bytes",

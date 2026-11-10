@@ -61,6 +61,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::rewind_history,
             commands::redo,
             commands::layout_spread,
+            commands::edit_text,
             commands::layout_master,
             commands::import_image,
             commands::import_image_bytes,

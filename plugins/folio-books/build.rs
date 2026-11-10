@@ -31,6 +31,7 @@ const COMMANDS: &[&str] = &[
     "rewind_history",
     "redo",
     "layout_spread",
+    "edit_text",
     "layout_master",
     "import_image",
     "import_image_bytes",

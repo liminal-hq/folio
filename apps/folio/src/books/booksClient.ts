@@ -54,6 +54,7 @@ import {
 	storyChapters,
 	keepFonts,
 	listFonts,
+	editText,
 	layoutMaster,
 	layoutSpread,
 	listBooks,
@@ -87,6 +88,8 @@ import {
 	type BookSnapshot,
 	type BookSummary,
 	type BooksChanged,
+	type EditAnswer,
+	type EditRequest,
 	type Intent,
 	type KindInfo,
 	type NewBookSpec,
@@ -146,6 +149,11 @@ export interface BooksClient {
 	redo(id: string): Promise<Patch | null>;
 	/** The spread's text shaped and broken into lines, from the book at the revision it carries. */
 	layoutSpread(id: string, spread: string, spelling?: string[]): Promise<SpreadLayoutResult>;
+	/**
+	 * Makes an edit to some words and answers, in one trip, with the patch, `spread` laid out again at
+	 * the revision the edit made, and where the caret goes.
+	 */
+	editText(id: string, edit: EditRequest, spread: string, spelling?: string[]): Promise<EditAnswer>;
 	/** A master page's text laid out on a page of its own, with `{page}` and other tokens as written. */
 	layoutMaster(id: string, master: string): Promise<SpreadLayoutResult>;
 	/** Reads a picture file into the book; resolves to its path inside the book. */
@@ -229,6 +237,7 @@ export const tauriBooksClient: BooksClient = {
 	rewindHistory,
 	redo,
 	layoutSpread,
+	editText,
 	layoutMaster,
 	importImage,
 	importImageBytes,

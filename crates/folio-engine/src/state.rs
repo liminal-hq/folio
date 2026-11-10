@@ -25,11 +25,11 @@ use crate::recovery::{self, Recovery};
 use crate::spelling::Spelling;
 use crate::wire::{
     BatchOutcome, BookSnapshot, BookSpelling, BookSummary, BooksChanged, CoverCanvas,
-    CoverSheetPreview, ExportColour, ExportProgress, ExportReport, ExportTarget, ExportedFile,
-    FontChoice, FontLicence, FontOrigin, FontSkip, FontUse, KeepFontsReport, Misspelling,
-    MisspeltWord, PatchEvent, PreviewChapter, PreviewImage, ProofColour, ProofPage, ProofSpread,
-    ReaderPreview, Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult, StoryChapter,
-    TemplateCard, TemplateGallery,
+    CoverSheetPreview, EditAnswer, EditRequest, ExportColour, ExportProgress, ExportReport,
+    ExportTarget, ExportedFile, FontChoice, FontLicence, FontOrigin, FontSkip, FontUse,
+    KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, PreviewChapter, PreviewImage,
+    ProofColour, ProofPage, ProofSpread, ReaderPreview, Recoverable, SkippedFont, SpellCheck,
+    SpreadLayoutResult, StoryChapter, TemplateCard, TemplateGallery,
 };
 use crate::Host;
 
@@ -815,6 +815,26 @@ impl Books {
             .layout_spread(&SpreadId(spread.to_string()))?
             .ok_or_else(|| Error::NoSuchSpread(spread.to_string()))?;
         Ok(SpreadLayoutResult { revision, layout })
+    }
+
+    /// Makes an edit to some words and lays out `spread` again, in one call, so a keystroke is a
+    /// single trip. The layout is of the revision the edit made, unless another change came in
+    /// between, and then the revision it carries says so.
+    pub fn edit_text(
+        &self,
+        id: &str,
+        edit: EditRequest,
+        spread: &str,
+        spelling: Option<&[String]>,
+    ) -> Result<EditAnswer, Error> {
+        let caret = edit.caret();
+        let patch = self.apply(id, edit.into_intent())?;
+        let layout = self.layout_spread(id, spread, spelling)?;
+        Ok(EditAnswer {
+            patch,
+            layout,
+            caret,
+        })
     }
 
     /// Lays out the text of one master page of a book, with its tokens as written, at the revision

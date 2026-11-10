@@ -106,6 +106,13 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function layoutSpread(id, spread, spelling) {
         return cmd('layout_spread', { id, spread, spelling });
     }
+    /**
+     * Makes an edit to some words and answers, in one trip, with the patch, `spread` laid out again at
+     * the revision the edit made, and where the caret goes. Every window also hears the patch.
+     */
+    function editText(id, edit, spread, spelling) {
+        return cmd('edit_text', { id, edit, spread, spelling });
+    }
     /** Hears every change to every open book. Read `snapshot` first and apply patches with a higher revision. */
     function onPatch(listener) {
         return event.listen(PATCH_EVENT, (e) => listener(e.payload));
@@ -271,6 +278,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.dictionaries = dictionaries;
     exports.discardRecovered = discardRecovered;
     exports.downloadDictionary = downloadDictionary;
+    exports.editText = editText;
     exports.exportBook = exportBook;
     exports.fontsInUse = fontsInUse;
     exports.getStatus = getStatus;

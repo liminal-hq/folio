@@ -574,6 +574,24 @@ export function createFakeBooksClient(): FakeBooks {
 				.map((f) => ({ frame: f.id, lines: [], overset: false }));
 			return { revision: h.snapshot.revision, layout: { spread, frames, preflight: [] } };
 		},
+		async editText(id, edit, spread, spelling) {
+			await call('editText', [id, edit.target.type, spread]);
+			const patched = await this.apply(id, { type: 'EditText', ...edit });
+			const laid = await this.layoutSpread(id, spread, spelling);
+			const { insert, from } = edit;
+			const pieces =
+				insert.type === 'text'
+					? insert.text.split('\n').map((p) => Array.from(p).length)
+					: insert.paragraphs.map((p) =>
+							p.inline.reduce((n, r) => n + Array.from(r.text).length, 0),
+						);
+			const last = pieces[pieces.length - 1] ?? 0;
+			const caret =
+				pieces.length <= 1
+					? { para: from.para, offset: from.offset + (pieces[0] ?? 0) }
+					: { para: from.para + pieces.length - 1, offset: last };
+			return { patch: patched, layout: laid, caret };
+		},
 		async layoutMaster(id, master) {
 			await call('layoutMaster', [id, master]);
 			const h = find(id);

@@ -37,6 +37,50 @@ pub struct SpreadLayoutResult {
     pub layout: SpreadLayout,
 }
 
+/// A replacement of some words, as the editor makes it. See `Intent::EditText`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct EditRequest {
+    pub target: folio_model::TextTarget,
+    pub from: folio_model::TextPos,
+    pub to: folio_model::TextPos,
+    pub insert: folio_model::TextInsert,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub look: Option<folio_model::RunChange>,
+    pub step: folio_model::EditStep,
+}
+
+impl EditRequest {
+    /// Where the caret goes once the edit is made.
+    pub fn caret(&self) -> folio_model::TextPos {
+        folio_model::caret_after(self.from, &self.insert)
+    }
+
+    pub fn into_intent(self) -> folio_model::Intent {
+        folio_model::Intent::EditText {
+            target: self.target,
+            from: self.from,
+            to: self.to,
+            insert: self.insert,
+            look: self.look,
+            step: self.step,
+        }
+    }
+}
+
+/// What an edit answers with, in one trip: the patch it made, the spread it is on laid out again,
+/// and where the caret goes. The page draws the layout without asking for it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct EditAnswer {
+    pub patch: Patch,
+    pub layout: SpreadLayoutResult,
+    pub caret: folio_model::TextPos,
+}
+
 /// An open book in full, for a window that is showing it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

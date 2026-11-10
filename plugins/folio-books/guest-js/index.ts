@@ -33,6 +33,8 @@ import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderP
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
 import type { Misspelling } from '@liminal-hq/folio-protocol/generated/Misspelling';
 import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck';
+import type { EditAnswer } from '@liminal-hq/folio-protocol/generated/EditAnswer';
+import type { EditRequest } from '@liminal-hq/folio-protocol/generated/EditRequest';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { PaintPresets } from '@liminal-hq/folio-protocol/generated/PaintPresets';
 import type { KindInfo } from '@liminal-hq/folio-protocol/generated/KindInfo';
@@ -195,6 +197,19 @@ export function layoutSpread(
 	return cmd<SpreadLayoutResult>('layout_spread', { id, spread, spelling });
 }
 
+/**
+ * Makes an edit to some words and answers, in one trip, with the patch, `spread` laid out again at
+ * the revision the edit made, and where the caret goes. Every window also hears the patch.
+ */
+export function editText(
+	id: string,
+	edit: EditRequest,
+	spread: string,
+	spelling?: string[],
+): Promise<EditAnswer> {
+	return cmd<EditAnswer>('edit_text', { id, edit, spread, spelling });
+}
+
 /** Hears every change to every open book. Read `snapshot` first and apply patches with a higher revision. */
 export function onPatch(listener: (event: PatchEvent) => void): Promise<UnlistenFn> {
 	return listen<PatchEvent>(PATCH_EVENT, (e) => listener(e.payload));
@@ -229,6 +244,8 @@ export type {
 	BookSpelling,
 	DictionaryOffer,
 	DictionaryStatus,
+	EditAnswer,
+	EditRequest,
 	ExportReport,
 	ExportTarget,
 	FontChoice,
