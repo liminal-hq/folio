@@ -815,3 +815,46 @@ describe('the Home tab’s clipboard', () => {
 		}
 	});
 });
+
+describe('Group and Ungroup', () => {
+	const shape2 = (id: string) => text({ id });
+	const aGroup = (extra = {}) =>
+		({
+			type: 'group',
+			id: 'g',
+			box: {},
+			locked: false,
+			children: [shape2('a'), shape2('b')],
+			...extra,
+		}) as unknown as Frame;
+
+	it('groups two or more free frames and takes one group apart', () => {
+		const two = editorState(input([shape2('a'), shape2('b')])).available;
+		expect(two.has('group')).toBe(true);
+		expect(two.has('ungroup')).toBe(false);
+		expect(editorState(input([shape2('a')])).available.has('group')).toBe(false);
+		const one = editorState(input([aGroup()])).available;
+		expect(one.has('ungroup')).toBe(true);
+		expect(one.has('group')).toBe(false);
+	});
+
+	it('leaves them off for locked frames, a master page and a story', () => {
+		const has = (selected: Frame[], extra = {}) =>
+			editorState(input(selected, extra)).available.has('group');
+		expect(has([shape2('a'), text({ id: 'b', locked: true })])).toBe(false);
+		expect(has([shape2('a'), shape2('b')], { master: true })).toBe(false);
+		expect(has([shape2('a'), text({ id: 'b', flow: { id: 'fl', index: 0 } })])).toBe(false);
+		expect(editorState(input([aGroup({ locked: true })])).available.has('ungroup')).toBe(false);
+	});
+
+	it('asks for the group or its undoing', () => {
+		const frames = [shape2('a'), shape2('b')];
+		expect(editorAction('group', undefined, input(frames))).toEqual({ kind: 'group', frames });
+		expect(editorAction('group', undefined, input([shape2('a')]))).toBeNull();
+		expect(editorAction('ungroup', undefined, input([aGroup()]))).toMatchObject({
+			kind: 'ungroup',
+			frame: { id: 'g' },
+		});
+		expect(editorAction('ungroup', undefined, input([shape2('a')]))).toBeNull();
+	});
+});

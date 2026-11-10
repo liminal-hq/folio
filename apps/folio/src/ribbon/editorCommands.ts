@@ -10,6 +10,7 @@ import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
 import { cuttable } from '../clipboard/frameClipboard';
+import { canGroup, canUngroup } from '../canvas/grouping';
 import type { RulerUnit } from '@liminal-hq/folio-protocol/generated/RulerUnit';
 import { RULER_UNIT_ORDER } from '../canvas/rulerMath';
 import {
@@ -104,6 +105,8 @@ export type EditorAction =
 	| { kind: 'pageMargins' }
 	| { kind: 'cover' }
 	| { kind: 'link'; frame: string }
+	| { kind: 'group'; frames: Frame[] }
+	| { kind: 'ungroup'; frame: Frame }
 	| {
 			kind: 'clipboard';
 			op: 'copy' | 'cut' | 'paste' | 'pasteInPlace' | 'pastePlain' | 'pasteInto';
@@ -275,6 +278,8 @@ export function editorState(input: EditorInput): EditorState {
 		for (const id of Object.keys(ALIGN_CONTROLS)) available.add(id);
 	}
 	if (movable.length >= 3) for (const id of Object.keys(DISTRIBUTE_CONTROLS)) available.add(id);
+	if (canGroup(selected, !!input.master)) available.add('group');
+	if (canUngroup(selected)) available.add('ungroup');
 	if (selected.length > 0) available.add('copy');
 	if (cuttable(selected).length > 0) available.add('cut');
 	const words = texts(selected);
@@ -421,6 +426,10 @@ export function editorAction(
 			if (only?.type !== 'text' || only.locked || only.fromMaster || only.flow) return null;
 			return { kind: 'link', frame: only.id };
 		}
+		case 'group':
+			return canGroup(selected, !!input.master) ? { kind: 'group', frames: selected } : null;
+		case 'ungroup':
+			return canUngroup(selected) ? { kind: 'ungroup', frame: selected[0]! } : null;
 		case 'copy':
 		case 'cut':
 		case 'paste':

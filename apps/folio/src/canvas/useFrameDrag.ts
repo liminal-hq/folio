@@ -328,6 +328,11 @@ export function useFrameDrag(options: FrameDragOptions) {
 			event.preventDefault();
 			return;
 		}
+		if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'g') {
+			onCommand?.(event.shiftKey ? 'ungroup' : 'group', selection);
+			event.preventDefault();
+			return;
+		}
 		if (event.key === 'Delete' || event.key === 'Backspace') {
 			onCommand?.('delete', selection);
 			event.preventDefault();

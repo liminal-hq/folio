@@ -230,6 +230,19 @@ export const PasteIcon = () => (
 		<rect x="5" y="1.5" width="6" height="3" rx="1" />
 	</Glyph>
 );
+export const GroupIcon = () => (
+	<Glyph>
+		<rect x="1.5" y="1.5" width="5" height="5" rx="0.8" />
+		<rect x="9.5" y="9.5" width="5" height="5" rx="0.8" />
+		<path d="M1 10v5h5M10 1h5v5" strokeDasharray="2 1.5" />
+	</Glyph>
+);
+export const UngroupIcon = () => (
+	<Glyph>
+		<rect x="1.5" y="1.5" width="5" height="5" rx="0.8" />
+		<rect x="9.5" y="9.5" width="5" height="5" rx="0.8" />
+	</Glyph>
+);
 export const BringToFrontIcon = () => (
 	<Glyph>
 		<rect x="1.5" y="1.5" width="8" height="8" rx="1.2" />

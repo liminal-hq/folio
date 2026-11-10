@@ -21,6 +21,7 @@ import { plainTextOf } from '../canvas/TextEditor';
 import { spreadGeometry } from '../canvas/geometry';
 import type { Marks } from '../canvas/marksModel';
 import { surfaceOf } from '../canvas/masterView';
+import { canGroup, canUngroup, groupIntent, ungroupIntent } from '../canvas/grouping';
 import { FocusPicker } from '../canvas/FocusPicker';
 import { pickerSwatches } from '../books/bookSwatches';
 import { t } from '../i18n/messages';
@@ -323,7 +324,7 @@ function PositionSection({
 			<AngleField
 				label={t('inspector.rotation')}
 				degrees={frame.rotation ?? 0}
-				disabled={locked}
+				disabled={locked || frame.type === 'group'}
 				onCommit={(degrees) =>
 					apply({ type: 'RotateFrame', on: surfaceOf(spread), frame: frame.id, degrees })
 				}
@@ -721,6 +722,17 @@ export function Inspector(props: InspectorProps) {
 			<>
 				<Header title={t('inspector.title.many', { count: selected.length })} badges={[]} />
 				<p className={styles.note}>{t('inspector.many')}</p>
+				{canGroup(selected, 'master' in surfaceOf(props.spread)) && (
+					<div className={styles.field}>
+						<button
+							type="button"
+							className={styles.chip}
+							onClick={() => props.apply(groupIntent(selected, surfaceOf(props.spread)))}
+						>
+							{t('inspector.group.make')}
+						</button>
+					</div>
+				)}
 			</>
 		);
 	} else {
@@ -736,7 +748,25 @@ export function Inspector(props: InspectorProps) {
 				{frame.type === 'image' && <PictureSection frame={frame} props={props} />}
 				{frame.type === 'shape' && <ShapeSection frame={frame} props={props} />}
 				{frame.type === 'table' && <TableSection frame={frame} props={props} />}
-				{frame.type === 'group' && <Header title={t('inspector.title.group')} badges={[]} />}
+				{frame.type === 'group' && (
+					<>
+						<Header title={t('inspector.title.group')} badges={[]} />
+						<p className={styles.note}>
+							{t('inspector.group.note', { count: frame.children.length })}
+						</p>
+						{canUngroup([frame]) && (
+							<div className={styles.field}>
+								<button
+									type="button"
+									className={styles.chip}
+									onClick={() => props.apply(ungroupIntent(frame, surfaceOf(props.spread)))}
+								>
+									{t('inspector.group.ungroup')}
+								</button>
+							</div>
+						)}
+					</>
+				)}
 				{props.mode === 'expert' && (
 					<PositionSection
 						frame={frame}

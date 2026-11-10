@@ -9,7 +9,7 @@ import type { TableEdit } from '@liminal-hq/folio-protocol/generated/TableEdit';
 import type { FrameLayout } from '@liminal-hq/folio-protocol/generated/FrameLayout';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { FocusedImage } from './FocusedImage';
 import { BackgroundLayer } from './BackgroundLayer';
 import { TableArt } from './TableArt';
@@ -363,6 +363,57 @@ export function SpreadCanvas({
 	const byFrame = new Map(layout?.frames.map((f) => [f.frame, f]));
 	const furniture = masterFurniture(book, spread);
 	const grid = book.grid;
+	/** One frame as it is drawn: its art, its edges, and the words laid out in it. */
+	const drawLeaf = (frame: Frame) => (
+		<g key={frame.id} transform={turned(frame)}>
+			<Furniture frame={frame} images={images} />
+			{marks.frameEdges && (
+				<rect
+					data-mark="frame-edges"
+					x={frame.box.x}
+					y={frame.box.y}
+					width={frame.box.w}
+					height={frame.box.h}
+					fill="none"
+					stroke={colours.frameEdges}
+					strokeWidth={0.5}
+				/>
+			)}
+			{byFrame.has(frame.id) && frame.id !== editing && (
+				<Lines id={frame.id} at={frame.box} layout={byFrame.get(frame.id)!} />
+			)}
+			{frame.type === 'table' &&
+				layout?.frames
+					.filter((cell) => cell.frame.startsWith(`${frame.id}#`) && cell.frame !== editing)
+					.map((cell) => <Lines key={cell.frame} id={cell.frame} at={frame.box} layout={cell} />)}
+		</g>
+	);
+	/**
+	 * A frame and, for a group, the frames in it. They are placed on the page, so a group in the middle
+	 * of a drag is drawn by carrying them from the box it had to the one it is being given.
+	 */
+	const drawn = (frame: Frame, was: Frame | undefined): ReactNode => {
+		if (frame.type !== 'group') return drawLeaf(frame);
+		const from = was?.box ?? frame.box;
+		const to = frame.box;
+		const sx = from.w > 0 ? to.w / from.w : 1;
+		const sy = from.h > 0 ? to.h / from.h : 1;
+		const moved = from.x !== to.x || from.y !== to.y || sx !== 1 || sy !== 1;
+		const kids = (was?.type === 'group' ? was : frame).children;
+		return (
+			<g
+				key={frame.id}
+				data-group={frame.id}
+				transform={
+					moved
+						? `translate(${to.x} ${to.y}) scale(${sx} ${sy}) translate(${-from.x} ${-from.y})`
+						: undefined
+				}
+			>
+				{kids.map((child) => drawn(child, child))}
+			</g>
+		);
+	};
 
 	return (
 		<div className={styles.frame}>
@@ -455,32 +506,7 @@ export function SpreadCanvas({
 						</g>
 					);
 				})}
-				{frames.map((frame) => (
-					<g key={frame.id} transform={turned(frame)}>
-						<Furniture frame={frame} images={images} />
-						{marks.frameEdges && (
-							<rect
-								data-mark="frame-edges"
-								x={frame.box.x}
-								y={frame.box.y}
-								width={frame.box.w}
-								height={frame.box.h}
-								fill="none"
-								stroke={colours.frameEdges}
-								strokeWidth={0.5}
-							/>
-						)}
-						{byFrame.has(frame.id) && frame.id !== editing && (
-							<Lines id={frame.id} at={frame.box} layout={byFrame.get(frame.id)!} />
-						)}
-						{frame.type === 'table' &&
-							layout?.frames
-								.filter((cell) => cell.frame.startsWith(`${frame.id}#`) && cell.frame !== editing)
-								.map((cell) => (
-									<Lines key={cell.frame} id={cell.frame} at={frame.box} layout={cell} />
-								))}
-					</g>
-				))}
+				{frames.map((frame, at) => drawn(frame, spread.frames[at]))}
 				{marks.bleed && (
 					<path
 						data-mark="bleed"
@@ -715,26 +741,30 @@ export function SpreadCanvas({
 							);
 							return (
 								<g key={frame.id}>
-									<line
-										x1={top.x}
-										y1={top.y}
-										x2={out.x}
-										y2={out.y}
-										stroke="var(--folio-accent)"
-										strokeWidth={1 / scale}
-										pointerEvents="none"
-									/>
-									<circle
-										data-handle="turn"
-										cx={out.x}
-										cy={out.y}
-										r={size * 0.7}
-										fill="#fff"
-										stroke="var(--folio-accent)"
-										strokeWidth={1.5 / scale}
-										style={{ cursor: 'grab' }}
-										onPointerDown={(event) => drag.onTurnPointerDown(event, frame.id)}
-									/>
+									{frame.type !== 'group' && (
+										<>
+											<line
+												x1={top.x}
+												y1={top.y}
+												x2={out.x}
+												y2={out.y}
+												stroke="var(--folio-accent)"
+												strokeWidth={1 / scale}
+												pointerEvents="none"
+											/>
+											<circle
+												data-handle="turn"
+												cx={out.x}
+												cy={out.y}
+												r={size * 0.7}
+												fill="#fff"
+												stroke="var(--folio-accent)"
+												strokeWidth={1.5 / scale}
+												style={{ cursor: 'grab' }}
+												onPointerDown={(event) => drag.onTurnPointerDown(event, frame.id)}
+											/>
+										</>
+									)}
 									{HANDLES.map((handle) => {
 										const at = turnedHandle(frame.box, frame.rotation, handle);
 										return (

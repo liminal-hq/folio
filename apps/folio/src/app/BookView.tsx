@@ -13,7 +13,8 @@ import { shelfLabels } from '../books/shelfLabels';
 import type { OpenBookCopy } from '../books/booksStore';
 import { useBooks } from '../books/useBooks';
 import { backgroundAssets } from '../canvas/backgrounds';
-import { CLIPBOARD_COMMANDS, frameIntents } from '../canvas/frameMenu';
+import { CLIPBOARD_COMMANDS, GROUP_COMMANDS, frameIntents } from '../canvas/frameMenu';
+import { canGroup, canUngroup, childIds, groupIntent, ungroupIntent } from '../canvas/grouping';
 import { boxAt, newFrame, type NewFrameKind } from '../canvas/newFrames';
 import { spreadGeometry } from '../canvas/geometry';
 import { masterFurniture, pageAt } from '../canvas/masterItems';
@@ -309,6 +310,29 @@ export function BookView({
 		void store.apply(intent);
 	};
 
+	/** The frames just grouped, until the group they went into appears and can be selected. */
+	const [grouping, setGrouping] = useState<string[] | null>(null);
+	const makeGroup = (frames: Frame[]) => {
+		if (!canGroup(frames, master !== null)) return;
+		apply(groupIntent(frames, surface));
+		setGrouping(frames.map((f) => f.id));
+	};
+	const breakGroup = (group: Frame) => {
+		if (!canUngroup([group])) return;
+		apply(ungroupIntent(group, surface));
+		// Its frames stay where they are, and are chosen once they are back among the page's own.
+		select(childIds(group));
+	};
+	useEffect(() => {
+		if (!grouping || !spread) return;
+		const made = spread.frames.find(
+			(f) => f.type === 'group' && grouping.every((id) => f.children.some((c) => c.id === id)),
+		);
+		if (made) {
+			select([made.id]);
+			setGrouping(null);
+		}
+	});
 	const clipboard = useFrameClipboard({
 		active: preview === 'print',
 		selected,
@@ -716,6 +740,12 @@ export function BookView({
 				else if (action.op === 'pastePlain') void clipboard.pasteWith('plain');
 				else void clipboard.pasteWith('into');
 				break;
+			case 'group':
+				makeGroup(action.frames);
+				break;
+			case 'ungroup':
+				breakGroup(action.frame);
+				break;
 			case 'link':
 				// The Properties group says to choose the box the words continue in.
 				setGroup('properties');
@@ -899,6 +929,12 @@ export function BookView({
 								}
 							}}
 							onCommand={(command, ids) => {
+								if (GROUP_COMMANDS.includes(command)) {
+									const frames = ids.flatMap((id) => spread.frames.filter((f) => f.id === id));
+									if (command === 'group') makeGroup(frames);
+									else if (frames[0]) breakGroup(frames[0]);
+									return;
+								}
 								if (CLIPBOARD_COMMANDS.includes(command)) {
 									if (command === 'paste') clipboard.paste();
 									else if (command === 'copy') void clipboard.copy();

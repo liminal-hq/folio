@@ -87,9 +87,16 @@ export function renewFrame(
 	dy: number,
 	ids: () => string = newFrameId,
 ): Frame {
-	const copy = renew(frame, ids);
-	copy.box = { ...copy.box, x: copy.box.x + dx, y: copy.box.y + dy };
-	return copy;
+	return moved(renew(frame, ids), dx, dy);
+}
+
+/** A frame moved by `dx` and `dy`; a group's frames are placed on the page, so they move with it. */
+function moved(frame: Frame, dx: number, dy: number): Frame {
+	const box = { ...frame.box, x: frame.box.x + dx, y: frame.box.y + dy };
+	if (frame.type === 'group') {
+		return { ...frame, box, children: frame.children.map((child) => moved(child, dx, dy)) };
+	}
+	return { ...frame, box };
 }
 
 function renew(frame: Frame, ids: () => string): Frame {
@@ -97,7 +104,6 @@ function renew(frame: Frame, ids: () => string): Frame {
 	const copy = { ...rest, id: ids(), locked: false } as Frame & { flow?: unknown };
 	if (copy.type === 'text') delete copy.flow;
 	if (copy.type === 'group') {
-		// The children are renewed too but not moved: they are placed by the group they are in.
 		copy.children = copy.children.map((child) => renew(child, ids));
 	}
 	return copy as Frame;

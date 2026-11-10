@@ -73,7 +73,7 @@ describe('renewFrame', () => {
 		expect(text({ locked: true }).locked).toBe(true);
 	});
 
-	it('renews the children of a group and moves only the group', () => {
+	it('renews the children of a group and moves them with it', () => {
 		const group = {
 			type: 'group',
 			id: 'g',
@@ -84,7 +84,8 @@ describe('renewFrame', () => {
 		const copy = renewFrame(group, 5, 5, ids) as Frame & { children: Frame[] };
 		expect(copy.id).toBe('new_1');
 		expect(copy.children.map((c) => c.id)).toEqual(['new_2', 'new_3']);
-		expect(copy.children[0]!.box).toEqual({ x: 10, y: 20, w: 100, h: 40 });
+		expect(copy.children[0]!.box).toEqual({ x: 15, y: 25, w: 100, h: 40 });
+		expect(copy.box).toEqual({ x: 5, y: 5, w: 50, h: 50 });
 	});
 });
 

@@ -12,22 +12,65 @@ import {
 	CopyIcon,
 	CutIcon,
 	DuplicateIcon,
+	GroupIcon,
 	PasteIcon,
 	LockIcon,
 	SendToBackIcon,
 	TrashIcon,
+	UngroupIcon,
 	UnlockIcon,
 } from '../icons/AppIcons';
 import { t } from '../i18n/messages';
+import { canGroup, canUngroup } from './grouping';
 
 export type FrameCommand =
-	'cut' | 'copy' | 'paste' | 'duplicate' | 'front' | 'back' | 'lock' | 'unlock' | 'delete';
+	| 'cut'
+	| 'copy'
+	| 'paste'
+	| 'group'
+	| 'ungroup'
+	| 'duplicate'
+	| 'front'
+	| 'back'
+	| 'lock'
+	| 'unlock'
+	| 'delete';
 
 /** The commands that act on the clipboard, which the book view answers, not the frames one by one. */
 export const CLIPBOARD_COMMANDS: readonly FrameCommand[] = ['cut', 'copy', 'paste'];
 
+/** The commands that make or break a group, which the book view answers with the selection as a whole. */
+export const GROUP_COMMANDS: readonly FrameCommand[] = ['group', 'ungroup'];
+
+/** Group for frames that can be grouped, Ungroup for a group that can be taken apart. */
+function groupItems(frames: Frame[], onMaster: boolean): MenuItem[] {
+	if (canGroup(frames, onMaster)) {
+		return [
+			{
+				type: 'action',
+				id: 'group',
+				label: t('frame.group'),
+				shortcut: 'Ctrl+G',
+				icon: <GroupIcon />,
+			},
+		];
+	}
+	if (canUngroup(frames)) {
+		return [
+			{
+				type: 'action',
+				id: 'ungroup',
+				label: t('frame.ungroup'),
+				shortcut: 'Ctrl+Shift+G',
+				icon: <UngroupIcon />,
+			},
+		];
+	}
+	return [];
+}
+
 /** The rows of the menu for the selected `frames` (the one pressed, or all of them). */
-export function frameMenuItems(frames: Frame[]): MenuItem[] {
+export function frameMenuItems(frames: Frame[], onMaster = false): MenuItem[] {
 	const allLocked = frames.every((f) => f.locked);
 	return [
 		{
@@ -54,6 +97,7 @@ export function frameMenuItems(frames: Frame[]): MenuItem[] {
 			icon: <PasteIcon />,
 		},
 		{ type: 'separator' },
+		...groupItems(frames, onMaster),
 		{
 			type: 'action',
 			id: 'duplicate',
@@ -89,6 +133,8 @@ export function frameIntents(command: FrameCommand, surface: Surface, frame: Fra
 		case 'cut':
 		case 'copy':
 		case 'paste':
+		case 'group':
+		case 'ungroup':
 			return [];
 		case 'duplicate':
 			return [{ type: 'DuplicateFrame', ...on }];

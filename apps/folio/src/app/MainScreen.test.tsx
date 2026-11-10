@@ -466,6 +466,29 @@ describe('a book in the main window', () => {
 		expect(items).toContain('Paste in place');
 	});
 
+	it('groups the frames selected with Ctrl+G and from the Layout tab’s Group button', async () => {
+		const { books } = setup();
+		await startBook();
+		await userEvent.click(
+			within(screen.getByRole('list', { name: 'Spreads' })).getAllByRole('button')[1]!,
+		);
+		const hits = () => Array.from(document.querySelectorAll('[data-hit]'));
+		await waitFor(() => expect(hits().length).toBeGreaterThan(0));
+		const page = document.querySelector('svg[role="group"]')!;
+		// The picture and the words are free; the third frame carries a story and is left out.
+		fireEvent.pointerDown(hits()[0]!, { button: 0, clientX: 10, clientY: 10 });
+		fireEvent.pointerUp(hits()[0]!, { button: 0, clientX: 10, clientY: 10 });
+		fireEvent.pointerDown(hits()[1]!, { button: 0, shiftKey: true, clientX: 10, clientY: 10 });
+		fireEvent.pointerUp(hits()[1]!, { button: 0, shiftKey: true, clientX: 10, clientY: 10 });
+		const grouped = () =>
+			books.calls.filter((c) => c.startsWith('apply(') && c.includes('GroupFrames')).length;
+		fireEvent.keyDown(page, { key: 'g', ctrlKey: true });
+		await waitFor(() => expect(grouped()).toBe(1));
+		await userEvent.click(within(ribbonTabs()).getByRole('tab', { name: 'Layout' }));
+		await userEvent.click(screen.getByRole('button', { name: 'Group' }));
+		await waitFor(() => expect(grouped()).toBe(2));
+	});
+
 	it('leaves copy, cut and paste to a field being typed in', async () => {
 		setup();
 		await startBook();

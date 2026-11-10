@@ -81,6 +81,64 @@ const layout: SpreadLayout = {
 	],
 };
 
+describe('a group of frames', () => {
+	const shape = (id: string, x: number) => ({
+		type: 'shape',
+		id,
+		shape: 'rect',
+		box: { x, y: 10, w: 20, h: 20 },
+		rotation: 0,
+		locked: false,
+	});
+	const grouped = {
+		...spread,
+		frames: [
+			{
+				type: 'group',
+				id: 'g1',
+				box: { x: 10, y: 10, w: 60, h: 20 },
+				rotation: 0,
+				locked: false,
+				children: [shape('c1', 10), shape('c2', 50)],
+			},
+		],
+	} as unknown as Spread;
+
+	it('is one frame to pick, and draws the frames in it', () => {
+		const { container } = render(
+			<SpreadCanvas
+				book={book}
+				spread={grouped}
+				layout={null}
+				zoom={1}
+				label="Page"
+				selection={[]}
+				onSelect={() => undefined}
+			/>,
+		);
+		expect(container.querySelectorAll('[data-hit]')).toHaveLength(1);
+		expect(screen.getByRole('option', { name: 'Group' })).toBeInTheDocument();
+		const drawn = container.querySelector('[data-group="g1"]')!;
+		expect(drawn.querySelectorAll('path, rect').length).toBeGreaterThanOrEqual(2);
+	});
+
+	it('has no turn handle, since a group is not turned, but can be resized', () => {
+		const { container } = render(
+			<SpreadCanvas
+				book={book}
+				spread={grouped}
+				layout={null}
+				zoom={1}
+				label="Page"
+				selection={['g1']}
+				onSelect={() => undefined}
+			/>,
+		);
+		expect(container.querySelector('[data-handle="turn"]')).toBeNull();
+		expect(container.querySelector('[data-handle="se"]')).not.toBeNull();
+	});
+});
+
 describe('SpreadCanvas', () => {
 	it('draws each line where Rust put it, in the font Rust used', () => {
 		const { container } = render(
