@@ -7,6 +7,7 @@
 // reach the people looking at them and where the person's folders are, through `Host`.
 
 mod error;
+mod find;
 mod frontmatter;
 mod host;
 mod punctuation;

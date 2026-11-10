@@ -27,10 +27,10 @@ use crate::spelling::Spelling;
 use crate::wire::{
     BatchOutcome, BookSnapshot, BookSpelling, BookSummary, BooksChanged, CoverCanvas,
     CoverSheetPreview, EditAnswer, EditRequest, ExportColour, ExportProgress, ExportReport,
-    ExportTarget, ExportedFile, FontChoice, FontLicence, FontOrigin, FontSkip, FontUse,
-    KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, PreviewChapter, PreviewImage,
-    ProofColour, ProofPage, ProofSpread, ReaderPreview, Recoverable, SkippedFont, SmartNote,
-    SpellCheck, SpreadLayoutResult, StoryChapter, TemplateCard, TemplateGallery,
+    ExportTarget, ExportedFile, FindReport, FindRequest, FontChoice, FontLicence, FontOrigin,
+    FontSkip, FontUse, KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, PreviewChapter,
+    PreviewImage, ProofColour, ProofPage, ProofSpread, ReaderPreview, Recoverable, SkippedFont,
+    SmartNote, SpellCheck, SpreadLayoutResult, StoryChapter, TemplateCard, TemplateGallery,
 };
 use crate::Host;
 
@@ -1607,6 +1607,90 @@ impl Books {
             self.apply_batch_by(id, intents, None)?;
         }
         Ok(crate::tools::ToolFixed { changed })
+    }
+
+    /// Every place in the book where `request` is found, in reading order (D-62). A match in a story
+    /// is put on the spread its words are laid out on, so next and previous move through the pages.
+    pub fn find(&self, id: &str, request: &FindRequest) -> Result<FindReport, Error> {
+        let book = locked(&self.inner)
+            .books
+            .iter()
+            .find(|b| b.id == id)
+            .map(|b| b.session.book().clone())
+            .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+        let bad = |e: crate::find::BadSearch| Error::BadSearch(e.0);
+        let unplaced = crate::find::find(&book, request, &|_, _, _| None).map_err(bad)?;
+        let flows: std::collections::HashSet<folio_model::FlowId> = unplaced
+            .matches
+            .iter()
+            .filter_map(|m| match &m.target {
+                folio_model::TextTarget::Story { flow } => Some(flow.clone()),
+                _ => None,
+            })
+            .collect();
+        if flows.is_empty() {
+            return Ok(unplaced);
+        }
+        let lines = self.story_lines(id, &book, &flows)?;
+        crate::find::find(&book, request, &|flow, para, offset| {
+            let lines = lines.get(&(flow.clone(), para))?;
+            lines
+                .iter()
+                .find(|(start, end, _)| *start <= offset && offset < *end)
+                .or_else(|| lines.last())
+                .map(|(_, _, slot)| *slot)
+        })
+        .map_err(bad)
+    }
+
+    /// Where each line of the stories in `flows` is on the pages: the code points it holds and the
+    /// place of its frame, by story and paragraph.
+    #[allow(clippy::type_complexity)]
+    fn story_lines(
+        &self,
+        id: &str,
+        book: &folio_model::Book,
+        flows: &std::collections::HashSet<folio_model::FlowId>,
+    ) -> Result<HashMap<(folio_model::FlowId, u32), Vec<(u32, u32, crate::find::Slot)>>, Error>
+    {
+        let mut out: HashMap<(folio_model::FlowId, u32), Vec<(u32, u32, crate::find::Slot)>> =
+            HashMap::new();
+        for (index, spread) in book.spreads.iter().enumerate() {
+            let flowed: Vec<(&folio_model::Frame, &folio_model::FlowId)> = spread
+                .frames
+                .iter()
+                .filter_map(|f| match f {
+                    folio_model::Frame::Text(t) => t
+                        .flow
+                        .as_ref()
+                        .filter(|s| flows.contains(&s.id))
+                        .map(|s| (f, &s.id)),
+                    _ => None,
+                })
+                .collect();
+            if flowed.is_empty() {
+                continue;
+            }
+            let laid = self.layout_spread(id, &spread.id.0, None)?;
+            for frame_layout in &laid.layout.frames {
+                let Some((frame, flow)) = flowed
+                    .iter()
+                    .find(|(f, _)| f.base().id == frame_layout.frame)
+                else {
+                    continue;
+                };
+                let slot =
+                    crate::find::slot_of(index, frame.base(), spread.pages.len(), book.trim.w.0);
+                for line in &frame_layout.lines {
+                    if let Some(para) = line.paragraph {
+                        out.entry(((*flow).clone(), para))
+                            .or_default()
+                            .push((line.start, line.end, slot));
+                    }
+                }
+            }
+        }
+        Ok(out)
     }
 
     /// The spread templates a book can add, each drawn at this book's size, with the group of the

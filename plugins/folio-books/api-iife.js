@@ -120,6 +120,13 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function editText(id, edit, spread, spelling) {
         return cmd('edit_text', { id, edit, spread, spelling });
     }
+    /**
+     * Finds words in a book: every place, in reading order, as a target and a paragraph and code point
+     * range an `EditText` takes, with the spread each is on.
+     */
+    function find(id, request) {
+        return cmd('find', { id, request });
+    }
     /** Hears every change to every open book. Read `snapshot` first and apply patches with a higher revision. */
     function onPatch(listener) {
         return event.listen(PATCH_EVENT, (e) => listener(e.payload));
@@ -292,6 +299,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.downloadDictionary = downloadDictionary;
     exports.editText = editText;
     exports.exportBook = exportBook;
+    exports.find = find;
     exports.fontsInUse = fontsInUse;
     exports.getStatus = getStatus;
     exports.historyMark = historyMark;

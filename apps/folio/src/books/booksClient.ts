@@ -55,6 +55,7 @@ import {
 	keepFonts,
 	listFonts,
 	editText,
+	find,
 	layoutMaster,
 	layoutSpread,
 	listBooks,
@@ -92,6 +93,8 @@ import {
 	type EditAnswer,
 	type EditCaret,
 	type EditRequest,
+	type FindReport,
+	type FindRequest,
 	type Intent,
 	type KindInfo,
 	type NewBookSpec,
@@ -158,6 +161,8 @@ export interface BooksClient {
 	 * the revision the edit made, and where the caret goes.
 	 */
 	editText(id: string, edit: EditRequest, spread: string, spelling?: string[]): Promise<EditAnswer>;
+	/** Every place `request` is found in the book, in reading order. */
+	find(id: string, request: FindRequest): Promise<FindReport>;
 	/** A master page's text laid out on a page of its own, with `{page}` and other tokens as written. */
 	layoutMaster(id: string, master: string): Promise<SpreadLayoutResult>;
 	/** Reads a picture file into the book; resolves to its path inside the book. */
@@ -248,6 +253,7 @@ export const tauriBooksClient: BooksClient = {
 	restoredCaret,
 	layoutSpread,
 	editText,
+	find,
 	layoutMaster,
 	importImage,
 	importImageBytes,

@@ -17,8 +17,8 @@ use folio_engine::DICTIONARY_PROGRESS_EVENT;
 use folio_engine::{
     BookSnapshot, BookSpelling, BookSummary, Books, CoverCanvas, CoverSheetPreview,
     DictionaryProgress, DictionaryStatus, EditAnswer, EditRequest, ExportColour, ExportReport,
-    ExportTarget, FontChoice, FontUse, KeepFontsReport, ProofSpread, ReaderPreview, Recoverable,
-    SpellCheck, SpreadLayoutResult, StoryChapter,
+    ExportTarget, FindReport, FindRequest, FontChoice, FontUse, KeepFontsReport, ProofSpread,
+    ReaderPreview, Recoverable, SpellCheck, SpreadLayoutResult, StoryChapter,
 };
 use folio_engine::{Error, TemplateGallery, ToolFix, ToolFixed, ToolReport, ToolRequest};
 use folio_import::ImportReport;
@@ -348,6 +348,19 @@ pub async fn edit_text<R: Runtime>(
     })
     .await
     .expect("the edit task does not panic")
+}
+
+/// Finds words in a book: every place, in reading order, with where each is on the pages.
+#[tauri::command]
+pub async fn find<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    request: FindRequest,
+) -> Result<FindReport, Error> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().find(&id, &request))
+        .await
+        .expect("the find task does not panic")
 }
 
 /// Lays out the text of one master page of a book, with `{page}` and the other tokens as written.

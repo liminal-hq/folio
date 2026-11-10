@@ -220,3 +220,55 @@ async fn an_agent_asks_a_book_tool_what_it_finds() {
         .iter()
         .all(|row| row["status"] == "empty"));
 }
+
+#[tokio::test]
+async fn an_agent_finds_words_in_every_place_they_are_kept() {
+    let client = connect().await;
+    let made = client.call_tool(call("new_book", json!({}))).await.unwrap();
+    let made: Value = serde_json::from_str(&first_text(&made.content)).unwrap();
+    let id = made["id"].as_str().unwrap().to_owned();
+    let frame = made["book"]["spreads"][0]["frames"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["type"] == "text")
+        .expect("the cover has a text frame")["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let set = client
+        .call_tool(call(
+            "apply_intents",
+            json!({ "id": id, "intents": [{ "type": "SetText", "frame": frame, "text": "zzfox and zzFox" }] }),
+        ))
+        .await
+        .unwrap();
+    assert_ne!(set.is_error, Some(true), "{set:?}");
+
+    let found = client
+        .call_tool(call(
+            "find_text",
+            json!({ "id": id, "request": { "query": "zzfox" } }),
+        ))
+        .await
+        .unwrap();
+    assert_ne!(found.is_error, Some(true), "{found:?}");
+    let found: Value = serde_json::from_str(&first_text(&found.content)).unwrap();
+    let matches = found["matches"].as_array().unwrap();
+    assert_eq!(matches.len(), 2);
+    assert_eq!(matches[0]["from"], 0);
+    assert_eq!(matches[0]["to"], 5);
+    assert_eq!(matches[0]["target"]["frame"], frame.as_str());
+
+    let case = client
+        .call_tool(call(
+            "find_text",
+            json!({ "id": id, "request": { "query": "zzfox", "matchCase": true } }),
+        ))
+        .await
+        .unwrap();
+    let case: Value = serde_json::from_str(&first_text(&case.content)).unwrap();
+    assert_eq!(case["matches"].as_array().unwrap().len(), 1);
+
+    client.cancel().await.unwrap();
+}

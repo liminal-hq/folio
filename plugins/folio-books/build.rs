@@ -33,6 +33,7 @@ const COMMANDS: &[&str] = &[
     "restored_caret",
     "layout_spread",
     "edit_text",
+    "find",
     "layout_master",
     "import_image",
     "import_image_bytes",

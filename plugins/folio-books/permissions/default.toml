@@ -30,6 +30,7 @@ permissions = [
   "allow-restored-caret",
   "allow-layout-spread",
   "allow-edit-text",
+  "allow-find",
   "allow-layout-master",
   "allow-import-image",
   "allow-import-image-bytes",

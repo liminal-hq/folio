@@ -36,6 +36,9 @@ import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck
 import type { EditAnswer } from '@liminal-hq/folio-protocol/generated/EditAnswer';
 import type { EditCaret } from '@liminal-hq/folio-protocol/generated/EditCaret';
 import type { EditRequest } from '@liminal-hq/folio-protocol/generated/EditRequest';
+import type { FindMatch } from '@liminal-hq/folio-protocol/generated/FindMatch';
+import type { FindReport } from '@liminal-hq/folio-protocol/generated/FindReport';
+import type { FindRequest } from '@liminal-hq/folio-protocol/generated/FindRequest';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { PaintPresets } from '@liminal-hq/folio-protocol/generated/PaintPresets';
 import type { KindInfo } from '@liminal-hq/folio-protocol/generated/KindInfo';
@@ -219,6 +222,14 @@ export function editText(
 	return cmd<EditAnswer>('edit_text', { id, edit, spread, spelling });
 }
 
+/**
+ * Finds words in a book: every place, in reading order, as a target and a paragraph and code point
+ * range an `EditText` takes, with the spread each is on.
+ */
+export function find(id: string, request: FindRequest): Promise<FindReport> {
+	return cmd<FindReport>('find', { id, request });
+}
+
 /** Hears every change to every open book. Read `snapshot` first and apply patches with a higher revision. */
 export function onPatch(listener: (event: PatchEvent) => void): Promise<UnlistenFn> {
 	return listen<PatchEvent>(PATCH_EVENT, (e) => listener(e.payload));
@@ -258,6 +269,9 @@ export type {
 	EditRequest,
 	ExportReport,
 	ExportTarget,
+	FindMatch,
+	FindReport,
+	FindRequest,
 	FontChoice,
 	FontUse,
 	KeepFontsReport,

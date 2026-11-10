@@ -28,6 +28,7 @@ folio-protocol = { path = "../folio-protocol" }
 folio-session = { path = "../folio-session" }
 folio-spell = { path = "../folio-spell" }
 log = { workspace = true }
+regex = "1"
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

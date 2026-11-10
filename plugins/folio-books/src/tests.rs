@@ -430,6 +430,41 @@ fn an_edit_answers_with_the_patch_the_spread_and_the_caret_in_one_call() {
 }
 
 #[test]
+fn words_are_found_through_the_books() {
+    use folio_engine::FindRequest;
+    use folio_model::Frame;
+    let app = app();
+    let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();
+    let id = snapshot.summary.id.clone();
+    let frame = snapshot.book.spreads[1]
+        .frames
+        .iter()
+        .find_map(|f| match f {
+            Frame::Text(t) if t.flow.is_none() => Some(t.base.id.clone()),
+            _ => None,
+        })
+        .expect("a text frame of its own");
+    books(&app)
+        .apply(
+            &id,
+            Intent::SetText {
+                frame,
+                text: "zzalpha beta zzalpha".into(),
+            },
+        )
+        .unwrap();
+    let find = FindRequest {
+        query: "zzalpha".into(),
+        match_case: false,
+        whole_word: false,
+        regex: false,
+    };
+    let found = books(&app).find(&id, &find).unwrap();
+    assert_eq!(found.matches.len(), 2);
+    assert_eq!((found.matches[1].from, found.matches[1].to), (13, 20));
+}
+
+#[test]
 fn a_master_page_is_laid_out_with_its_tokens_as_written() {
     let app = app();
     let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();

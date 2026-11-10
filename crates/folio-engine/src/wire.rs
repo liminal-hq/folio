@@ -560,3 +560,61 @@ pub struct TemplateCard {
     /// A `data:image/png` URI of the spread.
     pub image: String,
 }
+
+/// What to look for in a book (D-62).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct FindRequest {
+    /// The words to find. Empty finds nothing.
+    pub query: String,
+    /// Capital letters must agree. Left out, they need not.
+    #[serde(default)]
+    pub match_case: bool,
+    /// Only whole words: "cat" is not found in "concatenate" or in "cat's" followed by a letter.
+    #[serde(default)]
+    pub whole_word: bool,
+    /// Read `query` as a regular expression (the Rust `regex` syntax: no look-around or
+    /// back-references, and so always quick). Left out, `query` is exactly the words to find.
+    #[serde(default)]
+    pub regex: bool,
+}
+
+/// Where the words found are.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct FindMatch {
+    /// Whose words: the same target an `EditText` takes.
+    pub target: folio_model::TextTarget,
+    /// The paragraph of those words, and the Unicode code points `from..to` of it.
+    pub para: u32,
+    pub from: u32,
+    pub to: u32,
+    /// The spread the words are on; for a story, the one its words at this place are laid out on.
+    /// Not there for words on a master page.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub spread: Option<String>,
+    /// The master page the words are on, when they are on one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub master: Option<String>,
+    /// The words around the match, with … where they are cut off.
+    pub context: String,
+    /// The words cannot be replaced: their frame is locked or comes from a master.
+    pub locked: bool,
+}
+
+/// What a search found, in reading order.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct FindReport {
+    pub matches: Vec<FindMatch>,
+    /// There were more matches than are listed.
+    pub truncated: bool,
+}

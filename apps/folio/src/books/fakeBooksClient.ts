@@ -23,6 +23,7 @@ import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
+import type { FindMatch } from '@liminal-hq/folio-protocol/generated/FindMatch';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
 import { applyPatch } from './applyPatch';
 import type { BooksClient, BooksListener } from './booksClient';
@@ -140,6 +141,8 @@ export interface FakeBooks {
 	preflightItems: PreflightItem[];
 	/** The typefaces the fake book uses; a test puts some here. */
 	fontUses: FontUse[];
+	/** What the fake finds for any search, in order; a test puts matches here. */
+	found: FindMatch[];
 }
 
 export function createFakeBooksClient(): FakeBooks {
@@ -154,6 +157,7 @@ export function createFakeBooksClient(): FakeBooks {
 	const installedFonts: string[] = [];
 	const preflightItems: PreflightItem[] = [];
 	const fontUses: FontUse[] = [];
+	const found: FindMatch[] = [];
 	const downloaded = new Set<string>();
 	/** Books a crash left changes in; a test puts some here. */
 	const recoveries: Recoverable[] = [];
@@ -599,6 +603,11 @@ export function createFakeBooksClient(): FakeBooks {
 					: { para: from.para + pieces.length - 1, offset: last };
 			return { patch: patched, layout: laid, caret };
 		},
+		async find(id, request) {
+			await call('find', [id, request.query]);
+			find(id);
+			return { matches: found.map((m) => ({ ...m })), truncated: false };
+		},
 		async layoutMaster(id, master) {
 			await call('layoutMaster', [id, master]);
 			const h = find(id);
@@ -940,6 +949,7 @@ export function createFakeBooksClient(): FakeBooks {
 		installedFonts,
 		preflightItems,
 		fontUses,
+		found,
 		recoveries,
 	};
 }

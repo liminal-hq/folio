@@ -63,6 +63,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::restored_caret,
             commands::layout_spread,
             commands::edit_text,
+            commands::find,
             commands::layout_master,
             commands::import_image,
             commands::import_image_bytes,

@@ -55,6 +55,9 @@ pub enum Error {
     /// A window asked for a master page the book does not have.
     #[error("the book has no master page `{0}`")]
     NoSuchMaster(String),
+    /// A search that cannot be made: a pattern that does not parse, or is too large.
+    #[error("{0}")]
+    BadSearch(String),
 }
 
 impl Error {
@@ -75,6 +78,7 @@ impl Error {
             Error::Layout(_) => "layout",
             Error::NoSuchSpread(_) => "noSuchSpread",
             Error::NoSuchMaster(_) => "noSuchMaster",
+            Error::BadSearch(_) => "badSearch",
             Error::BadImage(_) => "image",
             Error::Export(_) => "export",
             Error::Import(_) => "import",
