@@ -11,6 +11,13 @@ import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
 import type { RulerUnit } from '@liminal-hq/folio-protocol/generated/RulerUnit';
 import { RULER_UNIT_ORDER } from '../canvas/rulerMath';
+import {
+	ALIGN_CONTROLS,
+	DISTRIBUTE_CONTROLS,
+	alignMoves,
+	distributeMoves,
+} from '../canvas/arrange';
+import type { PlainRect } from '../canvas/geometry';
 import type { TextSelection } from '../canvas/textSelection';
 import type { Marks } from '../canvas/marksModel';
 import { surfaceOf } from '../canvas/masterView';
@@ -43,6 +50,8 @@ export interface EditorInput {
 	swatches?: { id: string; name: string }[];
 	/** The words selected in the open text editor: bold, italic and the font apply to just those. */
 	selection?: TextSelection | null;
+	/** The trimmed pages of `spread`, which a lone frame aligns with. */
+	pages?: PlainRect[];
 	/** Whether Jax is switched on, which is what Ask Jax needs. */
 	jax?: boolean;
 }
@@ -219,6 +228,12 @@ export function editorState(input: EditorInput): EditorState {
 		available.add('front');
 		available.add('back');
 	}
+	// Several free frames line up with each other, one with its page; spreading out takes three.
+	const movable = free(selected);
+	if (movable.length >= 2 || (movable.length === 1 && (input.pages?.length ?? 0) > 0)) {
+		for (const id of Object.keys(ALIGN_CONTROLS)) available.add(id);
+	}
+	if (movable.length >= 3) for (const id of Object.keys(DISTRIBUTE_CONTROLS)) available.add(id);
 	const words = texts(selected);
 	if (words.length > 0) {
 		for (const id of ['bold', 'italic', ...Object.keys(ALIGNS), 'size']) available.add(id);
@@ -397,6 +412,26 @@ export function editorAction(
 					to: id === 'front' ? 'front' : 'back',
 				})),
 			};
+		case 'alignLeftE':
+		case 'alignCenterE':
+		case 'alignRightE':
+		case 'alignTopE':
+		case 'alignMidE':
+		case 'alignBotE': {
+			const moves = alignMoves(free(selected), ALIGN_CONTROLS[id]!, input.pages ?? []);
+			return {
+				kind: 'intents',
+				intents: moves.length ? [{ type: 'MoveFrames', ...on, moves }] : [],
+			};
+		}
+		case 'distH':
+		case 'distV': {
+			const moves = distributeMoves(free(selected), DISTRIBUTE_CONTROLS[id]!);
+			return {
+				kind: 'intents',
+				intents: moves.length ? [{ type: 'MoveFrames', ...on, moves }] : [],
+			};
+		}
 		case 'lock': {
 			const lock = !selected.every((f) => f.locked);
 			return {

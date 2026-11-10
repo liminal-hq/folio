@@ -630,3 +630,54 @@ describe('the controls that were listed but never live', () => {
 		).toBe(false);
 	});
 });
+
+describe('Align and Distribute', () => {
+	const at = (id: string, x: number, y = 0) =>
+		text({ id, box: { x, y, w: 20, h: 10 }, rotation: 0 });
+	const pages = [{ x: 0, y: 0, w: 300, h: 400 }];
+	const ids = ['alignLeftE', 'alignCenterE', 'alignRightE', 'alignTopE', 'alignMidE', 'alignBotE'];
+
+	it('aligns two free frames, or one to its page, and spreads three', () => {
+		const live = (selected: Frame[], extra = {}) => editorState(input(selected, extra)).available;
+		expect(live([at('a', 0)], { pages }).has('alignLeftE')).toBe(true);
+		expect(live([at('a', 0)]).has('alignLeftE')).toBe(false);
+		expect(live([]).has('alignLeftE')).toBe(false);
+		const two = live([at('a', 0), at('b', 50)]);
+		for (const id of ids) expect(two.has(id), id).toBe(true);
+		expect(two.has('distH')).toBe(false);
+		const three = live([at('a', 0), at('b', 50), at('c', 90)]);
+		expect(three.has('distH')).toBe(true);
+		expect(three.has('distV')).toBe(true);
+		// Locked frames and frames from a master do not count.
+		const locked = live([at('a', 0), at('b', 50, 0), { ...at('c', 90), locked: true } as Frame]);
+		expect(locked.has('distH')).toBe(false);
+		expect(locked.has('alignLeftE')).toBe(true);
+	});
+
+	it('moves the frames in one batch, leaving the locked ones alone', () => {
+		const a = at('a', 10);
+		const b = at('b', 50);
+		const lockedOne = { ...at('c', 200), locked: true } as Frame;
+		expect(editorAction('alignLeftE', undefined, input([a, b, lockedOne]))).toEqual({
+			kind: 'intents',
+			intents: [
+				{
+					type: 'MoveFrames',
+					on: { spread: 'sp' },
+					moves: [{ frame: 'b', box: { x: 10, y: 0, w: 20, h: 10 } }],
+				},
+			],
+		});
+		expect(editorAction('alignTopE', undefined, input([a, b]))).toEqual({
+			kind: 'intents',
+			intents: [],
+		});
+		expect(editorAction('alignCenterE', undefined, input([a], { pages }))).toMatchObject({
+			intents: [{ type: 'MoveFrames', moves: [{ frame: 'a', box: { x: 140 } }] }],
+		});
+		const spread3 = [at('a', 0), at('b', 10), at('c', 80)];
+		expect(editorAction('distH', undefined, input(spread3))).toMatchObject({
+			intents: [{ type: 'MoveFrames', moves: [{ frame: 'b', box: { x: 40 } }] }],
+		});
+	});
+});
