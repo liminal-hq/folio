@@ -402,7 +402,7 @@ impl Layouter<'_> {
                 }
             }
         }
-        for frame in &spread.frames {
+        for frame in folio_model::leaves(&spread.frames) {
             if let Some(item) = self.draw_frame(frame) {
                 drawn.push(item);
             }

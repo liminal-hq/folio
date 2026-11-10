@@ -133,6 +133,18 @@ pub enum Intent {
         frame: FrameId,
         locked: bool,
     },
+    /// Wraps two or more frames of a spread in a group, which is moved, resized, locked, duplicated
+    /// and deleted as one. The children keep their places on the page and the group takes the place
+    /// of the frontmost of them. One undo step.
+    GroupFrames {
+        on: Surface,
+        frames: Vec<FrameId>,
+    },
+    /// Takes a group apart: its frames stay where they are, in the group's place.
+    UngroupFrames {
+        on: Surface,
+        frame: FrameId,
+    },
     /// Sets the keywords a store is told about the book, whole: at most seven, each a phrase of at
     /// most fifty characters. One undo step, merging while they are typed.
     SetKeywords {

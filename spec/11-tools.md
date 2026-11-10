@@ -75,9 +75,9 @@ See 09. They are collected in Structure → Notes, glossary and index.
 ## Arrange: multi-select, align, distribute, group, lock, layers
 
 - **Shift-click** adds or removes items. **Ctrl+A** selects everything on the spread. The status bar shows "3 selected".
-- **Align** (Layout tab, sidebar when multi): left edges, centres, right edges, tops, middles, bottoms. With one item it aligns to the page margins.
+- **Align** (Layout tab, sidebar when multi): left edges, centres, right edges, tops, middles, bottoms. With one item it aligns to the page it is on (the trimmed page).
 - **Distribute** across / down: three or more items, equal gaps inside the selection's bounds.
-- **Group** (Ctrl+G) sets a shared `g`. Clicking any member selects the group, and they move together. **Ungroup** is Ctrl+Shift+G.
+- **Group** (Ctrl+G) wraps two or more free frames of a spread in a `group` frame that takes the place of the frontmost of them in the stacking order; **Ungroup** (Ctrl+Shift+G) takes it apart again. A group is one frame to the canvas: clicking any member selects the group, and it moves, resizes, locks, duplicates and deletes as one. Its frames keep their own boxes in the page's coordinates, so nothing is drawn differently: layout, preflight and export open a group out into its frames. Moving the group moves its frames; resizing it stretches each frame's box with it. A group is not turned (take it apart to turn its frames), is made only on the pages and not on a master page, and cannot hold a frame whose words flow from frame to frame. Grouping and ungrouping are each one undo step.
 - **Lock** (`lock`) still selects but won't drag or nudge.
 - **Layers panel** (Structure): top-to-bottom list with hide (`hide`), lock, and forward/backward. Clicking selects; Shift-click adds.
 

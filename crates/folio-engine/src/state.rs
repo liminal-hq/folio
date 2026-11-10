@@ -963,7 +963,7 @@ impl Books {
         };
         let mut flowed = std::collections::HashSet::new();
         for spread in &book.spreads {
-            for frame in &spread.frames {
+            for frame in folio_model::leaves(&spread.frames) {
                 match frame {
                     Frame::Text(t) if t.flow.is_none() => {
                         let (text, ok) = plain(&t.content);

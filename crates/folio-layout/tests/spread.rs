@@ -1883,3 +1883,73 @@ fn a_text_frame_says_how_its_style_sets_the_words_so_an_editor_in_place_does_the
     let centred = centred.frames.iter().find(|f| f.frame.0 == "fr_t").unwrap();
     assert_eq!(centred.text_align, Some(Align::Center));
 }
+
+#[test]
+fn frames_in_a_group_are_laid_out_where_they_are_as_if_they_were_not_grouped() {
+    let (mut book, styles) = sample(BookKind::Novel);
+    book.spreads[1].frames.push(text_frame(
+        "fr_a",
+        "body",
+        40.0,
+        40.0,
+        200.0,
+        80.0,
+        "In a group",
+    ));
+    book.spreads[1].frames.push(text_frame(
+        "fr_b",
+        "body",
+        40.0,
+        160.0,
+        200.0,
+        80.0,
+        "Also in it",
+    ));
+    let loose = lay(&book, &styles, 1);
+
+    let frames = &mut book.spreads[1].frames;
+    let at = frames.len() - 2;
+    let children: Vec<Frame> = frames.drain(at..).collect();
+    let mut group = Frame::Group {
+        base: folio_model::FrameBase {
+            id: folio_model::FrameId("fr_group".into()),
+            rect: folio_model::Rect {
+                x: folio_model::Pt(40.0),
+                y: folio_model::Pt(40.0),
+                w: folio_model::Pt(200.0),
+                h: folio_model::Pt(200.0),
+            },
+            rotation: 0.0,
+            locked: false,
+            from_master: None,
+            description: None,
+        },
+        children,
+    };
+    // A group wraps frames that are already on the page, so it adds nothing of its own.
+    if let Frame::Group { children, .. } = &mut group {
+        assert_eq!(children.len(), 2);
+    }
+    frames.push(group);
+    let grouped = lay(&book, &styles, 1);
+
+    let lines = |layout: &SpreadLayout, id: &str| {
+        layout
+            .frames
+            .iter()
+            .find(|f| f.frame.0 == id)
+            .map(|f| f.lines.len())
+    };
+    assert_eq!(lines(&grouped, "fr_a"), lines(&loose, "fr_a"));
+    assert!(lines(&grouped, "fr_a").is_some_and(|n| n > 0));
+    assert!(lines(&grouped, "fr_b").is_some_and(|n| n > 0));
+    assert_eq!(grouped.frames.len(), loose.frames.len());
+    // The scene draws them too.
+    let fonts = FontBook::bundled();
+    let scene = Layouter::new(&book, &styles, &fonts)
+        .scene_spread(&book.spreads[1].id)
+        .unwrap()
+        .unwrap();
+    let words: String = format!("{scene:?}");
+    assert!(words.contains("In") && words.contains("group"));
+}

@@ -254,6 +254,64 @@ fn touched_by(book: &Book, frame: &FrameId) -> Result<Vec<SpreadId>, SessionErro
     Err(SessionError::NoSuchFrame(frame.0.clone()))
 }
 
+/// Wraps the frames named in a group with the id `id`, which takes the place of the frontmost of
+/// them. They keep their order and, since a group's frames are placed on the page, their boxes.
+fn group_frames(list: &mut Vec<Frame>, named: &[FrameId], id: FrameId) {
+    let mut at: Vec<usize> = named
+        .iter()
+        .filter_map(|n| list.iter().position(|f| &f.base().id == n))
+        .collect();
+    at.sort_unstable();
+    at.dedup();
+    let Some(&front) = at.last() else {
+        return;
+    };
+    let mut children: Vec<Frame> = at.iter().rev().map(|&i| list.remove(i)).collect();
+    children.reverse();
+    let bounds = children
+        .iter()
+        .map(|c| {
+            let base = c.base();
+            base.rect.turned_bounds(base.rotation)
+        })
+        .reduce(|a, b| {
+            let x = a.x.0.min(b.x.0);
+            let y = a.y.0.min(b.y.0);
+            Rect {
+                x: Pt(x),
+                y: Pt(y),
+                w: Pt((a.x.0 + a.w.0).max(b.x.0 + b.w.0) - x),
+                h: Pt((a.y.0 + a.h.0).max(b.y.0 + b.h.0) - y),
+            }
+        })
+        .expect("a group has frames");
+    let group = Frame::Group {
+        base: folio_model::FrameBase {
+            id,
+            rect: bounds,
+            rotation: 0.0,
+            locked: false,
+            from_master: None,
+            description: None,
+        },
+        children,
+    };
+    // Everything taken out was at or before the frontmost, so the group goes where that one was.
+    list.insert(front + 1 - at.len(), group);
+}
+
+/// Puts a group's frames in its place on the list.
+fn ungroup_frame(list: &mut Vec<Frame>, id: &FrameId) {
+    let Some(at) = list.iter().position(|f| &f.base().id == id) else {
+        return;
+    };
+    if let Frame::Group { children, .. } = list.remove(at) {
+        for (i, child) in children.into_iter().enumerate() {
+            list.insert(at + i, child);
+        }
+    }
+}
+
 fn every_id(frame: &Frame, out: &mut Vec<FrameId>) {
     out.push(frame.base().id.clone());
     if let Frame::Group { children, .. } = frame {
@@ -1073,6 +1131,11 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             let target = find(frames_on(book, on)?, frame)
                 .ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
             ensure_free(target)?;
+            if matches!(target, Frame::Group { .. }) {
+                return Err(SessionError::BadGroup(
+                    "a group is not turned; take it apart to turn its frames".into(),
+                ));
+            }
             if !degrees.is_finite() {
                 return Err(SessionError::BadShape("an angle is a number".into()));
             }
@@ -1360,6 +1423,51 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             }
             Ok(by(on, Some(MergeKey::Description(frame.clone()))))
         }
+        Intent::GroupFrames { on, frames } => {
+            let bad = |what: String| Err(SessionError::BadGroup(what));
+            if !matches!(on, Surface::Spread(_)) {
+                return bad("groups are made on the pages, not on a master page".into());
+            }
+            let list = frames_on(book, on)?;
+            if frames.len() < 2 {
+                return bad("a group needs at least two frames".into());
+            }
+            let mut seen = Vec::new();
+            for id in frames {
+                if seen.contains(&id) {
+                    return bad(format!("`{}` is named twice", id.0));
+                }
+                seen.push(id);
+                let Some(found) = list.iter().find(|f| &f.base().id == id) else {
+                    return match find(list, id) {
+                        Some(_) => bad(format!("`{}` is already in a group", id.0)),
+                        None => Err(SessionError::NoSuchFrame(id.0.clone())),
+                    };
+                };
+                ensure_free(found)?;
+                if matches!(found, Frame::Text(t) if t.flow.is_some()) {
+                    return bad(format!("`{}` carries a story from frame to frame", id.0));
+                }
+            }
+            Ok(Plan {
+                fresh: vec![ids("fr")],
+                ..by(on, None)
+            })
+        }
+        Intent::UngroupFrames { on, frame } => {
+            let found = frames_on(book, on)?
+                .iter()
+                .find(|f| &f.base().id == frame)
+                .ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
+            if !matches!(found, Frame::Group { .. }) {
+                return Err(SessionError::BadGroup(format!(
+                    "`{}` is not a group",
+                    frame.0
+                )));
+            }
+            ensure_free(found)?;
+            Ok(by(on, None))
+        }
         Intent::DuplicateFrame { on, frame } | Intent::LockFrame { on, frame, .. } => {
             let frames = frames_on(book, on)?;
             if !frames.iter().any(|f| &f.base().id == frame) {
@@ -1488,7 +1596,17 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
     match intent {
         Intent::MoveFrame { on, frame, rect } => {
             if let Some(f) = frames_on_mut(book, &on).and_then(|frames| find_mut(frames, &frame)) {
-                f.base_mut().rect = rect;
+                f.set_rect(rect);
+            }
+        }
+        Intent::GroupFrames { on, frames } => {
+            if let Some(list) = frames_on_mut(book, &on) {
+                group_frames(list, &frames, FrameId(plan.fresh[0].clone()));
+            }
+        }
+        Intent::UngroupFrames { on, frame } => {
+            if let Some(list) = frames_on_mut(book, &on) {
+                ungroup_frame(list, &frame);
             }
         }
         Intent::SetImage {
@@ -1993,7 +2111,7 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             if let Some(frames) = frames_on_mut(book, &on) {
                 for m in moves {
                     if let Some(f) = find_mut(frames, &m.frame) {
-                        f.base_mut().rect = m.rect;
+                        f.set_rect(m.rect);
                     }
                 }
             }
@@ -2002,9 +2120,9 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             if let Some(frames) = frames_on_mut(book, &on) {
                 if let Some(source) = frames.iter().find(|f| f.base().id == frame) {
                     let mut copy = renewed(source, ids);
+                    // A group's frames go with it.
+                    copy.translate(DUPLICATE_OFFSET, DUPLICATE_OFFSET);
                     let base = copy.base_mut();
-                    base.rect.x = Pt(base.rect.x.0 + DUPLICATE_OFFSET);
-                    base.rect.y = Pt(base.rect.y.0 + DUPLICATE_OFFSET);
                     // A copy is the user's own: it is neither locked nor tied to a master.
                     base.locked = false;
                     base.from_master = None;
