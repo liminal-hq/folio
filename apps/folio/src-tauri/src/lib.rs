@@ -62,6 +62,17 @@ pub fn run() {
         // After the store plugin it saves through.
         .plugin(tauri_plugin_folio_settings::init_with(settings::storage))
         .plugin(tauri_plugin_folio_books::init())
+        // A release build drops the native WebView context menu, devtools and the reload
+        // shortcuts, so only Folio's own menus appear; a debug build keeps them. `Shift`+`Tab`
+        // stays free, since blocking it would break reverse keyboard focus navigation.
+        .plugin(
+            tauri_plugin_prevent_default::Builder::new()
+                .with_flags(
+                    tauri_plugin_prevent_default::Flags::debug()
+                        .difference(tauri_plugin_prevent_default::Flags::FOCUS_MOVE),
+                )
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![
             agent::agent_install,
             agent::agent_status,
