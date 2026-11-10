@@ -66,6 +66,8 @@ pub struct SmartNote {
     pub from: folio_model::TextPos,
     /// Where they end, which is where the caret goes.
     pub to: folio_model::TextPos,
+    /// The words as set, from `from` to `to`.
+    pub text: String,
     /// The words as they were typed, from `from`.
     pub raw: String,
 }

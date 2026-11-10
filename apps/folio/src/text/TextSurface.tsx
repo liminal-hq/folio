@@ -8,6 +8,7 @@ import type { StoryPara } from '@liminal-hq/folio-protocol/generated/StoryPara';
 import type { EditCaret } from '@liminal-hq/folio-protocol/generated/EditCaret';
 import type { EditRequest } from '@liminal-hq/folio-protocol/generated/EditRequest';
 import type { FrameLayout } from '@liminal-hq/folio-protocol/generated/FrameLayout';
+import type { SmartNote } from '@liminal-hq/folio-protocol/generated/SmartNote';
 import type { RunChange } from '@liminal-hq/folio-protocol/generated/RunChange';
 import type { TextPos } from '@liminal-hq/folio-protocol/generated/TextPos';
 import type { TextTarget } from '@liminal-hq/folio-protocol/generated/TextTarget';
@@ -56,7 +57,7 @@ export interface TextSurfaceProps {
 	/** Where the editing began, in the frame's points; without it the caret starts at the end. */
 	start?: { x: number; y: number };
 	/** Makes an edit; answers once the book has it, with where the caret goes. */
-	onEdit(edit: EditRequest): Promise<{ caret: TextPos }>;
+	onEdit(edit: EditRequest): Promise<{ caret: TextPos; smart?: SmartNote }>;
 	/** The editing is over: Escape, or the focus left. */
 	onClose(): void;
 	/**
@@ -77,6 +78,8 @@ interface Change {
 	to: TextPos;
 	text: string;
 	step: 'typing' | 'own';
+	/** Ask for the plain words to be set with smart punctuation (the book's setting decides). */
+	smart?: boolean;
 	look?: RunChange;
 	/** Paragraphs with their own looks, in place of `text`, which is then their plain words. */
 	rich?: StoryPara[];
@@ -199,6 +202,10 @@ export function TextSurface({
 	// Edits go one at a time: a key pressed while one is in flight waits, and takes its place from
 	// the answer before it.
 	const chain = useRef<Promise<void>>(Promise.resolve());
+	// What smart punctuation just set, so Backspace straight after puts back what was typed. The next
+	// words typed are then left as typed, so `--` put back is not made a dash again by the next hyphen.
+	const lastSmart = useRef<SmartNote | null>(null);
+	const leaveAt = useRef<TextPos | null>(null);
 	const edit = useRef(onEdit);
 	edit.current = onEdit;
 	const queue = useCallback(
@@ -215,10 +222,16 @@ export function TextSurface({
 						: { type: 'text', text: change.text },
 					step: change.step,
 					...(change.look ? { look: change.look } : {}),
+					...(change.smart ? { smart: true } : {}),
 				};
 				try {
 					const answer = await edit.current(request);
-					textsRef.current = replaceInTexts(textsRef.current, change.from, change.to, change.text);
+					// Smart punctuation may have set other words than were typed, from a place before them.
+					const set = answer.smart;
+					lastSmart.current = set ?? null;
+					textsRef.current = set
+						? replaceInTexts(textsRef.current, set.from, change.to, set.text)
+						: replaceInTexts(textsRef.current, change.from, change.to, change.text);
 					const caret = clampPos(textsRef.current, answer.caret);
 					setSelection({ anchor: caret, focus: caret });
 				} catch (reason) {
@@ -252,7 +265,7 @@ export function TextSurface({
 
 	/** Replaces the selection with `text`. */
 	const type = useCallback(
-		(text: string, step: 'typing' | 'own') => {
+		(text: string, step: 'typing' | 'own', smart = true) => {
 			const clean = text.replace(/\r\n?/g, '\n');
 			if (clean === '') return;
 			queue(() => {
@@ -260,7 +273,16 @@ export function TextSurface({
 				// A look set at the caret goes with the first words typed after it, as a step of its own.
 				const look = getPendingLook(frameId) ?? undefined;
 				if (look) clearPendingLook();
-				return { from, to, text: clean, step: look ? 'own' : step, ...(look ? { look } : {}) };
+				const leave = leaveAt.current !== null && samePos(leaveAt.current, from);
+				leaveAt.current = null;
+				return {
+					from,
+					to,
+					text: clean,
+					step: look ? 'own' : step,
+					...(smart && !leave && clean !== '\n' ? { smart: true } : {}),
+					...(look ? { look } : {}),
+				};
 			});
 		},
 		[queue, frameId],
@@ -271,6 +293,18 @@ export function TextSurface({
 		(unit: 'grapheme' | 'word' | 'line', dir: -1 | 1) => {
 			queue(() => {
 				const { anchor, focus } = selRef.current;
+				const set = lastSmart.current;
+				if (
+					unit === 'grapheme' &&
+					dir < 0 &&
+					set &&
+					samePos(anchor, focus) &&
+					samePos(focus, set.to)
+				) {
+					// Straight after smart punctuation: put back the characters that were typed.
+					leaveAt.current = { para: set.from.para, offset: set.from.offset + cpLength(set.raw) };
+					return { from: set.from, to: set.to, text: set.raw, step: 'own' };
+				}
 				if (!samePos(anchor, focus)) {
 					const [from, to] = ordered(anchor, focus);
 					return { from, to, text: '', step: 'own' };
@@ -412,7 +446,7 @@ export function TextSurface({
 			);
 		} else if (key === 'Enter') {
 			handled();
-			type('\n', 'own');
+			type('\n', 'own', false);
 		} else if (key === 'Backspace' || key === 'Delete') {
 			handled();
 			remove(mod ? 'word' : 'grapheme', key === 'Backspace' ? -1 : 1);
@@ -445,7 +479,7 @@ export function TextSurface({
 					break;
 				case 'insertLineBreak':
 				case 'insertParagraph':
-					type('\n', 'own');
+					type('\n', 'own', false);
 					break;
 				case 'insertFromPaste':
 				case 'insertFromDrop':
@@ -523,7 +557,7 @@ export function TextSurface({
 		const text = event.nativeEvent.data ?? '';
 		setComposing(null);
 		if (sink.current) sink.current.value = '';
-		if (text) type(text, 'typing');
+		if (text) type(text, 'typing', false);
 	};
 
 	// The spelling menu: the word, what else it might be and where on screen to open.

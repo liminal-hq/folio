@@ -856,9 +856,10 @@ impl Books {
             patch,
             layout,
             caret,
-            smart: smart.map(|(from, raw)| SmartNote {
+            smart: smart.map(|(from, text, raw)| SmartNote {
                 from,
                 to: caret,
+                text,
                 raw,
             }),
         })
@@ -872,7 +873,7 @@ impl Books {
         &self,
         id: &str,
         edit: &mut EditRequest,
-    ) -> Option<(folio_model::TextPos, String)> {
+    ) -> Option<(folio_model::TextPos, String, String)> {
         if edit.smart != Some(true) {
             return None;
         }
@@ -900,8 +901,10 @@ impl Books {
             return None;
         }
         edit.from.offset -= set.rewind as u32;
-        edit.insert = folio_model::TextInsert::Text { text: set.text };
-        Some((edit.from, set.raw))
+        edit.insert = folio_model::TextInsert::Text {
+            text: set.text.clone(),
+        };
+        Some((edit.from, set.text, set.raw))
     }
 
     /// Lays out the text of one master page of a book, with its tokens as written, at the revision

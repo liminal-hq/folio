@@ -581,7 +581,9 @@ export function createFakeBooksClient(): FakeBooks {
 		},
 		async editText(id, edit, spread, spelling) {
 			await call('editText', [id, edit.target.type, spread]);
-			const patched = await this.apply(id, { type: 'EditText', ...edit });
+			const { smart, ...plain } = edit;
+			void smart;
+			const patched = await this.apply(id, { type: 'EditText', ...plain });
 			const laid = await this.layoutSpread(id, spread, spelling);
 			const { insert, from } = edit;
 			const pieces =

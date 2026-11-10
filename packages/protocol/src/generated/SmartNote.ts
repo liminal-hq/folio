@@ -14,6 +14,10 @@ from: TextPos,
  */
 to: TextPos, 
 /**
+ * The words as set, from `from` to `to`.
+ */
+text: string, 
+/**
  * The words as they were typed, from `from`.
  */
 raw: string, };

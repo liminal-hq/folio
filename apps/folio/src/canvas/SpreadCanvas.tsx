@@ -24,6 +24,7 @@ import type { FrameCommand } from './frameMenu';
 import { canEditText, TextEditor, type Speller } from './TextEditor';
 import type { EditRequest } from '@liminal-hq/folio-protocol/generated/EditRequest';
 import type { EditCaret } from '@liminal-hq/folio-protocol/generated/EditCaret';
+import type { SmartNote } from '@liminal-hq/folio-protocol/generated/SmartNote';
 import type { TextPos } from '@liminal-hq/folio-protocol/generated/TextPos';
 import { paragraphsOf } from '../text/edit';
 import { TextSurface } from '../text/TextSurface';
@@ -89,7 +90,7 @@ export interface SpreadCanvasProps {
 	 */
 	newEditor?: boolean;
 	/** Makes an edit to some words; answers once the book has it, with where the caret goes. */
-	onEditRequest?(edit: EditRequest): Promise<{ caret: TextPos }>;
+	onEditRequest?(edit: EditRequest): Promise<{ caret: TextPos; smart?: SmartNote }>;
 	/** Undo and redo from inside the editor, which stays open. */
 	onEditUndo?(): Promise<EditCaret | null>;
 	onEditRedo?(): Promise<EditCaret | null>;

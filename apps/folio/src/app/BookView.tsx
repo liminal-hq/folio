@@ -163,6 +163,7 @@ export function BookView({
 		store,
 		spread?.id ?? null,
 		settings.spelling.enabled ? settings.spelling.personal : null,
+		settings.editing.smartPunctuation,
 	);
 	const spreadLayout = useSpreadLayout(
 		client,

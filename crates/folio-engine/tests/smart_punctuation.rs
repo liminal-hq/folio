@@ -123,6 +123,7 @@ fn a_second_hyphen_typed_makes_an_em_dash_and_says_what_was_typed() {
     assert_eq!(note.from, TextPos { para: 0, offset: 4 });
     assert_eq!(note.to, TextPos { para: 0, offset: 5 });
     assert_eq!(note.raw, "--");
+    assert_eq!(note.text, "—");
     // Putting back what was typed is one more edit.
     f.books
         .edit_text(
