@@ -330,7 +330,15 @@ pub fn replace_range(
     let own_look = paragraphs[first].look.clone();
 
     // The new words, a list of runs for each paragraph they make.
-    let inherited = look_at(&paragraphs[first].inline, from.offset as usize);
+    let mut inherited = look_at(&paragraphs[first].inline, from.offset as usize);
+    // Words typed at the end of a link do not go on linking; words typed inside it do.
+    if inherited.href.is_some()
+        && !tail
+            .first()
+            .is_some_and(|next| !next.text.is_empty() && next.href == inherited.href)
+    {
+        inherited.href = None;
+    }
     let typed = |piece: &str| {
         let mut run = inherited.clone();
         run.text = piece.to_owned();
@@ -421,6 +429,23 @@ mod tests {
 
     fn shown(p: &StoryPara) -> Vec<(String, bool)> {
         p.inline.iter().map(|r| (r.text.clone(), r.bold)).collect()
+    }
+
+    #[test]
+    fn words_typed_inside_a_link_link_and_at_its_end_do_not() {
+        let link = |t: &str| Run {
+            href: Some("https://example.org".into()),
+            ..plain(t.into())
+        };
+        let mut inside = vec![para(vec![link("click"), plain(" here".into())])];
+        replace_range(&mut inside, at(0, 2), at(0, 2), &text("X"), None).unwrap();
+        assert_eq!(inside[0].inline[0].text, "clXick");
+        assert!(inside[0].inline[0].href.is_some());
+        let mut end = vec![para(vec![link("click"), plain(" here".into())])];
+        replace_range(&mut end, at(0, 5), at(0, 5), &text("X"), None).unwrap();
+        assert_eq!(end[0].inline[0].text, "click");
+        assert!(end[0].inline[1].href.is_none());
+        assert_eq!(end[0].inline[1].text, "X here");
     }
 
     #[test]

@@ -680,6 +680,7 @@ impl<'a> Layouter<'a> {
             if let Some(lang) = &run.lang {
                 text_style.lang = Some(lang.clone());
             }
+            text_style.href = run.href.clone();
             text_style.underline |= run.underline;
             text_style.strike |= run.strike;
             // A character the run's font lacks is set in one that has it.
@@ -971,6 +972,10 @@ impl<'a> Layouter<'a> {
                         let rules = found.as_ref().ok().map(|r| r.font.metrics(s.style.size_pt));
                         RunStyle {
                             lang: s.style.lang.clone(),
+                            href: s.style.href.clone(),
+                            link: rules
+                                .filter(|_| s.style.href.is_some())
+                                .map(|m| m.underline),
                             underline: rules.filter(|_| s.style.underline).map(|m| m.underline),
                             strike: rules.filter(|_| s.style.strike).map(|m| m.strike),
                             family,
@@ -1091,6 +1096,9 @@ struct RunStyle {
     underline: Option<Rule>,
     strike: Option<Rule>,
     lang: Option<String>,
+    /// Where the words link to, and the rule the page draws under them for it.
+    href: Option<String>,
+    link: Option<Rule>,
     face_key: String,
 }
 
@@ -1255,11 +1263,13 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo, span: &LineSpan) -> LayoutLi
                 let run = placed.line.runs.get(at)?;
                 info.styles.get(placed.paragraph)?.get(run.span)
             };
-            let stroke_of = |pick: fn(&RunStyle) -> Option<Rule>| {
+            let stroke_of = |pick: fn(&RunStyle) -> Option<Rule>, linked: bool| {
                 let rule = pick(style_of(i)?)?;
                 let next = placed.line.runs.get(i + 1);
                 let joins = next.is_some_and(|n| {
                     !r.hyphen
+                        // A link runs on only into the same link.
+                        && (!linked || style_of(i + 1).map(|m| &m.href) == style_of(i).map(|m| &m.href))
                         && style_of(i + 1).and_then(pick).is_some_and(|m| m == rule)
                         && n.x >= r.x + r.width
                 });
@@ -1273,7 +1283,11 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo, span: &LineSpan) -> LayoutLi
                     width: round2(end - r.x),
                 })
             };
-            let (underline, strike) = (stroke_of(|s| s.underline), stroke_of(|s| s.strike));
+            let (underline, strike, link) = (
+                stroke_of(|s| s.underline, false),
+                stroke_of(|s| s.strike, false),
+                stroke_of(|s| s.link, true),
+            );
             let s = info
                 .styles
                 .get(placed.paragraph)
@@ -1289,6 +1303,8 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo, span: &LineSpan) -> LayoutLi
                     underline: None,
                     strike: None,
                     lang: None,
+                    href: None,
+                    link: None,
                     face_key: String::new(),
                 });
             let start = info.texts.get(placed.paragraph).map_or(0, |_| {
@@ -1307,6 +1323,8 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo, span: &LineSpan) -> LayoutLi
                 underline,
                 strike,
                 lang: s.lang,
+                href: s.href,
+                link,
                 hyphen: r.hyphen,
                 miss,
                 start,

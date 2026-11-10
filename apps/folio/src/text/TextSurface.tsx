@@ -25,7 +25,15 @@ import { FOLIO_TEXT_MIME, fromClipboard, sliceParagraphs, toHtml, toPlain } from
 import { ContextMenu } from '@liminal-hq/folio-chrome/ContextMenu';
 import type { MenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
 import type { Speller } from '../canvas/TextEditor';
-import { caretRect, hitTest, misspellings, selectionRects, type Misspelt } from './caretGeometry';
+import {
+	caretRect,
+	hitTest,
+	linkAt,
+	misspellings,
+	selectionRects,
+	type Misspelt,
+} from './caretGeometry';
+import { linkActions } from './linkActions';
 import { clampPos, endOf, flatOffset, ordered, replaceInTexts, samePos, textBetween } from './edit';
 import { flowGeometry, type FlowFrame } from './flowGeometry';
 import { moveGrapheme, moveLineEdge, moveVertical, moveWord, wordAt } from './navigate';
@@ -427,6 +435,14 @@ export function TextSurface({
 		clearPendingLook();
 		sink.current?.focus({ preventScroll: true });
 		const p = toLocal(event.clientX, event.clientY);
+		// A Ctrl or Command click on a link follows it; the caret stays where it was.
+		if (event.ctrlKey || event.metaKey) {
+			const href = linkOf(p.x, p.y);
+			if (href) {
+				linkActions().follow(href);
+				return;
+			}
+		}
 		const hit = hitAt(p.x, p.y, snap);
 		if (!hit) return;
 		const words = textsRef.current;
@@ -634,6 +650,7 @@ export function TextSurface({
 	} | null>(null);
 	const menuUp = useRef(false);
 	menuUp.current = menu !== null;
+	const linkMenuUp = useRef(false);
 
 	const openMenu = (word: Misspelt, at: { x: number; y: number }, keyboard: boolean) => {
 		if (!speller) return;
@@ -651,14 +668,46 @@ export function TextSurface({
 					(m) => m.para === pos.para && pos.offset >= m.start && pos.offset <= m.end,
 				)
 			: undefined;
+	/** The link drawn at a point of the edited frame's coordinates, whichever frame of a story it is in. */
+	const linkOf = (x: number, y: number): string | undefined => {
+		const flow = geometryRef.current;
+		if (flow) {
+			const frame = flow.frames.find(
+				(f) => x >= f.box.x && x <= f.box.x + f.box.w && y >= f.box.y && y <= f.box.y + f.box.h,
+			);
+			return frame && flow.layout ? linkAt(flow.layout, x, y) : undefined;
+		}
+		return layoutRef.current ? linkAt(layoutRef.current, x, y) : undefined;
+	};
+	/** The link menu: follow, edit or take away the link under a right click. */
+	const [linkMenu, setLinkMenu] = useState<{ at: { x: number; y: number }; href: string } | null>(
+		null,
+	);
+	/** The address under the pointer, so the page can say where the link goes. */
+	linkMenuUp.current = linkMenu !== null;
+	const [hover, setHover] = useState<string | undefined>(undefined);
 	const onContextMenu = (event: React.MouseEvent) => {
-		if (!speller || !layout) return;
+		if (!layout) return;
 		const p = toLocal(event.clientX, event.clientY);
 		const hit = hitAt(p.x, p.y, snap);
-		const word = hit && missAt(hit);
-		if (!word) return;
+		const word = speller && hit && missAt(hit);
+		if (word) {
+			event.preventDefault();
+			openMenu(word, { x: event.clientX, y: event.clientY }, false);
+			return;
+		}
+		const href = linkOf(p.x, p.y);
+		if (!href || !hit) return;
 		event.preventDefault();
-		openMenu(word, { x: event.clientX, y: event.clientY }, false);
+		// The link is the one the menu acts on, so the caret goes into it.
+		setSelection({ anchor: hit, focus: hit });
+		setLinkMenu({ at: { x: event.clientX, y: event.clientY }, href });
+	};
+	const onMouseMove = (event: React.MouseEvent) => {
+		if (dragging.current || !layoutRef.current) return;
+		const p = toLocal(event.clientX, event.clientY);
+		const href = linkOf(p.x, p.y);
+		if (href !== hover) setHover(href);
 	};
 	/** Alt+F7: the next misspelt word after the caret, selected. */
 	const nextMiss = () => {
@@ -711,7 +760,9 @@ export function TextSurface({
 				transformOrigin: rotation ? `${(box.w * scale) / 2}px ${(box.h * scale) / 2}px` : undefined,
 			}}
 			onMouseDown={onMouseDown}
+			onMouseMove={onMouseMove}
 			onContextMenu={onContextMenu}
+			title={hover ? t('link.tip', { href: hover }) : undefined}
 		>
 			{geometry?.frames
 				.filter((f) => f.id !== frameId)
@@ -768,8 +819,8 @@ export function TextSurface({
 					// A list in the ribbon takes the focus to open, and the words stay selected for it to style.
 					const to = event.relatedTarget;
 					if (to instanceof Element && to.closest('[data-ribbon], [data-find-bar]')) return;
-					// The spelling menu takes the focus while it is up; that is not the end of the editing.
-					if (menuUp.current) return;
+					// The spelling and link menus take the focus while they are up; that is not the end of the editing.
+					if (menuUp.current || linkMenuUp.current) return;
 					onClose();
 				}}
 				style={{
@@ -782,6 +833,30 @@ export function TextSurface({
 					width: composing === null ? 2 : Math.max(4, (composing.length + 1) * size * 0.6),
 				}}
 			/>
+			{linkMenu && (
+				<ContextMenu
+					items={[
+						{ type: 'action', id: 'follow', label: t('link.follow') },
+						{ type: 'action', id: 'edit', label: t('link.edit') },
+						{ type: 'action', id: 'remove', label: t('link.remove') },
+					]}
+					position={linkMenu.at}
+					ariaLabel={t('link.title')}
+					returnFocusTo={sink.current}
+					onSelect={(item) => {
+						const { href } = linkMenu;
+						setLinkMenu(null);
+						if (item.id === 'follow') linkActions().follow(href);
+						else if (item.id === 'edit') linkActions().edit();
+						else linkActions().remove();
+						if (item.id !== 'edit') sink.current?.focus({ preventScroll: true });
+					}}
+					onClose={() => {
+						setLinkMenu(null);
+						sink.current?.focus({ preventScroll: true });
+					}}
+				/>
+			)}
 			{menu && (
 				<ContextMenu
 					items={menuItems()}

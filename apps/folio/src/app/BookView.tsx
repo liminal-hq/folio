@@ -55,6 +55,17 @@ import { useFrameClipboard } from '../clipboard/useFrameClipboard';
 import { BarcodeDialog } from './BarcodeDialog';
 import { BookSizeDialog } from './BookSizeDialog';
 import { MarginsDialog } from './MarginsDialog';
+import { LinkDialog } from './LinkDialog';
+import { openUrl } from '@tauri-apps/plugin-opener';
+import { setLinkActions } from '../text/linkActions';
+import { isExternalHref, spreadOfHref } from '../text/links';
+import {
+	linkIntent,
+	linkTarget,
+	textBetween,
+	type LinkTarget,
+	type LookScope,
+} from '../ribbon/selectionLook';
 import { SpreadTemplatesDialog } from './SpreadTemplatesDialog';
 import { CoverSheetDialog } from './CoverSheetDialog';
 import { JAX_TOGGLE_EVENT } from '../jax/jaxToggle';
@@ -747,6 +758,80 @@ export function BookView({
 		background !== null || (group === 'properties' && selected.some((f) => f.type === 'shape')),
 	);
 
+	/** The words the link dialog is for: where they are, the link they have and what they say. */
+	const [linkDialog, setLinkDialog] = useState<{
+		scope: LookScope;
+		target: LinkTarget;
+		words: string;
+	} | null>(null);
+	const openLinkFor = (scope: LookScope) => {
+		const target = linkTarget(scope);
+		setLinkDialog({ scope, target, words: textBetween(scope, target.from, target.to) });
+	};
+	/** Opens the link dialog for what the on-page editor has selected (Ctrl+K, in Easy as well as Expert). */
+	const openLink = () => {
+		const caret = getTextCaret();
+		const action = editorAction('link', undefined, {
+			...input!,
+			selection: getTextSelection(),
+			caret,
+			pending: null,
+		});
+		if (action?.kind === 'link') openLinkFor(action.scope);
+	};
+	/** Follows a link: an address opens in the system's program, a spread of the book is shown. */
+	const followLink = (href: string) => {
+		const spreadNumber = spreadOfHref(href);
+		if (spreadNumber !== null) {
+			if (editing !== null) setEditing(null);
+			setSpreadIndex(Math.min(spreadNumber, book.spreads.length) - 1);
+			select([]);
+		} else if (isExternalHref(href)) {
+			openUrl(href).catch(() => setNotice(t('link.openFailed')));
+		}
+	};
+	const linkNow = useRef<{
+		followLink(href: string): void;
+		openLink(): void;
+		removeLink(): void;
+	}>(null!);
+	linkNow.current = {
+		followLink,
+		openLink,
+		removeLink: () => {
+			const action = editorAction('link', undefined, {
+				...input!,
+				selection: getTextSelection(),
+				caret: getTextCaret(),
+				pending: null,
+			});
+			if (action?.kind !== 'link') return;
+			apply(linkIntent(action.scope, linkTarget(action.scope), ''));
+		},
+	};
+	useEffect(
+		() =>
+			setLinkActions({
+				follow: (href) => linkNow.current.followLink(href),
+				edit: () => linkNow.current.openLink(),
+				remove: () => linkNow.current.removeLink(),
+			}),
+		[],
+	);
+	// Ctrl+K in the on-page editor sets, changes or takes away the link on the selected words.
+	useEffect(() => {
+		const onKey = (event: KeyboardEvent) => {
+			if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+			if (event.key.toLowerCase() !== 'k') return;
+			if (!(event.target instanceof HTMLElement) || !event.target.closest('[data-text-sink]'))
+				return;
+			event.preventDefault();
+			linkNow.current.openLink();
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	}, []);
+
 	const perform = (action: EditorAction) => {
 		switch (action.kind) {
 			case 'intents':
@@ -776,6 +861,9 @@ export function BookView({
 				break;
 			case 'find':
 				find.show(false);
+				break;
+			case 'link':
+				openLinkFor(action.scope);
 				break;
 			case 'spelling':
 				void update({ spelling: { enabled: !settings.spelling.enabled } } as SettingsPatch);
@@ -858,7 +946,7 @@ export function BookView({
 			case 'ungroup':
 				breakGroup(action.frame);
 				break;
-			case 'link':
+			case 'frameLink':
 				// The Properties group says to choose the box the words continue in.
 				setGroup('properties');
 				setLinking(action.frame);
@@ -1330,6 +1418,22 @@ export function BookView({
 					select([]);
 					setTemplatesOpen(false);
 					setNotice(t('templates.added', { name }));
+				}}
+			/>
+			<LinkDialog
+				open={linkDialog !== null}
+				onClose={() => setLinkDialog(null)}
+				words={linkDialog?.words ?? ''}
+				href={linkDialog?.target.href ?? ''}
+				editing={linkDialog?.target.link ?? false}
+				mixed={linkDialog?.target.mixed ?? false}
+				hasWords={linkDialog?.target.words ?? false}
+				spreads={labels}
+				onSet={(href) => {
+					if (linkDialog) apply(linkIntent(linkDialog.scope, linkDialog.target, href));
+				}}
+				onRemove={() => {
+					if (linkDialog) apply(linkIntent(linkDialog.scope, linkDialog.target, ''));
 				}}
 			/>
 			<BarcodeDialog

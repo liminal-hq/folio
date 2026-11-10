@@ -34,6 +34,13 @@ pub struct LayoutRun {
     /// The language of the words when it is not the book's (a BCP 47 tag).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lang: Option<String>,
+    /// Where the words link to, when they do.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub href: Option<String>,
+    /// The line the page draws under a link in the link colour; it is not part of the run's look,
+    /// and the exporters do not draw it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link: Option<Stroke>,
     /// A hyphen drawn at the end of a line; it is not part of the text.
     pub hyphen: bool,
     /// The misspelt parts of `text`, each as where it starts and ends in code points from the start

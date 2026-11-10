@@ -154,6 +154,11 @@ pub struct Run {
     /// punctuation sets.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lang: Option<String>,
+    /// Where these words link to: a web address, `mailto:` or `tel:` address, or `#spread-3` for
+    /// the third spread of the book. A link is drawn underlined in the link colour by the page, and
+    /// never merges with the words beside it that link elsewhere or not at all.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub href: Option<String>,
 }
 
 fn is_false(value: &bool) -> bool {

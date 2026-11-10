@@ -179,6 +179,14 @@ export function hitOnLine(
 	return { para: line.paragraph, offset: snap ? snap(line.paragraph, offset) : offset };
 }
 
+/** The address of the link drawn at a point of the frame's coordinates, when there is one. */
+export function linkAt(layout: FrameLayout, x: number, y: number): string | undefined {
+	const line = lineAtY(layout, y);
+	if (!line) return undefined;
+	const run = line.runs.find((r) => r.href && x >= line.x + r.x && x <= line.x + r.x + r.width);
+	return run?.href ?? undefined;
+}
+
 /** A misspelt word: the paragraph it is in and where it starts and ends, in code points. */
 export interface Misspelt {
 	para: number;

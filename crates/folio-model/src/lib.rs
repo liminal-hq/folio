@@ -42,7 +42,8 @@ pub use intent::*;
 pub use isbn::is_valid_isbn13;
 pub use para::*;
 pub use runs::{
-    clean_lang, join_runs, lang_ranges, retext, split_runs, style_range, text_of, RunChange,
+    clean_href, clean_lang, join_runs, lang_ranges, retext, split_runs, spread_of_href,
+    style_range, text_of, RunChange,
 };
 pub use sections::*;
 pub use smart::{smarten, smarten_with, QuoteStyle, SmartRules, Smartened};

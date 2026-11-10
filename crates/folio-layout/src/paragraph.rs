@@ -37,6 +37,9 @@ pub struct TextStyle {
     /// The language of the words when it is not the paragraph's: it picks their hyphenation
     /// patterns and the language the font's features are shaped for.
     pub lang: Option<String>,
+    /// Where the words link to. It changes nothing about their shape or place; the page and the
+    /// exporters read it to mark and follow the link.
+    pub href: Option<String>,
 }
 
 impl TextStyle {
@@ -53,6 +56,7 @@ impl TextStyle {
             underline: false,
             strike: false,
             lang: None,
+            href: None,
         }
     }
 }

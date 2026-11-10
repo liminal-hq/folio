@@ -1,0 +1,7 @@
+{
+	"$schema": "../gen/schemas/desktop-schema.json",
+	"identifier": "opener",
+	"description": "The main window follows a link in a book to the system's browser, mail or phone program. Only web, mail and phone addresses are allowed; nothing is revealed in the file manager.",
+	"windows": ["main"],
+	"permissions": ["opener:allow-open-url", "opener:allow-default-urls"]
+}

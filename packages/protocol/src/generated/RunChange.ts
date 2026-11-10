@@ -19,6 +19,11 @@ tracking?: number,
  */
 lang?: string, 
 /**
+ * Where the words link to; an empty one takes the link away. An address `clean_href` refuses
+ * (`javascript:` and the like) is ignored.
+ */
+href?: string, 
+/**
  * Takes the words' own size away, so the style's shows again.
  */
 clearSize?: boolean, 

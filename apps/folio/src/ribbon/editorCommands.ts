@@ -29,7 +29,14 @@ import type { StyleChoice } from '../inspector/styleChoices';
 import { effectiveSize, withOverrides } from '../inspector/textFacts';
 import type { TextParagraphs } from '../canvas/textSelection';
 import { FROM_STYLE, paragraphIntents, paragraphState } from './paragraphCommands';
-import { lookOf, lookScope, runBeforeCaret, styleIntent } from './selectionLook';
+import {
+	linkTarget,
+	lookOf,
+	lookScope,
+	runBeforeCaret,
+	styleIntent,
+	type LookScope,
+} from './selectionLook';
 import type { StoryPara } from '@liminal-hq/folio-protocol/generated/StoryPara';
 import type { RunChange } from '@liminal-hq/folio-protocol/generated/RunChange';
 import type { Run } from '@liminal-hq/folio-protocol/generated/Run';
@@ -122,6 +129,7 @@ export type EditorAction =
 	  }
 	| { kind: 'editMaster' }
 	| { kind: 'find' }
+	| { kind: 'link'; scope: LookScope }
 	| { kind: 'pageBackground' }
 	| { kind: 'rulerUnit'; unit: RulerUnit }
 	| { kind: 'toolbar'; toolbar: 'ribbon' | 'classic' }
@@ -129,7 +137,7 @@ export type EditorAction =
 	| { kind: 'bookSize' }
 	| { kind: 'pageMargins' }
 	| { kind: 'cover' }
-	| { kind: 'link'; frame: string }
+	| { kind: 'frameLink'; frame: string }
 	| { kind: 'group'; frames: Frame[] }
 	| { kind: 'ungroup'; frame: Frame }
 	| {
@@ -384,6 +392,10 @@ export function editorState(input: EditorInput): EditorState {
 			available.add(id);
 		const look = lookOf(scope, runSize(scope.frame, input.layout, choices));
 		available.add('lang');
+		// A link is set on selected words, or edited or taken away with the caret in it.
+		const link = linkTarget(scope);
+		if (link.words) available.add('link');
+		active.link = link.link;
 		const typed = scope.collapsed ? input.pending : null;
 		active.bold = typed?.bold ?? look.bold;
 		active.italic = typed?.italic ?? look.italic;
@@ -544,7 +556,7 @@ export function editorAction(
 		case 'thread': {
 			const only = selected.length === 1 ? selected[0]! : null;
 			if (only?.type !== 'text' || only.locked || only.fromMaster || only.flow) return null;
-			return { kind: 'link', frame: only.id };
+			return { kind: 'frameLink', frame: only.id };
 		}
 		case 'group':
 			return canGroup(selected, !!input.master) ? { kind: 'group', frames: selected } : null;
@@ -791,6 +803,10 @@ export function editorAction(
 					};
 				}),
 			};
+		}
+		case 'link': {
+			const scope = lookScope(input);
+			return scope && linkTarget(scope).words ? { kind: 'link', scope } : null;
 		}
 		case 'lang': {
 			// An empty choice is the book's language; the entry for mixed languages does nothing.

@@ -1,0 +1,41 @@
+.form {
+	display: grid;
+	gap: 10px;
+}
+
+.words {
+	margin: 0;
+	font-weight: 600;
+	overflow-wrap: anywhere;
+}
+
+.field {
+	display: grid;
+	gap: 4px;
+}
+
+.field input,
+.field select {
+	padding: 6px 8px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-bg-raised);
+	color: inherit;
+	font: inherit;
+}
+
+.field input[aria-invalid='true'] {
+	border-color: var(--folio-danger);
+}
+
+.hint {
+	margin: 0;
+	color: var(--folio-text-muted);
+	font-size: 13px;
+}
+
+.problem {
+	margin: 0;
+	color: var(--folio-danger);
+	font-size: 13px;
+}

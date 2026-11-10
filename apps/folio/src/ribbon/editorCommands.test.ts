@@ -733,7 +733,7 @@ describe('Link text', () => {
 	it('is live for one free text box whose words are its own', () => {
 		expect(editorState(input([text()])).available.has('thread')).toBe(true);
 		expect(editorAction('thread', undefined, input([text()]))).toEqual({
-			kind: 'link',
+			kind: 'frameLink',
 			frame: 't',
 		});
 		for (const selected of [

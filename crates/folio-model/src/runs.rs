@@ -37,6 +37,10 @@ pub struct RunChange {
     /// again. A tag that is not shaped like one is ignored.
     #[ts(optional)]
     pub lang: Option<String>,
+    /// Where the words link to; an empty one takes the link away. An address `clean_href` refuses
+    /// (`javascript:` and the like) is ignored.
+    #[ts(optional)]
+    pub href: Option<String>,
     /// Takes the words' own size away, so the style's shows again.
     #[ts(optional)]
     pub clear_size: Option<bool>,
@@ -64,6 +68,7 @@ impl RunChange {
             && self.size.is_none()
             && self.tracking.is_none()
             && self.lang.is_none()
+            && self.href.is_none()
             && self.clear_size.is_none()
             && self.clear_tracking.is_none()
     }
@@ -100,6 +105,13 @@ impl RunChange {
                 run.lang = Some(tag);
             }
         }
+        if let Some(href) = &self.href {
+            if href.trim().is_empty() {
+                run.href = None;
+            } else if let Some(address) = clean_href(href) {
+                run.href = Some(address);
+            }
+        }
         if let Some(font) = &self.font {
             run.font = Some(font.clone()).filter(|f| !f.is_empty());
         }
@@ -126,6 +138,48 @@ pub(crate) fn alike(a: &Run, b: &Run) -> bool {
         && a.size == b.size
         && a.tracking == b.tracking
         && a.lang == b.lang
+        && a.href == b.href
+}
+
+/// A link address in the form a run keeps, or `None` when it is not one Folio follows: a web
+/// address (`http`, `https`), a `mailto:` or `tel:` address, or `#spread-3` for a spread of the
+/// book (counted from 1). Anything else — `javascript:`, `file:`, `data:` — is refused, as is an
+/// address with a space or a control character in it.
+pub fn clean_href(address: &str) -> Option<String> {
+    let address = address.trim();
+    if address.is_empty() || address.len() > 2048 {
+        return None;
+    }
+    if address.chars().any(|c| c.is_control() || c.is_whitespace()) {
+        return None;
+    }
+    if let Some(n) = address.strip_prefix("#spread-") {
+        return (!n.is_empty() && n.chars().all(|c| c.is_ascii_digit()) && n != "0")
+            .then(|| address.to_string());
+    }
+    let (scheme, rest) = address.split_once(':')?;
+    let scheme = scheme.to_ascii_lowercase();
+    match scheme.as_str() {
+        "http" | "https" => {
+            // Needs a host: `https://example.org`, not `https:` or `https:///`.
+            let host = rest.strip_prefix("//")?;
+            let host = host.split(['/', '?', '#']).next().unwrap_or("");
+            let host = host.rsplit('@').next().unwrap_or("");
+            (!host.is_empty() && !host.starts_with(':')).then(|| format!("{scheme}:{rest}"))
+        }
+        "mailto" | "tel" => (!rest.trim_start_matches('?').is_empty() && !rest.starts_with('?'))
+            .then(|| format!("{scheme}:{rest}")),
+        _ => None,
+    }
+}
+
+/// The spread a `#spread-n` link names, counted from 1.
+pub fn spread_of_href(address: &str) -> Option<usize> {
+    address
+        .strip_prefix("#spread-")?
+        .parse()
+        .ok()
+        .filter(|n| *n > 0)
 }
 
 /// A language tag in its usual case (`fr-CA`, `zh-Hant`), or `None` when `tag` is not shaped like
@@ -697,5 +751,101 @@ mod lang_tests {
         assert!(serde_json::to_string(&typed[0])
             .unwrap()
             .contains("\"lang\":\"fr\""));
+    }
+}
+
+#[cfg(test)]
+mod href_tests {
+    use super::*;
+
+    #[test]
+    fn a_link_is_set_kept_apart_and_taken_away() {
+        let runs = [plain("Visit our site today".into())];
+        let set = RunChange {
+            href: Some(" https://example.org/a ".into()),
+            ..RunChange::default()
+        };
+        let out = style_range(&runs, 6, 14, &set);
+        assert_eq!(out.len(), 3);
+        assert_eq!(out[1].href.as_deref(), Some("https://example.org/a"));
+        assert!(out[0].href.is_none() && out[2].href.is_none());
+        // A link never joins a neighbour that is not the same link.
+        assert_eq!(tidy(vec![out[0].clone(), out[1].clone()]).len(), 2);
+        let other = Run {
+            href: Some("https://example.org/b".into()),
+            ..plain("x".into())
+        };
+        assert_eq!(tidy(vec![out[1].clone(), other]).len(), 2);
+        let twin = Run {
+            text: "y".into(),
+            ..out[1].clone()
+        };
+        assert_eq!(tidy(vec![out[1].clone(), twin]).len(), 1);
+        // A refused address is ignored; an empty one takes the link away.
+        let bad = RunChange {
+            href: Some("javascript:alert(1)".into()),
+            ..RunChange::default()
+        };
+        assert_eq!(style_range(&runs, 0, 5, &bad).len(), 1);
+        let away = RunChange {
+            href: Some(String::new()),
+            ..RunChange::default()
+        };
+        assert!(!away.is_empty());
+        assert_eq!(style_range(&out, 6, 14, &away).len(), 1);
+    }
+
+    #[test]
+    fn only_addresses_folio_follows_are_kept() {
+        for good in [
+            "https://example.org",
+            "HTTP://Example.org/a?b=c#d",
+            "mailto:me@example.org",
+            "tel:+15555550100",
+            "#spread-3",
+        ] {
+            assert!(clean_href(good).is_some(), "{good}");
+        }
+        assert_eq!(
+            clean_href("HTTP://Example.org").as_deref(),
+            Some("http://Example.org")
+        );
+        for bad in [
+            "",
+            "javascript:alert(1)",
+            "JaVaScRiPt:alert(1)",
+            "data:text/html,hi",
+            "file:///etc/passwd",
+            "https:",
+            "https://",
+            "http:///path",
+            "mailto:",
+            "ftp://example.org",
+            "example.org",
+            "#spread-0",
+            "#spread-",
+            "#spread-x",
+            "#chapter-1",
+            "https://exa mple.org",
+            "https://example.org/\u{7}",
+        ] {
+            assert_eq!(clean_href(bad), None, "{bad:?}");
+        }
+        assert_eq!(spread_of_href("#spread-12"), Some(12));
+        assert_eq!(spread_of_href("https://x.org"), None);
+    }
+
+    #[test]
+    fn old_books_open_without_a_link() {
+        let old: Run = serde_json::from_str(r#"{"text":"hi","style":null}"#).unwrap();
+        assert_eq!(old.href, None);
+        assert!(!serde_json::to_string(&old).unwrap().contains("href"));
+        let linked = Run {
+            href: Some("#spread-2".into()),
+            ..plain("hi".into())
+        };
+        assert!(serde_json::to_string(&linked)
+            .unwrap()
+            .contains("\"href\":\"#spread-2\""));
     }
 }

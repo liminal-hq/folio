@@ -31,6 +31,15 @@ strike?: Stroke | null,
  */
 lang?: string | null, 
 /**
+ * Where the words link to, when they do.
+ */
+href?: string | null, 
+/**
+ * The line the page draws under a link in the link colour; it is not part of the run's look,
+ * and the exporters do not draw it.
+ */
+link?: Stroke | null, 
+/**
  * A hyphen drawn at the end of a line; it is not part of the text.
  */
 hyphen: boolean, 

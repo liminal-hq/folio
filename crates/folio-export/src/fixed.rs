@@ -678,6 +678,8 @@ mod tests {
             colour: None,
             underline: None,
             strike: None,
+            href: None,
+            link: None,
             lang: None,
             hyphen: false,
             miss: Vec::new(),

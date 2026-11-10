@@ -191,3 +191,103 @@ export function styleIntent(scope: LookScope, change: RunChange): Intent {
 				change,
 			};
 }
+
+/** The link the caret is in or the selection touches, and the words a new link would be set on. */
+export interface LinkTarget {
+	/** Whether the caret or selection is on an existing link. */
+	link: boolean;
+	/** The address they share ('' when there is none, or when they link to different places). */
+	href: string;
+	/** The selection touches links to different places. */
+	mixed: boolean;
+	/** The words the link covers: a link the caret is in whole, a selection with its links whole. */
+	from: TextPos;
+	to: TextPos;
+	/** Whether any words are there to link: a caret that is not in a link has none. */
+	words: boolean;
+}
+
+const lengthOf = (run: Run) => [...run.text].length;
+
+/** Where each run of a paragraph begins and ends, in characters. */
+function spansOf(runs: readonly Run[]) {
+	let at = 0;
+	return runs.map((run) => {
+		const span = { run, start: at, end: at + lengthOf(run) };
+		at = span.end;
+		return span;
+	});
+}
+
+/**
+ * What a link would be set on or edited for the caret or selection of `scope`. A caret in a link is
+ * on all of it (a link runs from one run to the next that is not it); a selection that touches one
+ * link only takes the rest of that link in with it, so the address is changed for all its words.
+ */
+export function linkTarget(scope: LookScope): LinkTarget {
+	if (scope.collapsed) {
+		const { para, offset } = scope.from;
+		const near = spansOf(scope.paras[para] ?? []).filter(
+			(s) => s.run.href && s.end > s.start && offset >= s.start && offset <= s.end,
+		);
+		const on = near.find((s) => offset > s.start && offset < s.end) ?? near[0];
+		if (on)
+			return {
+				link: true,
+				href: on.run.href!,
+				mixed: false,
+				from: { para, offset: on.start },
+				to: { para, offset: on.end },
+				words: true,
+			};
+		return { link: false, href: '', mixed: false, from: scope.from, to: scope.to, words: false };
+	}
+	const hrefs = [
+		...new Set(
+			runsOver(scope)
+				.map((r) => r.href ?? '')
+				.filter((h) => h !== ''),
+		),
+	];
+	let { from, to } = scope;
+	if (hrefs.length === 1) {
+		const href = hrefs[0]!;
+		const reach = (pos: TextPos, side: 'start' | 'end'): TextPos => {
+			const hit = spansOf(scope.paras[pos.para] ?? []).find(
+				(s) => s.run.href === href && pos.offset > s.start && pos.offset < s.end,
+			);
+			return hit ? { para: pos.para, offset: side === 'start' ? hit.start : hit.end } : pos;
+		};
+		from = reach(from, 'start');
+		to = reach(to, 'end');
+	}
+	return {
+		link: hrefs.length > 0,
+		href: hrefs.length === 1 ? hrefs[0]! : '',
+		mixed: hrefs.length > 1,
+		from,
+		to,
+		words: true,
+	};
+}
+
+/** The intent that sets, changes or (with an empty `href`) takes away the link on `target`. */
+export function linkIntent(scope: LookScope, target: LinkTarget, href: string): Intent {
+	return styleIntent({ ...scope, from: target.from, to: target.to, collapsed: false }, { href });
+}
+
+/** The words between two places of the scope, a line break between paragraphs, cut short to `max` characters. */
+export function textBetween(scope: LookScope, from: TextPos, to: TextPos, max = 60): string {
+	const pieces: string[] = [];
+	for (let p = from.para; p <= to.para; p += 1) {
+		const chars = [...(scope.paras[p] ?? []).map((r) => r.text).join('')];
+		pieces.push(
+			chars
+				.slice(p === from.para ? from.offset : 0, p === to.para ? to.offset : undefined)
+				.join(''),
+		);
+	}
+	const text = pieces.join(' ').replace(/\s+/g, ' ').trim();
+	const chars = [...text];
+	return chars.length > max ? `${chars.slice(0, max - 1).join('')}…` : text;
+}

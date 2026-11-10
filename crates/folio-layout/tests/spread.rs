@@ -2124,3 +2124,46 @@ fn a_run_in_another_language_says_so_and_is_proofed_in_it() {
         .filter(|r| r.text.contains("plain"))
         .all(|r| r.lang.is_none()));
 }
+
+#[test]
+fn a_linked_run_carries_its_address_and_a_rule_for_the_page_to_draw_but_no_underline_of_its_own() {
+    let mut frame = text_frame("links", "body", 60.0, 60.0, 300.0, 80.0, "plain ");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    for (word, href) in [
+        ("two words ", "https://example.org/a"),
+        ("other", "https://example.org/b"),
+    ] {
+        text.content.as_mut().unwrap().inline.push(Run {
+            text: word.into(),
+            href: Some(href.into()),
+            ..Default::default()
+        });
+    }
+    let (_, layout) = laid_with(frame);
+    let runs: Vec<_> = layout
+        .frames
+        .iter()
+        .find(|f| f.frame.0 == "links")
+        .unwrap()
+        .lines
+        .iter()
+        .flat_map(|l| &l.runs)
+        .collect();
+    let plain = runs.iter().find(|r| r.text.contains("plain")).unwrap();
+    assert!(plain.href.is_none() && plain.link.is_none());
+    let two = runs.iter().find(|r| r.text == "two").unwrap();
+    let words = runs.iter().find(|r| r.text == "words").unwrap();
+    let other = runs.iter().find(|r| r.text == "other").unwrap();
+    assert_eq!(two.href.as_deref(), Some("https://example.org/a"));
+    assert_eq!(other.href.as_deref(), Some("https://example.org/b"));
+    // The run is not underlined; the rule is the page's, and it runs on within one link.
+    assert!(two.underline.is_none() && two.strike.is_none());
+    let rule = two.link.unwrap();
+    assert!(rule.offset > 0.0 && rule.thickness > 0.0);
+    assert!((rule.width - (words.x - two.x)).abs() < 0.02, "{rule:?}");
+    // It stops at the end of one link and does not run into the next.
+    let end = words.link.unwrap();
+    assert!(end.width < (other.x - words.x) - 0.5 || (end.width - words.width).abs() < 0.02);
+}

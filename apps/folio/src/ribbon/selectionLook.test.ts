@@ -8,6 +8,7 @@ import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_MARKS } from '../canvas/marksModel';
 import { editorAction, editorState, type EditorInput } from './editorCommands';
+import { linkIntent, linkTarget, textBetween } from './selectionLook';
 
 const run = (text: string, extra = {}) => ({
 	text,
@@ -518,6 +519,103 @@ describe('language', () => {
 		} as const;
 		expect(editorAction('lang', 'fr', input([flowed], { selection: story }))).toMatchObject({
 			intents: [{ type: 'StyleText', change: { lang: 'fr' } }],
+		});
+	});
+});
+
+describe('links on selected words', () => {
+	const linked = {
+		type: 'text',
+		id: 'fr_link',
+		box: {},
+		locked: false,
+		style: 'body',
+		content: {
+			inline: [
+				run('Read '),
+				run('our site', { href: 'https://example.org' }),
+				run(' today and '),
+				run('write', { href: 'mailto:me@example.org' }),
+				run('.'),
+			],
+		},
+	} as unknown as Frame;
+	const select = (start: number, end: number) => ({ frame: 'fr_link', start, end });
+	const caretAt = (offset: number) => ({ frame: 'fr_link', offset });
+
+	it('are available on selected words and pressed when the words link', () => {
+		const plain = editorState(input([linked], { selection: select(0, 4) }));
+		expect(plain.available.has('link')).toBe(true);
+		expect(plain.active.link).toBe(false);
+		const over = editorState(input([linked], { selection: select(5, 9) }));
+		expect(over.active.link).toBe(true);
+		// A caret that is not in a link has no words to link.
+		expect(editorState(input([linked], { caret: caretAt(2) })).available.has('link')).toBe(false);
+		expect(editorState(input([linked], { caret: caretAt(8) })).available.has('link')).toBe(true);
+		expect(editorState(input([linked])).available.has('link')).toBe(false);
+	});
+
+	it('open the dialog on the link under the caret, all of it', () => {
+		const action = editorAction('link', undefined, input([linked], { caret: caretAt(8) }));
+		expect(action?.kind).toBe('link');
+		if (action?.kind !== 'link') return;
+		const target = linkTarget(action.scope);
+		expect(target).toMatchObject({ link: true, href: 'https://example.org', mixed: false });
+		expect(target.from).toEqual({ para: 0, offset: 5 });
+		expect(target.to).toEqual({ para: 0, offset: 13 });
+		expect(textBetween(action.scope, target.from, target.to)).toBe('our site');
+		expect(linkIntent(action.scope, target, '')).toEqual({
+			type: 'StyleRange',
+			frame: 'fr_link',
+			start: 5,
+			end: 13,
+			change: { href: '' },
+		});
+	});
+
+	it('take a selection that begins inside a link to the start of the link', () => {
+		const action = editorAction('link', undefined, input([linked], { selection: select(8, 18) }));
+		if (action?.kind !== 'link') throw new Error('no link');
+		const target = linkTarget(action.scope);
+		expect(target.from.offset).toBe(5);
+		expect(target).toMatchObject({ link: true, mixed: false, href: 'https://example.org' });
+		// Links to different places are mixed, and the address is none of them.
+		const both = editorAction('link', undefined, input([linked], { selection: select(8, 26) }));
+		if (both?.kind !== 'link') throw new Error('no link');
+		expect(linkTarget(both.scope)).toMatchObject({ link: true, mixed: true, href: '' });
+	});
+
+	it('set a link on words that have none', () => {
+		const action = editorAction('link', undefined, input([linked], { selection: select(0, 4) }));
+		if (action?.kind !== 'link') throw new Error('no link');
+		const target = linkTarget(action.scope);
+		expect(target).toMatchObject({ link: false, href: '', words: true });
+		expect(linkIntent(action.scope, target, 'https://example.org')).toEqual({
+			type: 'StyleRange',
+			frame: 'fr_link',
+			start: 0,
+			end: 4,
+			change: { href: 'https://example.org' },
+		});
+	});
+
+	it('are set through StyleText in a story', () => {
+		const selection = {
+			frame: 'fr_flow',
+			start: 0,
+			end: 4,
+			target: story,
+			from: { para: 1, offset: 4 },
+			to: { para: 1, offset: 9 },
+		};
+		const action = editorAction('link', undefined, input([flowed], { selection }));
+		if (action?.kind !== 'link') throw new Error('no link');
+		expect(linkIntent(action.scope, linkTarget(action.scope), 'example.org')).toEqual({
+			type: 'StyleText',
+			target: story,
+			from: { para: 1, offset: 4 },
+			to: { para: 1, offset: 9 },
+			change: { href: 'example.org' },
 		});
 	});
 });

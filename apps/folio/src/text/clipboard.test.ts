@@ -68,3 +68,15 @@ describe('underline and strike', () => {
 		expect(html).toBe('<p><u><s>a</s></u>b</p>');
 	});
 });
+
+describe('links', () => {
+	it('are written as <a href> for other programs, with the address made safe to put in a quote', () => {
+		const html = toHtml([
+			{
+				style: null,
+				inline: [run('a', { href: 'https://example.org/?a=1&b="2"' }), run('b')],
+			},
+		]);
+		expect(html).toBe('<p><a href="https://example.org/?a=1&amp;b=&quot;2&quot;">a</a>b</p>');
+	});
+});

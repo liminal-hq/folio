@@ -29,6 +29,8 @@ import type { TextPos } from '@liminal-hq/folio-protocol/generated/TextPos';
 import { paragraphsOf } from '../text/edit';
 import type { FlowFrame } from '../text/flowGeometry';
 import { TextSurface } from '../text/TextSurface';
+import { linkActions } from '../text/linkActions';
+import { t } from '../i18n/messages';
 import { selectionRects } from '../text/caretGeometry';
 import { framesShowing, laidOut, matchKey, type FindDisplay } from '../find/matches';
 import { boxOf, linesOf } from '../story/rangeEdit';
@@ -108,6 +110,18 @@ export interface SpreadCanvasProps {
 }
 
 const INK = '#1c1b20';
+/** The colour a link is drawn in on the paper (the Navy of the text colours). Paper is never themed. */
+const LINK = '#2b3a67';
+
+/** The address of the link under an event, when it is a Ctrl or Command click on one. */
+function linkOfClick(event: {
+	ctrlKey: boolean;
+	metaKey: boolean;
+	target: EventTarget;
+}): string | null {
+	if (!(event.ctrlKey || event.metaKey) || !(event.target instanceof Element)) return null;
+	return event.target.closest('[data-href]')?.getAttribute('data-href') ?? null;
+}
 
 /** A wavy line from `x1` to `x2` at height `y`, with waves of `wave` points up and down. */
 export function squiggle(x1: number, x2: number, y: number, wave: number): string {
@@ -136,7 +150,8 @@ function Lines({
 			{layout.lines.map((line, index) => (
 				<g key={index} transform={`translate(${line.x} ${line.baseline})`}>
 					{line.runs.map((run, i) => (
-						<g key={i}>
+						<g key={i} data-href={run.href}>
+							{run.href && <title>{t('link.tip', { href: run.href })}</title>}
 							<text
 								x={run.x}
 								y={0}
@@ -144,24 +159,24 @@ function Lines({
 								fontSize={run.size}
 								fontWeight={run.weight}
 								fontStyle={run.italic ? 'italic' : 'normal'}
-								fill={run.colour ?? INK}
+								fill={run.colour ?? (run.href ? LINK : INK)}
 								textLength={run.width}
 								lengthAdjust="spacing"
 								xmlSpace="preserve"
 							>
 								{run.text}
 							</text>
-							{[run.underline, run.strike].map(
+							{[run.underline, run.strike, run.link].map(
 								(rule, n) =>
 									rule && (
 										<rect
-											key={n === 0 ? 'underline' : 'strike'}
-											data-rule={n === 0 ? 'underline' : 'strike'}
+											key={['underline', 'strike', 'link'][n]}
+											data-rule={['underline', 'strike', 'link'][n]}
 											x={run.x}
 											y={rule.offset - rule.thickness / 2}
 											width={rule.width}
 											height={rule.thickness}
-											fill={run.colour ?? INK}
+											fill={run.colour ?? (n === 2 ? LINK : INK)}
 										/>
 									),
 							)}
@@ -635,6 +650,17 @@ export function SpreadCanvas({
 				onPointerUp={editable ? drag.onPointerUp : undefined}
 				onPointerCancel={editable ? drag.onPointerCancel : undefined}
 				onLostPointerCapture={editable ? drag.onPointerCancel : undefined}
+				onPointerDownCapture={(event) => {
+					// A Ctrl+click on a link follows it; it does not select or move the frame.
+					if (linkOfClick(event) !== null) event.stopPropagation();
+				}}
+				onClickCapture={(event) => {
+					const href = linkOfClick(event);
+					if (href === null) return;
+					event.preventDefault();
+					event.stopPropagation();
+					linkActions().follow(href);
+				}}
 				role="group"
 				aria-label={label}
 				width={bounds.w * scale}

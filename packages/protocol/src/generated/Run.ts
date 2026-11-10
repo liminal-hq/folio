@@ -32,4 +32,10 @@ tracking?: number | null,
  * dictionary spelling checks them against, how they are hyphenated and which quotes smart
  * punctuation sets.
  */
-lang?: string | null, };
+lang?: string | null, 
+/**
+ * Where these words link to: a web address, `mailto:` or `tel:` address, or `#spread-3` for
+ * the third spread of the book. A link is drawn underlined in the link colour by the page, and
+ * never merges with the words beside it that link elsewhere or not at all.
+ */
+href?: string | null, };
