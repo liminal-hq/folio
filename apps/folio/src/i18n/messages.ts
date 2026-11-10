@@ -1174,6 +1174,8 @@ export const messages = {
 	'ribbon.item.bubble': 'Bubble',
 	'ribbon.option.toolbar.ribbon': 'Ribbon',
 	'ribbon.option.toolbar.classic': 'Classic toolbar',
+	'ribbon.fonts.book': 'In this book',
+	'ribbon.fonts.installed': 'Installed',
 	'ribbon.value.paragraphStyle': 'Story text',
 	'ribbon.value.font': 'Style’s font',
 	'ribbon.value.colour': 'Colour from style',

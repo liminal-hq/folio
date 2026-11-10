@@ -28,8 +28,11 @@ export interface RibbonItem {
 	desc?: string;
 	/** A colour (any CSS colour) drawn as a bar under the glyph. */
 	swatch?: string;
-	/** The choices of a menu or select, as `[value, label]`. */
-	options?: [value: string, label: string][];
+	/**
+	 * The choices of a menu or select, as `[value, label]`. A select draws neighbouring choices with
+	 * the same `group` under one heading; a menu ignores it.
+	 */
+	options?: [value: string, label: string, group?: string][];
 	value?: string | number;
 	/** What a select or stepper shows until it is changed, when the app does not own its value. */
 	defaultValue?: string | number;

@@ -60,6 +60,18 @@ const model: RibbonModel = {
 							],
 							value: 'a',
 						},
+						{
+							id: 'face',
+							label: 'Typeface',
+							d,
+							kind: 'select',
+							options: [
+								['', 'From style'],
+								['x', 'Literata', 'In this book'],
+								['y', 'Inter', 'In this book'],
+								['z', 'Arial', 'Installed'],
+							],
+						},
 						{ id: 'size', label: 'Size', d, kind: 'stepper', value: 12, min: 8, max: 14, step: 2 },
 					],
 				},
@@ -224,6 +236,26 @@ describe('Ribbon', () => {
 		const { onCommand } = setup();
 		await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Font' }), 'b');
 		expect(onCommand).toHaveBeenCalledWith(expect.objectContaining({ id: 'font', value: 'b' }));
+	});
+
+	it('draws choices that share a group under one heading, and the ungrouped ones before them', async () => {
+		const { onCommand } = setup();
+		const face = screen.getByRole('combobox', { name: 'Typeface' });
+		const groups = within(face).getAllByRole('group');
+		expect(groups.map((g) => g.getAttribute('label'))).toEqual(['In this book', 'Installed']);
+		expect(
+			within(groups[0]!)
+				.getAllByRole('option')
+				.map((o) => o.textContent),
+		).toEqual(['Literata', 'Inter']);
+		expect(
+			within(groups[1]!)
+				.getAllByRole('option')
+				.map((o) => o.textContent),
+		).toEqual(['Arial']);
+		expect(within(face).getAllByRole('option')[0]).toHaveTextContent('From style');
+		await userEvent.selectOptions(face, 'z');
+		expect(onCommand).toHaveBeenCalledWith(expect.objectContaining({ id: 'face', value: 'z' }));
 	});
 
 	it('steps within the stepper bounds', async () => {

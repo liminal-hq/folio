@@ -309,6 +309,13 @@ describe('a book in the main window', () => {
 		expect(screen.getByRole('button', { name: 'Find & replace' })).toBeDisabled();
 	});
 
+	it('reads the fonts the book uses without the Fonts group being open', async () => {
+		const { books } = setup();
+		await startBook();
+		await waitFor(() => expect(books.calls.some((c) => c.startsWith('fontsInUse('))).toBe(true));
+		expect(screen.getByRole('tab', { name: 'Properties', selected: true })).toBeInTheDocument();
+	});
+
 	it('saves with Ctrl+S, asking where the first time', async () => {
 		setup({ save: '/books/Pip/Pip' });
 		await startBook();

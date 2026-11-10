@@ -174,6 +174,17 @@ export function BookView({
 	]);
 	const choices = useMemo(() => styleChoices(copy.styles), [copy.styles]);
 	const fonts = useFontChoices(client, id, (book.fonts ?? []).map((f) => f.path).join('|'));
+	// The sidebar's open group. Selecting something on the page brings the Properties forward.
+	const [group, setGroup] = useState<SidebarGroup>('properties');
+	// The Font list wants the families in use whichever group is open. It asks again when the styles or
+	// the kept fonts change, not on every edit; the Fonts group asks on every one, as it shows them.
+	const stylesKey = useMemo(() => JSON.stringify(copy.styles ?? null), [copy.styles]);
+	const fontUses = useFontsInUse(
+		client,
+		id,
+		group === 'fonts' ? copy.revision : `${stylesKey}|${(book.fonts ?? []).length}`,
+		true,
+	);
 	const selected = useMemo(
 		() => spread?.frames.filter((f) => selection.includes(f.id)) ?? [],
 		[spread, selection],
@@ -209,6 +220,7 @@ export function BookView({
 				layout,
 				choices,
 				...(fonts ? { fonts } : {}),
+				...(fontUses ? { fontsInUse: fontUses.map((u) => u.family) } : {}),
 				marks,
 				snap,
 				rulers: rulers.on,
@@ -230,6 +242,8 @@ export function BookView({
 			selected,
 			layout,
 			choices,
+			fonts,
+			fontUses,
 			marks,
 			snap,
 			rulers.on,
@@ -488,9 +502,6 @@ export function BookView({
 		setBackground(null);
 		if (mark !== null) void store.rewind(mark);
 	};
-	// The sidebar's open group. Selecting something on the page brings the Properties forward.
-	const [group, setGroup] = useState<SidebarGroup>('properties');
-	const fontUses = useFontsInUse(client, id, copy.revision, group === 'fonts');
 	const chapters = useStoryChapters(client, id, copy.revision, group === 'pages');
 	// `useSelection` hands back a new array on every render, so the effect keys on the ids themselves:
 	// opening Fonts or Swatches with a frame selected must not bring Properties back.

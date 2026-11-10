@@ -192,6 +192,34 @@ describe('the menus of the ribbon', () => {
 	});
 });
 
+describe('the Font list', () => {
+	it('carries the heading of each font through to the select', () => {
+		const editor = editorState({
+			spread: { id: 'sp', kind: 'spread', pages: [], frames: [], guides: [] } as never,
+			spreadIndex: 1,
+			spreadCount: 3,
+			selected: [],
+			layout: null,
+			choices: [],
+			marks: DEFAULT_MARKS,
+			snap: true,
+			rulers: false,
+			fonts: [
+				{ family: 'Literata', origin: 'bundled' },
+				{ family: 'Arial', origin: 'system' },
+			],
+		});
+		const font = allItems(
+			buildRibbonModel({ settings: DEFAULT_SETTINGS, available: none, editor }),
+		).find((i) => i.id === 'font');
+		expect(font?.options).toEqual([
+			['', 'Style’s font'],
+			['Literata', 'Literata', 'In this book'],
+			['Arial', 'Arial', 'Installed'],
+		]);
+	});
+});
+
 describe('the Tools tab', () => {
 	const tools = RIBBON_LAYOUT.find((tab) => tab.id === 'tools')!;
 	const items = tools.groups.flatMap((g) => g.items ?? []);

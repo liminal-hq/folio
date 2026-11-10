@@ -36,6 +36,8 @@ export interface EditorInput {
 	choices: StyleChoice[];
 	/** The typefaces the book can draw in, for the Font list. */
 	fonts?: FontChoice[];
+	/** The families the book uses, which the Font list shows under the book's own heading. */
+	fontsInUse?: readonly string[];
 	marks: Marks;
 	snap: boolean;
 	/** Whether the rulers show. */
@@ -65,8 +67,8 @@ export interface EditorState {
 	values: Readonly<Record<string, number>>;
 	/** The text a list shows as chosen, by control: the font of the selected words. */
 	texts: Readonly<Record<string, string>>;
-	/** The choices of a list, by control, as value and label. */
-	options: Readonly<Record<string, ReadonlyArray<readonly [string, string]>>>;
+	/** The choices of a list, by control, as value, label and the heading to draw it under. */
+	options: Readonly<Record<string, ReadonlyArray<readonly [string, string, string?]>>>;
 	contextual: readonly string[];
 }
 
@@ -150,6 +152,27 @@ const TEXT_COLOURS: ReadonlyArray<readonly [hex: string, name: MessageKey]> = [
 	['#4a4a4a', 'colour.slate'],
 	['#ffffff', 'colour.white'],
 ];
+
+/**
+ * The Font list: the typefaces that travel with the book (kept in it, bundled with Folio, or used by
+ * it) under "In this book", then the others installed on this computer under "Installed". Each keeps
+ * the order it came in.
+ */
+export function fontOptions(
+	fonts: readonly FontChoice[],
+	inUse: readonly string[],
+): ReadonlyArray<readonly [string, string, string]> {
+	const mine = (f: FontChoice) => f.origin !== 'system' || inUse.includes(f.family);
+	const group = (heading: MessageKey, of: FontChoice[]) =>
+		of.map((f) => [f.family, f.family, t(heading)] as const);
+	return [
+		...group('ribbon.fonts.book', fonts.filter(mine)),
+		...group(
+			'ribbon.fonts.installed',
+			fonts.filter((f) => !mine(f)),
+		),
+	];
+}
 
 /** The shapes the Shape menu draws. */
 const SHAPE_CHOICES = ['rect', 'round', 'ellipse', 'line'] as const;
@@ -292,7 +315,7 @@ export function editorState(input: EditorInput): EditorState {
 		available.add('rotL');
 		available.add('rotR');
 	}
-	const options: Record<string, ReadonlyArray<readonly [string, string]>> = {};
+	const options: Record<string, ReadonlyArray<readonly [string, string, string?]>> = {};
 	options.colour = [
 		...TEXT_COLOURS.map(([hex, name]) => [hex, t(name)] as const),
 		...(input.swatches ?? []).map((s) => [`swatch:${s.id}`, s.name] as const),
@@ -304,7 +327,7 @@ export function editorState(input: EditorInput): EditorState {
 		['classic', t('ribbon.option.toolbar.classic')],
 	];
 	options.paragraphStyle = choices.map((c) => [c.id, c.name] as const);
-	if (input.fonts) options.font = input.fonts.map((f) => [f.family, f.family] as const);
+	if (input.fonts) options.font = fontOptions(input.fonts, input.fontsInUse ?? []);
 	return { available, active, values, texts: shown, options, contextual };
 }
 

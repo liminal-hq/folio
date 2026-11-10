@@ -7,7 +7,7 @@ import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_MARKS } from '../canvas/marksModel';
-import { editorAction, editorState, type EditorInput } from './editorCommands';
+import { editorAction, editorState, fontOptions, type EditorInput } from './editorCommands';
 
 const spread = (kind = 'spread') =>
 	({ id: 'sp', kind, pages: [], frames: [], guides: [] }) as unknown as Spread;
@@ -349,11 +349,30 @@ describe('the font list', () => {
 		expect(state.available.has('font')).toBe(true);
 		expect(state.texts.font).toBe('Zed Sans');
 		expect(state.options.font).toEqual([
-			['Literata', 'Literata'],
-			['Zed Sans', 'Zed Sans'],
-			['Quill Mono', 'Quill Mono'],
+			['Literata', 'Literata', 'In this book'],
+			['Quill Mono', 'Quill Mono', 'In this book'],
+			['Zed Sans', 'Zed Sans', 'Installed'],
 		]);
 		expect(editorState(input([text()], { fonts: [...fonts] })).texts.font).toBe('');
+	});
+
+	it('lists an installed font the book uses under the book, and keeps each group in order', () => {
+		expect(fontOptions(fonts, ['Zed Sans'])).toEqual([
+			['Literata', 'Literata', 'In this book'],
+			['Zed Sans', 'Zed Sans', 'In this book'],
+			['Quill Mono', 'Quill Mono', 'In this book'],
+		]);
+		const more = [...fonts, { family: 'Arial', origin: 'system' as const }];
+		expect(fontOptions(more, []).map(([family, , group]) => `${group}: ${family}`)).toEqual([
+			'In this book: Literata',
+			'In this book: Quill Mono',
+			'Installed: Zed Sans',
+			'Installed: Arial',
+		]);
+		expect(
+			editorState(input([text()], { fonts: [...fonts], fontsInUse: ['Zed Sans'] })).options
+				.font?.[2],
+		).toEqual(['Quill Mono', 'Quill Mono', 'In this book']);
 	});
 
 	it('sets the font of the words, and asks to keep an installed one with the book', () => {

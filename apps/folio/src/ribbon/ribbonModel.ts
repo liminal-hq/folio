@@ -118,7 +118,8 @@ function toRibbonItem(
 		item.options = [
 			['', t(`ribbon.value.${source.id}` as MessageKey)],
 			...(context.editor?.options[source.id] ?? []).map(
-				([value, text]) => [value, text] as [string, string],
+				([value, text, group]) =>
+					(group === undefined ? [value, text] : [value, text, group]) as [string, string, string?],
 			),
 		];
 		item.width = source.id === 'font' ? 150 : 130;
