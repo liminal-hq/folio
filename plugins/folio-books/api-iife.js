@@ -127,6 +127,14 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function find(id, request) {
         return cmd('find', { id, request });
     }
+    /**
+     * Puts words in place of one match (`request.only`) or of every match, all as one undo step, and
+     * answers how many were replaced and how many were left alone (a locked frame, a master page that is
+     * not being edited). Every window also hears the patch.
+     */
+    function replace(id, request) {
+        return cmd('replace', { id, request });
+    }
     /** Hears every change to every open book. Read `snapshot` first and apply patches with a higher revision. */
     function onPatch(listener) {
         return event.listen(PATCH_EVENT, (e) => listener(e.payload));
@@ -328,6 +336,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.recoverableBooks = recoverableBooks;
     exports.redo = redo;
     exports.removeDictionary = removeDictionary;
+    exports.replace = replace;
     exports.restoreBook = restoreBook;
     exports.restoredCaret = restoredCaret;
     exports.revealPath = revealPath;

@@ -430,8 +430,8 @@ fn an_edit_answers_with_the_patch_the_spread_and_the_caret_in_one_call() {
 }
 
 #[test]
-fn words_are_found_through_the_books() {
-    use folio_engine::FindRequest;
+fn words_are_found_and_replaced_through_the_books() {
+    use folio_engine::{FindRequest, ReplaceRequest};
     use folio_model::Frame;
     let app = app();
     let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();
@@ -461,7 +461,24 @@ fn words_are_found_through_the_books() {
     };
     let found = books(&app).find(&id, &find).unwrap();
     assert_eq!(found.matches.len(), 2);
-    assert_eq!((found.matches[1].from, found.matches[1].to), (13, 20));
+    let changed = hear::<PatchEvent>(&app, "main", PATCH_EVENT);
+    let report = books(&app)
+        .replace(
+            &id,
+            &ReplaceRequest {
+                find: find.clone(),
+                replacement: "gamma".into(),
+                only: None,
+                master: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(report.replaced, 2);
+    assert!(
+        !changed.lock().unwrap().is_empty(),
+        "windows hear the patch"
+    );
+    assert!(books(&app).find(&id, &find).unwrap().matches.is_empty());
 }
 
 #[test]

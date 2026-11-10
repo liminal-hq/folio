@@ -56,6 +56,7 @@ import {
 	listFonts,
 	editText,
 	find,
+	replace,
 	layoutMaster,
 	layoutSpread,
 	listBooks,
@@ -101,6 +102,8 @@ import {
 	type PaintPresets,
 	type Patch,
 	type PatchEvent,
+	type ReplaceReport,
+	type ReplaceRequest,
 } from '@liminal-hq/folio-plugin-books';
 
 /** Hears what happens to the open books, from any window. */
@@ -163,6 +166,8 @@ export interface BooksClient {
 	editText(id: string, edit: EditRequest, spread: string, spelling?: string[]): Promise<EditAnswer>;
 	/** Every place `request` is found in the book, in reading order. */
 	find(id: string, request: FindRequest): Promise<FindReport>;
+	/** Replaces one match or all of them as one undo step; says how many were left alone. */
+	replace(id: string, request: ReplaceRequest): Promise<ReplaceReport>;
 	/** A master page's text laid out on a page of its own, with `{page}` and other tokens as written. */
 	layoutMaster(id: string, master: string): Promise<SpreadLayoutResult>;
 	/** Reads a picture file into the book; resolves to its path inside the book. */
@@ -254,6 +259,7 @@ export const tauriBooksClient: BooksClient = {
 	layoutSpread,
 	editText,
 	find,
+	replace,
 	layoutMaster,
 	importImage,
 	importImageBytes,

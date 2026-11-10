@@ -39,6 +39,9 @@ import type { EditRequest } from '@liminal-hq/folio-protocol/generated/EditReque
 import type { FindMatch } from '@liminal-hq/folio-protocol/generated/FindMatch';
 import type { FindReport } from '@liminal-hq/folio-protocol/generated/FindReport';
 import type { FindRequest } from '@liminal-hq/folio-protocol/generated/FindRequest';
+import type { MatchRef } from '@liminal-hq/folio-protocol/generated/MatchRef';
+import type { ReplaceReport } from '@liminal-hq/folio-protocol/generated/ReplaceReport';
+import type { ReplaceRequest } from '@liminal-hq/folio-protocol/generated/ReplaceRequest';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { PaintPresets } from '@liminal-hq/folio-protocol/generated/PaintPresets';
 import type { KindInfo } from '@liminal-hq/folio-protocol/generated/KindInfo';
@@ -230,6 +233,15 @@ export function find(id: string, request: FindRequest): Promise<FindReport> {
 	return cmd<FindReport>('find', { id, request });
 }
 
+/**
+ * Puts words in place of one match (`request.only`) or of every match, all as one undo step, and
+ * answers how many were replaced and how many were left alone (a locked frame, a master page that is
+ * not being edited). Every window also hears the patch.
+ */
+export function replace(id: string, request: ReplaceRequest): Promise<ReplaceReport> {
+	return cmd<ReplaceReport>('replace', { id, request });
+}
+
 /** Hears every change to every open book. Read `snapshot` first and apply patches with a higher revision. */
 export function onPatch(listener: (event: PatchEvent) => void): Promise<UnlistenFn> {
 	return listen<PatchEvent>(PATCH_EVENT, (e) => listener(e.payload));
@@ -275,6 +287,7 @@ export type {
 	FontChoice,
 	FontUse,
 	KeepFontsReport,
+	MatchRef,
 	Misspelling,
 	PreflightItem,
 	ReaderPreview,
@@ -289,6 +302,8 @@ export type {
 	PatchEvent,
 	PluginStatus,
 	Recoverable,
+	ReplaceReport,
+	ReplaceRequest,
 };
 
 /** The book as an e-reader would show it, from the same chapters and CSS the EPUB ships. */

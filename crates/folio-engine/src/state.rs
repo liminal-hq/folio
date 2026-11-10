@@ -29,8 +29,9 @@ use crate::wire::{
     CoverSheetPreview, EditAnswer, EditRequest, ExportColour, ExportProgress, ExportReport,
     ExportTarget, ExportedFile, FindReport, FindRequest, FontChoice, FontLicence, FontOrigin,
     FontSkip, FontUse, KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, PreviewChapter,
-    PreviewImage, ProofColour, ProofPage, ProofSpread, ReaderPreview, Recoverable, SkippedFont,
-    SmartNote, SpellCheck, SpreadLayoutResult, StoryChapter, TemplateCard, TemplateGallery,
+    PreviewImage, ProofColour, ProofPage, ProofSpread, ReaderPreview, Recoverable, ReplaceReport,
+    ReplaceRequest, SkippedFont, SmartNote, SpellCheck, SpreadLayoutResult, StoryChapter,
+    TemplateCard, TemplateGallery,
 };
 use crate::Host;
 
@@ -1691,6 +1692,38 @@ impl Books {
             }
         }
         Ok(out)
+    }
+
+    /// Puts words in place of what `request` finds (D-62): one match or all of them, all as one
+    /// undo step. Matches in a locked frame, or on a master page that is not the one being edited,
+    /// are left alone and counted in the answer.
+    pub fn replace(&self, id: &str, request: &ReplaceRequest) -> Result<ReplaceReport, Error> {
+        self.replace_by(id, request, None)
+    }
+
+    /// As `replace`, as an agent's change.
+    pub fn replace_as_agent(
+        &self,
+        id: &str,
+        request: &ReplaceRequest,
+    ) -> Result<ReplaceReport, Error> {
+        self.replace_by(id, request, Some("agent"))
+    }
+
+    fn replace_by(
+        &self,
+        id: &str,
+        request: &ReplaceRequest,
+        by: Option<&str>,
+    ) -> Result<ReplaceReport, Error> {
+        let book = self.snapshot(id)?.book;
+        let plan = crate::find::replacements(&book, request, &|_, _, _| None)
+            .map_err(|e| Error::BadSearch(e.0))?;
+        let intents = plan.intents();
+        if !intents.is_empty() {
+            self.apply_batch_by(id, intents, by)?;
+        }
+        Ok(plan.report())
     }
 
     /// The spread templates a book can add, each drawn at this book's size, with the group of the

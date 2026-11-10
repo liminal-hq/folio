@@ -6,10 +6,13 @@
 //! A search is a pure function of the book. It reads every place words live — the story of each
 //! flow, a text frame's own words, a shape's, each table cell's, and the frames of the master
 //! pages — and answers with where the query is, as a [`TextTarget`] and a paragraph and code point
-//! range (D-53), so a match is something an `EditText` can be sent for (D-62).
+//! range (D-53), so a match is something an `EditText` can be sent for. Replacing is the same
+//! search turned into intents (D-62).
 
-use crate::wire::{FindMatch, FindReport, FindRequest};
-use folio_model::{Book, FlowId, Frame, FrameBase, StoryPara, TextTarget};
+use crate::wire::{FindMatch, FindReport, FindRequest, ReplaceReport, ReplaceRequest};
+use folio_model::{
+    Book, EditStep, FlowId, Frame, FrameBase, Intent, StoryPara, TextInsert, TextPos, TextTarget,
+};
 use regex::{Regex, RegexBuilder};
 use std::cmp::Ordering;
 
@@ -492,6 +495,122 @@ fn search(
     Ok(out)
 }
 
+/// What a replace would do: the edits to make, last place first so earlier places stay where they
+/// are, and how many matches were left alone.
+pub struct Replacements {
+    pub edits: Vec<Replacement>,
+    pub skipped_locked: u32,
+    pub skipped_masters: u32,
+}
+
+/// One range of one paragraph and the words that go in its place.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Replacement {
+    pub target: TextTarget,
+    pub para: u32,
+    pub from: u32,
+    pub to: u32,
+    pub text: String,
+}
+
+/// The replacements `request` asks for. Matches in a locked frame or in a frame of a master page
+/// other than the one being edited are skipped and counted. In regex mode `$1` in the replacement
+/// is a capture group; otherwise the replacement is exactly what is written.
+pub fn replacements(
+    book: &Book,
+    request: &ReplaceRequest,
+    story_slots: StorySlots,
+) -> Result<Replacements, BadSearch> {
+    let found = search(
+        book,
+        &request.find,
+        story_slots,
+        Some(request.replacement.as_str()),
+    )?;
+    let mut out = Replacements {
+        edits: Vec::new(),
+        skipped_locked: 0,
+        skipped_masters: 0,
+    };
+    for (found, text) in found {
+        let m = found.matched;
+        if let Some(only) = &request.only {
+            if (only.target.clone(), only.para, only.from, only.to)
+                != (m.target.clone(), m.para, m.from, m.to)
+            {
+                continue;
+            }
+        }
+        if m.master.is_some() && m.master != request.master {
+            out.skipped_masters += 1;
+        } else if m.locked {
+            out.skipped_locked += 1;
+        } else {
+            out.edits.push(Replacement {
+                target: m.target,
+                para: m.para,
+                from: m.from,
+                to: m.to,
+                text: text.unwrap_or_default(),
+            });
+        }
+    }
+    // The last words first, so a paragraph split by a replacement does not move the ones before.
+    out.edits
+        .sort_by_key(|e| std::cmp::Reverse((e.para, e.from)));
+    Ok(out)
+}
+
+impl Replacement {
+    /// The intents that make it. The new words go in at the end of the old ones, so they take the
+    /// look of the words they replace, and the old words are then taken out; neither is smart
+    /// punctuation, which is for what is typed.
+    pub fn intents(&self) -> Vec<Intent> {
+        let at = |offset: u32| TextPos {
+            para: self.para,
+            offset,
+        };
+        let mut intents = Vec::with_capacity(2);
+        if !self.text.is_empty() {
+            intents.push(Intent::EditText {
+                target: self.target.clone(),
+                from: at(self.to),
+                to: at(self.to),
+                insert: TextInsert::Text {
+                    text: self.text.clone(),
+                },
+                look: None,
+                step: EditStep::Own,
+            });
+        }
+        intents.push(Intent::EditText {
+            target: self.target.clone(),
+            from: at(self.from),
+            to: at(self.to),
+            insert: TextInsert::Text {
+                text: String::new(),
+            },
+            look: None,
+            step: EditStep::Own,
+        });
+        intents
+    }
+}
+
+impl Replacements {
+    pub fn report(&self) -> ReplaceReport {
+        ReplaceReport {
+            replaced: self.edits.len() as u32,
+            skipped_locked: self.skipped_locked,
+            skipped_masters: self.skipped_masters,
+        }
+    }
+
+    pub fn intents(&self) -> Vec<Intent> {
+        self.edits.iter().flat_map(Replacement::intents).collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -809,5 +928,83 @@ mod tests {
         assert_eq!(m[0].master, None);
         assert_eq!(m[1].master.as_deref(), Some("m"));
         assert_eq!(m[1].spread, None);
+    }
+
+    #[test]
+    fn a_replacement_skips_locked_words_and_masters_that_are_not_being_edited() {
+        let mut locked = text_frame("locked", 0.0, 100.0, "needle");
+        locked["locked"] = json!(true);
+        let masters = vec![
+            json!({ "id": "m", "name": "A", "frames": [text_frame("mf", 0.0, 0.0, "needle")] }),
+            json!({ "id": "n", "name": "B", "frames": [text_frame("nf", 0.0, 0.0, "needle")] }),
+        ];
+        let b = book(
+            vec![spread(
+                "s",
+                1,
+                vec![text_frame("t", 0.0, 0.0, "needle needle"), locked],
+            )],
+            vec![],
+            masters,
+        );
+        let request = |master: Option<&str>| ReplaceRequest {
+            find: ask("needle"),
+            replacement: "pin".into(),
+            only: None,
+            master: master.map(str::to_owned),
+        };
+        let none = replacements(&b, &request(None), &none()).unwrap();
+        assert_eq!(none.edits.len(), 2);
+        assert_eq!((none.skipped_locked, none.skipped_masters), (1, 2));
+        let editing = replacements(&b, &request(Some("m")), &super::tests::none()).unwrap();
+        assert_eq!(editing.edits.len(), 3);
+        assert_eq!((editing.skipped_locked, editing.skipped_masters), (1, 1));
+        // Last words first.
+        assert!(editing.edits[0].from >= editing.edits[1].from || editing.edits[0].para > 0);
+    }
+
+    #[test]
+    fn a_capture_group_in_a_replacement_is_expanded_only_in_regex_mode() {
+        let b = one_frame("2026-11-09");
+        let mut request = ReplaceRequest {
+            find: ask(r"(\d+)-(\d+)-(\d+)"),
+            replacement: "$3/$2/$1".into(),
+            only: None,
+            master: None,
+        };
+        request.find.regex = true;
+        let plan = replacements(&b, &request, &none()).unwrap();
+        assert_eq!(plan.edits[0].text, "09/11/2026");
+        // Not in regex mode: a dollar sign is a dollar sign.
+        let b = one_frame("cost");
+        let literal = ReplaceRequest {
+            find: ask("cost"),
+            replacement: "$1 ${x} $$".into(),
+            only: None,
+            master: None,
+        };
+        let plan = replacements(&b, &literal, &none()).unwrap();
+        assert_eq!(plan.edits[0].text, "$1 ${x} $$");
+    }
+
+    #[test]
+    fn a_replacement_names_one_match_exactly() {
+        let b = one_frame("cat cat cat");
+        let request = ReplaceRequest {
+            find: ask("cat"),
+            replacement: "dog".into(),
+            only: Some(crate::wire::MatchRef {
+                target: TextTarget::Frame {
+                    frame: folio_model::FrameId("t".into()),
+                },
+                para: 0,
+                from: 4,
+                to: 7,
+            }),
+            master: None,
+        };
+        let plan = replacements(&b, &request, &none()).unwrap();
+        assert_eq!(plan.edits.len(), 1);
+        assert_eq!((plan.edits[0].from, plan.edits[0].to), (4, 7));
     }
 }

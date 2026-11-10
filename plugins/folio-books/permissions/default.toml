@@ -31,6 +31,7 @@ permissions = [
   "allow-layout-spread",
   "allow-edit-text",
   "allow-find",
+  "allow-replace",
   "allow-layout-master",
   "allow-import-image",
   "allow-import-image-bytes",

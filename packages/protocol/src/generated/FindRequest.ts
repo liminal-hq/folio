@@ -13,7 +13,7 @@ query: string,
  */
 matchCase: boolean, 
 /**
- * Only whole words: "cat" is not found in "concatenate" or in "cat's" followed by a letter.
+ * Only whole words: "cat" is not found in "concatenate" or "cat's".
  */
 wholeWord: boolean, 
 /**

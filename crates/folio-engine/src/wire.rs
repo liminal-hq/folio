@@ -572,7 +572,7 @@ pub struct FindRequest {
     /// Capital letters must agree. Left out, they need not.
     #[serde(default)]
     pub match_case: bool,
-    /// Only whole words: "cat" is not found in "concatenate" or in "cat's" followed by a letter.
+    /// Only whole words: "cat" is not found in "concatenate" or "cat's".
     #[serde(default)]
     pub whole_word: bool,
     /// Read `query` as a regular expression (the Rust `regex` syntax: no look-around or
@@ -617,4 +617,50 @@ pub struct FindReport {
     pub matches: Vec<FindMatch>,
     /// There were more matches than are listed.
     pub truncated: bool,
+}
+
+/// One match, named as `find` reported it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct MatchRef {
+    pub target: folio_model::TextTarget,
+    pub para: u32,
+    pub from: u32,
+    pub to: u32,
+}
+
+/// Words to put in place of what a search finds.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ReplaceRequest {
+    pub find: FindRequest,
+    /// What goes in place of each match, as written (smart punctuation is not applied). With
+    /// `find.regex`, `$1` or `${name}` is a group of the match and `$$` a dollar sign.
+    pub replacement: String,
+    /// Replace only this match; left out, replace every match as one undo step.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub only: Option<MatchRef>,
+    /// The master page being edited, whose words may be replaced. Words on any other master page
+    /// are left alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub master: Option<String>,
+}
+
+/// What a replace did.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ReplaceReport {
+    pub replaced: u32,
+    /// Matches left alone because their frame is locked.
+    pub skipped_locked: u32,
+    /// Matches left alone because they are on a master page that is not being edited.
+    pub skipped_masters: u32,
 }

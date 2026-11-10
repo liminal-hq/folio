@@ -52,6 +52,15 @@ pub struct FindText {
     pub request: folio_engine::FindRequest,
 }
 
+/// Words to put in place of what a search finds.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ReplaceText {
+    /// The id `new_book` or `open_book` returned.
+    pub id: String,
+    /// What to find, and what goes in its place.
+    pub request: folio_engine::ReplaceRequest,
+}
+
 /// Names a book that is open.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct BookRef {
@@ -413,6 +422,24 @@ impl FolioServer {
             .blocking(move |books| books.find(&id, &request))
             .await?;
         Ok(match found {
+            Ok(report) => text(&report),
+            Err(e) => failed(e.to_string()),
+        })
+    }
+
+    #[tool(
+        name = "replace_text",
+        description = "Puts words in place of what `find_text` would find, all as one step the person can undo. The request is `{\"find\": {\"query\": \"fox\"}, \"replacement\": \"hound\"}`; add `\"only\": {target, para, from, to}` (a match as `find_text` reported it) to replace just that one. The replacement is set exactly as written (no smart punctuation) and takes the look of the words it replaces; with `find.regex`, `$1` or `${name}` in it is a group of the match and `$$` a dollar sign. Words in a locked frame, or on a master page other than the one named in `master`, are left alone. Answers with `{replaced, skippedLocked, skippedMasters}`.",
+        annotations(read_only_hint = false, destructive_hint = false)
+    )]
+    async fn replace_text(
+        &self,
+        Parameters(ReplaceText { id, request }): Parameters<ReplaceText>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let done = self
+            .blocking(move |books| books.replace_as_agent(&id, &request))
+            .await?;
+        Ok(match done {
             Ok(report) => text(&report),
             Err(e) => failed(e.to_string()),
         })

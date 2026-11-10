@@ -21,6 +21,7 @@ use folio_engine::{
     ReaderPreview, Recoverable, SpellCheck, SpreadLayoutResult, StoryChapter,
 };
 use folio_engine::{Error, TemplateGallery, ToolFix, ToolFixed, ToolReport, ToolRequest};
+use folio_engine::{ReplaceReport, ReplaceRequest};
 use folio_import::ImportReport;
 
 /// Reports that books work. They need nothing from the system, so this is always available.
@@ -361,6 +362,20 @@ pub async fn find<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().find(&id, &request))
         .await
         .expect("the find task does not panic")
+}
+
+/// Puts words in place of one match or of every match, as one undo step, and says how many matches
+/// were left alone. Every window is sent the patch.
+#[tauri::command]
+pub async fn replace<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    request: ReplaceRequest,
+) -> Result<ReplaceReport, Error> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().replace(&id, &request))
+        .await
+        .expect("the replace task does not panic")
 }
 
 /// Lays out the text of one master page of a book, with `{page}` and the other tokens as written.

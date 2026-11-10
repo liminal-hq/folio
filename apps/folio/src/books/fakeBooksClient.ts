@@ -143,6 +143,8 @@ export interface FakeBooks {
 	fontUses: FontUse[];
 	/** What the fake finds for any search, in order; a test puts matches here. */
 	found: FindMatch[];
+	/** The matches the fake leaves alone when it replaces, as `[locked, masters]`. */
+	skipped: [number, number];
 }
 
 export function createFakeBooksClient(): FakeBooks {
@@ -158,6 +160,7 @@ export function createFakeBooksClient(): FakeBooks {
 	const preflightItems: PreflightItem[] = [];
 	const fontUses: FontUse[] = [];
 	const found: FindMatch[] = [];
+	const skipped: [number, number] = [0, 0];
 	const downloaded = new Set<string>();
 	/** Books a crash left changes in; a test puts some here. */
 	const recoveries: Recoverable[] = [];
@@ -608,6 +611,23 @@ export function createFakeBooksClient(): FakeBooks {
 			find(id);
 			return { matches: found.map((m) => ({ ...m })), truncated: false };
 		},
+		async replace(id, request) {
+			await call('replace', [
+				id,
+				request.find.query,
+				request.replacement,
+				request.only ? 'one' : 'all',
+			]);
+			const h = find(id);
+			const count = request.only ? Math.min(1, found.length) : found.length;
+			if (count > 0) {
+				h.past += 1;
+				h.future = 0;
+				patch(id, h, h.snapshot.book.bleed + 1);
+				changed();
+			}
+			return { replaced: count, skippedLocked: skipped[0], skippedMasters: skipped[1] };
+		},
 		async layoutMaster(id, master) {
 			await call('layoutMaster', [id, master]);
 			const h = find(id);
@@ -950,6 +970,7 @@ export function createFakeBooksClient(): FakeBooks {
 		preflightItems,
 		fontUses,
 		found,
+		skipped,
 		recoveries,
 	};
 }

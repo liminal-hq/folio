@@ -1,4 +1,5 @@
-// Finding words in an open book, through the engine: where they are, on which spread
+// Find and replace over an open book, through the engine: where words are found, and replacing
+// them as one undo step
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -6,7 +7,9 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use folio_engine::{Books, BooksChanged, ExportProgress, FindRequest, Host, PatchEvent};
+use folio_engine::{
+    Books, BooksChanged, ExportProgress, FindRequest, Host, MatchRef, PatchEvent, ReplaceRequest,
+};
 use folio_model::{Frame, Intent, SpreadId, Surface, TextTarget};
 use folio_presets::NewBookSpec;
 use serde_json::json;
@@ -76,6 +79,20 @@ impl Fixture {
             )
             .unwrap();
     }
+
+    fn words(&self, frame: &str) -> String {
+        let book = self.books.snapshot(&self.id).unwrap().book;
+        let found = book
+            .spreads
+            .iter()
+            .flat_map(|s| &s.frames)
+            .find(|f| f.base().id.0 == frame)
+            .expect("the frame");
+        let Frame::Text(t) = found else {
+            panic!("a text frame")
+        };
+        folio_model::text_of(&t.content.as_ref().unwrap().inline)
+    }
 }
 
 fn ask(query: &str) -> FindRequest {
@@ -84,6 +101,15 @@ fn ask(query: &str) -> FindRequest {
         match_case: false,
         whole_word: false,
         regex: false,
+    }
+}
+
+fn replace(query: &str, replacement: &str) -> ReplaceRequest {
+    ReplaceRequest {
+        find: ask(query),
+        replacement: replacement.into(),
+        only: None,
+        master: None,
     }
 }
 
@@ -139,17 +165,116 @@ fn a_story_match_is_on_the_spread_its_words_are_laid_out_on() {
 }
 
 #[test]
-fn a_pattern_that_cannot_be_read_is_refused() {
+fn replacing_all_is_one_undo_step() {
     let f = fixture();
-    f.add(1, text_frame("a", 20.0, 20.0, "cat"));
-    let mut request = ask("(");
-    request.regex = true;
-    let error = f.books.find(&f.id, &request).unwrap_err();
-    assert!(error.to_string().contains("pattern"), "{error}");
+    f.add(1, text_frame("a", 20.0, 20.0, "cat and cat\nthe cat"));
+    f.add(2, text_frame("b", 20.0, 20.0, "a cat"));
+    let report = f.books.replace(&f.id, &replace("cat", "dog")).unwrap();
+    assert_eq!(report.replaced, 4);
+    assert_eq!(f.words("a"), "dog and dog\nthe dog");
+    assert_eq!(f.words("b"), "a dog");
+    let depth = f.books.snapshot(&f.id).unwrap();
+    assert!(depth.can_undo);
+    f.books.undo(&f.id).unwrap();
+    assert_eq!(f.words("a"), "cat and cat\nthe cat");
+    assert_eq!(f.words("b"), "a cat");
+    // The next undo is whatever came before the replace: the frames being added.
+    assert_eq!(f.books.find(&f.id, &ask("cat")).unwrap().matches.len(), 4);
+    f.books.redo(&f.id).unwrap();
+    assert_eq!(f.words("b"), "a dog");
 }
 
 #[test]
-fn words_on_a_master_page_are_found_with_the_master_and_no_spread() {
+fn the_replacement_is_set_as_written_and_takes_the_look_of_the_words_it_replaces() {
+    let f = fixture();
+    let bold: Frame = serde_json::from_value(json!({
+        "type": "text", "id": "a", "box": { "x": 20, "y": 20, "w": 200, "h": 300 },
+        "style": "body",
+        "content": { "inline": [
+            { "text": "plain " }, { "text": "loud", "bold": true }, { "text": " plain" }
+        ] }
+    }))
+    .unwrap();
+    f.add(1, bold);
+    f.books
+        .replace(&f.id, &replace("loud", "\"quiet\" --"))
+        .unwrap();
+    assert_eq!(f.words("a"), "plain \"quiet\" -- plain");
+    let book = f.books.snapshot(&f.id).unwrap().book;
+    let Some(Frame::Text(t)) = book
+        .spreads
+        .iter()
+        .flat_map(|s| &s.frames)
+        .find(|f| f.base().id.0 == "a")
+    else {
+        panic!("a text frame")
+    };
+    let runs = &t.content.as_ref().unwrap().inline;
+    let bold_words: String = runs
+        .iter()
+        .filter(|r| r.bold)
+        .map(|r| r.text.as_str())
+        .collect();
+    assert_eq!(bold_words, "\"quiet\" --");
+}
+
+#[test]
+fn locked_frames_and_other_masters_are_left_alone_and_counted() {
+    let f = fixture();
+    let mut locked = text_frame("locked", 20.0, 200.0, "a cat");
+    if let Frame::Text(t) = &mut locked {
+        t.base.locked = true;
+    }
+    f.add(1, text_frame("free", 20.0, 20.0, "a cat"));
+    f.add(1, locked);
+    let report = f.books.replace(&f.id, &replace("cat", "dog")).unwrap();
+    assert_eq!(
+        (
+            report.replaced,
+            report.skipped_locked,
+            report.skipped_masters
+        ),
+        (1, 1, 0)
+    );
+    assert_eq!(f.words("free"), "a dog");
+    assert_eq!(f.words("locked"), "a cat");
+}
+
+#[test]
+fn one_match_is_replaced_by_naming_it() {
+    let f = fixture();
+    f.add(1, text_frame("a", 20.0, 20.0, "cat cat cat"));
+    let mut request = replace("cat", "dog");
+    request.only = Some(MatchRef {
+        target: TextTarget::Frame {
+            frame: folio_model::FrameId("a".into()),
+        },
+        para: 0,
+        from: 4,
+        to: 7,
+    });
+    let report = f.books.replace(&f.id, &request).unwrap();
+    assert_eq!(report.replaced, 1);
+    assert_eq!(f.words("a"), "cat dog cat");
+    // A match that is no longer there changes nothing.
+    let again = f.books.replace(&f.id, &request).unwrap();
+    assert_eq!(again.replaced, 0);
+    assert_eq!(f.words("a"), "cat dog cat");
+}
+
+#[test]
+fn a_pattern_that_cannot_be_read_is_refused_and_changes_nothing() {
+    let f = fixture();
+    f.add(1, text_frame("a", 20.0, 20.0, "cat"));
+    let mut request = replace("(", "x");
+    request.find.regex = true;
+    let error = f.books.replace(&f.id, &request).unwrap_err();
+    assert!(error.to_string().contains("pattern"), "{error}");
+    assert_eq!(f.words("a"), "cat");
+}
+
+#[test]
+fn master_page_words_are_replaced_only_on_the_master_being_edited() {
     let f = fixture();
     f.books.apply(&f.id, Intent::EnsureMasters).unwrap();
     let master = f.books.snapshot(&f.id).unwrap().book.master_pages[0]
@@ -164,26 +289,21 @@ fn words_on_a_master_page_are_found_with_the_master_and_no_spread() {
             },
         )
         .unwrap();
-    f.add(1, text_frame("a", 20.0, 20.0, "cat"));
     let found = f.books.find(&f.id, &ask("cat")).unwrap();
-    assert_eq!(found.matches.len(), 2);
+    assert_eq!(found.matches.len(), 1);
+    assert_eq!(found.matches[0].master.as_deref(), Some(master.0.as_str()));
+    let skipped = f.books.replace(&f.id, &replace("cat", "dog")).unwrap();
+    assert_eq!((skipped.replaced, skipped.skipped_masters), (0, 1));
+    let mut editing = replace("cat", "dog");
+    editing.master = Some(master.0.clone());
+    let done = f.books.replace(&f.id, &editing).unwrap();
+    assert_eq!(done.replaced, 1);
+    let book = f.books.snapshot(&f.id).unwrap().book;
+    let Frame::Text(t) = &book.master_pages[0].frames.last().unwrap() else {
+        panic!("a text frame")
+    };
     assert_eq!(
-        found.matches[0].spread.as_deref(),
-        Some(f.spreads[1].as_str())
+        folio_model::text_of(&t.content.as_ref().unwrap().inline),
+        "Running head: dog"
     );
-    assert_eq!(found.matches[1].master.as_deref(), Some(master.0.as_str()));
-    assert_eq!(found.matches[1].spread, None);
-    assert_eq!((found.matches[1].from, found.matches[1].to), (14, 17));
-}
-
-#[test]
-fn a_locked_frame_is_found_and_marked() {
-    let f = fixture();
-    let mut locked = text_frame("locked", 20.0, 200.0, "a cat");
-    if let Frame::Text(t) = &mut locked {
-        t.base.locked = true;
-    }
-    f.add(1, locked);
-    let found = f.books.find(&f.id, &ask("cat")).unwrap();
-    assert!(found.matches[0].locked);
 }
