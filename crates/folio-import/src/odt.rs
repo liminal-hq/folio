@@ -212,6 +212,7 @@ fn read_content(xml: &str, map: &StyleMap) -> Imported {
                         story.push(StoryPara {
                             style: applied.map(StyleId),
                             inline,
+                            look: None,
                         });
                     }
                     runs.clear();

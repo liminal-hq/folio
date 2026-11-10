@@ -1365,6 +1365,7 @@ fn a_number_the_person_reworded_keeps_its_words_when_the_numbers_move() {
                 font: None,
                 colour: None,
             }],
+            looks: None,
         });
     }
     let mut s = Session::new(edited);

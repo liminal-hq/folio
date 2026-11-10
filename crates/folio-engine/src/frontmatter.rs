@@ -121,6 +121,7 @@ fn text_frame(
                 font: None,
                 colour: None,
             }],
+            looks: None,
         }),
         flow: None,
         columns: 1,

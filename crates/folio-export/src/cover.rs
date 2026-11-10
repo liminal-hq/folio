@@ -43,6 +43,7 @@ fn words(text: &str) -> InlineContent {
             font: None,
             colour: None,
         }],
+        looks: None,
     }
 }
 

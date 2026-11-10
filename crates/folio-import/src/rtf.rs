@@ -85,6 +85,7 @@ pub fn import_rtf(bytes: &[u8]) -> Result<Imported, RtfError> {
             story.push(StoryPara {
                 style: None,
                 inline: std::mem::take(runs),
+                look: None,
             });
         } else {
             runs.clear();

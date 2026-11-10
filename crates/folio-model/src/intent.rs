@@ -14,6 +14,7 @@ use crate::edit::{EditStep, TextInsert, TextPos, TextTarget};
 use crate::flow::StoryPara;
 use crate::frame::{Fit, Frame, Shape, StyleOverrides, TableLook};
 use crate::ids::{FlowId, FrameId, MasterId, PageId, SpreadId, StyleId, SwatchId};
+use crate::para::ParaChange;
 use crate::runs::RunChange;
 use crate::sections::Section;
 use crate::spread::Axis;
@@ -405,6 +406,15 @@ pub enum Intent {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         look: Option<RunChange>,
         step: EditStep,
+    },
+    /// Changes what paragraphs `from` to `to` (both included, counted from the first) of `target`
+    /// set for themselves over their style: spacing before and after, line spacing, indents and
+    /// alignment. Each paragraph keeps its own look, so a change reaches only the ones named.
+    SetParagraphLook {
+        target: TextTarget,
+        from: u32,
+        to: u32,
+        change: ParaChange,
     },
     /// Changes the look of the characters `start..end` of a frame's words (counted in characters),
     /// splitting the words into runs where it begins and ends. One undo step.

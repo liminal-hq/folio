@@ -62,6 +62,9 @@ pub struct StoryParagraph {
     pub align: Align,
     pub first_indent: f64,
     pub hang_indent: f64,
+    /// How far every line is moved in from the left and from the right.
+    pub indent: f64,
+    pub indent_right: f64,
     pub wrap: Wrap,
     pub hyphenate: bool,
     pub space_before: f64,
@@ -76,6 +79,8 @@ impl StoryParagraph {
             align: Align::Left,
             first_indent: 0.0,
             hang_indent: 0.0,
+            indent: 0.0,
+            indent_right: 0.0,
             wrap: Wrap::Reflow,
             hyphenate: true,
             space_before: 0.0,
@@ -330,6 +335,7 @@ pub fn flow_cached(
                 return Ok(out);
             };
             let clipped = clip_spans(&para.spans, from);
+            let measure = (column.width - para.indent - para.indent_right).max(1.0);
             let mut spec = ParagraphSpec::new(&clipped, language);
             spec.align = para.align;
             spec.first_indent = if from == 0 { para.first_indent } else { 0.0 };
@@ -338,8 +344,8 @@ pub fn flow_cached(
             spec.hyphenate = para.hyphenate;
             spec.optimal = options.optimal;
             let laid: Arc<ParagraphLayout> = match cache {
-                Some(cache) => cache.lay(book, &spec, column.width)?,
-                None => Arc::new(layout_paragraph(book, &spec, column.width)?),
+                Some(cache) => cache.lay(book, &spec, measure)?,
+                None => Arc::new(layout_paragraph(book, &spec, measure)?),
             };
             out.overlong |= laid.overlong;
             if laid.lines.is_empty() {
@@ -412,7 +418,7 @@ pub fn flow_cached(
                     offset: from,
                     frame: column.frame,
                     column: column.index,
-                    x: column.x + line.x,
+                    x: column.x + para.indent + line.x,
                     top: column.y + top,
                     baseline: column.y + baseline,
                     line: line.clone(),

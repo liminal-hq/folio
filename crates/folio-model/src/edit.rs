@@ -9,6 +9,7 @@ use ts_rs::TS;
 use crate::flow::StoryPara;
 use crate::frame::{InlineContent, Run};
 use crate::ids::{FlowId, FrameId};
+use crate::para::ParaLook;
 use crate::runs::{alike, plain, RunChange};
 
 /// A place in some words: a paragraph, and a character in it. Offsets count Unicode code points,
@@ -173,6 +174,7 @@ fn join(parts: &[&[Run]]) -> Vec<Run> {
 /// the run that follows it, which is where `content_of` writes it, so an empty paragraph keeps the
 /// look of its empty run. Words always have a paragraph.
 pub fn paragraphs_of(content: Option<&InlineContent>) -> Vec<StoryPara> {
+    let looks = content.and_then(|c| c.looks.as_deref());
     let mut paras: Vec<Vec<Run>> = vec![Vec::new()];
     if let Some(content) = content {
         for run in &content.inline {
@@ -193,9 +195,32 @@ pub fn paragraphs_of(content: Option<&InlineContent>) -> Vec<StoryPara> {
             StoryPara {
                 style: None,
                 inline: join(&[&keep]),
+                look: None,
             }
         })
+        .enumerate()
+        .map(|(i, mut para)| {
+            para.look = looks
+                .and_then(|l| l.get(i))
+                .filter(|l| !l.is_empty())
+                .cloned();
+            para
+        })
         .collect()
+}
+
+/// The looks of `paragraphs` as a frame's own words keep them: one for each paragraph up to the
+/// last that sets anything, and none when no paragraph does.
+pub fn looks_of(paragraphs: &[StoryPara]) -> Option<Vec<ParaLook>> {
+    let used = paragraphs
+        .iter()
+        .rposition(|p| p.look.as_ref().is_some_and(|l| !l.is_empty()))?;
+    Some(
+        paragraphs[..=used]
+            .iter()
+            .map(|p| p.look.clone().unwrap_or_default())
+            .collect(),
+    )
 }
 
 /// Paragraphs written back as the runs of a frame's own words: a line break is put at the start of
@@ -215,7 +240,10 @@ pub fn content_of(paragraphs: &[StoryPara]) -> InlineContent {
             inline.push(run);
         }
     }
-    InlineContent { inline }
+    InlineContent {
+        inline,
+        looks: looks_of(paragraphs),
+    }
 }
 
 /// The characters of paragraph `para` of `paragraphs`, or why there is no such paragraph.
@@ -297,6 +325,9 @@ pub fn replace_range(
     let head = split(&paragraphs[first].inline, from.offset as usize).0;
     let tail = split(&paragraphs[last].inline, to.offset as usize).1;
     let style = paragraphs[first].style.clone();
+    // A paragraph made by a line break is set as the one it was typed in, and a join keeps the
+    // look of the first.
+    let own_look = paragraphs[first].look.clone();
 
     // The new words, a list of runs for each paragraph they make.
     let inherited = look_at(&paragraphs[first].inline, from.offset as usize);
@@ -308,15 +339,16 @@ pub fn replace_range(
         }
         run
     };
-    let made: Vec<(Option<crate::ids::StyleId>, Vec<Run>)> = match insert {
+    type Made = (Option<crate::ids::StyleId>, Option<ParaLook>, Vec<Run>);
+    let made: Vec<Made> = match insert {
         TextInsert::Text { text } if text.is_empty() => Vec::new(),
         TextInsert::Text { text } => text
             .split('\n')
-            .map(|piece| (None, vec![typed(piece)]))
+            .map(|piece| (None, None, vec![typed(piece)]))
             .collect(),
         TextInsert::Rich { paragraphs } => paragraphs
             .iter()
-            .map(|p| (p.style.clone(), p.inline.clone()))
+            .map(|p| (p.style.clone(), p.look.clone(), p.inline.clone()))
             .collect(),
     };
 
@@ -324,15 +356,22 @@ pub fn replace_range(
         0 => vec![StoryPara {
             style,
             inline: join(&[&head, &tail]),
+            look: own_look,
         }],
         1 => vec![StoryPara {
             style,
-            inline: join(&[&head, &made[0].1, &tail]),
+            inline: join(&[&head, &made[0].2, &tail]),
+            look: own_look,
         }],
         n => {
             let mut out = Vec::with_capacity(n);
-            for (i, (own, runs)) in made.iter().enumerate() {
+            for (i, (own, pasted, runs)) in made.iter().enumerate() {
                 let style = own.clone().or_else(|| style.clone());
+                let look = if i == 0 {
+                    own_look.clone()
+                } else {
+                    pasted.clone().or_else(|| own_look.clone())
+                };
                 let inline = if i == 0 {
                     join(&[&head, runs])
                 } else if i == n - 1 {
@@ -340,7 +379,11 @@ pub fn replace_range(
                 } else {
                     join(&[runs])
                 };
-                out.push(StoryPara { style, inline });
+                out.push(StoryPara {
+                    style,
+                    inline,
+                    look,
+                });
             }
             out
         }
@@ -364,6 +407,7 @@ mod tests {
         StoryPara {
             style: None,
             inline: runs,
+            look: None,
         }
     }
 
@@ -482,10 +526,12 @@ mod tests {
                 StoryPara {
                     style: None,
                     inline: vec![run("X", true)],
+                    look: None,
                 },
                 StoryPara {
                     style: Some(crate::ids::StyleId("h1".into())),
                     inline: vec![run("Y", false)],
+                    look: None,
                 },
             ],
         };
@@ -518,9 +564,7 @@ mod tests {
 
     #[test]
     fn a_frames_own_words_round_trip_through_paragraphs() {
-        let content = InlineContent {
-            inline: vec![run("ab", true), run("\n", false), run("cd", false)],
-        };
+        let content = InlineContent::of(vec![run("ab", true), run("\n", false), run("cd", false)]);
         let ps = paragraphs_of(Some(&content));
         assert_eq!(ps.len(), 2);
         assert_eq!(shown(&ps[1]), vec![("cd".into(), false)]);
@@ -537,5 +581,59 @@ mod tests {
         let again = paragraphs_of(Some(&content_of(&ps)));
         assert_eq!(shown(&again[1]), vec![("".into(), true)]);
         assert_eq!(paragraphs_of(None).len(), 1);
+    }
+
+    fn spaced(runs: Vec<Run>, after: f64) -> StoryPara {
+        StoryPara {
+            look: Some(ParaLook {
+                space_after: Some(after),
+                ..ParaLook::default()
+            }),
+            ..para(runs)
+        }
+    }
+
+    fn after(p: &StoryPara) -> Option<f64> {
+        p.look.as_ref().and_then(|l| l.space_after)
+    }
+
+    #[test]
+    fn enter_gives_the_new_paragraph_the_look_of_the_one_it_split() {
+        let mut ps = vec![spaced(vec![run("abcd", false)], 12.0)];
+        replace_range(&mut ps, at(0, 2), at(0, 2), &text("\n"), None).unwrap();
+        assert_eq!((after(&ps[0]), after(&ps[1])), (Some(12.0), Some(12.0)));
+    }
+
+    #[test]
+    fn joining_paragraphs_keeps_the_look_of_the_first_and_others_are_left_alone() {
+        let mut ps = vec![
+            spaced(vec![run("one", false)], 4.0),
+            spaced(vec![run("two", false)], 8.0),
+            spaced(vec![run("three", false)], 18.0),
+        ];
+        replace_range(&mut ps, at(0, 3), at(1, 0), &text(""), None).unwrap();
+        assert_eq!(ps.len(), 2);
+        assert_eq!((after(&ps[0]), after(&ps[1])), (Some(4.0), Some(18.0)));
+        // Typing inside a paragraph leaves every look where it was.
+        replace_range(&mut ps, at(1, 1), at(1, 1), &text("x"), None).unwrap();
+        assert_eq!(after(&ps[1]), Some(18.0));
+    }
+
+    #[test]
+    fn a_frames_own_words_keep_each_paragraphs_look_through_the_round_trip() {
+        let ps = vec![
+            para(vec![run("a", false)]),
+            spaced(vec![run("b", false)], 8.0),
+            para(vec![run("c", false)]),
+        ];
+        let content = content_of(&ps);
+        // The list stops at the last paragraph that sets anything.
+        assert_eq!(content.looks.as_ref().map(Vec::len), Some(2));
+        let back = paragraphs_of(Some(&content));
+        assert_eq!(
+            back.iter().map(after).collect::<Vec<_>>(),
+            vec![None, Some(8.0), None]
+        );
+        assert_eq!(content_of(&[para(vec![run("a", false)])]).looks, None);
     }
 }

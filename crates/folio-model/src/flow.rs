@@ -8,6 +8,7 @@ use ts_rs::TS;
 
 use crate::frame::Run;
 use crate::ids::{FlowId, FrameId, StyleId};
+use crate::para::ParaLook;
 use crate::runs::text_of;
 
 /// One paragraph of a flow's story: its words as runs, in a paragraph style of its own when it has
@@ -20,6 +21,10 @@ pub struct StoryPara {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<StyleId>,
     pub inline: Vec<Run>,
+    /// What this paragraph sets for itself over its style: spacing, indents, alignment.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub look: Option<ParaLook>,
 }
 
 impl StoryPara {
@@ -35,6 +40,7 @@ impl StoryPara {
                 font: None,
                 colour: None,
             }],
+            look: None,
         }
     }
 
@@ -43,6 +49,7 @@ impl StoryPara {
         let mut paragraphs = vec![StoryPara {
             style: None,
             inline: Vec::new(),
+            look: None,
         }];
         for run in runs {
             let mut parts = run.text.split('\n');
@@ -67,6 +74,7 @@ impl StoryPara {
                     } else {
                         vec![piece]
                     },
+                    look: None,
                 });
             }
         }

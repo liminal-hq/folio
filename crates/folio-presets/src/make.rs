@@ -280,6 +280,7 @@ impl Builder<'_> {
                     font: None,
                     colour: None,
                 }],
+                looks: None,
             }),
             flow: None,
             columns: 1,

@@ -8,6 +8,7 @@ use ts_rs::TS;
 
 use crate::colour::Colour;
 use crate::ids::{FlowId, FrameId, MasterId, StyleId};
+use crate::para::ParaLook;
 use crate::units::{Pt, Rect};
 
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
@@ -103,6 +104,21 @@ fn one() -> u8 {
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct InlineContent {
     pub inline: Vec<Run>,
+    /// The look of each paragraph (a paragraph begins at a line break), by place; paragraphs past
+    /// the end of the list, and every one when there is no list, take their style's look.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub looks: Option<Vec<ParaLook>>,
+}
+
+impl InlineContent {
+    /// Words with no paragraph looks of their own.
+    pub fn of(inline: Vec<Run>) -> Self {
+        Self {
+            inline,
+            looks: None,
+        }
+    }
 }
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]

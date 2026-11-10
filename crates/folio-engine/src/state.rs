@@ -2337,6 +2337,12 @@ fn changes_a_story(intent: &Intent) -> bool {
         }
     ) || matches!(
         intent,
+        Intent::SetParagraphLook {
+            target: folio_model::TextTarget::Story { .. },
+            ..
+        }
+    ) || matches!(
+        intent,
         Intent::SetParagraphText { .. }
             | Intent::SpliceStory { .. }
             | Intent::SplitParagraph { .. }

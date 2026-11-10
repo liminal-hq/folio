@@ -50,6 +50,7 @@ fn a_rule_reaches_back_across_a_split_in_the_markdown_text() {
 fn story_paragraphs_are_set_run_by_run_keeping_each_look() {
     let mut story = vec![StoryPara {
         style: None,
+        look: None,
         inline: vec![run("He said \"wait-", false), run("-no\"...", true)],
     }];
     smarten_story(&mut story, QuoteStyle::Curly);

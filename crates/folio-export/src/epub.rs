@@ -119,6 +119,7 @@ fn flow_pieces(flow: &folio_model::Flow, frame_style: &str) -> Vec<Piece> {
         let style = para.style.as_ref().map_or(frame_style, |s| s.0.as_str());
         let words = InlineContent {
             inline: para.inline.clone(),
+            looks: None,
         };
         let paras = paragraphs(&words);
         if paras.is_empty() {

@@ -65,6 +65,7 @@ fn text_frame(id: &str, style: &str, x: f64, y: f64, w: f64, h: f64, text: &str)
                 font: None,
                 colour: None,
             }],
+            looks: None,
         }),
         flow: None,
         columns: 1,
@@ -629,6 +630,7 @@ fn shape_frame(id: &str, shape: folio_model::Shape, w: f64, h: f64, text: Option
                 font: None,
                 colour: None,
             }],
+            looks: None,
         }),
         overrides: None,
     })
@@ -925,6 +927,7 @@ fn table_frame(id: &str, w: f64, h: f64, words: &[&[&str]]) -> Frame {
                     font: None,
                     colour: None,
                 }],
+                looks: None,
             });
         }
     }

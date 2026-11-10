@@ -241,5 +241,6 @@ fn finish(
     story.push(StoryPara {
         style: style.map(StyleId),
         inline: runs,
+        look: None,
     });
 }

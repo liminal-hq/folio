@@ -42,6 +42,7 @@ pub fn words_frame(id: &str, rect: Rect, rotation: f64, text: &str) -> Frame {
                 font: None,
                 colour: None,
             }],
+            looks: None,
         }),
         flow: None,
         columns: 1,

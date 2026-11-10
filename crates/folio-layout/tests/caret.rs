@@ -47,6 +47,7 @@ fn lay_proofed(style: &str, width: f64, text: &str, proofer: Option<&Proofer>) -
                 font: None,
                 colour: None,
             }],
+            looks: None,
         }),
         flow: None,
         columns: 1,

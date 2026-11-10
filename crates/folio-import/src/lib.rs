@@ -118,6 +118,7 @@ impl Reader {
             self.story.push(StoryPara {
                 style: style.map(|s| StyleId(s.to_owned())),
                 inline: std::mem::take(&mut self.current),
+                look: None,
             });
         } else {
             self.current.clear();
@@ -252,6 +253,7 @@ pub fn import_markdown_with(text: &str, smart: Option<QuoteStyle>) -> Imported {
                         font: None,
                         colour: None,
                     }],
+                    look: None,
                 });
                 reader.report.scene_breaks += 1;
             }

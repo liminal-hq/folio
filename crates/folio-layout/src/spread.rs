@@ -5,7 +5,7 @@
 
 use folio_model::{
     page_labels, Book, Colour, Flow, FlowId, Frame, FrameId, InlineContent, MasterId, PageLabel,
-    Pt, ShapeFrame, Spread, SpreadId, StyleId, TableFrame, TextFrame,
+    ParaLook, Pt, ShapeFrame, Spread, SpreadId, StyleId, TableFrame, TextFrame,
 };
 
 use std::collections::HashMap;
@@ -522,7 +522,13 @@ impl<'a> Layouter<'a> {
         )?;
         let mut layout = frame_layout(&text.base.id, &laid, 0, &self.runs_info(&story));
         // How the style sets the words, so an editor in place sets them the same way.
-        layout.text_align = Some(
+        let first_look = text
+            .content
+            .as_ref()
+            .and_then(|c| c.looks.as_ref())
+            .and_then(|l| l.first())
+            .and_then(|l| l.align);
+        layout.text_align = Some(first_look.unwrap_or_else(|| {
             match self
                 .styles
                 .resolve(&text.style, text.overrides.as_ref())
@@ -532,8 +538,8 @@ impl<'a> Layouter<'a> {
                 crate::paragraph::Align::Center => folio_model::Align::Center,
                 crate::paragraph::Align::Right => folio_model::Align::Right,
                 crate::paragraph::Align::Justify => folio_model::Align::Justify,
-            },
-        );
+            }
+        }));
         Ok((layout, laid.overlong))
     }
 
@@ -670,10 +676,12 @@ impl<'a> Layouter<'a> {
                 spans.push((piece, resolved.clone()));
             }
         }
+        let looks = content.looks.as_deref().unwrap_or(&[]);
         if base.wrap == Wrap::Preserve {
             return vec![paragraph_from(
                 spans.into_iter().map(|(s, _)| s).collect(),
                 &base,
+                looks.first(),
             )];
         }
         // Split the runs at every line break into paragraphs. A paragraph is set as the style of its
@@ -709,7 +717,14 @@ impl<'a> Layouter<'a> {
         }
         paragraphs
             .into_iter()
-            .map(|open| paragraph_from(open.spans, open.style.as_ref().unwrap_or(&base)))
+            .enumerate()
+            .map(|(i, open)| {
+                paragraph_from(
+                    open.spans,
+                    open.style.as_ref().unwrap_or(&base),
+                    looks.get(i),
+                )
+            })
             .collect()
     }
 
@@ -832,7 +847,10 @@ impl<'a> Layouter<'a> {
                 runs.push(empty);
             }
         }
-        let content = InlineContent { inline: runs };
+        let content = InlineContent {
+            inline: runs,
+            looks: folio_model::looks_of(&chain.paragraphs),
+        };
         let story: Vec<StoryParagraph> = match first_frame {
             Some(text) => self.story_of(Some(&content), &style, text),
             None => Vec::new(),
@@ -996,12 +1014,33 @@ fn break_run() -> folio_model::Run {
     }
 }
 
-fn paragraph_from(spans: Vec<Span>, style: &ResolvedStyle) -> StoryParagraph {
+/// A paragraph set as `style` says, with what the paragraph sets for itself (`look`) over it.
+fn paragraph_from(
+    mut spans: Vec<Span>,
+    style: &ResolvedStyle,
+    look: Option<&ParaLook>,
+) -> StoryParagraph {
+    let look = look.cloned().unwrap_or_default();
+    if let Some(height) = look.line_height {
+        for span in &mut spans {
+            span.style.line_height = height;
+        }
+    }
     let mut p = StoryParagraph::new(spans);
-    p.align = style.align;
-    p.first_indent = style.first_indent;
-    p.space_before = style.space_before;
-    p.space_after = style.space_after;
+    p.align = match look.align {
+        Some(a) => match a {
+            folio_model::Align::Left => crate::paragraph::Align::Left,
+            folio_model::Align::Center => crate::paragraph::Align::Center,
+            folio_model::Align::Right => crate::paragraph::Align::Right,
+            folio_model::Align::Justify => crate::paragraph::Align::Justify,
+        },
+        None => style.align,
+    };
+    p.first_indent = look.first_indent.unwrap_or(style.first_indent);
+    p.indent = look.indent.unwrap_or(0.0);
+    p.indent_right = look.indent_right.unwrap_or(0.0);
+    p.space_before = look.space_before.unwrap_or(style.space_before);
+    p.space_after = look.space_after.unwrap_or(style.space_after);
     p.wrap = style.wrap;
     p.hyphenate = style.hyphenate;
     p.start = style.start;
