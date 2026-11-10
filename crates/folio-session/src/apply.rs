@@ -1377,6 +1377,49 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 merge: None,
             })
         }
+        Intent::StyleText {
+            target,
+            from,
+            to,
+            change,
+        } => {
+            let (touched, flows, paras) = match target {
+                TextTarget::Story { flow } => (
+                    Vec::new(),
+                    vec![flow.clone()],
+                    story_paragraphs(book, flow)?,
+                ),
+                other => (
+                    touched_by(book, frame_of(other))?,
+                    Vec::new(),
+                    frame_paragraphs(book, other)?,
+                ),
+            };
+            folio_model::check_range(&paras, *from, *to)
+                .map_err(|e| SessionError::BadEdit(e.to_string()))?;
+            if from == to || change.is_empty() {
+                return Err(SessionError::BadRange(
+                    "nothing is selected to change, or nothing to change it to".into(),
+                ));
+            }
+            if change.colour.as_deref().is_some_and(|c| {
+                !c.is_empty()
+                    && folio_model::Colour::parse(c)
+                        .map_or(true, |colour| !swatch_is_there(book, &colour))
+            }) {
+                return Err(SessionError::BadRange(
+                    "that colour is not #rrggbb or a swatch of the book".into(),
+                ));
+            }
+            Ok(Plan {
+                touched,
+                new_spread: None,
+                flows,
+                new_flow: None,
+                fresh: Vec::new(),
+                merge: None,
+            })
+        }
         Intent::EditTable { frame, edit } => {
             let Some(found) = locate(book, frame) else {
                 return Err(SessionError::NoSuchFrame(frame.0.clone()));
@@ -2210,6 +2253,12 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             to,
             change,
         } => set_paragraph_look(book, &target, from as usize, to as usize, &change),
+        Intent::StyleText {
+            target,
+            from,
+            to,
+            change,
+        } => style_text(book, &target, from, to, &change),
         Intent::EditTable { frame, edit } => {
             if let Some(Frame::Table(table)) = locate_mut(book, &frame) {
                 edit_table(table, &edit);
@@ -2569,6 +2618,53 @@ fn write_paragraphs(book: &mut Book, target: &TextTarget, paras: &[StoryPara]) {
 }
 
 /// Changes the look of paragraphs `from` to `to` of the words `target` names.
+/// Changes the look of the characters from `from` to `to` of the words `target` names.
+fn style_text(
+    book: &mut Book,
+    target: &TextTarget,
+    from: folio_model::TextPos,
+    to: folio_model::TextPos,
+    change: &folio_model::RunChange,
+) {
+    fn style(
+        paras: &mut [StoryPara],
+        from: folio_model::TextPos,
+        to: folio_model::TextPos,
+        change: &folio_model::RunChange,
+    ) {
+        for (i, para) in paras.iter_mut().enumerate() {
+            let i = i as u32;
+            if i < from.para || i > to.para {
+                continue;
+            }
+            let start = if i == from.para {
+                from.offset as usize
+            } else {
+                0
+            };
+            let end = if i == to.para {
+                to.offset as usize
+            } else {
+                para.text().chars().count()
+            };
+            if start < end {
+                para.inline = folio_model::style_range(&para.inline, start, end, change);
+            }
+        }
+    }
+    if let TextTarget::Story { flow } = target {
+        if let Some(f) = flow_mut(book, flow) {
+            style(&mut f.paragraphs, from, to, change);
+        }
+        return;
+    }
+    let Ok(mut paras) = frame_paragraphs(book, target) else {
+        return;
+    };
+    style(&mut paras, from, to, change);
+    write_paragraphs(book, target, &paras);
+}
+
 fn set_paragraph_look(
     book: &mut Book,
     target: &TextTarget,

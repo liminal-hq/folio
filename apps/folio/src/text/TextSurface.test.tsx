@@ -7,7 +7,12 @@ import type { EditRequest } from '@liminal-hq/folio-protocol/generated/EditReque
 import type { TextPos } from '@liminal-hq/folio-protocol/generated/TextPos';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearPendingLook, getTextCaret, setPendingLook } from '../canvas/textSelection';
+import {
+	clearPendingLook,
+	getTextCaret,
+	getTextSelection,
+	setPendingLook,
+} from '../canvas/textSelection';
 import { replaceInTexts, caretAfterText } from './edit';
 import { CHAR_W, layoutOf, LINE_H } from './fixtureLayout';
 import { TextSurface } from './TextSurface';
@@ -404,5 +409,47 @@ describe('spelling', () => {
 		const event = fireEvent.contextMenu(surface, { clientX: 2 * CHAR_W, clientY: LINE_H / 2 });
 		expect(event).toBe(true);
 		expect(s.suggest).not.toHaveBeenCalled();
+	});
+});
+
+describe('the selection the ribbon styles', () => {
+	const story = { type: 'story', flow: 'fl' } as const;
+	const cell = { type: 'cell', frame: 'f', row: 1, col: 0 } as const;
+
+	it('names the paragraph and place of a caret and of a stretch in a story', () => {
+		const { sink } = mount(editor().onEdit, {
+			target: story,
+			texts: ['one', 'two'],
+			layout: layoutOf([['one'], ['two']]),
+		});
+		// A story's editor begins where its frame shows the words first.
+		expect(getTextCaret()).toEqual({
+			frame: 'f',
+			offset: 0,
+			target: story,
+			pos: { para: 0, offset: 0 },
+		});
+		fireEvent.keyDown(sink, { key: 'ArrowDown' });
+		fireEvent.keyDown(sink, { key: 'ArrowRight', shiftKey: true });
+		fireEvent.keyDown(sink, { key: 'ArrowRight', shiftKey: true });
+		expect(getTextCaret()).toBeNull();
+		expect(getTextSelection()).toEqual({
+			frame: 'f',
+			start: 4,
+			end: 6,
+			target: story,
+			from: { para: 1, offset: 0 },
+			to: { para: 1, offset: 2 },
+		});
+	});
+
+	it('does the same for the words of a table cell, the frame being the table', () => {
+		mount(editor().onEdit, { target: cell, texts: ['cell'], layout: layoutOf([['cell']]) });
+		expect(getTextCaret()).toEqual({
+			frame: 'f',
+			offset: 4,
+			target: cell,
+			pos: { para: 0, offset: 4 },
+		});
 	});
 });

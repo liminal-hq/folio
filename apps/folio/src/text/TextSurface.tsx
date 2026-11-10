@@ -149,24 +149,31 @@ export function TextSurface({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [wordsKey, setSelection]);
 
-	// The ribbon styles the selected words, so it is told which they are.
+	// The ribbon styles the selected words, so it is told which they are. A frame's or a shape's
+	// are told by character count; the words of a story or a table cell, by paragraph and place.
 	useEffect(() => {
-		if (target.type === 'frame' || target.type === 'shape') {
-			const [a, b] = ordered(selection.anchor, selection.focus);
-			setTextSelection({
-				frame: frameId,
-				start: flatOffset(textsRef.current, a),
-				end: flatOffset(textsRef.current, b),
-			});
-		}
-	}, [selection, target.type, frameId]);
+		const [a, b] = ordered(selection.anchor, selection.focus);
+		const own = target.type === 'story' || target.type === 'cell';
+		setTextSelection({
+			frame: frameId,
+			start: flatOffset(textsRef.current, a),
+			end: flatOffset(textsRef.current, b),
+			...(own ? { target, from: a, to: b } : {}),
+		});
+	}, [selection, target, frameId]);
 	useEffect(() => {
-		if (target.type !== 'frame' && target.type !== 'shape') return;
 		const collapsed = samePos(selection.anchor, selection.focus);
+		const own = target.type === 'story' || target.type === 'cell';
 		setTextCaret(
-			collapsed ? { frame: frameId, offset: flatOffset(textsRef.current, selection.focus) } : null,
+			collapsed
+				? {
+						frame: frameId,
+						offset: flatOffset(textsRef.current, selection.focus),
+						...(own ? { target, pos: selection.focus } : {}),
+					}
+				: null,
 		);
-	}, [selection, target.type, frameId]);
+	}, [selection, target, frameId]);
 	// The paragraph controls act on the paragraphs the selection is in.
 	const looks = content?.looks;
 	useEffect(() => {

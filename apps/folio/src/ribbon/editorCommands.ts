@@ -20,7 +20,7 @@ import {
 	distributeMoves,
 } from '../canvas/arrange';
 import type { PlainRect } from '../canvas/geometry';
-import type { TextSelection } from '../canvas/textSelection';
+import type { TextCaret, TextSelection } from '../canvas/textSelection';
 import type { Marks } from '../canvas/marksModel';
 import { surfaceOf } from '../canvas/masterView';
 import type { NewFrameKind } from '../canvas/newFrames';
@@ -29,6 +29,7 @@ import type { StyleChoice } from '../inspector/styleChoices';
 import { effectiveSize, withOverrides } from '../inspector/textFacts';
 import type { TextParagraphs } from '../canvas/textSelection';
 import { paragraphIntents, paragraphState } from './paragraphCommands';
+import { lookOf, lookScope, runBeforeCaret, styleIntent } from './selectionLook';
 import type { StoryPara } from '@liminal-hq/folio-protocol/generated/StoryPara';
 
 export interface EditorInput {
@@ -64,8 +65,8 @@ export interface EditorInput {
 	/** Whether Jax is switched on, which is what Ask Jax needs. */
 	jax?: boolean;
 	/** The caret in the open editor when nothing is selected, and the look already set at it. */
-	caret?: { frame: string; offset: number } | null;
-	pending?: { bold?: boolean; italic?: boolean; colour?: string } | null;
+	caret?: TextCaret | null;
+	pending?: { bold?: boolean; italic?: boolean; font?: string; colour?: string } | null;
 	/** The paragraphs the open editor's caret or selection is in: the Paragraph group acts on those. */
 	paragraphs?: TextParagraphs | null;
 	/** The book's stories, for the looks of the paragraphs of a frame that flows. */
@@ -109,7 +110,7 @@ export type EditorAction =
 	| {
 			kind: 'pending';
 			frame: string;
-			change: { bold?: boolean; italic?: boolean; colour?: string };
+			change: { bold?: boolean; italic?: boolean; font?: string; colour?: string };
 	  }
 	| { kind: 'editMaster' }
 	| { kind: 'pageBackground' }
@@ -136,61 +137,6 @@ const ALIGNS: Record<string, 'left' | 'center' | 'right' | 'justify'> = {
 
 const texts = (frames: Frame[]) =>
 	frames.flatMap((f) => (f.type === 'text' && !f.locked && !f.fromMaster ? [f] : []));
-/** The selected stretch of words, when it is in one of the selected text frames or shapes. */
-function wordsSelected(input: EditorInput) {
-	const { selection } = input;
-	if (!selection || selection.end <= selection.start) return null;
-	const frame = input.selected.find((f) => f.id === selection.frame);
-	return frame && (frame.type === 'text' || frame.type === 'shape') && !frame.locked
-		? { frame, selection }
-		: null;
-}
-
-/** The caret of the open editor, when it is in one of the selected text frames or shapes. */
-function caretIn(input: EditorInput) {
-	const { caret } = input;
-	if (!caret || wordsSelected(input)) return null;
-	const frame = input.selected.find((f) => f.id === caret.frame);
-	return frame && (frame.type === 'text' || frame.type === 'shape') && !frame.locked
-		? { frame, offset: caret.offset }
-		: null;
-}
-
-/** Whether the character before `offset` (the first, at the start) is in a run where `has` is true. */
-function runAt(
-	frame: Extract<Frame, { type: 'text' | 'shape' }>,
-	offset: number,
-	has: (run: { bold: boolean; italic: boolean }) => boolean,
-): boolean {
-	let at = 0;
-	let last = frame.content?.inline[0];
-	for (const run of frame.content?.inline ?? []) {
-		const length = [...run.text].length;
-		if (offset > at && offset <= at + length) return has(run);
-		if (offset <= at) break;
-		at += length;
-		last = run;
-	}
-	return last ? has(last) : false;
-}
-
-/** Whether every character of `start..end` is in a run where `has` is true. */
-function allRuns(
-	frame: Extract<Frame, { type: 'text' | 'shape' }>,
-	start: number,
-	end: number,
-	has: (run: { bold: boolean; italic: boolean }) => boolean,
-): boolean {
-	let at = 0;
-	for (const run of frame.content?.inline ?? []) {
-		const length = [...run.text].length;
-		const overlaps = at < end && at + length > start;
-		if (overlaps && !has(run)) return false;
-		at += length;
-	}
-	return true;
-}
-
 /** The colours the Text colour list offers: ink first, then colours that read well on paper. */
 const TEXT_COLOURS: ReadonlyArray<readonly [hex: string, name: MessageKey]> = [
 	['#1c1b20', 'colour.ink'],
@@ -341,6 +287,17 @@ export function editorState(input: EditorInput): EditorState {
 			available.add('paragraphStyle');
 			shown.paragraphStyle = first.style;
 		}
+	}
+	// With a caret or a selection in the words, the controls show the look of those words: bold only
+	// when every character is, a font only when they share one.
+	const scope = lookScope(input);
+	if (scope) {
+		for (const id of ['bold', 'italic', 'font', 'colour']) available.add(id);
+		const look = lookOf(scope);
+		const typed = scope.collapsed ? input.pending : null;
+		active.bold = typed?.bold ?? look.bold;
+		active.italic = typed?.italic ?? look.italic;
+		shown.font = typed?.font ?? look.font ?? '';
 	}
 	const options: Record<string, ReadonlyArray<readonly [string, string, string?]>> = {};
 	paragraphState(input, available, active, options);
@@ -584,27 +541,16 @@ export function editorAction(
 		}
 		case 'bold':
 		case 'italic': {
-			// With the caret in the words and nothing selected, the look is for the words typed next.
-			const at = caretIn(input);
-			if (at) {
-				const now = input.pending?.[id] ?? runAt(at.frame, at.offset, (r) => r[id]);
-				return { kind: 'pending', frame: at.frame.id, change: { [id]: !now } };
+			const scope = lookScope(input);
+			if (scope?.collapsed) {
+				// With the caret in the words and nothing selected, the look is for the words typed next.
+				const now = input.pending?.[id] ?? runBeforeCaret(scope)?.[id] ?? false;
+				return { kind: 'pending', frame: scope.frame.id, change: { [id]: !now } };
 			}
-			const picked = wordsSelected(input);
-			if (picked) {
-				const { frame, selection } = picked;
-				const on = allRuns(frame, selection.start, selection.end, (r) => r[id]);
+			if (scope) {
 				return {
 					kind: 'intents',
-					intents: [
-						{
-							type: 'StyleRange',
-							frame: frame.id,
-							start: selection.start,
-							end: selection.end,
-							change: { [id]: !on },
-						},
-					],
+					intents: [styleIntent(scope, { [id]: !lookOf(scope)[id] })],
 				};
 			}
 			const words = texts(selected);
@@ -646,16 +592,15 @@ export function editorAction(
 		case 'colour': {
 			// The selected words, or all of them when none are selected.
 			const hex = typeof value === 'string' ? value : '';
-			const at = caretIn(input);
-			if (at) return { kind: 'pending', frame: at.frame.id, change: { colour: hex } };
-			const picked = wordsSelected(input);
-			const targets = picked
-				? [{ id: picked.frame.id, start: picked.selection.start, end: picked.selection.end }]
-				: texts(selected).map((f) => ({
-						id: f.id,
-						start: 0,
-						end: [...(f.content?.inline ?? []).map((r) => r.text).join('')].length,
-					}));
+			const scope = lookScope(input);
+			if (scope?.collapsed)
+				return { kind: 'pending', frame: scope.frame.id, change: { colour: hex } };
+			if (scope) return { kind: 'intents', intents: [styleIntent(scope, { colour: hex })] };
+			const targets = texts(selected).map((f) => ({
+				id: f.id,
+				start: 0,
+				end: [...(f.content?.inline ?? []).map((r) => r.text).join('')].length,
+			}));
 			return {
 				kind: 'intents',
 				intents: targets
@@ -672,21 +617,12 @@ export function editorAction(
 		case 'font': {
 			const family = typeof value === 'string' ? value : '';
 			const origin = input.fonts?.find((f) => f.family === family)?.origin;
-			const picked = wordsSelected(input);
-			if (picked) {
-				const { frame, selection } = picked;
+			const scope = lookScope(input);
+			if (scope && !scope.collapsed) {
 				return {
 					kind: 'font',
 					keep: origin === 'system' ? family : null,
-					intents: [
-						{
-							type: 'StyleRange',
-							frame: frame.id,
-							start: selection.start,
-							end: selection.end,
-							change: { font: family },
-						},
-					],
+					intents: [styleIntent(scope, { font: family })],
 				};
 			}
 			return {

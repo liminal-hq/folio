@@ -2340,6 +2340,9 @@ fn changes_a_story(intent: &Intent) -> bool {
         Intent::SetParagraphLook {
             target: folio_model::TextTarget::Story { .. },
             ..
+        } | Intent::StyleText {
+            target: folio_model::TextTarget::Story { .. },
+            ..
         }
     ) || matches!(
         intent,

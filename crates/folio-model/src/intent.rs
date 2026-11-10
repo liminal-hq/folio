@@ -424,6 +424,16 @@ pub enum Intent {
         end: u32,
         change: RunChange,
     },
+    /// Changes the look of the characters from `from` to `to` of `target`, across paragraphs when
+    /// they differ, splitting runs where the stretch begins and ends. It is `StyleRange` for any
+    /// words (a story's, a table cell's) and takes places as an edit does: code points of a
+    /// paragraph. One undo step.
+    StyleText {
+        target: TextTarget,
+        from: TextPos,
+        to: TextPos,
+        change: RunChange,
+    },
     /// Changes a table: a cell's words, its rows and columns, header rows or look. Typing in one
     /// cell is one undo step.
     EditTable {

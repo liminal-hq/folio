@@ -38,9 +38,11 @@ import { ExportDialog } from './ExportDialog';
 import {
 	getPendingLook,
 	getTextCaret,
+	getTextLookState,
 	getTextParagraphs,
 	getTextSelection,
 	setPendingLook,
+	subscribeTextLook,
 	subscribeTextParagraphs,
 } from '../canvas/textSelection';
 import { IMPORT_TEXT_EVENT } from './importRequest';
@@ -239,6 +241,9 @@ export function BookView({
 	);
 	// The paragraphs the open editor's caret is in, which the Paragraph controls act on.
 	const textParagraphs = useSyncExternalStore(subscribeTextParagraphs, getTextParagraphs);
+	// What is selected or under the caret, so the controls show the look of those words (Expert only).
+	const textLook = useSyncExternalStore(subscribeTextLook, getTextLookState);
+	const expert = settings.mode === 'expert';
 	const input: EditorInput | null = spread
 		? {
 				spread,
@@ -261,6 +266,9 @@ export function BookView({
 				swatches: (book.styles?.swatches ?? []).map((s) => ({ id: s.id, name: s.name })),
 				paragraphs: textParagraphs,
 				flows: book.flows ?? [],
+				selection: expert ? textLook.selection : null,
+				caret: expert ? textLook.caret : null,
+				pending: expert && textLook.caret ? getPendingLook(textLook.caret.frame) : null,
 			}
 		: null;
 	const editor = useMemo(
@@ -285,6 +293,8 @@ export function BookView({
 			book.styles,
 			book.flows,
 			textParagraphs,
+			textLook,
+			expert,
 		],
 	);
 
