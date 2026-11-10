@@ -40,7 +40,7 @@ folio/
 | `folio-layout` | font loading, shaping, Knuth–Plass line breaking with a greedy fallback, hyphenation, frame threading, overset detection, snapping maths shared with the UI via WASM (optional) | `rustybuzz`, `ttf-parser`, `fontdb`, `hyphenation`, `unicode-linebreak` |
 | `folio-export` | EPUB 3 (OPF, nav, XHTML, CSS), KEPUB spans, fixed-layout `rendition:layout`, PDF generation, PDF/X output intent, cover PDF | `quick-xml`, `pdf-writer`, `subsetter`, `image` |
 | `folio-colour` | sRGB/Display-P3 in, CMYK out (GRACoL 2013, FOGRA39), soft-proof previews | `lcms2` |
-| `folio-import` | DOCX/ODT (zip + XML), RTF, Markdown (`pulldown-cmark`), HTML paste (`html5ever`), Scribus `.sla` (XML), IDML (zip + XML), EPUB | `quick-xml`, `zip` |
+| `folio-import` | DOCX/ODT (zip + XML), RTF, Markdown (`pulldown-cmark`), HTML paste (a small tolerant reader of its own, D-68), Scribus `.sla` (XML), IDML (zip + XML), EPUB | `quick-xml`, `zip` |
 | `folio-jax` | help corpus (Markdown → chunks), embedding index, optional small generative model, guardrails | `ort` (ONNX Runtime), `tokenizers` |
 
 ## Tauri commands (first cut)
@@ -53,6 +53,7 @@ history_mark() -> usize                       rewind_history(mark)   // undo bac
 layout_spread(spread_id) -> SpreadLayout      // shaped lines for the canvas
 edit_text(edit, spread_id) -> { patch, layout, caret }  // an EditText intent and the spread laid out again, in one call (D-53)
 find(request) -> { matches, truncated }  // where words are in the book, in reading order, as EditText targets and code point ranges (D-62)
+paste_html(html) -> { paragraphs, notes } // HTML from the clipboard as paragraphs of runs, only the typefaces the book can draw in kept (D-68)
 replace(request) -> { replaced, skippedLocked, skippedMasters }  // one match or all, as one undo step (D-62)
 layout_master(master_id) -> SpreadLayout      // a master's own text, with {page} etc. as written
 reader_preview(target)         // the export's own XHTML and CSS, served to a webview that paginates it

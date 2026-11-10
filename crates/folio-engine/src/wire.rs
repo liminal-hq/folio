@@ -229,6 +229,17 @@ pub enum FontOrigin {
     System,
 }
 
+/// Pasted HTML read into paragraphs of runs (D-68): the words with the bold, italic, underline,
+/// strike-through, colour, size, typeface and links that a run of a book can hold.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct PastedHtml {
+    pub paragraphs: Vec<folio_model::StoryPara>,
+    /// What was left out or approximated, each said once in plain words.
+    pub notes: Vec<String>,
+}
+
 /// One typeface family a book can draw in.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

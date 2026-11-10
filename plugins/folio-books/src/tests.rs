@@ -1883,3 +1883,29 @@ fn a_swatch_is_drawn_as_the_colour_it_shows_as() {
     assert!(colours.contains(&"#ff0000".to_string()), "{colours:?}");
     assert!(!colours.iter().any(|c| c.starts_with("swatch:")));
 }
+
+#[test]
+fn pasted_html_is_read_into_runs_with_only_the_typefaces_the_book_can_draw_in() {
+    let app = app();
+    let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();
+    let id = snapshot.summary.id.clone();
+    let html = "<p>plain <b>bold</b> <span style=\"font-family: Literata, serif\">literary</span> \
+                <span style=\"font-family: 'No Such Face'\">other</span> \
+                <a href=\"https://example.org\">link</a></p><script>alert(1)</script><p>second</p>";
+    let pasted = books(&app).paste_html(&id, html).unwrap();
+    assert_eq!(pasted.paragraphs.len(), 2);
+    let runs = &pasted.paragraphs[0].inline;
+    let word = |w: &str| runs.iter().find(|r| r.text.contains(w)).unwrap();
+    assert!(word("bold").bold);
+    assert_eq!(word("literary").font.as_deref(), Some("Literata"));
+    assert_eq!(word("other").font, None);
+    assert_eq!(word("link").href.as_deref(), Some("https://example.org"));
+    assert!(!pasted
+        .paragraphs
+        .iter()
+        .any(|p| p.inline.iter().any(|r| r.text.contains("alert"))));
+    // Too much to read is refused, with a reason to show.
+    let big = format!("<p>{}</p>", "x".repeat(folio_import::MAX_HTML_BYTES));
+    assert!(books(&app).paste_html(&id, &big).is_err());
+    assert!(books(&app).paste_html("no-such-book", html).is_err());
+}

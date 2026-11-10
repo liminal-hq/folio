@@ -64,6 +64,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::layout_spread,
             commands::edit_text,
             commands::find,
+            commands::paste_html,
             commands::replace,
             commands::layout_master,
             commands::import_image,

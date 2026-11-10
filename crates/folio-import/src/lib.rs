@@ -7,11 +7,13 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 mod docx;
+mod html;
 mod mapping;
 mod odt;
 mod rtf;
 
 pub use docx::{import_docx, import_docx_with, DocxError};
+pub use html::{import_html, HtmlError, MAX_HTML_BYTES};
 pub use mapping::{SourceStyle, StyleMap, Tally, MAPPABLE};
 pub use odt::{import_odt, import_odt_with, OdtError};
 pub use rtf::{import_rtf, RtfError};

@@ -611,6 +611,16 @@ export function createFakeBooksClient(): FakeBooks {
 			find(id);
 			return { matches: found.map((m) => ({ ...m })), truncated: false };
 		},
+		async pasteHtml(id, html) {
+			await call('pasteHtml', [id, html.length]);
+			find(id);
+			// The words with the tags taken out: the real reader is Rust's.
+			const text = html.replace(/<[^>]*>/g, '').trim();
+			return {
+				paragraphs: [{ style: null, inline: [{ text, style: null, bold: false, italic: false }] }],
+				notes: [],
+			};
+		},
 		async replace(id, request) {
 			await call('replace', [
 				id,

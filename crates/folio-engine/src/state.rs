@@ -28,10 +28,10 @@ use crate::wire::{
     BatchOutcome, BookSnapshot, BookSpelling, BookSummary, BooksChanged, CoverCanvas,
     CoverSheetPreview, EditAnswer, EditRequest, ExportColour, ExportProgress, ExportReport,
     ExportTarget, ExportedFile, FindReport, FindRequest, FontChoice, FontLicence, FontOrigin,
-    FontSkip, FontUse, KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, PreviewChapter,
-    PreviewImage, ProofColour, ProofPage, ProofSpread, ReaderPreview, Recoverable, ReplaceReport,
-    ReplaceRequest, SkippedFont, SmartNote, SpellCheck, SpreadLayoutResult, StoryChapter,
-    TemplateCard, TemplateGallery,
+    FontSkip, FontUse, KeepFontsReport, Misspelling, MisspeltWord, PastedHtml, PatchEvent,
+    PreviewChapter, PreviewImage, ProofColour, ProofPage, ProofSpread, ReaderPreview, Recoverable,
+    ReplaceReport, ReplaceRequest, SkippedFont, SmartNote, SpellCheck, SpreadLayoutResult,
+    StoryChapter, TemplateCard, TemplateGallery,
 };
 use crate::Host;
 
@@ -2111,6 +2111,24 @@ impl Books {
             });
         }
         Ok(seen)
+    }
+
+    /// Reads HTML from the clipboard into paragraphs of runs, keeping a typeface it names only if
+    /// the book can draw in it (D-68). A paste that is too large is refused, and the window pastes
+    /// its plain words instead.
+    pub fn paste_html(&self, id: &str, html: &str) -> Result<PastedHtml, Error> {
+        let installed: std::collections::HashSet<String> = self
+            .font_choices(id)?
+            .into_iter()
+            .map(|c| c.family.to_lowercase())
+            .collect();
+        let read =
+            folio_import::import_html(html, &|family| installed.contains(&family.to_lowercase()))
+                .map_err(|e| Error::Import(e.to_string()))?;
+        Ok(PastedHtml {
+            paragraphs: read.story,
+            notes: read.report.notes,
+        })
     }
 
     /// The typefaces the book uses and where each comes from, for the Fonts panel.

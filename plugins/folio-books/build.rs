@@ -34,6 +34,7 @@ const COMMANDS: &[&str] = &[
     "layout_spread",
     "edit_text",
     "find",
+    "paste_html",
     "replace",
     "layout_master",
     "import_image",

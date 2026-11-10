@@ -56,6 +56,7 @@ import {
 	listFonts,
 	editText,
 	find,
+	pasteHtml,
 	replace,
 	layoutMaster,
 	layoutSpread,
@@ -99,6 +100,7 @@ import {
 	type Intent,
 	type KindInfo,
 	type NewBookSpec,
+	type PastedHtml,
 	type PaintPresets,
 	type Patch,
 	type PatchEvent,
@@ -166,6 +168,8 @@ export interface BooksClient {
 	editText(id: string, edit: EditRequest, spread: string, spelling?: string[]): Promise<EditAnswer>;
 	/** Every place `request` is found in the book, in reading order. */
 	find(id: string, request: FindRequest): Promise<FindReport>;
+	/** HTML from the clipboard as paragraphs of runs; refused when it is too large to read. */
+	pasteHtml(id: string, html: string): Promise<PastedHtml>;
 	/** Replaces one match or all of them as one undo step; says how many were left alone. */
 	replace(id: string, request: ReplaceRequest): Promise<ReplaceReport>;
 	/** A master page's text laid out on a page of its own, with `{page}` and other tokens as written. */
@@ -259,6 +263,7 @@ export const tauriBooksClient: BooksClient = {
 	layoutSpread,
 	editText,
 	find,
+	pasteHtml,
 	replace,
 	layoutMaster,
 	importImage,

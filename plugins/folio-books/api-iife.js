@@ -229,6 +229,14 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function preflightBook(id) {
         return cmd('preflight_book', { id });
     }
+    /**
+     * Reads HTML from the clipboard into paragraphs of runs: bold, italic, underline, strike-through, a
+     * colour, a size, a typeface the book can draw in, and links. Anything else in it is dropped. Refused
+     * when the HTML is too large, and the caller pastes the plain words instead.
+     */
+    function pasteHtml(id, html) {
+        return cmd('paste_html', { id, html });
+    }
     /** Every family a book can draw in, and where each comes from (bundled, kept in the book or installed). */
     function listFonts(id) {
         return cmd('list_fonts', { id });
@@ -327,6 +335,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.onPatch = onPatch;
     exports.openBook = openBook;
     exports.paintPresets = paintPresets;
+    exports.pasteHtml = pasteHtml;
     exports.preflightBook = preflightBook;
     exports.presets = presets;
     exports.previewCoverSheet = previewCoverSheet;

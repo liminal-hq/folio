@@ -17,8 +17,8 @@ use folio_engine::DICTIONARY_PROGRESS_EVENT;
 use folio_engine::{
     BookSnapshot, BookSpelling, BookSummary, Books, CoverCanvas, CoverSheetPreview,
     DictionaryProgress, DictionaryStatus, EditAnswer, EditRequest, ExportColour, ExportReport,
-    ExportTarget, FindReport, FindRequest, FontChoice, FontUse, KeepFontsReport, ProofSpread,
-    ReaderPreview, Recoverable, SpellCheck, SpreadLayoutResult, StoryChapter,
+    ExportTarget, FindReport, FindRequest, FontChoice, FontUse, KeepFontsReport, PastedHtml,
+    ProofSpread, ReaderPreview, Recoverable, SpellCheck, SpreadLayoutResult, StoryChapter,
 };
 use folio_engine::{Error, TemplateGallery, ToolFix, ToolFixed, ToolReport, ToolRequest};
 use folio_engine::{ReplaceReport, ReplaceRequest};
@@ -624,6 +624,20 @@ pub async fn story_chapters<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().story_chapters(&id))
         .await
         .expect("the chapters task does not panic")
+}
+
+/// Reads HTML from the clipboard into paragraphs of runs (D-68). Runs on a blocking thread, because
+/// the first call scans the system's fonts.
+#[tauri::command]
+pub async fn paste_html<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    html: String,
+) -> Result<PastedHtml, Error> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().paste_html(&id, &html))
+        .await
+        .expect("the paste task does not panic")
 }
 
 /// Every family a book can draw in, and where each comes from.

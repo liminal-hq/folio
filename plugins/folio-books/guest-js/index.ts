@@ -39,6 +39,7 @@ import type { EditRequest } from '@liminal-hq/folio-protocol/generated/EditReque
 import type { FindMatch } from '@liminal-hq/folio-protocol/generated/FindMatch';
 import type { FindReport } from '@liminal-hq/folio-protocol/generated/FindReport';
 import type { FindRequest } from '@liminal-hq/folio-protocol/generated/FindRequest';
+import type { PastedHtml } from '@liminal-hq/folio-protocol/generated/PastedHtml';
 import type { MatchRef } from '@liminal-hq/folio-protocol/generated/MatchRef';
 import type { ReplaceReport } from '@liminal-hq/folio-protocol/generated/ReplaceReport';
 import type { ReplaceRequest } from '@liminal-hq/folio-protocol/generated/ReplaceRequest';
@@ -285,6 +286,7 @@ export type {
 	FindReport,
 	FindRequest,
 	FontChoice,
+	PastedHtml,
 	FontUse,
 	KeepFontsReport,
 	MatchRef,
@@ -403,6 +405,15 @@ export function revealPath(path: string): Promise<void> {
 /** What preflight finds in the whole book, the issues that wait on the person first. */
 export function preflightBook(id: string): Promise<PreflightItem[]> {
 	return cmd<PreflightItem[]>('preflight_book', { id });
+}
+
+/**
+ * Reads HTML from the clipboard into paragraphs of runs: bold, italic, underline, strike-through, a
+ * colour, a size, a typeface the book can draw in, and links. Anything else in it is dropped. Refused
+ * when the HTML is too large, and the caller pastes the plain words instead.
+ */
+export function pasteHtml(id: string, html: string): Promise<PastedHtml> {
+	return cmd<PastedHtml>('paste_html', { id, html });
 }
 
 /** Every family a book can draw in, and where each comes from (bundled, kept in the book or installed). */
