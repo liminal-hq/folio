@@ -72,6 +72,7 @@ const TIPS: ReadonlySet<string> = new Set([
 	'indentLess',
 	'indentMore',
 	'firstIndent',
+	'tracking',
 ]);
 
 const label = (id: string) => t(`ribbon.item.${id}` as MessageKey);
@@ -130,6 +131,7 @@ function toRibbonItem(
 	if (kind === 'toggle' && pressed !== undefined) item.active = pressed;
 	const shown = context.editor?.values[source.id];
 	if (shown !== undefined) item.value = shown;
+	if (context.editor?.mixed?.[source.id]) item.mixed = true;
 	if (kind === 'select') {
 		item.options = [
 			['', t(`ribbon.value.${source.id}` as MessageKey)],

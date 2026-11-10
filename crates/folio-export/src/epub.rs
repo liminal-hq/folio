@@ -300,7 +300,9 @@ struct Writer {
 }
 
 impl Writer {
-    fn runs(&mut self, runs: &[Run]) -> String {
+    /// The markup of some runs. `parent` is the size of the element they are in, as a multiple of
+    /// the body text, which a run's own size is written relative to.
+    fn runs(&mut self, runs: &[Run], base: f64, parent: f64) -> String {
         let mut out = String::new();
         for run in runs {
             let mut text = String::new();
@@ -321,8 +323,21 @@ impl Writer {
             } else {
                 text = escape(&run.text);
             }
+            let mut rules = Vec::new();
             if let Some(colour) = &run.colour {
-                text = format!("<span style=\"color:{}\">{text}</span>", escape(&colour.0));
+                rules.push(format!("color:{}", escape(&colour.0)));
+            }
+            if let Some(size) = run.size {
+                rules.push(format!("font-size:{:.3}em", size / base / parent));
+            }
+            if let Some(tracking) = run.tracking {
+                rules.push(format!(
+                    "letter-spacing:{:.3}em",
+                    f64::from(tracking) / 1000.0
+                ));
+            }
+            if !rules.is_empty() {
+                text = format!("<span style=\"{}\">{text}</span>", rules.join(";"));
             }
             if run.strike {
                 text = format!("<s>{text}</s>");
@@ -501,13 +516,20 @@ pub fn reflow(
                     chapters[0].title = text.clone();
                 }
                 let current = chapters.last_mut().expect("a chapter is open");
-                let markup = writer.runs(runs);
+                // A chapter title is an `<h1>`, which a reader sets at twice the body text.
+                let markup = writer.runs(runs, base_size(book), 2.0);
                 current.body.push_str(&format!("<h1>{markup}</h1>\n"));
             }
             Piece::Block(role, style, paras) => {
                 let current = chapters.last_mut().expect("a chapter is open");
+                let parent = book
+                    .styles
+                    .styles
+                    .get(style.as_str())
+                    .and_then(|s| s.size_pt)
+                    .map_or(1.0, |size| size / base_size(book));
                 for (para, look) in paras {
-                    let markup = writer.runs(para);
+                    let markup = writer.runs(para, base_size(book), parent);
                     let own = look_attr(look, base_size(book));
                     let line = match role {
                         Role::Subheading => format!("<h2 class=\"{style}\"{own}>{markup}</h2>\n"),

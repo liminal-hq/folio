@@ -18,4 +18,12 @@ underline?: boolean,
 /**
  * A line through these words.
  */
-strike?: boolean, };
+strike?: boolean, 
+/**
+ * A size in points for these words alone, over the style's.
+ */
+size?: number | null, 
+/**
+ * Space added after every letter of these words, in thousandths of an em, over the style's.
+ */
+tracking?: number | null, };

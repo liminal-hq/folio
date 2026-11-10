@@ -143,6 +143,12 @@ pub struct Run {
     /// A line through these words.
     #[serde(default, skip_serializing_if = "is_false")]
     pub strike: bool,
+    /// A size in points for these words alone, over the style's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size: Option<f64>,
+    /// Space added after every letter of these words, in thousandths of an em, over the style's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tracking: Option<i32>,
 }
 
 fn is_false(value: &bool) -> bool {

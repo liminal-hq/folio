@@ -148,3 +148,20 @@ fn underlined_and_struck_through_runs_come_across() {
         .iter()
         .any(|r| !r.strike && !r.underline && r.text == "plain"));
 }
+
+#[test]
+fn sizes_that_the_body_shares_are_left_to_the_style_and_unusual_ones_and_spacing_come_across() {
+    let body = r#"
+        <w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t xml:space="preserve">The body goes on for a good while in the usual size, </w:t></w:r>
+        <w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t xml:space="preserve">and on, </w:t></w:r>
+        <w:r><w:rPr><w:sz w:val="40"/><w:spacing w:val="20"/></w:rPr><w:t>Big</w:t></w:r></w:p>
+    "#;
+    let story = import_docx(&docx(body, false)).unwrap().story;
+    let runs = &story[0].inline;
+    // The two body runs are one run again, with no size of its own.
+    assert_eq!(runs.len(), 2, "{runs:?}");
+    assert_eq!(runs[0].size, None);
+    assert_eq!(runs[1].size, Some(20.0));
+    // A point of spacing at 20 points is fifty thousandths of an em.
+    assert_eq!(runs[1].tracking, Some(50));
+}

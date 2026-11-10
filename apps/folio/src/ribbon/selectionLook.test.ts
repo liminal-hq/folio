@@ -336,3 +336,106 @@ describe('underline and strike', () => {
 		});
 	});
 });
+
+describe('size and letter spacing', () => {
+	const own = {
+		type: 'text',
+		id: 'z',
+		box: {},
+		locked: false,
+		style: 'body',
+		content: {
+			inline: [
+				run('Hello '),
+				run('brave', { size: 20, tracking: 30 }),
+				run(' world', { tracking: 30 }),
+			],
+		},
+	} as unknown as Frame;
+	const range = (start: number, end: number) => ({ frame: 'z', start, end });
+	const at = (start: number, end: number) =>
+		editorState(input([own], { selection: range(start, end) }));
+
+	it('show the size of the words, or the first one with the control marked mixed', () => {
+		expect(at(6, 11).values.size).toBe(20);
+		expect(at(6, 11).mixed?.size).toBe(false);
+		// The style's size is 13 in these choices.
+		expect(at(0, 5).values.size).toBe(13);
+		expect(at(0, 11).values.size).toBe(13);
+		expect(at(0, 11).mixed?.size).toBe(true);
+	});
+
+	it('size the selected stretch, and the next words at a caret, in points', () => {
+		expect(editorAction('size', 18, input([own], { selection: range(0, 5) }))).toEqual({
+			kind: 'intents',
+			intents: [{ type: 'StyleRange', frame: 'z', start: 0, end: 5, change: { size: 18 } }],
+		});
+		const caret = { frame: 'z', offset: 5 };
+		expect(editorAction('size', 18, input([own], { caret }))).toEqual({
+			kind: 'pending',
+			frame: 'z',
+			change: { size: 18 },
+		});
+		expect(editorState(input([own], { caret, pending: { size: 18 } })).values.size).toBe(18);
+		// With no editor open the frame is sized whole, as before.
+		expect(editorAction('size', 18, input([own]))).toMatchObject({
+			intents: [{ type: 'OverrideStyle', frame: 'z' }],
+		});
+	});
+
+	it('offer the spacings with a tick on the one every character shares, and none when they differ', () => {
+		const tick = (state: ReturnType<typeof editorState>) =>
+			(state.options.tracking ?? []).filter(([, label]) => label.startsWith('✓'));
+		expect(tick(at(6, 17))).toEqual([['30', '✓ Loose']]);
+		expect(tick(at(0, 5))).toEqual([['style', "✓ The style's"]]);
+		expect(tick(at(0, 11))).toEqual([]);
+		expect(at(0, 5).available.has('tracking')).toBe(true);
+		expect((at(0, 5).options.tracking ?? []).map(([value]) => value)).toEqual([
+			'-20',
+			'0',
+			'30',
+			'80',
+			'style',
+		]);
+	});
+
+	it('set and take away the spacing of the selection, or of the next words', () => {
+		expect(editorAction('tracking', '80', input([own], { selection: range(0, 5) }))).toEqual({
+			kind: 'intents',
+			intents: [{ type: 'StyleRange', frame: 'z', start: 0, end: 5, change: { tracking: 80 } }],
+		});
+		expect(
+			editorAction('tracking', 'style', input([own], { selection: range(6, 11) })),
+		).toMatchObject({
+			intents: [{ change: { clearTracking: true } }],
+		});
+		expect(editorAction('tracking', '0', input([own], { selection: range(6, 11) }))).toMatchObject({
+			intents: [{ change: { tracking: 0 } }],
+		});
+		expect(
+			editorAction('tracking', '30', input([own], { caret: { frame: 'z', offset: 2 } })),
+		).toEqual({ kind: 'pending', frame: 'z', change: { tracking: 30, clearTracking: false } });
+		// A frame selected with no editor open has its words all spaced.
+		expect(editorAction('tracking', '80', input([own]))).toMatchObject({
+			intents: [{ type: 'StyleRange', start: 0, end: 17, change: { tracking: 80 } }],
+		});
+		expect(editorAction('tracking', 'nonsense', input([own]))).toBeNull();
+	});
+
+	it('work in a story and show the pending spacing', () => {
+		const selection = {
+			frame: 'fr_flow',
+			start: 1,
+			end: 2,
+			target: story,
+			from: { para: 0, offset: 0 },
+			to: { para: 1, offset: 3 },
+		};
+		expect(editorAction('size', 9, input([flowed], { selection }))).toMatchObject({
+			intents: [{ type: 'StyleText', target: story, change: { size: 9 } }],
+		});
+		const caret = { frame: 'fr_flow', offset: 5, target: story, pos: { para: 0, offset: 5 } };
+		const state = editorState(input([flowed], { caret, pending: { tracking: 80 } }));
+		expect(state.options.tracking?.find(([v]) => v === '80')?.[1]).toBe('✓ Very loose');
+	});
+});

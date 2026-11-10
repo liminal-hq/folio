@@ -59,9 +59,8 @@ describe('the Paragraph group', () => {
 		for (const id of ids) expect(live.has(id), id).toBe(true);
 		const none = editorState(input([])).available;
 		for (const id of ids) expect(none.has(id), id).toBe(false);
-		// Bullets, numbers, the drop cap and letter spacing need model work and stay off.
-		for (const id of ['bullets', 'numbers', 'dropCap', 'tracking'])
-			expect(live.has(id)).toBe(false);
+		// Bullets, numbers and the drop cap need model work and stay off.
+		for (const id of ['bullets', 'numbers', 'dropCap']) expect(live.has(id)).toBe(false);
 	});
 
 	it('spaces every paragraph of the frame when no editor is open', () => {

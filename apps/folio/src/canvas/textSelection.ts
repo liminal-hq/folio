@@ -102,6 +102,10 @@ export interface PendingLook {
 	italic?: boolean;
 	underline?: boolean;
 	strike?: boolean;
+	/** A size in points, and letter spacing in em thousandths (or `clearTracking` for the style's). */
+	size?: number;
+	tracking?: number;
+	clearTracking?: boolean;
 	font?: string;
 	colour?: string;
 }

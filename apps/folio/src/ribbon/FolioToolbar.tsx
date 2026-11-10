@@ -60,6 +60,7 @@ export function FolioToolbar({
 			decrease: t('ribbon.decrease'),
 			increase: t('ribbon.increase'),
 			more: t('ribbon.more'),
+			mixed: t('ribbon.mixed'),
 		}),
 		[],
 	);

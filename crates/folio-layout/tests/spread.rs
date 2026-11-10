@@ -1998,3 +1998,70 @@ fn underlined_and_struck_runs_carry_their_lines_and_a_line_runs_on_over_the_spac
     assert!((under.width - (words.x - two.x)).abs() < 0.02, "{under:?}");
     assert!((words.underline.unwrap().width - words.width).abs() < 0.02);
 }
+
+#[test]
+fn a_run_with_its_own_size_makes_its_line_taller_and_the_baseline_follows_the_tallest() {
+    fn line_of(frame: Frame) -> (f64, f64, f64, f64) {
+        let (_, layout) = laid_with(frame);
+        let line = layout
+            .frames
+            .iter()
+            .find(|f| f.frame.0 == "sized")
+            .unwrap()
+            .lines
+            .first()
+            .unwrap()
+            .clone();
+        let small = line.runs.iter().find(|r| r.text == "small").unwrap();
+        let big = line.runs.iter().find(|r| r.text == "big").unwrap();
+        (line.height, line.baseline - line.top, small.size, big.size)
+    }
+    let plain = text_frame("sized", "body", 60.0, 60.0, 300.0, 80.0, "small big");
+    let (even_height, even_ascent, size, _) = line_of(plain);
+
+    let mut frame = text_frame("sized", "body", 60.0, 60.0, 300.0, 80.0, "small ");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    text.content.as_mut().unwrap().inline.push(Run {
+        text: "big".into(),
+        size: Some(size * 3.0),
+        tracking: Some(200),
+        ..Default::default()
+    });
+    let (height, ascent, small, big) = line_of(frame);
+    assert_eq!(small, size);
+    assert_eq!(big, size * 3.0);
+    // The line is as tall as its tallest run and the baseline sits at the tallest ascent.
+    assert!(height > even_height * 2.5, "{height} against {even_height}");
+    assert!(ascent > even_ascent * 2.0, "{ascent} against {even_ascent}");
+}
+
+#[test]
+fn a_run_with_its_own_tracking_is_set_looser_and_a_tracking_of_nothing_overrides_the_style() {
+    let mut frame = text_frame("tracked", "body", 60.0, 60.0, 400.0, 80.0, "plain ");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    for (word, tracking) in [("loose", 250), ("tight", -50)] {
+        text.content.as_mut().unwrap().inline.push(Run {
+            text: format!("{word} "),
+            tracking: Some(tracking),
+            ..Default::default()
+        });
+    }
+    let (_, layout) = laid_with(frame);
+    let runs: Vec<_> = layout
+        .frames
+        .iter()
+        .find(|f| f.frame.0 == "tracked")
+        .unwrap()
+        .lines
+        .iter()
+        .flat_map(|l| &l.runs)
+        .collect();
+    let by = |word: &str| runs.iter().find(|r| r.text.contains(word)).unwrap();
+    assert_eq!(by("loose").tracking, 0.25);
+    assert_eq!(by("tight").tracking, -0.05);
+    assert!(by("plain").tracking != 0.25);
+}

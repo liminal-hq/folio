@@ -118,3 +118,29 @@ fn underlined_and_struck_through_spans_come_across() {
         .any(|r| r.strike && !r.underline && r.text == "struck"));
     assert!(s[0].inline.iter().any(|r| !r.underline && !r.strike));
 }
+
+#[test]
+fn a_spans_size_and_letter_spacing_come_across() {
+    let mut out = Cursor::new(Vec::new());
+    {
+        let mut zip = zip::ZipWriter::new(&mut out);
+        zip.start_file("content.xml", zip::write::SimpleFileOptions::default())
+            .unwrap();
+        write!(
+            zip,
+            "<office:document-content xmlns:office=\"o\" xmlns:text=\"t\" xmlns:style=\"s\" xmlns:fo=\"f\">\
+             <office:automatic-styles>\
+             <style:style style:name=\"T1\" style:family=\"text\"><style:text-properties fo:font-size=\"24pt\" fo:letter-spacing=\"1.2pt\"/></style:style>\
+             </office:automatic-styles><office:body><office:text>\
+             <text:p>Plain words and <text:span text:style-name=\"T1\">Large</text:span> ones.</text:p>\
+             </office:text></office:body></office:document-content>"
+        )
+        .unwrap();
+        zip.finish().unwrap();
+    }
+    let story = import_odt(&out.into_inner()).unwrap().story;
+    let large = story[0].inline.iter().find(|r| r.text == "Large").unwrap();
+    assert_eq!(large.size, Some(24.0));
+    assert_eq!(large.tracking, Some(50));
+    assert!(story[0].inline.iter().any(|r| r.size.is_none()));
+}

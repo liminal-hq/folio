@@ -16,6 +16,50 @@ pub use mapping::{SourceStyle, StyleMap, Tally, MAPPABLE};
 pub use odt::{import_odt, import_odt_with, OdtError};
 pub use rtf::{import_rtf, RtfError};
 
+/// The reference size a letter spacing given in points is turned into ems of when the run names no
+/// size of its own (Word's default text size).
+pub(crate) const REFERENCE_SIZE: f64 = 11.0;
+
+/// A letter spacing of `spacing_pt` points at `size_pt`, in thousandths of an em; `None` for none.
+pub(crate) fn tracking_of(spacing_pt: f64, size_pt: f64) -> Option<i32> {
+    let thousandths = (spacing_pt / size_pt * 1000.0).round();
+    (thousandths.is_finite() && thousandths != 0.0).then_some(thousandths as i32)
+}
+
+/// Takes the size away from the runs that are set in the size most of the words are. Word and Rich
+/// Text files name the body size on nearly every run, and keeping it would pin each run over the
+/// Folio style the paragraph is given; the runs that differ from it (a larger word, a smaller note)
+/// keep theirs.
+pub(crate) fn keep_unusual_sizes(story: &mut [StoryPara]) {
+    let mut counts: std::collections::BTreeMap<Option<i64>, usize> = Default::default();
+    for run in story.iter().flat_map(|p| &p.inline) {
+        let key = run.size.map(|s| (s * 100.0).round() as i64);
+        *counts.entry(key).or_default() += run.text.chars().count();
+    }
+    let usual = counts
+        .iter()
+        .max_by_key(|(key, count)| (**count, key.is_none()))
+        .and_then(|(key, _)| *key);
+    let Some(usual) = usual else { return };
+    for para in story.iter_mut() {
+        let mut changed = false;
+        for run in para.inline.iter_mut() {
+            if run
+                .size
+                .is_some_and(|s| (s * 100.0).round() as i64 == usual)
+            {
+                run.size = None;
+                changed = true;
+            }
+        }
+        if changed {
+            para.inline = para.inline.iter().fold(Vec::<Run>::new(), |out, run| {
+                join_runs(&out, std::slice::from_ref(run))
+            });
+        }
+    }
+}
+
 use folio_model::{join_runs, Run, StoryPara, StyleId};
 use folio_model::{smarten_with, QuoteStyle, SmartRules};
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};

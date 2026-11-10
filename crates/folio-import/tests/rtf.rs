@@ -54,3 +54,17 @@ fn underlined_and_struck_through_runs_come_across() {
         .iter()
         .any(|r| !r.underline && !r.strike && r.text == " and "));
 }
+
+#[test]
+fn sizes_and_expansion_come_across_when_they_are_not_the_bodys() {
+    let rtf = br"{\rtf1\ansi\pard\fs22 The body is set in eleven points for a while \fs48\expndtw20 Big\plain\fs22  and back.\par}";
+    let s = import_rtf(rtf).unwrap().story;
+    let big = s[0].inline.iter().find(|r| r.text == "Big").unwrap();
+    assert_eq!(big.size, Some(24.0));
+    assert_eq!(big.tracking, Some(42));
+    assert!(s[0]
+        .inline
+        .iter()
+        .filter(|r| r.text != "Big")
+        .all(|r| r.size.is_none() && r.tracking.is_none()));
+}

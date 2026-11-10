@@ -37,6 +37,14 @@ struct Look {
     italic: bool,
     underline: bool,
     strike: bool,
+    /// The size in points, and the letter spacing in points.
+    size: Option<f64>,
+    spacing: Option<f64>,
+}
+
+/// A length in points (`12pt`); other units are not read.
+fn points(value: &str) -> Option<f64> {
+    value.trim().strip_suffix("pt")?.trim().parse().ok()
 }
 
 fn run(text: &str, look: Look) -> Run {
@@ -46,6 +54,10 @@ fn run(text: &str, look: Look) -> Run {
         italic: look.italic,
         underline: look.underline,
         strike: look.strike,
+        size: look.size,
+        tracking: look
+            .spacing
+            .and_then(|pt| crate::tracking_of(pt, look.size.unwrap_or(crate::REFERENCE_SIZE))),
         ..Default::default()
     }
 }
@@ -156,6 +168,8 @@ fn read_content(xml: &str, map: &StyleMap) -> Imported {
                             italic: outer.italic || look.italic,
                             underline: outer.underline || look.underline,
                             strike: outer.strike || look.strike,
+                            size: look.size.or(outer.size),
+                            spacing: look.spacing.or(outer.spacing),
                         });
                     }
                     _ => {}
@@ -175,6 +189,8 @@ fn read_content(xml: &str, map: &StyleMap) -> Imported {
                                 italic: slant.as_deref() == Some("italic"),
                                 underline: line(b"text-underline-style"),
                                 strike: line(b"text-line-through-style"),
+                                size: attr(&e, b"font-size").as_deref().and_then(points),
+                                spacing: attr(&e, b"letter-spacing").as_deref().and_then(points),
                             },
                         );
                     }
@@ -231,6 +247,7 @@ fn read_content(xml: &str, map: &StyleMap) -> Imported {
             _ => {}
         }
     }
+    crate::keep_unusual_sizes(&mut story);
     report.paragraphs = story.len() as u32;
     report.styles = tally.into_styles();
     Imported { story, report }

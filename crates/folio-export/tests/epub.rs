@@ -303,3 +303,35 @@ fn underlined_and_struck_words_are_marked_up() {
     }
     assert!(marked);
 }
+
+#[test]
+fn words_with_their_own_size_and_tracking_are_spans_in_ems_of_the_paragraph() {
+    let mut book = sample(BookKind::Novel);
+    let at = book.flows[0]
+        .paragraphs
+        .iter()
+        .position(|p| p.text().starts_with("Mara had kept the light"))
+        .expect("the opening paragraph");
+    let style = book.flows[0].paragraphs[at].style.clone();
+    book.flows[0].paragraphs[at].inline[0].size = Some(21.0);
+    book.flows[0].paragraphs[at].inline[0].tracking = Some(50);
+    let base = book.styles.styles["body"].size_pt.unwrap_or(10.5);
+    let parent = style
+        .and_then(|s| book.styles.styles.get(&s.0).and_then(|d| d.size_pt))
+        .map_or(1.0, |s| s / base);
+    let (mut zip, names) = files(&epub(&book, &NoAssets, EpubFlavour::Standard));
+    let want = format!(
+        "font-size:{:.3}em;letter-spacing:0.050em",
+        21.0 / base / parent
+    );
+    let mut found = false;
+    for name in names
+        .iter()
+        .filter(|n| n.ends_with(".xhtml") && !n.ends_with("nav.xhtml"))
+    {
+        let text = read(&mut zip, name);
+        assert!(well_formed(&text), "{name}");
+        found |= text.contains(&want);
+    }
+    assert!(found, "{want}");
+}

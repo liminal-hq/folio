@@ -131,23 +131,45 @@ export interface ScopeLook {
 	italic: boolean;
 	underline: boolean;
 	strike: boolean;
+	/** The size of the first character in points, and whether the characters differ in size. */
+	size: number;
+	sizeMixed: boolean;
+	/** The letter spacing they share in em thousandths (`undefined`: the style's), and whether they differ. */
+	tracking: number | undefined;
+	trackingMixed: boolean;
 	/** The one typeface they share ('' when it is the style's), or `null` when they differ. */
 	font: string | null;
 }
 
 /** The look of the selected words: bold, italic, underline and strike only when every character has them, and the font when they share one. */
-export function lookOf(scope: LookScope): ScopeLook {
+export function lookOf(scope: LookScope, sizeOf: (run: Run) => number = () => 12): ScopeLook {
 	const runs = scope.collapsed
 		? [runBeforeCaret(scope)].filter((r): r is Run => !!r)
 		: runsOver(scope);
 	if (runs.length === 0)
-		return { bold: false, italic: false, underline: false, strike: false, font: '' };
+		return {
+			bold: false,
+			italic: false,
+			underline: false,
+			strike: false,
+			size: 12,
+			sizeMixed: false,
+			tracking: undefined,
+			trackingMixed: false,
+			font: '',
+		};
 	const fonts = new Set(runs.map((r) => r.font ?? ''));
+	const sizes = new Set(runs.map(sizeOf));
+	const trackings = new Set(runs.map((r) => r.tracking ?? null));
 	return {
 		bold: runs.every((r) => r.bold),
 		italic: runs.every((r) => r.italic),
 		underline: runs.every((r) => r.underline === true),
 		strike: runs.every((r) => r.strike === true),
+		size: sizeOf(runs[0]!),
+		sizeMixed: sizes.size > 1,
+		tracking: trackings.size === 1 ? ([...trackings][0] ?? undefined) : undefined,
+		trackingMixed: trackings.size > 1,
 		font: fonts.size === 1 ? [...fonts][0]! : null,
 	};
 }

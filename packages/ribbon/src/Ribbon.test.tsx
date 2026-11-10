@@ -300,6 +300,42 @@ describe('Ribbon', () => {
 		expect(within(size).getByText('13')).toBeInTheDocument();
 	});
 
+	it('shows a dash for a stepper whose words differ, and steps from the value it holds', async () => {
+		const mixed: RibbonModel = {
+			tabs: [
+				{
+					id: 'home',
+					label: 'Home',
+					groups: [
+						{
+							id: 'g',
+							label: 'G',
+							items: [
+								{
+									id: 'size',
+									label: 'Size',
+									d,
+									kind: 'stepper',
+									value: 12,
+									mixed: true,
+									min: 4,
+									max: 96,
+								},
+							],
+						},
+					],
+				},
+			],
+		};
+		const onCommand = vi.fn();
+		render(<Ribbon model={mixed} mode="easy" onCommand={onCommand} />);
+		const size = screen.getByRole('group', { name: 'Size' });
+		expect(within(size).getByText('—')).toBeInTheDocument();
+		expect(within(size).getByLabelText('Size: mixed')).toBeInTheDocument();
+		await userEvent.click(within(size).getByRole('button', { name: 'Increase Size' }));
+		expect(onCommand).toHaveBeenCalledWith(expect.objectContaining({ id: 'size', value: 13 }));
+	});
+
 	it('reports a mode change from the Easy and Expert switch', async () => {
 		const { onCommand } = setup();
 		expect(screen.getByRole('radio', { name: 'Easy' })).toBeChecked();

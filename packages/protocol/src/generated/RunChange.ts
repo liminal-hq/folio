@@ -4,4 +4,20 @@
  * A change to the look of some words. A field left out is left as it is; an empty `font` or
  * `colour` takes the override away.
  */
-export type RunChange = { bold?: boolean, italic?: boolean, font?: string, colour?: string, underline?: boolean, strike?: boolean, };
+export type RunChange = { bold?: boolean, italic?: boolean, font?: string, colour?: string, underline?: boolean, strike?: boolean, 
+/**
+ * A size in points for the words, kept between `MIN_SIZE` and `MAX_SIZE`.
+ */
+size?: number, 
+/**
+ * Letter spacing in thousandths of an em, kept between `MIN_TRACKING` and `MAX_TRACKING`.
+ */
+tracking?: number, 
+/**
+ * Takes the words' own size away, so the style's shows again.
+ */
+clearSize?: boolean, 
+/**
+ * Takes the words' own letter spacing away, so the style's shows again.
+ */
+clearTracking?: boolean, };

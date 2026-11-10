@@ -670,6 +670,12 @@ impl<'a> Layouter<'a> {
             if let Some(colour) = &run.colour {
                 text_style.colour = Some(colour.clone());
             }
+            if let Some(size) = run.size {
+                text_style.size_pt = size;
+            }
+            if let Some(tracking) = run.tracking {
+                text_style.tracking_em = f64::from(tracking) / 1000.0;
+            }
             text_style.underline |= run.underline;
             text_style.strike |= run.strike;
             // A character the run's font lacks is set in one that has it.

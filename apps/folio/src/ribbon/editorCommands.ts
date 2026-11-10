@@ -28,9 +28,11 @@ import { t, type MessageKey } from '../i18n/messages';
 import type { StyleChoice } from '../inspector/styleChoices';
 import { effectiveSize, withOverrides } from '../inspector/textFacts';
 import type { TextParagraphs } from '../canvas/textSelection';
-import { paragraphIntents, paragraphState } from './paragraphCommands';
+import { FROM_STYLE, paragraphIntents, paragraphState } from './paragraphCommands';
 import { lookOf, lookScope, runBeforeCaret, styleIntent } from './selectionLook';
 import type { StoryPara } from '@liminal-hq/folio-protocol/generated/StoryPara';
+import type { RunChange } from '@liminal-hq/folio-protocol/generated/RunChange';
+import type { Run } from '@liminal-hq/folio-protocol/generated/Run';
 
 export interface EditorInput {
 	spread: Spread;
@@ -78,6 +80,8 @@ export interface EditorState {
 	available: ReadonlySet<string>;
 	active: Readonly<Record<string, boolean>>;
 	values: Readonly<Record<string, number>>;
+	/** Controls whose value differs across the selected words, which show it as mixed. */
+	mixed?: Readonly<Record<string, boolean>>;
 	/** The text a list shows as chosen, by control: the font of the selected words. */
 	texts: Readonly<Record<string, string>>;
 	/** The choices of a list, by control, as value, label and the heading to draw it under. */
@@ -177,6 +181,25 @@ export function fontOptions(
 /** The shapes the Shape menu draws. */
 const SHAPE_CHOICES = ['rect', 'round', 'ellipse', 'line'] as const;
 
+/** The letter spacings the menu offers, in thousandths of an em (spec 09). */
+const TRACKINGS: ReadonlyArray<readonly [number, MessageKey]> = [
+	[-20, 'ribbon.tracking.tight'],
+	[0, 'ribbon.tracking.normal'],
+	[30, 'ribbon.tracking.loose'],
+	[80, 'ribbon.tracking.veryLoose'],
+];
+
+/** The size of a run's words: its own, else its style's, else the frame's. */
+function runSize(
+	frame: Frame,
+	layout: SpreadLayout | null,
+	choices: StyleChoice[],
+): (run: Run) => number {
+	const base = frame.type === 'text' ? effectiveSize(frame, layout, choices) : 12;
+	return (run) =>
+		run.size ?? (run.style ? choices.find((c) => c.id === run.style)?.size : null) ?? base;
+}
+
 const free = (frames: Frame[]) => frames.filter((f) => !f.locked && !f.fromMaster);
 
 export function editorState(input: EditorInput): EditorState {
@@ -232,6 +255,8 @@ export function editorState(input: EditorInput): EditorState {
 		snap,
 	};
 	const values: Record<string, number> = {};
+	const mixed: Record<string, boolean> = {};
+	let tracking: { own: number | undefined; mixed: boolean } = { own: undefined, mixed: false };
 	const shown: Record<string, string> = {};
 	const contextual: string[] = [];
 
@@ -278,12 +303,25 @@ export function editorState(input: EditorInput): EditorState {
 	if (cuttable(selected).length > 0) available.add('cut');
 	const words = texts(selected);
 	if (words.length > 0) {
-		for (const id of ['bold', 'italic', 'underline', 'strike', ...Object.keys(ALIGNS), 'size'])
+		for (const id of [
+			'bold',
+			'italic',
+			'underline',
+			'strike',
+			'tracking',
+			...Object.keys(ALIGNS),
+			'size',
+		])
 			available.add(id);
 		// Underline and strike are on the words themselves, not the frame's style.
 		const runs = words.flatMap((f) => (f.content?.inline ?? []).filter((r) => r.text !== ''));
 		active.underline = runs.length > 0 && runs.every((r) => r.underline === true);
 		active.strike = runs.length > 0 && runs.every((r) => r.strike === true);
+		const spacings = new Set(runs.map((r) => r.tracking ?? null));
+		tracking = {
+			own: spacings.size === 1 ? ([...spacings][0] ?? undefined) : undefined,
+			mixed: spacings.size > 1,
+		};
 		const first = words[0]!;
 		active.bold = first.overrides?.bold === true;
 		active.italic = first.overrides?.italic === true;
@@ -302,16 +340,47 @@ export function editorState(input: EditorInput): EditorState {
 	// when every character is, a font only when they share one.
 	const scope = lookScope(input);
 	if (scope) {
-		for (const id of ['bold', 'italic', 'underline', 'strike', 'font', 'colour']) available.add(id);
-		const look = lookOf(scope);
+		for (const id of [
+			'bold',
+			'italic',
+			'underline',
+			'strike',
+			'font',
+			'colour',
+			'size',
+			'tracking',
+		])
+			available.add(id);
+		const look = lookOf(scope, runSize(scope.frame, input.layout, choices));
 		const typed = scope.collapsed ? input.pending : null;
 		active.bold = typed?.bold ?? look.bold;
 		active.italic = typed?.italic ?? look.italic;
 		active.underline = typed?.underline ?? look.underline;
 		active.strike = typed?.strike ?? look.strike;
 		shown.font = typed?.font ?? look.font ?? '';
+		// The words' size, or the first one's with the control marked mixed when they differ.
+		values.size = typed?.size ?? look.size;
+		mixed.size = typed?.size === undefined && look.sizeMixed;
+		tracking = {
+			own: typed?.clearTracking ? undefined : (typed?.tracking ?? look.tracking),
+			mixed: typed?.tracking === undefined && !typed?.clearTracking && look.trackingMixed,
+		};
 	}
 	const options: Record<string, ReadonlyArray<readonly [string, string, string?]>> = {};
+	options.tracking = TRACKINGS.map(
+		([value, name]) =>
+			[
+				String(value),
+				!tracking.mixed && tracking.own === value ? `✓ ${t(name)}` : t(name),
+			] as const,
+	).concat([
+		[
+			FROM_STYLE,
+			!tracking.mixed && tracking.own === undefined
+				? `✓ ${t('ribbon.para.fromStyle')}`
+				: t('ribbon.para.fromStyle'),
+		] as const,
+	]);
 	paragraphState(input, available, active, options);
 	const only = selected.length === 1 ? selected[0]! : null;
 	if (only?.type === 'image') {
@@ -368,7 +437,7 @@ export function editorState(input: EditorInput): EditorState {
 	];
 	options.paragraphStyle = choices.map((c) => [c.id, c.name] as const);
 	if (input.fonts) options.font = fontOptions(input.fonts, input.fontsInUse ?? []);
-	return { available, active, values, texts: shown, options, contextual };
+	return { available, active, values, mixed, texts: shown, options, contextual };
 }
 
 /** The action a control asks for, or `null` when it is not one of the document's controls. */
@@ -685,9 +754,45 @@ export function editorAction(
 				}),
 			};
 		}
+		case 'tracking': {
+			const clear = value === FROM_STYLE;
+			const spacing = Number(value);
+			if (!clear && (value === undefined || value === '' || !Number.isFinite(spacing))) return null;
+			const change: RunChange = clear ? { clearTracking: true } : { tracking: spacing };
+			const scope = lookScope(input);
+			if (scope?.collapsed) {
+				// At the caret alone the spacing is for the words typed next.
+				return {
+					kind: 'pending',
+					frame: scope.frame.id,
+					change: clear
+						? { clearTracking: true, tracking: undefined }
+						: { tracking: spacing, clearTracking: false },
+				};
+			}
+			if (scope) return { kind: 'intents', intents: [styleIntent(scope, change)] };
+			return {
+				kind: 'intents',
+				intents: texts(selected)
+					.map((f) => ({
+						type: 'StyleRange' as const,
+						frame: f.id,
+						start: 0,
+						end: [...(f.content?.inline ?? []).map((r) => r.text).join('')].length,
+						change,
+					}))
+					.filter((r) => r.end > r.start),
+			};
+		}
 		case 'size': {
 			const size = typeof value === 'number' ? value : Number(value);
 			if (!Number.isFinite(size)) return null;
+			const own = Math.min(200, Math.max(4, size));
+			// The words selected in an open editor, or the next ones typed at its caret, are sized alone.
+			const scope = lookScope(input);
+			if (scope?.collapsed)
+				return { kind: 'pending', frame: scope.frame.id, change: { size: own } };
+			if (scope) return { kind: 'intents', intents: [styleIntent(scope, { size: own })] };
 			return {
 				kind: 'intents',
 				intents: texts(selected).map((f) => ({

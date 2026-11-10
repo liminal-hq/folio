@@ -27,7 +27,26 @@ pub struct RunChange {
     pub underline: Option<bool>,
     #[ts(optional)]
     pub strike: Option<bool>,
+    /// A size in points for the words, kept between `MIN_SIZE` and `MAX_SIZE`.
+    #[ts(optional)]
+    pub size: Option<f64>,
+    /// Letter spacing in thousandths of an em, kept between `MIN_TRACKING` and `MAX_TRACKING`.
+    #[ts(optional)]
+    pub tracking: Option<i32>,
+    /// Takes the words' own size away, so the style's shows again.
+    #[ts(optional)]
+    pub clear_size: Option<bool>,
+    /// Takes the words' own letter spacing away, so the style's shows again.
+    #[ts(optional)]
+    pub clear_tracking: Option<bool>,
 }
+
+/// The smallest and largest size a run may be given, in points.
+pub const MIN_SIZE: f64 = 1.0;
+pub const MAX_SIZE: f64 = 1000.0;
+/// The tightest and loosest letter spacing a run may be given, in thousandths of an em.
+pub const MIN_TRACKING: i32 = -500;
+pub const MAX_TRACKING: i32 = 2000;
 
 impl RunChange {
     /// Whether this changes nothing.
@@ -38,6 +57,10 @@ impl RunChange {
             && self.colour.is_none()
             && self.underline.is_none()
             && self.strike.is_none()
+            && self.size.is_none()
+            && self.tracking.is_none()
+            && self.clear_size.is_none()
+            && self.clear_tracking.is_none()
     }
 
     pub(crate) fn apply(&self, run: &mut Run) {
@@ -52,6 +75,18 @@ impl RunChange {
         }
         if let Some(strike) = self.strike {
             run.strike = strike;
+        }
+        if self.clear_size == Some(true) {
+            run.size = None;
+        }
+        if let Some(size) = self.size.filter(|s| s.is_finite()) {
+            run.size = Some(size.clamp(MIN_SIZE, MAX_SIZE));
+        }
+        if self.clear_tracking == Some(true) {
+            run.tracking = None;
+        }
+        if let Some(tracking) = self.tracking {
+            run.tracking = Some(tracking.clamp(MIN_TRACKING, MAX_TRACKING));
         }
         if let Some(font) = &self.font {
             run.font = Some(font.clone()).filter(|f| !f.is_empty());
@@ -76,6 +111,8 @@ pub(crate) fn alike(a: &Run, b: &Run) -> bool {
         && a.colour == b.colour
         && a.underline == b.underline
         && a.strike == b.strike
+        && a.size == b.size
+        && a.tracking == b.tracking
 }
 
 /// Joins neighbouring runs that look the same, and drops empty ones (keeping one if all are).
@@ -443,5 +480,69 @@ mod line_tests {
         assert!(!written.contains("underline") && !written.contains("strike"));
         let lined = serde_json::to_string(&lined("x", true, true)).unwrap();
         assert!(lined.contains("\"underline\":true") && lined.contains("\"strike\":true"));
+    }
+}
+
+#[cfg(test)]
+mod size_tests {
+    use super::*;
+
+    #[test]
+    fn size_and_tracking_are_set_kept_in_range_and_taken_away() {
+        let runs = [plain("Hello brave world".into())];
+        let set = RunChange {
+            size: Some(18.0),
+            tracking: Some(80),
+            ..RunChange::default()
+        };
+        let out = style_range(&runs, 6, 11, &set);
+        assert_eq!(out.len(), 3);
+        assert_eq!((out[1].size, out[1].tracking), (Some(18.0), Some(80)));
+        assert_eq!((out[0].size, out[2].tracking), (None, None));
+        // Runs that differ in either are kept apart.
+        assert_eq!(tidy(vec![out[1].clone(), out[0].clone()]).len(), 2);
+        let wild = RunChange {
+            size: Some(5000.0),
+            tracking: Some(-9000),
+            ..RunChange::default()
+        };
+        let clamped = style_range(&runs, 0, 5, &wild);
+        assert_eq!(clamped[0].size, Some(MAX_SIZE));
+        assert_eq!(clamped[0].tracking, Some(MIN_TRACKING));
+        let nan = RunChange {
+            size: Some(f64::NAN),
+            ..RunChange::default()
+        };
+        assert_eq!(style_range(&runs, 0, 5, &nan).len(), 1);
+        // A tracking of 0 is a value (no spacing, whatever the style says), not a removal.
+        let zero = RunChange {
+            tracking: Some(0),
+            ..RunChange::default()
+        };
+        assert_eq!(style_range(&runs, 0, 5, &zero)[0].tracking, Some(0));
+        let away = RunChange {
+            clear_size: Some(true),
+            clear_tracking: Some(true),
+            ..RunChange::default()
+        };
+        assert!(!away.is_empty());
+        assert_eq!(style_range(&out, 6, 11, &away).len(), 1);
+    }
+
+    #[test]
+    fn words_typed_in_a_sized_stretch_take_its_size_and_old_books_open_unchanged() {
+        let big = Run {
+            size: Some(20.0),
+            ..plain("big".into())
+        };
+        let typed = retext(&[big], "bigger");
+        assert_eq!(typed.len(), 1);
+        assert_eq!(typed[0].size, Some(20.0));
+        let old: Run = serde_json::from_str(r#"{"text":"hi","style":null}"#).unwrap();
+        assert_eq!((old.size, old.tracking), (None, None));
+        let written = serde_json::to_string(&old).unwrap();
+        assert!(!written.contains("size") && !written.contains("tracking"));
+        let sized = serde_json::to_string(&typed[0]).unwrap();
+        assert!(sized.contains("\"size\":20.0"));
     }
 }

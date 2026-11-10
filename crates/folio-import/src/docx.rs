@@ -169,6 +169,18 @@ fn read_document(xml: &str, has_comments: bool, map: &StyleMap) -> Imported {
                 b"i" if in_run_props => {
                     look.italic = attr(&e, b"val").is_none_or(|v| v != "0" && v != "false")
                 }
+                // Sizes are in half-points and letter spacing in twentieths of a point.
+                b"sz" if in_run_props => {
+                    look.size = attr(&e, b"val")
+                        .and_then(|v| v.parse::<f64>().ok())
+                        .map(|half| half / 2.0)
+                        .filter(|pt| *pt > 0.0)
+                }
+                b"spacing" if in_run_props => {
+                    look.spacing = attr(&e, b"val")
+                        .and_then(|v| v.parse::<f64>().ok())
+                        .map(|twentieths| twentieths / 20.0)
+                }
                 // `w:u` names a line style; `none` (or `0`) is no line.
                 b"u" if in_run_props => {
                     look.underline = attr(&e, b"val").is_none_or(|v| v != "none" && v != "0")
@@ -203,6 +215,7 @@ fn read_document(xml: &str, has_comments: bool, map: &StyleMap) -> Imported {
             _ => {}
         }
     }
+    crate::keep_unusual_sizes(&mut story);
     report.paragraphs = story.len() as u32;
     report.styles = tally.into_styles();
     Imported { story, report }
@@ -215,6 +228,9 @@ struct Look {
     italic: bool,
     underline: bool,
     strike: bool,
+    /// The size in points, and the letter spacing in points.
+    size: Option<f64>,
+    spacing: Option<f64>,
 }
 
 fn run(text: &str, look: Look) -> Run {
@@ -224,6 +240,10 @@ fn run(text: &str, look: Look) -> Run {
         italic: look.italic,
         underline: look.underline,
         strike: look.strike,
+        size: look.size,
+        tracking: look
+            .spacing
+            .and_then(|pt| crate::tracking_of(pt, look.size.unwrap_or(crate::REFERENCE_SIZE))),
         ..Default::default()
     }
 }

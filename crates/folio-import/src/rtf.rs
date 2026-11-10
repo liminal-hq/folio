@@ -9,7 +9,7 @@
 
 use folio_model::{join_runs, Run, StoryPara};
 
-use crate::{ImportReport, Imported};
+use crate::{keep_unusual_sizes, ImportReport, Imported};
 
 /// Why an RTF file could not be read.
 #[derive(Debug, thiserror::Error)]
@@ -46,6 +46,9 @@ struct State {
     italic: bool,
     underline: bool,
     strike: bool,
+    /// The size in points, and the letter spacing in points.
+    size: Option<f64>,
+    spacing: Option<f64>,
     skip: bool,
     /// Characters a `\uN` escape still has to step over (`\ucN`).
     skip_chars: u32,
@@ -77,6 +80,10 @@ pub fn import_rtf(bytes: &[u8]) -> Result<Imported, RtfError> {
                 italic: state.italic,
                 underline: state.underline,
                 strike: state.strike,
+                size: state.size,
+                tracking: state.spacing.and_then(|pt| {
+                    crate::tracking_of(pt, state.size.unwrap_or(crate::REFERENCE_SIZE))
+                }),
                 ..Default::default()
             };
             *runs = join_runs(runs, &[run]);
@@ -203,6 +210,24 @@ pub fn import_rtf(bytes: &[u8]) -> Result<Imported, RtfError> {
                                 flush_text(&mut pending, &mut runs, &state);
                                 state.strike = param != Some(0);
                             }
+                            // Half-points, and (`\expndtw`) twentieths of a point.
+                            "fs" => {
+                                flush_text(&mut pending, &mut runs, &state);
+                                state.size = param.filter(|n| *n > 0).map(|n| f64::from(n) / 2.0);
+                            }
+                            "expndtw" => {
+                                flush_text(&mut pending, &mut runs, &state);
+                                state.spacing =
+                                    param.filter(|n| *n != 0).map(|n| f64::from(n) / 20.0);
+                            }
+                            "plain" => {
+                                flush_text(&mut pending, &mut runs, &state);
+                                state = State {
+                                    skip: state.skip,
+                                    skip_chars: state.skip_chars,
+                                    ..State::default()
+                                };
+                            }
                             "uc" => uc = param.unwrap_or(1).max(0) as u32,
                             "u" => {
                                 if let Some(n) = param {
@@ -251,6 +276,7 @@ pub fn import_rtf(bytes: &[u8]) -> Result<Imported, RtfError> {
         &mut report,
         "Headings and quotations in a Rich Text file are not told apart; every paragraph came in as body text. Use Word (.docx) or OpenDocument (.odt) to keep them.",
     );
+    keep_unusual_sizes(&mut story);
     report.paragraphs = story.len() as u32;
     Ok(Imported { story, report })
 }
