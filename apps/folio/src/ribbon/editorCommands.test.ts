@@ -681,3 +681,22 @@ describe('Align and Distribute', () => {
 		});
 	});
 });
+
+describe('Book size, Margins and Cover', () => {
+	it('opens the size and margins dialogs from the Pages tab', () => {
+		const state = editorState(input());
+		expect(state.available.has('pageSize')).toBe(true);
+		expect(state.available.has('marginsT')).toBe(true);
+		expect(editorAction('pageSize', undefined, input())).toEqual({ kind: 'bookSize' });
+		expect(editorAction('marginsT', undefined, input())).toEqual({ kind: 'pageMargins' });
+	});
+
+	it('goes to the cover only when the book has one', () => {
+		expect(editorState(input()).available.has('cover')).toBe(false);
+		expect(editorAction('cover', undefined, input())).toBeNull();
+		expect(editorState(input([], { hasCover: true })).available.has('cover')).toBe(true);
+		expect(editorAction('cover', undefined, input([], { hasCover: true }))).toEqual({
+			kind: 'cover',
+		});
+	});
+});

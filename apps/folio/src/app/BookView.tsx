@@ -33,6 +33,8 @@ import { StoryEditorDialog } from '../story/StoryEditorDialog';
 import { rangeIntents } from '../story/rangeEdit';
 import { BookDetailsDialog } from './BookDetailsDialog';
 import { BarcodeDialog } from './BarcodeDialog';
+import { BookSizeDialog } from './BookSizeDialog';
+import { MarginsDialog } from './MarginsDialog';
 import { SpreadTemplatesDialog } from './SpreadTemplatesDialog';
 import { CoverSheetDialog } from './CoverSheetDialog';
 import { JAX_TOGGLE_EVENT } from '../jax/jaxToggle';
@@ -211,6 +213,7 @@ export function BookView({
 				snap,
 				rulers: rulers.on,
 				preview,
+				hasCover: book.spreads[0]?.kind === 'cover',
 				pages: spreadGeometry(book, spread).pages.map((p) => p.trim),
 				jax: settings.jax !== 'off',
 				master: master !== null,
@@ -231,6 +234,7 @@ export function BookView({
 			snap,
 			rulers.on,
 			settings.jax,
+			book.spreads[0]?.kind,
 			book.trim,
 			book.margins,
 			editingCell,
@@ -388,6 +392,8 @@ export function BookView({
 		return () => window.removeEventListener(JAX_TOGGLE_EVENT, toggle);
 	}, []);
 	const [barcodeOpen, setBarcodeOpen] = useState(false);
+	const [bookSizeOpen, setBookSizeOpen] = useState(false);
+	const [marginsOpen, setMarginsOpen] = useState(false);
 	/** The text frame whose words are to continue in the next frame clicked. */
 	const [linking, setLinking] = useState<string | null>(null);
 	/** What the last text import did, or why it could not. */
@@ -621,6 +627,18 @@ export function BookView({
 				break;
 			case 'toolbar':
 				void update({ interface: { toolbar: action.toolbar } } as SettingsPatch);
+				break;
+			case 'bookSize':
+				setBookSizeOpen(true);
+				break;
+			case 'pageMargins':
+				setMarginsOpen(true);
+				break;
+			case 'cover':
+				// The cover is the first spread; a master being edited gives way to it.
+				setEditing(null);
+				setSpreadIndex(0);
+				select([]);
 				break;
 			case 'jax':
 				setJaxOpen((open) => !open);
@@ -1062,6 +1080,20 @@ export function BookView({
 				open={barcodeOpen}
 				onClose={() => setBarcodeOpen(false)}
 				book={book}
+				apply={apply}
+			/>
+			<BookSizeDialog
+				open={bookSizeOpen}
+				onClose={() => setBookSizeOpen(false)}
+				book={book}
+				units={settings.units}
+				apply={apply}
+			/>
+			<MarginsDialog
+				open={marginsOpen}
+				onClose={() => setMarginsOpen(false)}
+				book={book}
+				units={settings.units}
 				apply={apply}
 			/>
 			<CoverSheetDialog

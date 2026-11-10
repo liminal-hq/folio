@@ -52,6 +52,8 @@ export interface EditorInput {
 	selection?: TextSelection | null;
 	/** The trimmed pages of `spread`, which a lone frame aligns with. */
 	pages?: PlainRect[];
+	/** Whether the book has a cover spread to go to. */
+	hasCover?: boolean;
 	/** Whether Jax is switched on, which is what Ask Jax needs. */
 	jax?: boolean;
 }
@@ -94,7 +96,10 @@ export type EditorAction =
 	| { kind: 'pageBackground' }
 	| { kind: 'rulerUnit'; unit: RulerUnit }
 	| { kind: 'toolbar'; toolbar: 'ribbon' | 'classic' }
-	| { kind: 'jax' };
+	| { kind: 'jax' }
+	| { kind: 'bookSize' }
+	| { kind: 'pageMargins' }
+	| { kind: 'cover' };
 
 const ALIGNS: Record<string, 'left' | 'center' | 'right' | 'justify'> = {
 	alignL: 'left',
@@ -182,7 +187,10 @@ export function editorState(input: EditorInput): EditorState {
 		'baseline',
 		'columns',
 		'toolbarLayout',
+		'pageSize',
+		'marginsT',
 	]);
+	if (input.hasCover) available.add('cover');
 	if (input.jax) available.add('askJax');
 	const active: Record<string, boolean> = {
 		margins: marks.margins,
@@ -351,6 +359,12 @@ export function editorAction(
 		}
 		case 'toolbarLayout':
 			return value === 'ribbon' || value === 'classic' ? { kind: 'toolbar', toolbar: value } : null;
+		case 'pageSize':
+			return { kind: 'bookSize' };
+		case 'marginsT':
+			return { kind: 'pageMargins' };
+		case 'cover':
+			return input.hasCover ? { kind: 'cover' } : null;
 		case 'askJax':
 			return { kind: 'jax' };
 		case 'baseline':

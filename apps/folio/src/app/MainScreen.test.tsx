@@ -279,6 +279,23 @@ describe('a book in the main window', () => {
 		}
 	});
 
+	it('opens the Book size and Margins dialogs and goes to the cover from the Pages tab', async () => {
+		setup();
+		await startBook();
+		await userEvent.click(within(ribbonTabs()).getByRole('tab', { name: 'Pages' }));
+		const shelf = within(screen.getByRole('list', { name: 'Spreads' })).getAllByRole('button');
+		await userEvent.click(shelf[1]!);
+		expect(shelf[1]).toHaveAttribute('aria-current', 'true');
+		const book = screen.getByRole('group', { name: 'Book' });
+		await userEvent.click(within(book).getByRole('button', { name: 'Cover' }));
+		expect(shelf[0]).toHaveAttribute('aria-current', 'true');
+		await userEvent.click(within(book).getByRole('button', { name: 'Book size' }));
+		const size = await screen.findByRole('dialog', { name: 'Book size' });
+		await userEvent.click(within(size).getByRole('button', { name: 'Cancel' }));
+		await userEvent.click(within(book).getByRole('button', { name: 'Margins' }));
+		expect(await screen.findByRole('dialog', { name: 'Margins' })).toBeInTheDocument();
+	});
+
 	it('saves with Ctrl+S, asking where the first time', async () => {
 		setup({ save: '/books/Pip/Pip' });
 		await startBook();
