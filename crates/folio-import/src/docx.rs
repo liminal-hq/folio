@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 // A paragraph's `Heading 1` becomes a chapter title, other headings subheadings, quotation styles
-// the epigraph style and list items a paragraph that starts with a dash; bold and italic runs keep
+// the epigraph style and list items a paragraph that starts with a dash; bold, italic, underlined and struck-through runs keep
 // their emphasis. Tracked insertions are accepted and deletions dropped. Pictures, tables,
 // footnotes and comments are left out, and the report says so.
 
@@ -85,8 +85,8 @@ fn read_document(xml: &str, has_comments: bool, map: &StyleMap) -> Imported {
     }
     let mut story: Vec<StoryPara> = Vec::new();
     let mut para: Option<Paragraph> = None;
-    let (mut bold, mut italic, mut in_text, mut deleted, mut in_run_props) =
-        (false, false, false, 0u32, false);
+    let (mut look, mut in_text, mut deleted, mut in_run_props) =
+        (Look::default(), false, 0u32, false);
     let mut skipping = 0u32;
     let mut in_table = 0u32;
     loop {
@@ -145,8 +145,7 @@ fn read_document(xml: &str, has_comments: bool, map: &StyleMap) -> Imported {
                 b"pStyle" => {}
                 b"rPr" => in_run_props = true,
                 b"r" => {
-                    bold = false;
-                    italic = false;
+                    look = Look::default();
                 }
                 b"t" => in_text = true,
                 b"del" => deleted += 1,
@@ -165,21 +164,28 @@ fn read_document(xml: &str, has_comments: bool, map: &StyleMap) -> Imported {
                     }
                 }
                 b"b" if in_run_props => {
-                    bold = attr(&e, b"val").is_none_or(|v| v != "0" && v != "false")
+                    look.bold = attr(&e, b"val").is_none_or(|v| v != "0" && v != "false")
                 }
                 b"i" if in_run_props => {
-                    italic = attr(&e, b"val").is_none_or(|v| v != "0" && v != "false")
+                    look.italic = attr(&e, b"val").is_none_or(|v| v != "0" && v != "false")
+                }
+                // `w:u` names a line style; `none` (or `0`) is no line.
+                b"u" if in_run_props => {
+                    look.underline = attr(&e, b"val").is_none_or(|v| v != "none" && v != "0")
+                }
+                b"strike" | b"dstrike" if in_run_props => {
+                    look.strike = attr(&e, b"val").is_none_or(|v| v != "0" && v != "false")
                 }
                 b"tab" | b"br" if in_table == 0 && deleted == 0 => {
                     if let Some(p) = para.as_mut() {
-                        p.runs = join_runs(&p.runs, &[run(" ", bold, italic)]);
+                        p.runs = join_runs(&p.runs, &[run(" ", look)]);
                     }
                 }
                 _ => {}
             },
             Event::Text(t) if in_text && deleted == 0 && in_table == 0 => {
                 if let (Some(p), Ok(text)) = (para.as_mut(), t.unescape()) {
-                    p.runs = join_runs(&p.runs, &[run(&text, bold, italic)]);
+                    p.runs = join_runs(&p.runs, &[run(&text, look)]);
                 }
             }
             Event::End(e) => match e.local_name().as_ref() {
@@ -202,14 +208,23 @@ fn read_document(xml: &str, has_comments: bool, map: &StyleMap) -> Imported {
     Imported { story, report }
 }
 
-fn run(text: &str, bold: bool, italic: bool) -> Run {
+/// The look of the run being read.
+#[derive(Clone, Copy, Default)]
+struct Look {
+    bold: bool,
+    italic: bool,
+    underline: bool,
+    strike: bool,
+}
+
+fn run(text: &str, look: Look) -> Run {
     Run {
         text: text.to_owned(),
-        style: None,
-        bold,
-        italic,
-        font: None,
-        colour: None,
+        bold: look.bold,
+        italic: look.italic,
+        underline: look.underline,
+        strike: look.strike,
+        ..Default::default()
     }
 }
 
@@ -229,7 +244,7 @@ fn finish(
     let style = tally.see(name, para.style, map, words.trim());
     let mut runs = para.runs;
     if para.list {
-        runs.insert(0, run("\u{2013} ", false, false));
+        runs.insert(0, run("\u{2013} ", Look::default()));
         note(
             report,
             "List items became paragraphs that start with a dash.",

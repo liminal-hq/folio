@@ -5,7 +5,7 @@
 
 // Headings (`text:h`) become chapter titles and subheadings by their outline level, quotation
 // paragraph styles the epigraph style and list items a paragraph that starts with a dash. Spans
-// are bold or italic as their automatic style says. Tables, pictures, notes, comments and the
+// are bold, italic, underlined or struck through as their automatic style says. Tables, pictures, notes, comments and the
 // list of tracked changes are left out, and the report says so.
 
 use std::collections::BTreeMap;
@@ -35,16 +35,18 @@ fn attr(e: &BytesStart, name: &[u8]) -> Option<String> {
 struct Look {
     bold: bool,
     italic: bool,
+    underline: bool,
+    strike: bool,
 }
 
 fn run(text: &str, look: Look) -> Run {
     Run {
         text: text.to_owned(),
-        style: None,
         bold: look.bold,
         italic: look.italic,
-        font: None,
-        colour: None,
+        underline: look.underline,
+        strike: look.strike,
+        ..Default::default()
     }
 }
 
@@ -152,6 +154,8 @@ fn read_content(xml: &str, map: &StyleMap) -> Imported {
                         spans.push(Look {
                             bold: outer.bold || look.bold,
                             italic: outer.italic || look.italic,
+                            underline: outer.underline || look.underline,
+                            strike: outer.strike || look.strike,
                         });
                     }
                     _ => {}
@@ -162,11 +166,15 @@ fn read_content(xml: &str, map: &StyleMap) -> Imported {
                     if let Some(name) = &defining {
                         let weight = attr(&e, b"font-weight");
                         let slant = attr(&e, b"font-style");
+                        // A line style other than `none` draws the line.
+                        let line = |name: &[u8]| attr(&e, name).is_some_and(|v| v != "none");
                         looks.insert(
                             name.clone(),
                             Look {
                                 bold: weight.as_deref() == Some("bold"),
                                 italic: slant.as_deref() == Some("italic"),
+                                underline: line(b"text-underline-style"),
+                                strike: line(b"text-line-through-style"),
                             },
                         );
                     }

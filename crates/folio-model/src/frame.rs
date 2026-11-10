@@ -121,7 +121,7 @@ impl InlineContent {
     }
 }
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Run {
     pub text: String,
@@ -137,6 +137,16 @@ pub struct Run {
     /// A colour for these words alone, over the style's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub colour: Option<Colour>,
+    /// A line under these words.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub underline: bool,
+    /// A line through these words.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub strike: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]

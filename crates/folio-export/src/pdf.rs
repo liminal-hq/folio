@@ -824,6 +824,20 @@ impl<'a> Drawing<'a> {
             size,
             false,
         );
+        // Lines under and through the words are drawn as thin rectangles in the words' colour.
+        for rule in [&run.underline, &run.strike].into_iter().flatten() {
+            let (x, y) = (
+                line_x + run.x,
+                baseline + rule.offset - rule.thickness / 2.0,
+            );
+            if let Some(rect) =
+                KRect::from_xywh(x as f32, y as f32, rule.width as f32, rule.thickness as f32)
+            {
+                let mut pb = PathBuilder::new();
+                pb.push_rect(rect);
+                self.paint_path(surface, pb, Some(self.fill_of(&ink, 1.0)), None);
+            }
+        }
     }
 
     fn font(&mut self, key: &str, weight: u16, size_pt: f64) -> Option<Font> {

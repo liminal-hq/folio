@@ -279,6 +279,8 @@ struct Word {
     italic: bool,
     tracking: f64,
     colour: Option<Colour>,
+    underline: bool,
+    strike: bool,
 }
 
 impl Word {
@@ -290,13 +292,21 @@ impl Word {
             && self.italic == other.italic
             && self.tracking == other.tracking
             && self.colour == other.colour
+            && self.underline == other.underline
+            && self.strike == other.strike
     }
 }
 
 /// The CSS for words set as `word` is.
 fn word_style(word: &Word) -> String {
+    let decoration = match (word.underline, word.strike) {
+        (true, true) => ";text-decoration:underline line-through",
+        (true, false) => ";text-decoration:underline",
+        (false, true) => ";text-decoration:line-through",
+        (false, false) => "",
+    };
     format!(
-        "white-space:pre;font-family:'{}';font-size:{}px;font-weight:{};font-style:{};letter-spacing:{}em;color:{}",
+        "white-space:pre;font-family:'{}';font-size:{}px;font-weight:{};font-style:{};letter-spacing:{}em;color:{}{decoration}",
         esc(&word.family),
         px(word.size),
         word.weight,
@@ -325,7 +335,9 @@ fn words_of(runs: &[folio_layout::wire::LayoutRun]) -> Vec<Word> {
                 && last.weight == run.weight
                 && last.italic == run.italic
                 && last.tracking == run.tracking
-                && last.colour == run.colour;
+                && last.colour == run.colour
+                && last.underline == run.underline.is_some()
+                && last.strike == run.strike.is_some();
             if alike && (run.x - last.end).abs() < 0.01 {
                 last.text.push_str(&text);
                 last.end = run.x + run.width;
@@ -342,6 +354,8 @@ fn words_of(runs: &[folio_layout::wire::LayoutRun]) -> Vec<Word> {
             italic: run.italic,
             tracking: run.tracking,
             colour: run.colour.clone(),
+            underline: run.underline.is_some(),
+            strike: run.strike.is_some(),
         });
     }
     words
@@ -655,6 +669,8 @@ mod tests {
             italic: false,
             tracking: 0.0,
             colour: None,
+            underline: None,
+            strike: None,
             hyphen: false,
             miss: Vec::new(),
             start: 0,

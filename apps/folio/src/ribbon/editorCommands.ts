@@ -20,7 +20,7 @@ import {
 	distributeMoves,
 } from '../canvas/arrange';
 import type { PlainRect } from '../canvas/geometry';
-import type { TextCaret, TextSelection } from '../canvas/textSelection';
+import type { PendingLook, TextCaret, TextSelection } from '../canvas/textSelection';
 import type { Marks } from '../canvas/marksModel';
 import { surfaceOf } from '../canvas/masterView';
 import type { NewFrameKind } from '../canvas/newFrames';
@@ -66,7 +66,7 @@ export interface EditorInput {
 	jax?: boolean;
 	/** The caret in the open editor when nothing is selected, and the look already set at it. */
 	caret?: TextCaret | null;
-	pending?: { bold?: boolean; italic?: boolean; font?: string; colour?: string } | null;
+	pending?: PendingLook | null;
 	/** The paragraphs the open editor's caret or selection is in: the Paragraph group acts on those. */
 	paragraphs?: TextParagraphs | null;
 	/** The book's stories, for the looks of the paragraphs of a frame that flows. */
@@ -110,7 +110,7 @@ export type EditorAction =
 	| {
 			kind: 'pending';
 			frame: string;
-			change: { bold?: boolean; italic?: boolean; font?: string; colour?: string };
+			change: PendingLook;
 			/** An installed font the book must keep with it, for a font chosen at the caret. */
 			keep?: string | null;
 	  }
@@ -278,7 +278,12 @@ export function editorState(input: EditorInput): EditorState {
 	if (cuttable(selected).length > 0) available.add('cut');
 	const words = texts(selected);
 	if (words.length > 0) {
-		for (const id of ['bold', 'italic', ...Object.keys(ALIGNS), 'size']) available.add(id);
+		for (const id of ['bold', 'italic', 'underline', 'strike', ...Object.keys(ALIGNS), 'size'])
+			available.add(id);
+		// Underline and strike are on the words themselves, not the frame's style.
+		const runs = words.flatMap((f) => (f.content?.inline ?? []).filter((r) => r.text !== ''));
+		active.underline = runs.length > 0 && runs.every((r) => r.underline === true);
+		active.strike = runs.length > 0 && runs.every((r) => r.strike === true);
 		const first = words[0]!;
 		active.bold = first.overrides?.bold === true;
 		active.italic = first.overrides?.italic === true;
@@ -297,11 +302,13 @@ export function editorState(input: EditorInput): EditorState {
 	// when every character is, a font only when they share one.
 	const scope = lookScope(input);
 	if (scope) {
-		for (const id of ['bold', 'italic', 'font', 'colour']) available.add(id);
+		for (const id of ['bold', 'italic', 'underline', 'strike', 'font', 'colour']) available.add(id);
 		const look = lookOf(scope);
 		const typed = scope.collapsed ? input.pending : null;
 		active.bold = typed?.bold ?? look.bold;
 		active.italic = typed?.italic ?? look.italic;
+		active.underline = typed?.underline ?? look.underline;
+		active.strike = typed?.strike ?? look.strike;
 		shown.font = typed?.font ?? look.font ?? '';
 	}
 	const options: Record<string, ReadonlyArray<readonly [string, string, string?]>> = {};
@@ -545,6 +552,37 @@ export function editorAction(
 				intents: selected
 					.filter((f) => f.locked !== lock)
 					.map((f) => ({ type: 'LockFrame', ...on, frame: f.id, locked: lock })),
+			};
+		}
+		case 'underline':
+		case 'strike': {
+			const scope = lookScope(input);
+			if (scope?.collapsed) {
+				const now = input.pending?.[id] ?? runBeforeCaret(scope)?.[id] ?? false;
+				return { kind: 'pending', frame: scope.frame.id, change: { [id]: !now } };
+			}
+			if (scope) {
+				return {
+					kind: 'intents',
+					intents: [styleIntent(scope, { [id]: !lookOf(scope)[id] })],
+				};
+			}
+			// With no words selected in an editor, the line goes on (or off) all of the frames' words.
+			const frames = texts(selected);
+			const all = frames.every((f) =>
+				(f.content?.inline ?? []).every((r) => r.text === '' || r[id] === true),
+			);
+			return {
+				kind: 'intents',
+				intents: frames
+					.map((f) => ({
+						type: 'StyleRange' as const,
+						frame: f.id,
+						start: 0,
+						end: [...(f.content?.inline ?? []).map((r) => r.text).join('')].length,
+						change: { [id]: !all },
+					}))
+					.filter((r) => r.end > r.start),
 			};
 		}
 		case 'bold':

@@ -5,7 +5,7 @@
 
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { commandForKey, useBookKeys } from './useBookKeys';
+import { commandForKey, styleForKey, useBookKeys } from './useBookKeys';
 
 const key = (k: string, extra: Partial<Parameters<typeof commandForKey>[0]> = {}) =>
 	commandForKey({
@@ -87,5 +87,32 @@ describe('useBookKeys and find', () => {
 			field.remove();
 		}
 		expect(run).not.toHaveBeenCalled();
+	});
+});
+
+describe('styleForKey', () => {
+	const style = (k: string, extra = {}) =>
+		styleForKey({
+			key: k,
+			ctrlKey: true,
+			metaKey: false,
+			shiftKey: false,
+			altKey: false,
+			...extra,
+		});
+
+	it('maps Ctrl+B, Ctrl+I and Ctrl+U to the ribbon controls', () => {
+		expect(style('b')).toBe('bold');
+		expect(style('I')).toBe('italic');
+		expect(style('u')).toBe('underline');
+		expect(style('u', { ctrlKey: false, metaKey: true })).toBe('underline');
+	});
+
+	it('leaves other keys and modified ones alone', () => {
+		expect(style('u', { ctrlKey: false })).toBeNull();
+		expect(style('u', { shiftKey: true })).toBeNull();
+		expect(style('u', { altKey: true })).toBeNull();
+		expect(style('s')).toBeNull();
+		expect(style('constructor')).toBeNull();
 	});
 });

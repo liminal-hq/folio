@@ -126,3 +126,25 @@ fn the_styles_found_are_listed_and_a_choice_changes_what_a_style_becomes() {
     assert_eq!(styles, vec![None, Some("epigraph"), None, None]);
     assert_eq!(second.report.headings, 0);
 }
+
+#[test]
+fn underlined_and_struck_through_runs_come_across() {
+    let body = r#"
+        <w:p>
+          <w:r><w:rPr><w:u w:val="single"/></w:rPr><w:t xml:space="preserve">under </w:t></w:r>
+          <w:r><w:rPr><w:strike/></w:rPr><w:t xml:space="preserve">struck </w:t></w:r>
+          <w:r><w:rPr><w:u w:val="none"/><w:dstrike w:val="false"/></w:rPr><w:t>plain</w:t></w:r>
+        </w:p>
+    "#;
+    let story = import_docx(&docx(body, false)).unwrap().story;
+    let runs = &story[0].inline;
+    assert!(runs
+        .iter()
+        .any(|r| r.underline && !r.strike && r.text == "under "));
+    assert!(runs
+        .iter()
+        .any(|r| r.strike && !r.underline && r.text == "struck "));
+    assert!(runs
+        .iter()
+        .any(|r| !r.strike && !r.underline && r.text == "plain"));
+}

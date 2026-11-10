@@ -45,6 +45,7 @@ fn lay(text: &str, looks: Vec<ParaLook>) -> FrameLayout {
                 italic: false,
                 font: None,
                 colour: None,
+                ..Default::default()
             }],
             looks: Some(looks),
         }),

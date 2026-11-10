@@ -371,3 +371,38 @@ fn a_textured_page_is_tiled_with_one_shared_picture() {
     // Twelve-point tiles across a page are drawn many times but stored once (plus its mask).
     assert!((1..=2).contains(&images), "{images}");
 }
+
+#[test]
+fn underlined_and_struck_words_are_drawn_with_lines() {
+    fn fills(bytes: &[u8]) -> usize {
+        let doc = Document::load_mem(bytes).unwrap();
+        doc.get_pages()
+            .values()
+            .map(|&page| {
+                doc.get_and_decode_page_content(page)
+                    .unwrap()
+                    .operations
+                    .iter()
+                    .filter(|op| matches!(op.operator.as_str(), "re" | "f" | "f*"))
+                    .count()
+            })
+            .sum()
+    }
+    let (mut book, styles) = sample(BookKind::Picture);
+    let fonts = FontBook::bundled();
+    let options = PdfOptions {
+        target: PdfTarget::Sharing,
+        ink: None,
+        crop_marks: false,
+    };
+    let before = fills(&export_pdf(&book, &styles, &fonts, &NoAssets, &options).unwrap());
+    for frame in book.spreads.iter_mut().flat_map(|s| s.frames.iter_mut()) {
+        if let folio_model::Frame::Text(t) = frame {
+            for run in t.content.iter_mut().flat_map(|c| c.inline.iter_mut()) {
+                run.underline = true;
+            }
+        }
+    }
+    let after = fills(&export_pdf(&book, &styles, &fonts, &NoAssets, &options).unwrap());
+    assert!(after > before, "{before} fills became {after}");
+}

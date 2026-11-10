@@ -18,13 +18,13 @@ use crate::flow::{
     flow_cached, flow_extent, FlowOptions, Flowed, FrameBox, ParagraphCache, PlacedLine,
     StoryParagraph,
 };
-use crate::fonts::{FontBook, FontRequest};
+use crate::fonts::{FontBook, FontRequest, Rule};
 use crate::paragraph::{Span, Wrap};
 use crate::preflight::{asset_checks, geometry_checks};
 use crate::styles::{ResolvedStyle, StyleSheet};
 use crate::wire::{
     FrameLayout, LayoutLine, LayoutRect, LayoutRun, Origin, PreflightItem, PreflightKind,
-    SceneGlyph, SpreadLayout,
+    SceneGlyph, SpreadLayout, Stroke,
 };
 
 /// Finds the misspelt words of some text, as ranges of its bytes.
@@ -670,6 +670,8 @@ impl<'a> Layouter<'a> {
             if let Some(colour) = &run.colour {
                 text_style.colour = Some(colour.clone());
             }
+            text_style.underline |= run.underline;
+            text_style.strike |= run.strike;
             // A character the run's font lacks is set in one that has it.
             let span = Span::new(&run.text, text_style);
             let pieces = match self.paragraphs {
@@ -956,7 +958,10 @@ impl<'a> Layouter<'a> {
                             ),
                             Err(_) => (s.style.family.clone(), s.style.weight, s.style.italic),
                         };
+                        let rules = found.as_ref().ok().map(|r| r.font.metrics(s.style.size_pt));
                         RunStyle {
+                            underline: rules.filter(|_| s.style.underline).map(|m| m.underline),
+                            strike: rules.filter(|_| s.style.strike).map(|m| m.strike),
                             family,
                             size: s.style.size_pt,
                             weight,
@@ -1047,6 +1052,8 @@ struct RunStyle {
     italic: bool,
     tracking: f64,
     colour: Option<Colour>,
+    underline: Option<Rule>,
+    strike: Option<Rule>,
     face_key: String,
 }
 
@@ -1059,6 +1066,7 @@ fn break_run() -> folio_model::Run {
         italic: false,
         font: None,
         colour: None,
+        ..Default::default()
     }
 }
 
@@ -1192,6 +1200,10 @@ fn line_spans(lines: &[PlacedLine], info: &StoryInfo) -> Vec<LineSpan> {
         .collect()
 }
 
+fn round2(value: f64) -> f64 {
+    (value * 100.0).round() / 100.0
+}
+
 fn wire_line(placed: &PlacedLine, info: &StoryInfo, span: &LineSpan) -> LayoutLine {
     let marks = run_marks(placed, info);
     let runs = placed
@@ -1199,7 +1211,32 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo, span: &LineSpan) -> LayoutLi
         .runs
         .iter()
         .zip(marks)
-        .map(|(r, miss)| {
+        .enumerate()
+        .map(|(i, (r, miss))| {
+            // A line runs on over the space to the next run when that is set the same way.
+            let style_of = |at: usize| {
+                let run = placed.line.runs.get(at)?;
+                info.styles.get(placed.paragraph)?.get(run.span)
+            };
+            let stroke_of = |pick: fn(&RunStyle) -> Option<Rule>| {
+                let rule = pick(style_of(i)?)?;
+                let next = placed.line.runs.get(i + 1);
+                let joins = next.is_some_and(|n| {
+                    !r.hyphen
+                        && style_of(i + 1).and_then(pick).is_some_and(|m| m == rule)
+                        && n.x >= r.x + r.width
+                });
+                let end = match next {
+                    Some(n) if joins => n.x,
+                    _ => r.x + r.width,
+                };
+                Some(Stroke {
+                    offset: round2(rule.offset),
+                    thickness: round2(rule.thickness),
+                    width: round2(end - r.x),
+                })
+            };
+            let (underline, strike) = (stroke_of(|s| s.underline), stroke_of(|s| s.strike));
             let s = info
                 .styles
                 .get(placed.paragraph)
@@ -1212,6 +1249,8 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo, span: &LineSpan) -> LayoutLi
                     italic: false,
                     tracking: 0.0,
                     colour: None,
+                    underline: None,
+                    strike: None,
                     face_key: String::new(),
                 });
             let start = info.texts.get(placed.paragraph).map_or(0, |_| {
@@ -1227,6 +1266,8 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo, span: &LineSpan) -> LayoutLi
                 italic: s.italic,
                 tracking: s.tracking,
                 colour: s.colour,
+                underline,
+                strike,
                 hyphen: r.hyphen,
                 miss,
                 start,

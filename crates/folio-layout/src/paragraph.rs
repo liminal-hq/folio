@@ -30,6 +30,10 @@ pub struct TextStyle {
     pub line_height: f64,
     /// The colour the words are drawn in; `None` is the ink the page uses.
     pub colour: Option<Colour>,
+    /// A line under the words.
+    pub underline: bool,
+    /// A line through the words.
+    pub strike: bool,
 }
 
 impl TextStyle {
@@ -43,6 +47,8 @@ impl TextStyle {
             features: Vec::new(),
             line_height: 1.3,
             colour: None,
+            underline: false,
+            strike: false,
         }
     }
 }

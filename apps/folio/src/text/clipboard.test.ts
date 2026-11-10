@@ -59,3 +59,12 @@ describe('formats', () => {
 		expect(paragraphRuns(null)).toEqual([[]]);
 	});
 });
+
+describe('underline and strike', () => {
+	it('are written as <u> and <s> for other programs', () => {
+		const html = toHtml([
+			{ style: null, inline: [run('a', { underline: true, strike: true }), run('b')] },
+		]);
+		expect(html).toBe('<p><u><s>a</s></u>b</p>');
+	});
+});

@@ -884,6 +884,7 @@ fn words(text: &str) -> InlineContent {
             italic: false,
             font: None,
             colour: None,
+            ..Default::default()
         }],
         looks: None,
     }

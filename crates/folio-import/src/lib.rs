@@ -93,6 +93,7 @@ impl Reader {
             italic: self.italic > 0,
             font: None,
             colour: None,
+            ..Default::default()
         };
         self.current = join_runs(&self.current, &[run]);
     }
@@ -252,6 +253,7 @@ pub fn import_markdown_with(text: &str, smart: Option<QuoteStyle>) -> Imported {
                         italic: false,
                         font: None,
                         colour: None,
+                        ..Default::default()
                     }],
                     look: None,
                 });

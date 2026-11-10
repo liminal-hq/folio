@@ -2713,6 +2713,7 @@ fn edit_table(table: &mut TableFrame, edit: &TableEdit) {
                         italic: false,
                         font: None,
                         colour: None,
+                        ..Default::default()
                     }],
                     looks: None,
                 });

@@ -128,3 +128,31 @@ describe('squiggle', () => {
 		expect(squiggle(0, 4, 2, 1.5)).toBe('M0 2L3 0.5L4 3.5');
 	});
 });
+
+describe('underlined and struck words on the canvas', () => {
+	it('draws a rule of the length and thickness layout sent, in the words colour', () => {
+		const lined = {
+			...run('line', 0),
+			colour: '#a23b2a',
+			underline: { offset: 1.5, thickness: 0.6, width: 30 },
+			strike: { offset: -3.5, thickness: 0.5, width: 24 },
+		};
+		const withRules = {
+			...layout,
+			frames: [
+				{
+					...layout.frames[0]!,
+					lines: [{ ...layout.frames[0]!.lines[0]!, runs: [lined, run('A', 40)] }],
+				},
+			],
+		} as unknown as SpreadLayout;
+		render(<SpreadCanvas book={book} spread={spread} layout={withRules} zoom={1} label="Page" />);
+		const under = document.querySelector('[data-rule="underline"]')!;
+		expect(under.getAttribute('width')).toBe('30');
+		expect(under.getAttribute('y')).toBe('1.2');
+		expect(under.getAttribute('fill')).toBe('#a23b2a');
+		const strike = document.querySelector('[data-rule="strike"]')!;
+		expect(strike.getAttribute('y')).toBe('-3.75');
+		expect(document.querySelectorAll('[data-rule]')).toHaveLength(2);
+	});
+});

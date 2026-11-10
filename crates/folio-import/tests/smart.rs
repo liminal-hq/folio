@@ -18,6 +18,7 @@ fn run(text: &str, bold: bool) -> Run {
         italic: false,
         font: None,
         colour: None,
+        ..Default::default()
     }
 }
 

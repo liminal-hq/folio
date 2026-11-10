@@ -46,6 +46,7 @@ fn lay_proofed(style: &str, width: f64, text: &str, proofer: Option<&Proofer>) -
                 italic: false,
                 font: None,
                 colour: None,
+                ..Default::default()
             }],
             looks: None,
         }),

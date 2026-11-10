@@ -151,6 +151,20 @@ function Lines({
 							>
 								{run.text}
 							</text>
+							{[run.underline, run.strike].map(
+								(rule, n) =>
+									rule && (
+										<rect
+											key={n === 0 ? 'underline' : 'strike'}
+											data-rule={n === 0 ? 'underline' : 'strike'}
+											x={run.x}
+											y={rule.offset - rule.thickness / 2}
+											width={rule.width}
+											height={rule.thickness}
+											fill={run.colour ?? INK}
+										/>
+									),
+							)}
 							{run.miss?.map(([from, to]) => {
 								// The marked part of a word, along the word as it is drawn.
 								// `from` and `to` count code points, and `stops` has a boundary for each.

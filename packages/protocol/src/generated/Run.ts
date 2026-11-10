@@ -10,4 +10,12 @@ font?: string | null,
 /**
  * A colour for these words alone, over the style's.
  */
-colour?: Colour | null, };
+colour?: Colour | null, 
+/**
+ * A line under these words.
+ */
+underline?: boolean, 
+/**
+ * A line through these words.
+ */
+strike?: boolean, };

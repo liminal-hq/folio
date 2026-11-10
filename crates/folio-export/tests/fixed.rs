@@ -221,3 +221,25 @@ fn the_cover_picture_is_the_size_a_store_asks_for() {
         .unwrap();
     assert_eq!((w, h), (1600, 2560));
 }
+
+#[test]
+fn underlined_and_struck_words_are_set_with_text_decoration() {
+    let (mut book, _) = sample(BookKind::Picture);
+    for frame in book.spreads.iter_mut().flat_map(|s| s.frames.iter_mut()) {
+        if let folio_model::Frame::Text(t) = frame {
+            for run in t.content.iter_mut().flat_map(|c| c.inline.iter_mut()) {
+                run.underline = true;
+                run.strike = true;
+            }
+        }
+    }
+    let styles = StyleSheet::from_styles(&book.styles);
+    let bytes = export_fixed_epub(&book, &styles, &FontBook::bundled(), &NoAssets).unwrap();
+    let (mut zip, names) = open(&bytes);
+    let pages: String = names
+        .iter()
+        .filter(|n| n.contains("/text/page-"))
+        .map(|n| read(&mut zip, n))
+        .collect();
+    assert!(pages.contains("text-decoration:underline line-through"));
+}

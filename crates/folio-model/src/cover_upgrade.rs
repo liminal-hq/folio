@@ -41,6 +41,7 @@ pub fn words_frame(id: &str, rect: Rect, rotation: f64, text: &str) -> Frame {
                 italic: false,
                 font: None,
                 colour: None,
+                ..Default::default()
             }],
             looks: None,
         }),

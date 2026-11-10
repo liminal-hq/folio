@@ -324,6 +324,12 @@ impl Writer {
             if let Some(colour) = &run.colour {
                 text = format!("<span style=\"color:{}\">{text}</span>", escape(&colour.0));
             }
+            if run.strike {
+                text = format!("<s>{text}</s>");
+            }
+            if run.underline {
+                text = format!("<u>{text}</u>");
+            }
             if run.italic {
                 text = format!("<em>{text}</em>");
             }

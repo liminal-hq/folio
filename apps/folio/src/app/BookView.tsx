@@ -63,6 +63,7 @@ import rowStyles from '../jax/shelfSlot.module.css';
 import { SoftProofDialog } from './SoftProofDialog';
 import { EXPORT_EVENT } from './exportRequest';
 import { FindBar } from '../find/FindBar';
+import { styleForKey } from './useBookKeys';
 import { FIND_EVENT } from '../find/findRequest';
 import { onShown } from '../find/matches';
 import { useFind } from '../find/useFind';
@@ -313,6 +314,25 @@ export function BookView({
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
 	}, [rulers.on, update]);
+
+	// Ctrl+B, Ctrl+I and Ctrl+U in the on-page editor style the selected words (or the next ones typed
+	// at a caret), as the ribbon's buttons do. Only the editor's own input is listened to.
+	const styleKey = useRef<(id: string) => void>(() => undefined);
+	styleKey.current = (name) => {
+		if (settings.mode === 'expert') onEditorCommand({ id: name });
+	};
+	useEffect(() => {
+		const onKey = (event: KeyboardEvent) => {
+			const name = styleForKey(event);
+			if (!name) return;
+			if (!(event.target instanceof HTMLElement) || !event.target.closest('[data-text-sink]'))
+				return;
+			event.preventDefault();
+			styleKey.current(name);
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	}, []);
 
 	// A master that is gone (undone, or removed with the page numbers) ends the editing of it.
 	useEffect(() => {

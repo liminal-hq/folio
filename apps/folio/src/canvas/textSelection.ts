@@ -100,6 +100,8 @@ let pending: { frame: string; change: PendingLook } | null = null;
 export interface PendingLook {
 	bold?: boolean;
 	italic?: boolean;
+	underline?: boolean;
+	strike?: boolean;
 	font?: string;
 	colour?: string;
 }

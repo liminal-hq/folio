@@ -129,20 +129,25 @@ export function runBeforeCaret(scope: LookScope): Run | undefined {
 export interface ScopeLook {
 	bold: boolean;
 	italic: boolean;
+	underline: boolean;
+	strike: boolean;
 	/** The one typeface they share ('' when it is the style's), or `null` when they differ. */
 	font: string | null;
 }
 
-/** The look of the selected words, bold only when every character is bold, and the font when they share one. */
+/** The look of the selected words: bold, italic, underline and strike only when every character has them, and the font when they share one. */
 export function lookOf(scope: LookScope): ScopeLook {
 	const runs = scope.collapsed
 		? [runBeforeCaret(scope)].filter((r): r is Run => !!r)
 		: runsOver(scope);
-	if (runs.length === 0) return { bold: false, italic: false, font: '' };
+	if (runs.length === 0)
+		return { bold: false, italic: false, underline: false, strike: false, font: '' };
 	const fonts = new Set(runs.map((r) => r.font ?? ''));
 	return {
 		bold: runs.every((r) => r.bold),
 		italic: runs.every((r) => r.italic),
+		underline: runs.every((r) => r.underline === true),
+		strike: runs.every((r) => r.strike === true),
 		font: fonts.size === 1 ? [...fonts][0]! : null,
 	};
 }

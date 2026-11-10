@@ -64,6 +64,7 @@ fn text_frame(id: &str, style: &str, x: f64, y: f64, w: f64, h: f64, text: &str)
                 italic: false,
                 font: None,
                 colour: None,
+                ..Default::default()
             }],
             looks: None,
         }),
@@ -629,6 +630,7 @@ fn shape_frame(id: &str, shape: folio_model::Shape, w: f64, h: f64, text: Option
                 italic: false,
                 font: None,
                 colour: None,
+                ..Default::default()
             }],
             looks: None,
         }),
@@ -926,6 +928,7 @@ fn table_frame(id: &str, w: f64, h: f64, words: &[&[&str]]) -> Frame {
                     italic: false,
                     font: None,
                     colour: None,
+                    ..Default::default()
                 }],
                 looks: None,
             });
@@ -1366,6 +1369,7 @@ fn a_run_can_have_its_own_typeface_and_colour_and_the_others_keep_the_styles() {
         italic: false,
         font: Some("Inter".into()),
         colour: Some(folio_model::Colour("#b91c1c".into())),
+        ..Default::default()
     });
     let (_, layout) = laid_with(frame);
     let runs: Vec<_> = layout
@@ -1408,6 +1412,7 @@ fn the_families_a_book_asks_for_come_from_its_look_styles_overrides_and_runs() {
         italic: false,
         font: Some("Quill Mono".into()),
         colour: None,
+        ..Default::default()
     });
     book.spreads[1].frames.push(frame);
     let after = families_used(&book);
@@ -1621,6 +1626,7 @@ fn a_story_keeps_the_emphasis_and_paragraph_style_of_its_paragraphs() {
         italic: false,
         font: None,
         colour: None,
+        ..Default::default()
     });
     flow.paragraphs[1] = second;
     book.flows.push(flow);
@@ -1956,4 +1962,39 @@ fn frames_in_a_group_are_laid_out_where_they_are_as_if_they_were_not_grouped() {
         .unwrap();
     let words: String = format!("{scene:?}");
     assert!(words.contains("In") && words.contains("group"));
+}
+
+#[test]
+fn underlined_and_struck_runs_carry_their_lines_and_a_line_runs_on_over_the_space_between_words() {
+    let mut frame = text_frame("lines", "body", 60.0, 60.0, 300.0, 80.0, "plain ");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    text.content.as_mut().unwrap().inline.push(Run {
+        text: "two words".into(),
+        underline: true,
+        strike: true,
+        ..Default::default()
+    });
+    let (_, layout) = laid_with(frame);
+    let runs: Vec<_> = layout
+        .frames
+        .iter()
+        .find(|f| f.frame.0 == "lines")
+        .unwrap()
+        .lines
+        .iter()
+        .flat_map(|l| &l.runs)
+        .collect();
+    let plain = runs.iter().find(|r| r.text.contains("plain")).unwrap();
+    assert!(plain.underline.is_none() && plain.strike.is_none());
+    let two = runs.iter().find(|r| r.text == "two").unwrap();
+    let words = runs.iter().find(|r| r.text == "words").unwrap();
+    let (under, strike) = (two.underline.unwrap(), two.strike.unwrap());
+    // The underline hangs below the baseline and the strike-through sits above it.
+    assert!(under.offset > 0.0 && under.thickness > 0.0);
+    assert!(strike.offset < 0.0 && strike.thickness > 0.0);
+    // It runs on over the space to the next word, which it does not for the last one.
+    assert!((under.width - (words.x - two.x)).abs() < 0.02, "{under:?}");
+    assert!((words.underline.unwrap().width - words.width).abs() < 0.02);
 }

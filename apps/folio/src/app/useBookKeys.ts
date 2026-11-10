@@ -5,6 +5,27 @@
 
 import { useEffect } from 'react';
 
+/** The ribbon control a Ctrl+B, Ctrl+I or Ctrl+U in the on-page editor presses, or `null`. */
+export function styleForKey(event: {
+	key: string;
+	ctrlKey: boolean;
+	metaKey: boolean;
+	shiftKey: boolean;
+	altKey: boolean;
+}): 'bold' | 'italic' | 'underline' | null {
+	if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return null;
+	switch (event.key.toLowerCase()) {
+		case 'b':
+			return 'bold';
+		case 'i':
+			return 'italic';
+		case 'u':
+			return 'underline';
+		default:
+			return null;
+	}
+}
+
 /** Which command a key combination runs, or `null` for none. Control is Command on a Mac. */
 export function commandForKey(event: {
 	key: string;

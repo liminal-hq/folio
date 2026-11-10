@@ -39,6 +39,7 @@ impl StoryPara {
                 italic: false,
                 font: None,
                 colour: None,
+                ..Default::default()
             }],
             look: None,
         }

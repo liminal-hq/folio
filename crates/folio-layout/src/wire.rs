@@ -25,6 +25,12 @@ pub struct LayoutRun {
     /// The colour of the words, when the style or the run sets one; the page's ink otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub colour: Option<Colour>,
+    /// A line under the words, when they are underlined.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub underline: Option<Stroke>,
+    /// A line through the words, when they are struck through.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strike: Option<Stroke>,
     /// A hyphen drawn at the end of a line; it is not part of the text.
     pub hyphen: bool,
     /// The misspelt parts of `text`, each as where it starts and ends in code points from the start
@@ -49,6 +55,18 @@ pub struct LayoutRun {
     #[serde(skip)]
     #[ts(skip)]
     pub glyphs: Vec<SceneGlyph>,
+}
+
+/// A line drawn under or through a run, in points. `offset` is from the baseline to the middle of
+/// the line (positive downwards, negative above the baseline), `width` from the run's `x`: it
+/// runs on over the space to the next run when that is set the same way.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(rename_all = "camelCase")]
+pub struct Stroke {
+    pub offset: f64,
+    pub thickness: f64,
+    pub width: f64,
 }
 
 /// One shaped glyph of a run: which glyph of the font, and how far to move for it, in points.

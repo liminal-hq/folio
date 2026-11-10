@@ -280,3 +280,26 @@ fn a_paragraphs_own_look_is_written_as_padding_so_before_and_after_add_as_they_d
         assert!(!read(&mut zip, name).contains("padding-top"));
     }
 }
+
+#[test]
+fn underlined_and_struck_words_are_marked_up() {
+    let mut book = sample(BookKind::Novel);
+    let at = book.flows[0]
+        .paragraphs
+        .iter()
+        .position(|p| p.text().starts_with("Mara had kept the light"))
+        .expect("the opening paragraph");
+    book.flows[0].paragraphs[at].inline[0].underline = true;
+    book.flows[0].paragraphs[at].inline[0].strike = true;
+    let (mut zip, names) = files(&epub(&book, &NoAssets, EpubFlavour::Standard));
+    let mut marked = false;
+    for name in names
+        .iter()
+        .filter(|n| n.ends_with(".xhtml") && !n.ends_with("nav.xhtml"))
+    {
+        let text = read(&mut zip, name);
+        assert!(well_formed(&text), "{name}");
+        marked |= text.contains("<u><s>Mara had kept the light");
+    }
+    assert!(marked);
+}

@@ -54,7 +54,7 @@ export function sliceParagraphs(
 const escapeHtml = (text: string) =>
 	text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-/** The paragraphs as simple HTML for another program: a `<p>` each, bold, italic and colour kept. */
+/** The paragraphs as simple HTML for another program: a `<p>` each, bold, italic, underline, strike and colour kept. */
 export function toHtml(paragraphs: readonly StoryPara[]): string {
 	return paragraphs
 		.map((p) => {
@@ -64,6 +64,8 @@ export function toHtml(paragraphs: readonly StoryPara[]): string {
 					if (run.colour) html = `<span style="color:${escapeHtml(run.colour)}">${html}</span>`;
 					if (run.bold) html = `<strong>${html}</strong>`;
 					if (run.italic) html = `<em>${html}</em>`;
+					if (run.strike) html = `<s>${html}</s>`;
+					if (run.underline) html = `<u>${html}</u>`;
 					return html;
 				})
 				.join('');

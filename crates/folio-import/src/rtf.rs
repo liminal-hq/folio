@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 // RTF names no heading or quotation styles that can be told apart from the text, so every
-// paragraph comes in as body text with its bold and italic runs; the report says so. Font, colour
+// paragraph comes in as body text with its bold, italic, underlined and struck-through runs; the report says so. Font, colour
 // and style tables, pictures, notes and other destinations are skipped.
 
 use folio_model::{join_runs, Run, StoryPara};
@@ -44,6 +44,8 @@ const SKIPPED: &[&str] = &[
 struct State {
     bold: bool,
     italic: bool,
+    underline: bool,
+    strike: bool,
     skip: bool,
     /// Characters a `\uN` escape still has to step over (`\ucN`).
     skip_chars: u32,
@@ -71,11 +73,11 @@ pub fn import_rtf(bytes: &[u8]) -> Result<Imported, RtfError> {
         if !pending.is_empty() {
             let run = Run {
                 text: std::mem::take(pending),
-                style: None,
                 bold: state.bold,
                 italic: state.italic,
-                font: None,
-                colour: None,
+                underline: state.underline,
+                strike: state.strike,
+                ..Default::default()
             };
             *runs = join_runs(runs, &[run]);
         }
@@ -187,6 +189,19 @@ pub fn import_rtf(bytes: &[u8]) -> Result<Imported, RtfError> {
                             "i" => {
                                 flush_text(&mut pending, &mut runs, &state);
                                 state.italic = param != Some(0);
+                            }
+                            "ul" | "uld" | "uldash" | "uldashd" | "uldashdd" | "uldb" | "ulth"
+                            | "ulwave" | "ulw" => {
+                                flush_text(&mut pending, &mut runs, &state);
+                                state.underline = param != Some(0);
+                            }
+                            "ulnone" => {
+                                flush_text(&mut pending, &mut runs, &state);
+                                state.underline = false;
+                            }
+                            "strike" | "striked" => {
+                                flush_text(&mut pending, &mut runs, &state);
+                                state.strike = param != Some(0);
                             }
                             "uc" => uc = param.unwrap_or(1).max(0) as u32,
                             "u" => {

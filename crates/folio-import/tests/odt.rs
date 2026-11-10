@@ -19,6 +19,8 @@ fn odt(body: &str) -> Vec<u8> {
              <office:automatic-styles>\
              <style:style style:name=\"T1\" style:family=\"text\"><style:text-properties fo:font-weight=\"bold\"/></style:style>\
              <style:style style:name=\"T2\" style:family=\"text\"><style:text-properties fo:font-style=\"italic\"/></style:style>\
+             <style:style style:name=\"T3\" style:family=\"text\"><style:text-properties style:text-underline-style=\"solid\"/></style:style>\
+             <style:style style:name=\"T4\" style:family=\"text\"><style:text-properties style:text-line-through-style=\"solid\" style:text-underline-style=\"none\"/></style:style>\
              </office:automatic-styles><office:body><office:text>{body}</office:text></office:body></office:document-content>"
         )
         .unwrap();
@@ -100,4 +102,19 @@ fn the_styles_found_are_listed_and_a_choice_changes_what_a_style_becomes() {
         .collect();
     assert_eq!(styles, vec![Some("h1"), Some("epigraph"), None]);
     assert_eq!(second.report.headings, 1);
+}
+
+#[test]
+fn underlined_and_struck_through_spans_come_across() {
+    let body = r#"<text:p>An <text:span text:style-name="T3">underlined</text:span> and a <text:span text:style-name="T4">struck</text:span> word.</text:p>"#;
+    let s = import_odt(&odt(body)).unwrap().story;
+    assert!(s[0]
+        .inline
+        .iter()
+        .any(|r| r.underline && !r.strike && r.text == "underlined"));
+    assert!(s[0]
+        .inline
+        .iter()
+        .any(|r| r.strike && !r.underline && r.text == "struck"));
+    assert!(s[0].inline.iter().any(|r| !r.underline && !r.strike));
 }

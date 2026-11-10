@@ -249,3 +249,90 @@ describe('a font chosen with the caret alone in the words', () => {
 		).toMatchObject({ kind: 'pending', frame: 't', change: { font: 'Inter' } });
 	});
 });
+
+describe('underline and strike', () => {
+	const own = {
+		type: 'text',
+		id: 'u',
+		box: {},
+		locked: false,
+		style: 'body',
+		content: {
+			inline: [
+				run('Hello '),
+				run('brave', { underline: true, strike: true }),
+				run(' world', { underline: true }),
+			],
+		},
+	} as unknown as Frame;
+	const range = (start: number, end: number) => ({ frame: 'u', start, end });
+
+	it('are available with the words selected and pressed only when every character has them', () => {
+		const at = (start: number, end: number) =>
+			editorState(input([own], { selection: range(start, end) }));
+		expect(at(6, 11).available.has('underline')).toBe(true);
+		expect(at(6, 11).available.has('strike')).toBe(true);
+		expect(at(6, 11).active.underline).toBe(true);
+		expect(at(6, 11).active.strike).toBe(true);
+		// Across the struck word and the next one, every character is underlined but not all struck.
+		expect(at(6, 17).active.underline).toBe(true);
+		expect(at(6, 17).active.strike).toBe(false);
+		expect(at(0, 8).active.underline).toBe(false);
+	});
+
+	it('style the selected stretch, turning off when it is all underlined', () => {
+		expect(editorAction('underline', undefined, input([own], { selection: range(0, 5) }))).toEqual({
+			kind: 'intents',
+			intents: [{ type: 'StyleRange', frame: 'u', start: 0, end: 5, change: { underline: true } }],
+		});
+		expect(editorAction('underline', undefined, input([own], { selection: range(6, 17) }))).toEqual(
+			{
+				kind: 'intents',
+				intents: [
+					{ type: 'StyleRange', frame: 'u', start: 6, end: 17, change: { underline: false } },
+				],
+			},
+		);
+		expect(
+			editorAction('strike', undefined, input([own], { selection: range(6, 17) })),
+		).toMatchObject({
+			intents: [{ change: { strike: true } }],
+		});
+	});
+
+	it('act on a story and set a pending look at a caret, which the caret then shows', () => {
+		const selection = {
+			frame: 'fr_flow',
+			start: 1,
+			end: 2,
+			target: story,
+			from: { para: 0, offset: 2 },
+			to: { para: 1, offset: 3 },
+		};
+		expect(editorAction('underline', undefined, input([flowed], { selection }))).toMatchObject({
+			intents: [{ type: 'StyleText', target: story, change: { underline: true } }],
+		});
+		const caret = { frame: 'fr_flow', offset: 5, target: story, pos: { para: 0, offset: 5 } };
+		expect(editorAction('underline', undefined, input([flowed], { caret }))).toEqual({
+			kind: 'pending',
+			frame: 'fr_flow',
+			change: { underline: true },
+		});
+		const pending = { underline: true };
+		expect(editorState(input([flowed], { caret, pending })).active.underline).toBe(true);
+		// Pressing it again takes the pending look back.
+		expect(editorAction('underline', undefined, input([flowed], { caret, pending }))).toMatchObject(
+			{
+				change: { underline: false },
+			},
+		);
+	});
+
+	it("go on all of a selected frame's words when no editor is open", () => {
+		expect(editorState(input([own])).available.has('underline')).toBe(true);
+		expect(editorAction('strike', undefined, input([own]))).toEqual({
+			kind: 'intents',
+			intents: [{ type: 'StyleRange', frame: 'u', start: 0, end: 17, change: { strike: true } }],
+		});
+	});
+});

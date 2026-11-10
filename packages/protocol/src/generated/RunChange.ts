@@ -4,4 +4,4 @@
  * A change to the look of some words. A field left out is left as it is; an empty `font` or
  * `colour` takes the override away.
  */
-export type RunChange = { bold?: boolean, italic?: boolean, font?: string, colour?: string, };
+export type RunChange = { bold?: boolean, italic?: boolean, font?: string, colour?: string, underline?: boolean, strike?: boolean, };

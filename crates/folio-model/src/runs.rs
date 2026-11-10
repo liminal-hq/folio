@@ -23,12 +23,21 @@ pub struct RunChange {
     pub font: Option<String>,
     #[ts(optional)]
     pub colour: Option<String>,
+    #[ts(optional)]
+    pub underline: Option<bool>,
+    #[ts(optional)]
+    pub strike: Option<bool>,
 }
 
 impl RunChange {
     /// Whether this changes nothing.
     pub fn is_empty(&self) -> bool {
-        self.bold.is_none() && self.italic.is_none() && self.font.is_none() && self.colour.is_none()
+        self.bold.is_none()
+            && self.italic.is_none()
+            && self.font.is_none()
+            && self.colour.is_none()
+            && self.underline.is_none()
+            && self.strike.is_none()
     }
 
     pub(crate) fn apply(&self, run: &mut Run) {
@@ -37,6 +46,12 @@ impl RunChange {
         }
         if let Some(italic) = self.italic {
             run.italic = italic;
+        }
+        if let Some(underline) = self.underline {
+            run.underline = underline;
+        }
+        if let Some(strike) = self.strike {
+            run.strike = strike;
         }
         if let Some(font) = &self.font {
             run.font = Some(font.clone()).filter(|f| !f.is_empty());
@@ -59,6 +74,8 @@ pub(crate) fn alike(a: &Run, b: &Run) -> bool {
         && a.italic == b.italic
         && a.font == b.font
         && a.colour == b.colour
+        && a.underline == b.underline
+        && a.strike == b.strike
 }
 
 /// Joins neighbouring runs that look the same, and drops empty ones (keeping one if all are).
@@ -79,11 +96,7 @@ pub(crate) fn tidy(runs: Vec<Run>) -> Vec<Run> {
 pub(crate) fn plain(text: String) -> Run {
     Run {
         text,
-        style: None,
-        bold: false,
-        italic: false,
-        font: None,
-        colour: None,
+        ..Default::default()
     }
 }
 
@@ -361,5 +374,74 @@ mod tests {
         assert_eq!(shown(&retext(&empty, "x")), vec![("x".into(), true)]);
         assert_eq!(retext(&[run("abc", true)], ""), vec![plain(String::new())]);
         assert_eq!(retext(&[], "hi"), vec![plain("hi".into())]);
+    }
+}
+
+#[cfg(test)]
+mod line_tests {
+    use super::*;
+
+    fn lined(text: &str, underline: bool, strike: bool) -> Run {
+        Run {
+            underline,
+            strike,
+            ..plain(text.to_owned())
+        }
+    }
+
+    #[test]
+    fn underline_and_strike_are_set_on_a_stretch_and_taken_away() {
+        let runs = [plain("Hello brave world".into())];
+        let both = RunChange {
+            underline: Some(true),
+            strike: Some(true),
+            ..RunChange::default()
+        };
+        let out = style_range(&runs, 6, 11, &both);
+        assert_eq!(out.len(), 3);
+        assert!(out[1].underline && out[1].strike);
+        assert!(!out[0].underline && !out[2].strike);
+        let off = RunChange {
+            underline: Some(false),
+            ..RunChange::default()
+        };
+        let back = style_range(&out, 6, 11, &off);
+        assert_eq!(back.len(), 3);
+        assert!(!back[1].underline && back[1].strike);
+        let none = RunChange {
+            strike: Some(false),
+            ..RunChange::default()
+        };
+        assert_eq!(style_range(&back, 6, 11, &none).len(), 1);
+        assert!(!RunChange {
+            underline: Some(false),
+            ..RunChange::default()
+        }
+        .is_empty());
+    }
+
+    #[test]
+    fn runs_that_differ_in_a_line_are_not_joined_and_typing_takes_the_look_before() {
+        let runs = [lined("ab", true, false), lined("cd", false, false)];
+        assert_eq!(tidy(runs.to_vec()).len(), 2);
+        assert_eq!(
+            tidy(vec![lined("a", true, true), lined("b", true, true)]).len(),
+            1
+        );
+        let typed = retext(&runs, "abXcd");
+        assert_eq!(typed.len(), 2);
+        assert!(typed[0].underline && typed[0].text == "abX");
+    }
+
+    #[test]
+    fn books_written_before_the_lines_existed_open_unchanged_and_plain_runs_write_nothing() {
+        let old: Run =
+            serde_json::from_str(r#"{"text":"hi","style":null,"bold":true,"italic":false}"#)
+                .unwrap();
+        assert!(!old.underline && !old.strike && old.bold);
+        let written = serde_json::to_string(&old).unwrap();
+        assert!(!written.contains("underline") && !written.contains("strike"));
+        let lined = serde_json::to_string(&lined("x", true, true)).unwrap();
+        assert!(lined.contains("\"underline\":true") && lined.contains("\"strike\":true"));
     }
 }

@@ -42,3 +42,15 @@ fn tables_of_fonts_and_pictures_are_left_out() {
 fn something_that_is_not_rtf_is_refused() {
     assert!(matches!(import_rtf(b"plain words"), Err(RtfError::NotRtf)));
 }
+
+#[test]
+fn underlined_and_struck_through_runs_come_across() {
+    let rtf = br"{\rtf1\ansi\pard A \ul line\ulnone  and \strike gone\strike0 .\par}";
+    let s = import_rtf(rtf).unwrap().story;
+    assert!(s[0].inline.iter().any(|r| r.underline && r.text == "line"));
+    assert!(s[0].inline.iter().any(|r| r.strike && r.text == "gone"));
+    assert!(s[0]
+        .inline
+        .iter()
+        .any(|r| !r.underline && !r.strike && r.text == " and "));
+}
