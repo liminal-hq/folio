@@ -7,6 +7,7 @@ import type { MenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
 import type { Settings } from '@liminal-hq/folio-plugin-settings';
 import type { ReactNode } from 'react';
 import { t } from '../i18n/messages';
+import type { ToolCommandId } from './toolCommands';
 import {
 	AboutIcon,
 	BookToolsIcon,
@@ -55,6 +56,7 @@ export type CommandId =
 	| 'tools.typesetting'
 	| 'tools.pictures'
 	| 'tools.publishing'
+	| ToolCommandId
 	| 'app.preferences'
 	| 'app.shortcuts'
 	| 'app.agents'

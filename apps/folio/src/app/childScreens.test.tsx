@@ -5,7 +5,7 @@
 
 import type { WindowControls } from '@liminal-hq/folio-chrome/TitleBar/windowControls';
 import { WindowChromeProvider } from '@liminal-hq/folio-chrome/WindowChromeProvider/WindowChromeProvider';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -113,7 +113,7 @@ describe('BookToolsScreen', () => {
 	it('opens on the group it was asked for, and says when no book is open', async () => {
 		const fake = createFakeBooksClient();
 		const tools = {
-			area: async () => 'pictures',
+			area: async () => ({ area: 'pictures', tool: null }),
 			onArea: async () => () => {},
 		};
 		mount(
@@ -130,7 +130,10 @@ describe('BookToolsScreen', () => {
 	it('follows the book the main window shows', async () => {
 		const fake = createFakeBooksClient();
 		const made = await fake.client.newBook({ title: 'Pip' });
-		const tools = { area: async () => 'structure', onArea: async () => () => {} };
+		const tools = {
+			area: async () => ({ area: 'structure', tool: null }),
+			onArea: async () => () => {},
+		};
 		mount(
 			<BooksProvider client={fake.client} dialogs={noDialogs} follow>
 				<BookToolsScreen client={tools} />
@@ -140,5 +143,34 @@ describe('BookToolsScreen', () => {
 		expect(screen.getByRole('tab', { name: 'Book structure', selected: true })).toBeInTheDocument();
 		fake.emit.active(made.summary.id);
 		expect(await screen.findByText(/Pip · /)).toBeInTheDocument();
+	});
+
+	it('opens on the tool it was asked for, and moves to another it is asked for later', async () => {
+		const fake = createFakeBooksClient();
+		await fake.client.newBook({ title: 'Pip' });
+		let ask: (asked: { area: string; tool: string | null }) => void = () => {};
+		const tools = {
+			area: async () => ({ area: 'pictures', tool: 'pictures.alt' }),
+			onArea: async (listener: typeof ask) => {
+				ask = listener;
+				return () => {};
+			},
+		};
+		mount(
+			<BooksProvider client={fake.client} dialogs={noDialogs} follow>
+				<BookToolsScreen client={tools} />
+			</BooksProvider>,
+		);
+		expect(await screen.findByRole('heading', { name: 'Alt text' })).toBeInTheDocument();
+		await userEvent.click(screen.getByRole('button', { name: 'Pictures in this book' }));
+		expect(screen.getByRole('heading', { name: 'Pictures in this book' })).toBeInTheDocument();
+		// Asked for the same tool again after another was picked, it comes back.
+		act(() => ask({ area: 'pictures', tool: 'pictures.alt' }));
+		expect(await screen.findByRole('heading', { name: 'Alt text' })).toBeInTheDocument();
+		act(() => ask({ area: 'publishing', tool: 'publishing.keywords' }));
+		expect(await screen.findByRole('heading', { name: 'Keywords' })).toBeInTheDocument();
+		// An area alone leaves each area on the tool last shown in it.
+		act(() => ask({ area: 'pictures', tool: null }));
+		expect(await screen.findByRole('heading', { name: 'Alt text' })).toBeInTheDocument();
 	});
 });

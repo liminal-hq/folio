@@ -25,16 +25,26 @@ export function BookToolsScreen({ client = tauriToolsClient }: { client?: ToolsC
 	const active = useActiveBook();
 	const settings = useSettings();
 	const [area, setArea] = useState<ToolArea>('structure');
+	/** The tool the window was asked to show, until the person picks another. */
+	const [tool, setTool] = useState<string | null>(null);
 
 	useEffect(() => {
 		let live = true;
 		let stop: (() => void) | undefined;
 		client
 			.area()
-			.then((found) => live && isArea(found) && setArea(found))
+			.then((found) => {
+				if (!live || !isArea(found.area)) return;
+				setArea(found.area);
+				setTool(found.tool);
+			})
 			.catch(() => {});
 		client
-			.onArea((next) => isArea(next) && setArea(next))
+			.onArea((next) => {
+				if (!isArea(next.area)) return;
+				setArea(next.area);
+				setTool(next.tool);
+			})
 			.then((off) => (live ? (stop = off) : off()))
 			.catch(() => {});
 		return () => {
@@ -51,6 +61,8 @@ export function BookToolsScreen({ client = tauriToolsClient }: { client?: ToolsC
 				<ToolShell
 					area={area}
 					onArea={setArea}
+					tool={tool}
+					onTool={setTool}
 					about={
 						active && book
 							? t('tools.about', { title: active.summary.title, pages: pageCount(book) })

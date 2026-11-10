@@ -98,6 +98,16 @@ describe('runCommand', () => {
 		expect(openBookTools.mock.calls).toEqual([['pictures'], ['structure']]);
 	});
 
+	it('opens the Book tools window on the one tool a tool command names', async () => {
+		const { value, openBookTools } = context();
+		await runCommand('tool.keywords', value, NONE);
+		await runCommand('tool.altText', value, NONE);
+		expect(openBookTools.mock.calls).toEqual([
+			['publishing', 'publishing.keywords'],
+			['pictures', 'pictures.alt'],
+		]);
+	});
+
 	it('opens the New book wizard for File → New book…', async () => {
 		const { value, openWindow } = context();
 		await runCommand('file.new', value, NONE);

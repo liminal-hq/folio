@@ -1419,6 +1419,7 @@ dependencies = [
  "folio-protocol",
  "folio-settings",
  "log",
+ "serde",
  "serde_json",
  "tauri",
  "tauri-build",

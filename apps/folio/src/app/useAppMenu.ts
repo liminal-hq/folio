@@ -89,7 +89,7 @@ export function useAppMenu(
 				settings,
 				update,
 				openWindow: (kind) => windows.open(kind),
-				openBookTools: (area) => windows.openBookTools(area),
+				openBookTools: (area, tool) => windows.openBookTools(area, tool),
 				closeWindow: () => controls.close(),
 				books,
 			};

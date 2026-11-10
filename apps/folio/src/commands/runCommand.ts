@@ -9,6 +9,7 @@ import { requestAgentDialog } from '../app/agentRequest';
 import { requestUpdateDialog } from '../app/updateRequest';
 import { keepWords } from '../canvas/editCheckpoint';
 import { RECENT_PREFIX, type CommandId } from './appMenuModel';
+import { TOOL_COMMANDS } from './toolCommands';
 
 /** What the books can do for a command. Each answers when it is finished. */
 export interface BookCommands {
@@ -31,8 +32,8 @@ export interface CommandContext {
 	update(patch: SettingsPatch): Promise<void>;
 	/** Opens a window, or focuses it when it is already open. */
 	openWindow(kind: WindowKind): void | Promise<void>;
-	/** Opens the Book tools window on a group of tools, or moves it there when it is open. */
-	openBookTools(area: string): void | Promise<void>;
+	/** Opens the Book tools window on a group of tools or on one tool, or moves it there when it is open. */
+	openBookTools(area: string, tool?: string): void | Promise<void>;
 	/** Closes the window the command was run in. */
 	closeWindow(): void | Promise<void>;
 	books: BookCommands;
@@ -50,6 +51,7 @@ export const ALWAYS_AVAILABLE: ReadonlySet<CommandId> = new Set<CommandId>([
 	'tools.typesetting',
 	'tools.pictures',
 	'tools.publishing',
+	...(Object.keys(TOOL_COMMANDS) as CommandId[]),
 	'app.preferences',
 	'app.agents',
 	'app.updates',
@@ -88,6 +90,8 @@ export async function runCommand(
 	}
 	if (!available.has(id)) return;
 	const { settings, books } = context;
+	const tool = TOOL_COMMANDS[id as keyof typeof TOOL_COMMANDS];
+	if (tool) return context.openBookTools(tool.split('.')[0]!, tool);
 	switch (id as CommandId) {
 		case 'view.menuBar':
 			return context.update({ interface: { menuBar: !settings.interface.menuBar } });
