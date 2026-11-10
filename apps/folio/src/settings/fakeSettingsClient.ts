@@ -31,7 +31,7 @@ export const DEFAULT_SETTINGS: Settings = {
 	},
 	rulers: { on: false, units: 'inches' },
 	spelling: { enabled: true, personal: [] },
-	editing: { newEditor: false },
+	editing: { newEditor: true },
 	autosave: { enabled: true, intervalSecs: 30 },
 	updates: { automatic: false, asked: false },
 	recentBooks: [],

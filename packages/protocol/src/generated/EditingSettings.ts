@@ -5,7 +5,7 @@
  */
 export type EditingSettings = { 
 /**
- * Edit a text frame's words with the editor that draws the page's own lines (D-53), not a
- * text box over the frame. Off while the new editor is proven.
+ * Edit words with the editor that draws the page's own lines (D-53) rather than a text box
+ * over the frame. On; the text box stays as a fallback (D-54).
  */
 newEditor: boolean, };

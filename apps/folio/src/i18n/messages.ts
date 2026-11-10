@@ -566,7 +566,7 @@ export const messages = {
 	'preferences.section.editing': 'Editing',
 	'preferences.newEditor': 'Edit text on the page itself',
 	'preferences.newEditor.description':
-		'Type in a text frame with the same lines, line breaks and formatting the page has. Still being tested.',
+		'Type in a text frame with the same lines, line breaks and formatting the page has. Turn this off to use a plain text box instead.',
 	'preferences.section.spelling': 'Spelling',
 	'preferences.section.saving': 'Saving',
 	'preferences.autosave': 'Keep a recovery copy while I work',
