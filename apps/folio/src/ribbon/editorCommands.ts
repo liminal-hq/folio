@@ -60,6 +60,9 @@ export interface EditorInput {
 	hasCover?: boolean;
 	/** Whether Jax is switched on, which is what Ask Jax needs. */
 	jax?: boolean;
+	/** The caret in the open editor when nothing is selected, and the look already set at it. */
+	caret?: { frame: string; offset: number } | null;
+	pending?: { bold?: boolean; italic?: boolean; colour?: string } | null;
 }
 
 /** What the controls show: which can be used now, which are pressed, the numbers, the extra tabs. */
@@ -96,6 +99,11 @@ export type EditorAction =
 	| { kind: 'barcode' }
 	| { kind: 'bookDetails' }
 	| { kind: 'exportBook'; quick: boolean }
+	| {
+			kind: 'pending';
+			frame: string;
+			change: { bold?: boolean; italic?: boolean; colour?: string };
+	  }
 	| { kind: 'editMaster' }
 	| { kind: 'pageBackground' }
 	| { kind: 'rulerUnit'; unit: RulerUnit }
@@ -129,6 +137,34 @@ function wordsSelected(input: EditorInput) {
 	return frame && (frame.type === 'text' || frame.type === 'shape') && !frame.locked
 		? { frame, selection }
 		: null;
+}
+
+/** The caret of the open editor, when it is in one of the selected text frames or shapes. */
+function caretIn(input: EditorInput) {
+	const { caret } = input;
+	if (!caret || wordsSelected(input)) return null;
+	const frame = input.selected.find((f) => f.id === caret.frame);
+	return frame && (frame.type === 'text' || frame.type === 'shape') && !frame.locked
+		? { frame, offset: caret.offset }
+		: null;
+}
+
+/** Whether the character before `offset` (the first, at the start) is in a run where `has` is true. */
+function runAt(
+	frame: Extract<Frame, { type: 'text' | 'shape' }>,
+	offset: number,
+	has: (run: { bold: boolean; italic: boolean }) => boolean,
+): boolean {
+	let at = 0;
+	let last = frame.content?.inline[0];
+	for (const run of frame.content?.inline ?? []) {
+		const length = [...run.text].length;
+		if (offset > at && offset <= at + length) return has(run);
+		if (offset <= at) break;
+		at += length;
+		last = run;
+	}
+	return last ? has(last) : false;
 }
 
 /** Whether every character of `start..end` is in a run where `has` is true. */
@@ -540,6 +576,12 @@ export function editorAction(
 		}
 		case 'bold':
 		case 'italic': {
+			// With the caret in the words and nothing selected, the look is for the words typed next.
+			const at = caretIn(input);
+			if (at) {
+				const now = input.pending?.[id] ?? runAt(at.frame, at.offset, (r) => r[id]);
+				return { kind: 'pending', frame: at.frame.id, change: { [id]: !now } };
+			}
 			const picked = wordsSelected(input);
 			if (picked) {
 				const { frame, selection } = picked;
@@ -583,6 +625,8 @@ export function editorAction(
 		case 'colour': {
 			// The selected words, or all of them when none are selected.
 			const hex = typeof value === 'string' ? value : '';
+			const at = caretIn(input);
+			if (at) return { kind: 'pending', frame: at.frame.id, change: { colour: hex } };
 			const picked = wordsSelected(input);
 			const targets = picked
 				? [{ id: picked.frame.id, start: picked.selection.start, end: picked.selection.end }]

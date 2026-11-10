@@ -10,7 +10,12 @@ import type { RunChange } from '@liminal-hq/folio-protocol/generated/RunChange';
 import type { TextPos } from '@liminal-hq/folio-protocol/generated/TextPos';
 import type { TextTarget } from '@liminal-hq/folio-protocol/generated/TextTarget';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { setTextSelection } from '../canvas/textSelection';
+import {
+	clearPendingLook,
+	getPendingLook,
+	setTextCaret,
+	setTextSelection,
+} from '../canvas/textSelection';
 import { t } from '../i18n/messages';
 import { caretRect, hitTest, selectionRects } from './caretGeometry';
 import { clampPos, endOf, flatOffset, ordered, replaceInTexts, samePos, textBetween } from './edit';
@@ -137,7 +142,21 @@ export function TextSurface({
 			});
 		}
 	}, [selection, target.type, frameId]);
-	useEffect(() => () => setTextSelection(null), []);
+	useEffect(() => {
+		if (target.type !== 'frame' && target.type !== 'shape') return;
+		const collapsed = samePos(selection.anchor, selection.focus);
+		setTextCaret(
+			collapsed ? { frame: frameId, offset: flatOffset(textsRef.current, selection.focus) } : null,
+		);
+	}, [selection, target.type, frameId]);
+	useEffect(
+		() => () => {
+			setTextSelection(null);
+			setTextCaret(null);
+			clearPendingLook();
+		},
+		[],
+	);
 
 	// Where the editing began: the point that was clicked, once the layout can say what is there.
 	const placed = useRef(false);
@@ -215,10 +234,13 @@ export function TextSurface({
 			if (clean === '') return;
 			queue(() => {
 				const [from, to] = ordered(selRef.current.anchor, selRef.current.focus);
-				return { from, to, text: clean, step };
+				// A look set at the caret goes with the first words typed after it, as a step of its own.
+				const look = getPendingLook(frameId) ?? undefined;
+				if (look) clearPendingLook();
+				return { from, to, text: clean, step: look ? 'own' : step, ...(look ? { look } : {}) };
 			});
 		},
-		[queue],
+		[queue, frameId],
 	);
 
 	/** Deletes the selection, or a grapheme or word from the caret. */
@@ -287,6 +309,7 @@ export function TextSurface({
 		// The focus stays in the sink, whatever is clicked.
 		event.preventDefault();
 		event.stopPropagation();
+		clearPendingLook();
 		sink.current?.focus({ preventScroll: true });
 		const p = toLocal(event.clientX, event.clientY);
 		const hit = hitTest(layout, p.x, p.y, snap);
@@ -311,6 +334,7 @@ export function TextSurface({
 
 	/** Moves the caret, or the selection's far end with Shift. */
 	const go = (focus: TextPos, shift: boolean, keepGoal = false) => {
+		clearPendingLook();
 		setSelection({ anchor: shift ? selRef.current.anchor : focus, focus }, keepGoal);
 	};
 

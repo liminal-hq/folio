@@ -27,7 +27,12 @@ import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../can
 import { keepWords } from '../canvas/editCheckpoint';
 import { CheckBookDialog } from './CheckBookDialog';
 import { ExportDialog } from './ExportDialog';
-import { getTextSelection } from '../canvas/textSelection';
+import {
+	getPendingLook,
+	getTextCaret,
+	getTextSelection,
+	setPendingLook,
+} from '../canvas/textSelection';
 import { IMPORT_TEXT_EVENT } from './importRequest';
 import { ImportReportDialog, type ImportOutcome } from './ImportReportDialog';
 import { StoryEditorDialog } from '../story/StoryEditorDialog';
@@ -672,6 +677,9 @@ export function BookView({
 			case 'rulers':
 				void update({ rulers: { on: !rulers.on } } as SettingsPatch);
 				break;
+			case 'pending':
+				setPendingLook(action.frame, action.change);
+				break;
 			case 'spelling':
 				void update({ spelling: { enabled: !settings.spelling.enabled } } as SettingsPatch);
 				break;
@@ -777,6 +785,9 @@ export function BookView({
 			...input,
 			// Easy styles the whole box; only Expert styles the selected words (spec 09).
 			selection: settings.mode === 'expert' ? getTextSelection() : null,
+			// With the caret alone in the words, a bold or colour is for the words typed next.
+			caret: settings.mode === 'expert' ? getTextCaret() : null,
+			pending: getTextCaret() ? getPendingLook(getTextCaret()!.frame) : null,
 		});
 		if (!action) return false;
 		perform(action);

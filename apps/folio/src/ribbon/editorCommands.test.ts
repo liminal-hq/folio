@@ -858,3 +858,52 @@ describe('Group and Ungroup', () => {
 		expect(editorAction('ungroup', undefined, input([shape2('a')]))).toBeNull();
 	});
 });
+
+describe('a look set with the caret alone in the words', () => {
+	const frame = text({
+		content: {
+			inline: [
+				{ text: 'plain ', style: null, bold: false, italic: false },
+				{ text: 'bold', style: null, bold: true, italic: false },
+			],
+		},
+	});
+
+	it('is for the words typed next, and toggles from the look at the caret', () => {
+		const at = (offset: number, pending = null) =>
+			input([frame], { caret: { frame: 't', offset }, pending });
+		expect(editorAction('bold', undefined, at(3))).toEqual({
+			kind: 'pending',
+			frame: 't',
+			change: { bold: true },
+		});
+		expect(editorAction('bold', undefined, at(9))).toEqual({
+			kind: 'pending',
+			frame: 't',
+			change: { bold: false },
+		});
+		// Pressed twice it goes back.
+		expect(editorAction('bold', undefined, at(3, { bold: true } as never))).toEqual({
+			kind: 'pending',
+			frame: 't',
+			change: { bold: false },
+		});
+		expect(editorAction('colour', '#a23b2a', at(3))).toEqual({
+			kind: 'pending',
+			frame: 't',
+			change: { colour: '#a23b2a' },
+		});
+	});
+
+	it('is not used when words are selected, which are styled instead', () => {
+		const action = editorAction(
+			'bold',
+			undefined,
+			input([frame], {
+				caret: { frame: 't', offset: 3 },
+				selection: { frame: 't', start: 0, end: 3 },
+			}),
+		);
+		expect(action).toMatchObject({ kind: 'intents' });
+	});
+});

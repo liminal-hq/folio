@@ -7,6 +7,7 @@ import type { EditRequest } from '@liminal-hq/folio-protocol/generated/EditReque
 import type { TextPos } from '@liminal-hq/folio-protocol/generated/TextPos';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { clearPendingLook, getTextCaret, setPendingLook } from '../canvas/textSelection';
 import { replaceInTexts, caretAfterText } from './edit';
 import { CHAR_W, layoutOf, LINE_H } from './fixtureLayout';
 import { TextSurface } from './TextSurface';
@@ -273,5 +274,32 @@ describe('undo and redo', () => {
 		await act(async () => undefined);
 		expect(onRedo).toHaveBeenCalledTimes(2);
 		expect(caretLeft()).toBe(11 * CHAR_W);
+	});
+});
+
+describe('a look set at the caret', () => {
+	it('publishes the caret, and goes with the next words typed as a step of their own', async () => {
+		const { calls, onEdit } = editor();
+		const { sink } = mount(onEdit);
+		expect(getTextCaret()).toEqual({ frame: 'f', offset: 11 });
+		setPendingLook('f', { bold: true });
+		input(sink, 'insertText', 'x');
+		await act(async () => undefined);
+		expect(calls[0]).toMatchObject({ look: { bold: true }, step: 'own' });
+		// It was used up, so the next key carries none.
+		input(sink, 'insertText', 'y');
+		await act(async () => undefined);
+		expect(calls[1]!.look).toBeUndefined();
+		clearPendingLook();
+	});
+
+	it('is forgotten when the caret moves', async () => {
+		const { calls, onEdit } = editor();
+		const { sink } = mount(onEdit);
+		setPendingLook('f', { italic: true });
+		fireEvent.keyDown(sink, { key: 'ArrowLeft' });
+		input(sink, 'insertText', 'x');
+		await act(async () => undefined);
+		expect(calls[0]!.look).toBeUndefined();
 	});
 });
