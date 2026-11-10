@@ -19,6 +19,7 @@
 
 - Shaping with `rustybuzz`; line breaking with Knuth–Plass (greedy fallback for live typing; K–P recomputed after 150 ms idle).
 - Hyphenation per language (`hyphenation` crate, en-CA/en-GB/en-US/fr-CA patterns). Minimum word length 6, at most 2 hyphens in a row, none in headings.
+- **Paragraph looks (D-58):** a paragraph can set its own alignment, space before, space after, line spacing, first-line indent, left indent and right indent over its style's (`ParaLook`, in points; line spacing is a multiple of the size). Layout applies the look in `paragraph_from` after resolving the style: the look wins, and a field it leaves out takes the style's. Space before and space after add together (Word and LibreOffice do the same; CSS margins collapse, so the EPUB writes a paragraph's own spacing as padding), and space before is dropped at the top of a column. Indents narrow the measure the paragraph is broken to and shift its lines, so a line's `x` and `width` on the wire already include them. A paragraph's look is part of its key in the paragraph cache through the spans' line spacing and the measure.
 - Widows/orphans: default 2/2 for body; poetry uses stanza-keep instead.
 - Poetry style sets `wrap: preserve`. Lines never re-wrap in print; overlong lines hang-indent and raise a preflight item.
 - **Flow:** a flow is an ordered list of frames. When text overflows the last frame, the frame shows the **overset marker** (a small `+` tab at the bottom-right). In flowing books Folio can auto-add pages ("Add pages as I type", on by default in Easy).

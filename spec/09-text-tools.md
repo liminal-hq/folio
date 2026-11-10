@@ -46,13 +46,15 @@ interface TextFrame { text: string; runs?: Run[]; /* box-level */ s: StyleId; fo
 | Control | Values |
 |---|---|
 | Line spacing | 1.0 · 1.15 · 1.3 · 1.5 · 1.8 · 2.0 (multiplier of size) |
-| Space after | 0 · 4 · 8 · 12 · 18 pt |
-| Indent / outdent | ±0.25 in left indent |
-| First-line indent | toggles 0.25 in (the body style already indents after the first paragraph) |
+| Space before / Space after | 0 · 4 · 8 · 12 · 18 · 24 pt, or "The style's" to take the paragraph's own value away. The two add together, and space before is left off at the top of a column. Exact values are in the Properties panel's **Paragraph** section |
+| Indent / outdent | ±0.25 in (18 pt) of left indent for each press |
+| First-line indent | toggles 1.2 em of the type size (a paragraph that sets 0 has none, whatever its style says) |
 | Lists | Bullet `•` or `1.` numbering with a 1.3 em hanging marker. Numbering counts non-empty paragraphs |
 | Drop cap | First letter floats at 2.15 × line height, weight 600, warm ink |
 | Letter spacing (Expert) | Tight −0.02 · Normal · Loose 0.03 · Very loose 0.08 em |
 | OpenType (Design panel) | liga · onum · smcp · swsh · frac → `font-feature-settings` |
+
+**Each paragraph has its own look (D-58).** Alignment, space before, space after, line spacing, first-line indent, indent and right indent are set for a paragraph, not a frame, over what its style says; a paragraph that sets nothing takes its style's values, and a frame's other paragraphs are not touched. The Paragraph group's controls and the Properties panel's Paragraph section change the paragraphs under the caret or selection of the open editor, and every paragraph of the selected frame (the paragraphs a frame of a story shows) when no editor is open, in Easy and in Expert alike. Pressing Enter gives the new paragraph the look of the one it split; joining paragraphs keeps the first one's look; typing in a paragraph leaves the rest as they were. Bullets, numbers, the drop cap and letter spacing are listed but not built yet.
 
 ## Fonts
 

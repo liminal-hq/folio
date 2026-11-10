@@ -101,6 +101,7 @@ Try this · Wet a postcard-sized sheet edge to edge…
 - `{style=…}` attaches a paragraph style; `{.class}` attaches semantic roles (`chapter-start`, `no-indent`, `keep-with-next`).
 - Character styles use `[text]{style=emph}`. Plain `*em*` and `**strong**` map to the defaults.
 - Short text (picture book captions, cover titles) stays inline in `book.json` (`content.inline`).
+- **Paragraph looks (D-58):** what a paragraph sets for itself over its style is an optional `ParaLook` (`align`, `spaceBefore`, `spaceAfter`, `lineHeight`, `firstIndent`, `indent`, `indentRight`, all optional; lengths in points, `lineHeight` a multiple of the size). A flow's `StoryPara` holds it as `look`; a frame's, shape's or cell's own words hold a `looks` list beside `inline`, one entry for each paragraph (a paragraph begins at a line break), ending at the last paragraph that sets anything. Both are left out when empty, so a book that never sets one is written as before and an older book opens with every paragraph in its style's look.
 
 ## Versioning (D-05)
 

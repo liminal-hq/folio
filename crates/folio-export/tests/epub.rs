@@ -232,3 +232,51 @@ fn a_novels_story_is_told_once_in_the_epub_though_it_runs_through_three_frames()
         assert_eq!(all.matches(words).count(), 1, "{words}");
     }
 }
+
+#[test]
+fn a_paragraphs_own_look_is_written_as_padding_so_before_and_after_add_as_they_do_on_the_page() {
+    let mut book = sample(BookKind::Novel);
+    let base = book.styles.styles["body"].size_pt.unwrap_or(10.5);
+    let at = book.flows[0]
+        .paragraphs
+        .iter()
+        .position(|p| p.text().starts_with("Mara had kept the light"))
+        .expect("the opening paragraph");
+    book.flows[0].paragraphs[at].look = Some(folio_model::ParaLook {
+        space_before: Some(base),
+        space_after: Some(base * 2.0),
+        indent: Some(base * 3.0),
+        align: Some(folio_model::Align::Center),
+        ..folio_model::ParaLook::default()
+    });
+    let bytes = epub(&book, &NoAssets, EpubFlavour::Standard);
+    let (mut zip, names) = files(&bytes);
+    let mut found = false;
+    for name in names
+        .iter()
+        .filter(|n| n.ends_with(".xhtml") && !n.ends_with("nav.xhtml"))
+    {
+        let text = read(&mut zip, name);
+        assert!(well_formed(&text), "{name}");
+        if let Some(line) = text.lines().find(|l| l.contains("Mara had kept the light")) {
+            found = true;
+            assert!(
+                line.contains("margin-top: 0; padding-top: 1.000em"),
+                "{line}"
+            );
+            assert!(
+                line.contains("margin-bottom: 0; padding-bottom: 2.000em"),
+                "{line}"
+            );
+            assert!(line.contains("margin-left: 3.000em"), "{line}");
+            assert!(line.contains("text-align: center"), "{line}");
+        }
+    }
+    assert!(found);
+    // A paragraph with no look of its own gets no style attribute.
+    let plain = epub(&sample(BookKind::Novel), &NoAssets, EpubFlavour::Standard);
+    let (mut zip, names) = files(&plain);
+    for name in names.iter().filter(|n| n.ends_with(".xhtml")) {
+        assert!(!read(&mut zip, name).contains("padding-top"));
+    }
+}

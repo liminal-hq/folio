@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use std::io::Write;
 
 use folio_layout::{FontBook, FontRequest};
-use folio_model::{Book, Frame, InlineContent, Run, StyleDef, Styles};
+use folio_model::{Book, Frame, InlineContent, ParaLook, Run, StyleDef, Styles};
 use unicode_segmentation::UnicodeSegmentation;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
@@ -69,7 +69,7 @@ fn role_of(style: &str) -> Role {
 /// One thing in the story, in reading order.
 enum Piece {
     Title(Vec<Run>),
-    Block(Role, String, Vec<Vec<Run>>),
+    Block(Role, String, Vec<(Vec<Run>, ParaLook)>),
     Picture { asset: String, alt: String },
     Table(Vec<Vec<String>>, u8),
 }
@@ -81,8 +81,9 @@ fn escape(text: &str) -> String {
         .replace('"', "&quot;")
 }
 
-/// The paragraphs of some words: one for each line break, each a list of runs.
-fn paragraphs(content: &InlineContent) -> Vec<Vec<Run>> {
+/// The paragraphs of some words: one for each line break, each a list of runs with the look the
+/// paragraph sets for itself.
+fn paragraphs(content: &InlineContent) -> Vec<(Vec<Run>, ParaLook)> {
     let mut out: Vec<Vec<Run>> = vec![Vec::new()];
     for run in &content.inline {
         let mut parts = run.text.split('\n');
@@ -99,8 +100,68 @@ fn paragraphs(content: &InlineContent) -> Vec<Vec<Run>> {
             }]);
         }
     }
-    out.retain(|p| p.iter().any(|r| !r.text.trim().is_empty()));
-    out
+    let looks = content.looks.as_deref().unwrap_or(&[]);
+    out.into_iter()
+        .enumerate()
+        .filter(|(_, p)| p.iter().any(|r| !r.text.trim().is_empty()))
+        .map(|(i, runs)| (runs, looks.get(i).cloned().unwrap_or_default()))
+        .collect()
+}
+
+/// The `style` attribute a paragraph's own look needs, or nothing.
+///
+/// Space is written as padding, with the margin of the same side taken to nothing: the margins of
+/// neighbouring paragraphs collapse in CSS (the larger wins) where the layout adds space after to
+/// space before, and padding does not collapse, so these agree with the page. The spacing a style
+/// gives in the stylesheet is margin, and still collapses. Lengths are in `em` of the body size.
+fn look_attr(look: &ParaLook, base: f64) -> String {
+    let mut rules = Vec::new();
+    if let Some(a) = look.align {
+        rules.push(format!(
+            "text-align: {}",
+            match a {
+                folio_model::Align::Left => "left",
+                folio_model::Align::Center => "center",
+                folio_model::Align::Right => "right",
+                folio_model::Align::Justify => "justify",
+            }
+        ));
+    }
+    if let Some(v) = look.space_before {
+        rules.push(format!("margin-top: 0; padding-top: {:.3}em", v / base));
+    }
+    if let Some(v) = look.space_after {
+        rules.push(format!(
+            "margin-bottom: 0; padding-bottom: {:.3}em",
+            v / base
+        ));
+    }
+    if let Some(v) = look.line_height {
+        rules.push(format!("line-height: {v}"));
+    }
+    if let Some(v) = look.first_indent {
+        rules.push(format!("text-indent: {:.3}em", v / base));
+    }
+    if let Some(v) = look.indent {
+        rules.push(format!("margin-left: {:.3}em", v / base));
+    }
+    if let Some(v) = look.indent_right {
+        rules.push(format!("margin-right: {:.3}em", v / base));
+    }
+    if rules.is_empty() {
+        String::new()
+    } else {
+        format!(" style=\"{}\"", rules.join("; "))
+    }
+}
+
+/// The size of body text in points, which a paragraph's lengths are written in ems of.
+fn base_size(book: &Book) -> f64 {
+    book.styles
+        .styles
+        .get("body")
+        .and_then(|s| s.size_pt)
+        .unwrap_or(10.5)
 }
 
 fn plain(runs: &[Run]) -> String {
@@ -119,7 +180,7 @@ fn flow_pieces(flow: &folio_model::Flow, frame_style: &str) -> Vec<Piece> {
         let style = para.style.as_ref().map_or(frame_style, |s| s.0.as_str());
         let words = InlineContent {
             inline: para.inline.clone(),
-            looks: None,
+            looks: para.look.clone().map(|l| vec![l]),
         };
         let paras = paragraphs(&words);
         if paras.is_empty() {
@@ -127,7 +188,9 @@ fn flow_pieces(flow: &folio_model::Flow, frame_style: &str) -> Vec<Piece> {
         }
         match role_of(style) {
             Role::Skip => {}
-            Role::Title => out.push(Piece::Title(paras.into_iter().flatten().collect())),
+            Role::Title => out.push(Piece::Title(
+                paras.into_iter().flat_map(|(runs, _)| runs).collect(),
+            )),
             role => match out.last_mut() {
                 Some(Piece::Block(last_role, last_style, blocks))
                     if *last_role == role && last_style == style =>
@@ -187,9 +250,9 @@ fn story(book: &Book) -> Vec<Piece> {
                     let role = role_of(&t.style.0);
                     match role {
                         Role::Skip => {}
-                        Role::Title => {
-                            out.push(Piece::Title(paras.into_iter().flatten().collect()))
-                        }
+                        Role::Title => out.push(Piece::Title(
+                            paras.into_iter().flat_map(|(runs, _)| runs).collect(),
+                        )),
                         role => out.push(Piece::Block(role, t.style.0.clone(), paras)),
                     }
                 }
@@ -275,11 +338,7 @@ impl Writer {
 
 fn css(book: &Book, families: &BTreeMap<String, Option<(String, bool)>>) -> String {
     let styles: &Styles = &book.styles;
-    let base = styles
-        .styles
-        .get("body")
-        .and_then(|s| s.size_pt)
-        .unwrap_or(10.5);
+    let base = base_size(book);
     let family = if styles.font_family.is_empty() {
         "Literata".to_string()
     } else {
@@ -441,19 +500,22 @@ pub fn reflow(
             }
             Piece::Block(role, style, paras) => {
                 let current = chapters.last_mut().expect("a chapter is open");
-                for para in paras {
+                for (para, look) in paras {
                     let markup = writer.runs(para);
+                    let own = look_attr(look, base_size(book));
                     let line = match role {
-                        Role::Subheading => format!("<h2 class=\"{style}\">{markup}</h2>\n"),
-                        Role::Caption => format!("<p class=\"{style}\">{markup}</p>\n"),
+                        Role::Subheading => format!("<h2 class=\"{style}\"{own}>{markup}</h2>\n"),
+                        Role::Caption => format!("<p class=\"{style}\"{own}>{markup}</p>\n"),
                         Role::Epigraph => {
-                            format!("<blockquote class=\"{style}\"><p>{markup}</p></blockquote>\n")
+                            format!(
+                                "<blockquote class=\"{style}\"><p{own}>{markup}</p></blockquote>\n"
+                            )
                         }
-                        Role::Poem => format!("<p class=\"{style}\">{markup}</p>\n"),
+                        Role::Poem => format!("<p class=\"{style}\"{own}>{markup}</p>\n"),
                         Role::Note => {
-                            format!("<aside class=\"{style}\"><p>{markup}</p></aside>\n")
+                            format!("<aside class=\"{style}\"><p{own}>{markup}</p></aside>\n")
                         }
-                        _ => format!("<p class=\"{style}\">{markup}</p>\n"),
+                        _ => format!("<p class=\"{style}\"{own}>{markup}</p>\n"),
                     };
                     current.body.push_str(&line);
                 }
