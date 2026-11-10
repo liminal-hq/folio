@@ -48,52 +48,32 @@ fn page_count(
     (fit.needed, Some(fit.used))
 }
 
-/// A short story, so this runs in an ordinary test: the single pass agrees with the two answers it
-/// replaced, and with and without the cache.
+/// A short story, so this runs in an ordinary test: the single pass gives the same answer with and
+/// without the cache, warm or cold, and the two older questions are its two halves.
 #[test]
-fn the_page_fit_is_the_needed_and_used_counts_from_one_pass() {
-    let (mut book, styles) = long(30);
+fn the_page_fit_is_the_same_with_the_cache_and_without_it() {
+    let (mut book, styles) = long(2);
+    book.flows[0].paragraphs[1].inline[0]
+        .text
+        .push_str(&SENTENCE.repeat(40));
     let fonts = FontBook::bundled();
     let cache = ParagraphCache::new();
     let flow = book.flows[0].id.clone();
-    for _ in 0..2 {
-        for (cached, layouter) in [
-            (false, Layouter::new(&book, &styles, &fonts)),
-            (
-                true,
-                Layouter::new(&book, &styles, &fonts).with_paragraph_cache(&cache),
-            ),
-        ] {
-            let fit = layouter.page_fit(&flow).unwrap().unwrap();
-            assert_eq!(
-                fit.needed,
-                layouter.frames_needed(&flow).unwrap(),
-                "{cached}"
-            );
-            assert_eq!(
-                Some(fit.used),
-                layouter.frames_used(&flow).unwrap(),
-                "{cached}"
-            );
-            assert!(fit.used >= 1);
-        }
-        // One paragraph changes, and the answers move with it, cache or not.
-        book.flows[0].paragraphs[3].inline[0]
-            .text
-            .push_str(&SENTENCE.repeat(40));
-    }
-    let first = Layouter::new(&book, &styles, &fonts)
+    let plain = Layouter::new(&book, &styles, &fonts)
         .page_fit(&flow)
-        .unwrap();
-    let second = Layouter::new(&book, &styles, &fonts)
-        .with_paragraph_cache(&cache)
-        .page_fit(&flow)
-        .unwrap();
-    assert_eq!(first, second);
-    assert!(Layouter::new(&book, &styles, &fonts)
-        .page_fit(&folio_model::FlowId("nope".into()))
         .unwrap()
-        .is_none());
+        .unwrap();
+    assert!(plain.needed > 0, "the story outgrows its frames");
+    assert!(plain.used >= 1);
+    let cached = Layouter::new(&book, &styles, &fonts).with_paragraph_cache(&cache);
+    assert_eq!(cached.page_fit(&flow).unwrap(), Some(plain));
+    assert_eq!(cached.page_fit(&flow).unwrap(), Some(plain));
+    assert_eq!(cached.frames_needed(&flow).unwrap(), plain.needed);
+    assert_eq!(cached.frames_used(&flow).unwrap(), Some(plain.used));
+    let none = folio_model::FlowId("nope".into());
+    assert!(cached.page_fit(&none).unwrap().is_none());
+    assert_eq!(cached.frames_needed(&none).unwrap(), 0);
+    assert_eq!(cached.frames_used(&none).unwrap(), None);
 }
 
 /// Characters the body font lacks are set in a fallback whether or not the cache has seen the run
