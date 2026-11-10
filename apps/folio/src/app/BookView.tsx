@@ -640,6 +640,11 @@ export function BookView({
 				setSpreadIndex(0);
 				select([]);
 				break;
+			case 'link':
+				// The Properties group says to choose the box the words continue in.
+				setGroup('properties');
+				setLinking(action.frame);
+				break;
 			case 'jax':
 				setJaxOpen((open) => !open);
 				break;

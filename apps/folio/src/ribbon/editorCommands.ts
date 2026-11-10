@@ -99,7 +99,8 @@ export type EditorAction =
 	| { kind: 'jax' }
 	| { kind: 'bookSize' }
 	| { kind: 'pageMargins' }
-	| { kind: 'cover' };
+	| { kind: 'cover' }
+	| { kind: 'link'; frame: string };
 
 const ALIGNS: Record<string, 'left' | 'center' | 'right' | 'justify'> = {
 	alignL: 'left',
@@ -267,6 +268,10 @@ export function editorState(input: EditorInput): EditorState {
 		if (only.rotation) available.delete('toBleed');
 		active.fitFill = only.image.fit === 'fit';
 	}
+	// A text box whose words are its own can have them continue in another box.
+	if (only?.type === 'text' && !only.locked && !only.fromMaster && !only.flow) {
+		available.add('thread');
+	}
 	if (only?.type === 'shape') contextual.push('shape');
 	if (only?.type === 'table') {
 		contextual.push('table');
@@ -365,6 +370,11 @@ export function editorAction(
 			return { kind: 'pageMargins' };
 		case 'cover':
 			return input.hasCover ? { kind: 'cover' } : null;
+		case 'thread': {
+			const only = selected.length === 1 ? selected[0]! : null;
+			if (only?.type !== 'text' || only.locked || only.fromMaster || only.flow) return null;
+			return { kind: 'link', frame: only.id };
+		}
 		case 'askJax':
 			return { kind: 'jax' };
 		case 'baseline':

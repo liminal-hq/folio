@@ -700,3 +700,24 @@ describe('Book size, Margins and Cover', () => {
 		});
 	});
 });
+
+describe('Link text', () => {
+	it('is live for one free text box whose words are its own', () => {
+		expect(editorState(input([text()])).available.has('thread')).toBe(true);
+		expect(editorAction('thread', undefined, input([text()]))).toEqual({
+			kind: 'link',
+			frame: 't',
+		});
+		for (const selected of [
+			[],
+			[text(), text({ id: 'u' })],
+			[text({ locked: true })],
+			[text({ fromMaster: 'mst_a' })],
+			[text({ flow: { id: 'fl', index: 0 } })],
+			[image()],
+		]) {
+			expect(editorState(input(selected)).available.has('thread')).toBe(false);
+			expect(editorAction('thread', undefined, input(selected))).toBeNull();
+		}
+	});
+});
