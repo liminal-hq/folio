@@ -303,3 +303,49 @@ describe('a look set at the caret', () => {
 		expect(calls[0]!.look).toBeUndefined();
 	});
 });
+
+describe('copying with the look', () => {
+	const content = {
+		inline: [
+			{ text: 'hello ', style: null, bold: false, italic: false },
+			{ text: 'world', style: null, bold: true, italic: false },
+		],
+	};
+
+	it('puts Folio, HTML and plain text on the clipboard', () => {
+		const { onEdit } = editor();
+		const { sink } = mount(onEdit, { content });
+		fireEvent.keyDown(sink, { key: 'ArrowLeft', shiftKey: true, ctrlKey: true });
+		const store: Record<string, string> = {};
+		fireEvent.copy(sink, {
+			clipboardData: { setData: (k: string, v: string) => (store[k] = v) },
+		});
+		expect(store['text/plain']).toBe('world');
+		expect(store['text/html']).toBe('<p><strong>world</strong></p>');
+		expect(JSON.parse(store['application/x-folio-text+json']!)[0].inline[0]).toMatchObject({
+			text: 'world',
+			bold: true,
+		});
+	});
+
+	it('pastes what Folio copied with its look, and anything else as plain words', async () => {
+		const { calls, onEdit } = editor();
+		const { sink } = mount(onEdit, { content });
+		const rich = [
+			{ style: null, inline: [{ text: 'bold', style: null, bold: true, italic: false }] },
+		];
+		fireEvent.paste(sink, {
+			clipboardData: {
+				getData: (k: string) =>
+					k === 'application/x-folio-text+json' ? JSON.stringify(rich) : 'ignored',
+			},
+		});
+		await act(async () => undefined);
+		expect(calls[0]).toMatchObject({ insert: { type: 'rich', paragraphs: rich }, step: 'own' });
+		fireEvent.paste(sink, {
+			clipboardData: { getData: (k: string) => (k === 'text/plain' ? 'plain' : '') },
+		});
+		await act(async () => undefined);
+		expect(calls[1]).toMatchObject({ insert: { type: 'text', text: 'plain' } });
+	});
+});

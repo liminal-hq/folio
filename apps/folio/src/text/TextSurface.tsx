@@ -3,6 +3,8 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import type { InlineContent } from '@liminal-hq/folio-protocol/generated/InlineContent';
+import type { StoryPara } from '@liminal-hq/folio-protocol/generated/StoryPara';
 import type { EditCaret } from '@liminal-hq/folio-protocol/generated/EditCaret';
 import type { EditRequest } from '@liminal-hq/folio-protocol/generated/EditRequest';
 import type { FrameLayout } from '@liminal-hq/folio-protocol/generated/FrameLayout';
@@ -17,6 +19,7 @@ import {
 	setTextSelection,
 } from '../canvas/textSelection';
 import { t } from '../i18n/messages';
+import { FOLIO_TEXT_MIME, fromClipboard, sliceParagraphs, toHtml, toPlain } from './clipboard';
 import { caretRect, hitTest, selectionRects } from './caretGeometry';
 import { clampPos, endOf, flatOffset, ordered, replaceInTexts, samePos, textBetween } from './edit';
 import { moveGrapheme, moveLineEdge, moveVertical, moveWord, wordAt } from './navigate';
@@ -35,6 +38,8 @@ export interface TextSurfaceProps {
 	frameId: string;
 	/** The words as paragraphs, as the book holds them. */
 	texts: readonly string[];
+	/** The words with their looks, for copying them with the look they have. */
+	content?: InlineContent | null;
 	/** The frame laid out as the page shows it. */
 	layout: FrameLayout | undefined;
 	/** The frame's box, in points. */
@@ -68,6 +73,8 @@ interface Change {
 	text: string;
 	step: 'typing' | 'own';
 	look?: RunChange;
+	/** Paragraphs with their own looks, in place of `text`, which is then their plain words. */
+	rich?: StoryPara[];
 }
 
 /**
@@ -80,6 +87,7 @@ export function TextSurface({
 	target,
 	frameId,
 	texts,
+	content,
 	layout,
 	box,
 	at,
@@ -189,7 +197,9 @@ export function TextSurface({
 					target,
 					from: change.from,
 					to: change.to,
-					insert: { type: 'text', text: change.text },
+					insert: change.rich
+						? { type: 'rich', paragraphs: change.rich }
+						: { type: 'text', text: change.text },
 					step: change.step,
 					...(change.look ? { look: change.look } : {}),
 				};
@@ -450,7 +460,16 @@ export function TextSurface({
 		event.preventDefault();
 		const [lo, hi] = ordered(selRef.current.anchor, selRef.current.focus);
 		if (samePos(lo, hi)) return;
-		event.clipboardData.setData('text/plain', textBetween(textsRef.current, lo, hi));
+		const data = event.clipboardData;
+		if (content) {
+			// Folio keeps the look; other programs get HTML; everything else gets the words.
+			const paras = sliceParagraphs(content, lo, hi);
+			data.setData('text/plain', toPlain(paras));
+			data.setData('text/html', toHtml(paras));
+			data.setData(FOLIO_TEXT_MIME, JSON.stringify(paras));
+		} else {
+			data.setData('text/plain', textBetween(textsRef.current, lo, hi));
+		}
 	};
 	const cut = (event: React.ClipboardEvent) => {
 		copy(event);
@@ -458,6 +477,14 @@ export function TextSurface({
 	};
 	const paste = (event: React.ClipboardEvent) => {
 		event.preventDefault();
+		const rich = fromClipboard(event.clipboardData.getData(FOLIO_TEXT_MIME));
+		if (rich) {
+			queue(() => {
+				const [from, to] = ordered(selRef.current.anchor, selRef.current.focus);
+				return { from, to, text: toPlain(rich), step: 'own', rich };
+			});
+			return;
+		}
 		type(event.clipboardData.getData('text/plain'), 'own');
 	};
 

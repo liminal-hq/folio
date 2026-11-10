@@ -844,6 +844,7 @@ export function SpreadCanvas({
 						}
 						frameId={editedFrame.id}
 						texts={paragraphsOf(editedFrame.content)}
+						content={editedFrame.content}
 						layout={byFrame.get(editedFrame.id)}
 						box={editedFrame.box}
 						at={{
