@@ -94,6 +94,13 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function redo(id) {
         return cmd('redo', { id });
     }
+    /**
+     * Where the editor's caret goes after the undo or redo just made, when that step was an edit to
+     * words; `null` when it was anything else.
+     */
+    function restoredCaret(id) {
+        return cmd('restored_caret', { id });
+    }
     /** A master page's text laid out on a page of its own, with `{page}` and other tokens as written. */
     function layoutMaster(id, master) {
         return cmd('layout_master', { id, master });
@@ -309,6 +316,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.redo = redo;
     exports.removeDictionary = removeDictionary;
     exports.restoreBook = restoreBook;
+    exports.restoredCaret = restoredCaret;
     exports.revealPath = revealPath;
     exports.rewindHistory = rewindHistory;
     exports.saveBook = saveBook;

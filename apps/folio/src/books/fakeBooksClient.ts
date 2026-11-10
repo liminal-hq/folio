@@ -574,6 +574,11 @@ export function createFakeBooksClient(): FakeBooks {
 				.map((f) => ({ frame: f.id, lines: [], overset: false }));
 			return { revision: h.snapshot.revision, layout: { spread, frames, preflight: [] } };
 		},
+		async restoredCaret(id) {
+			await call('restoredCaret', [id]);
+			find(id);
+			return null;
+		},
 		async editText(id, edit, spread, spelling) {
 			await call('editText', [id, edit.target.type, spread]);
 			const patched = await this.apply(id, { type: 'EditText', ...edit });

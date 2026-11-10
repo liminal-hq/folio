@@ -83,8 +83,8 @@ export interface StageProps {
 	onEditText?(id: string, text: string): void;
 	newEditor?: boolean;
 	onEditRequest?: SpreadCanvasProps['onEditRequest'];
-	onEditUndo?(): void;
-	onEditRedo?(): void;
+	onEditUndo?: SpreadCanvasProps['onEditUndo'];
+	onEditRedo?: SpreadCanvasProps['onEditRedo'];
 	onEditTable?(id: string, edit: TableEdit): void;
 	onEditStory?(flow: string, paragraph?: number): void;
 	onEditParagraphs?(flow: string, from: number, before: string[], after: string[]): void;

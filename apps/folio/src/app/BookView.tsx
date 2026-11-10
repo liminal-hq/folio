@@ -884,8 +884,8 @@ export function BookView({
 							onEditText={(frame, text) => keepAsStep({ type: 'SetText', frame, text })}
 							newEditor={settings.editing.newEditor}
 							onEditRequest={textEdits.onEdit}
-							onEditUndo={() => void store.undo()}
-							onEditRedo={() => void store.redo()}
+							onEditUndo={() => store.step('undo')}
+							onEditRedo={() => store.step('redo')}
 							onEditTable={(frame, edit) => keepAsStep({ type: 'EditTable', frame, edit })}
 							onEditStory={(flow, paragraph) => {
 								setStoryPara(paragraph ?? null);

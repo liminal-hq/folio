@@ -53,6 +53,17 @@ pub enum TextInsert {
     Rich { paragraphs: Vec<StoryPara> },
 }
 
+/// A selection in some words, where the caret was or goes: `anchor` is where it began and `focus`
+/// is the caret. An undo or a redo of an edit puts the editor's caret here.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct EditCaret {
+    pub target: TextTarget,
+    pub anchor: TextPos,
+    pub focus: TextPos,
+}
+
 /// How an edit joins the undo steps.
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]

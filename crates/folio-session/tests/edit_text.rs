@@ -294,3 +294,49 @@ fn emptying_a_frame_keeps_the_look_of_its_last_words() {
     .unwrap();
     assert_eq!(words(&s, "fr_text")[0].0, "new");
 }
+
+#[test]
+fn undo_and_redo_say_where_the_caret_goes() {
+    let mut s = Session::new(book());
+    let t0 = Instant::now();
+    // Typing "ab" at the end of the first paragraph, one key after the other, is one step.
+    s.apply_at(
+        typed(frame_target(), at(0, 16), at(0, 16), "a", EditStep::Typing),
+        t0,
+    )
+    .unwrap();
+    s.apply_at(
+        typed(frame_target(), at(0, 17), at(0, 17), "b", EditStep::Typing),
+        t0 + Duration::from_millis(100),
+    )
+    .unwrap();
+    assert!(s.restored_caret().is_none(), "a new change forgets it");
+    s.undo().unwrap();
+    let back = s
+        .restored_caret()
+        .expect("an edit says where the caret was");
+    assert_eq!((back.anchor, back.focus), (at(0, 16), at(0, 16)));
+    s.redo().unwrap();
+    let forward = s.restored_caret().unwrap();
+    assert_eq!((forward.anchor, forward.focus), (at(0, 18), at(0, 18)));
+    // A replaced selection comes back as a selection.
+    s.apply(typed(
+        frame_target(),
+        at(0, 0),
+        at(0, 4),
+        "X",
+        EditStep::Own,
+    ))
+    .unwrap();
+    s.undo().unwrap();
+    let selected = s.restored_caret().unwrap();
+    assert_eq!((selected.anchor, selected.focus), (at(0, 0), at(0, 4)));
+    // A step that is not an edit to words has none.
+    s.apply(Intent::SetText {
+        frame: FrameId("fr_text".into()),
+        text: "plain".into(),
+    })
+    .unwrap();
+    s.undo().unwrap();
+    assert!(s.restored_caret().is_none());
+}

@@ -34,6 +34,7 @@ import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/Preflig
 import type { Misspelling } from '@liminal-hq/folio-protocol/generated/Misspelling';
 import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck';
 import type { EditAnswer } from '@liminal-hq/folio-protocol/generated/EditAnswer';
+import type { EditCaret } from '@liminal-hq/folio-protocol/generated/EditCaret';
 import type { EditRequest } from '@liminal-hq/folio-protocol/generated/EditRequest';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { PaintPresets } from '@liminal-hq/folio-protocol/generated/PaintPresets';
@@ -179,6 +180,14 @@ export function redo(id: string): Promise<Patch | null> {
 	return cmd<Patch | null>('redo', { id });
 }
 
+/**
+ * Where the editor's caret goes after the undo or redo just made, when that step was an edit to
+ * words; `null` when it was anything else.
+ */
+export function restoredCaret(id: string): Promise<EditCaret | null> {
+	return cmd<EditCaret | null>('restored_caret', { id });
+}
+
 /** A master page's text laid out on a page of its own, with `{page}` and other tokens as written. */
 export function layoutMaster(id: string, master: string): Promise<SpreadLayoutResult> {
 	return cmd<SpreadLayoutResult>('layout_master', { id, master });
@@ -245,6 +254,7 @@ export type {
 	DictionaryOffer,
 	DictionaryStatus,
 	EditAnswer,
+	EditCaret,
 	EditRequest,
 	ExportReport,
 	ExportTarget,

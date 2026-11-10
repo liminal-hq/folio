@@ -60,6 +60,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::history_mark,
             commands::rewind_history,
             commands::redo,
+            commands::restored_caret,
             commands::layout_spread,
             commands::edit_text,
             commands::layout_master,

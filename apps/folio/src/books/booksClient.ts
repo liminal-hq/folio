@@ -73,6 +73,7 @@ import {
 	paintPresets,
 	presets,
 	redo,
+	restoredCaret,
 	saveBook,
 	spellCheck,
 	spellCheckBook,
@@ -89,6 +90,7 @@ import {
 	type BookSummary,
 	type BooksChanged,
 	type EditAnswer,
+	type EditCaret,
 	type EditRequest,
 	type Intent,
 	type KindInfo,
@@ -147,6 +149,8 @@ export interface BooksClient {
 	/** Undoes steps until only `mark` can be undone; each is announced as an event. */
 	rewindHistory(id: string, mark: number): Promise<void>;
 	redo(id: string): Promise<Patch | null>;
+	/** Where the editor's caret goes after the undo or redo just made, when that step was an edit to words. */
+	restoredCaret(id: string): Promise<EditCaret | null>;
 	/** The spread's text shaped and broken into lines, from the book at the revision it carries. */
 	layoutSpread(id: string, spread: string, spelling?: string[]): Promise<SpreadLayoutResult>;
 	/**
@@ -236,6 +240,7 @@ export const tauriBooksClient: BooksClient = {
 	historyMark,
 	rewindHistory,
 	redo,
+	restoredCaret,
 	layoutSpread,
 	editText,
 	layoutMaster,

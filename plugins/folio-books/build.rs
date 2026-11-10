@@ -30,6 +30,7 @@ const COMMANDS: &[&str] = &[
     "history_mark",
     "rewind_history",
     "redo",
+    "restored_caret",
     "layout_spread",
     "edit_text",
     "layout_master",

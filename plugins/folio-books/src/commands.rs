@@ -302,6 +302,17 @@ pub async fn redo<R: Runtime>(
     books.redo(&id)
 }
 
+/// Where the editor's caret goes after the undo or redo just made, when that step was an edit to
+/// words; `null` when it was anything else.
+#[tauri::command]
+pub async fn restored_caret<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Arc<Books>>,
+    id: String,
+) -> Result<Option<folio_model::EditCaret>, Error> {
+    books.restored_caret(&id)
+}
+
 /// Lays out one spread of a book: where every line of text goes, and the preflight checks on it. It
 /// runs on a blocking thread, because the first call scans the system's fonts.
 #[tauri::command]

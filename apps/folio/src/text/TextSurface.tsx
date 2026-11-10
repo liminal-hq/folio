@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import type { EditCaret } from '@liminal-hq/folio-protocol/generated/EditCaret';
 import type { EditRequest } from '@liminal-hq/folio-protocol/generated/EditRequest';
 import type { FrameLayout } from '@liminal-hq/folio-protocol/generated/FrameLayout';
 import type { RunChange } from '@liminal-hq/folio-protocol/generated/RunChange';
@@ -45,8 +46,12 @@ export interface TextSurfaceProps {
 	onEdit(edit: EditRequest): Promise<{ caret: TextPos }>;
 	/** The editing is over: Escape, or the focus left. */
 	onClose(): void;
-	onUndo?(): void;
-	onRedo?(): void;
+	/**
+	 * Undoes or redoes one step of the book. Answers where the caret goes, when the step was an edit
+	 * to words; the editor stays open either way.
+	 */
+	onUndo?(): Promise<EditCaret | null> | void;
+	onRedo?(): Promise<EditCaret | null> | void;
 	/** Tab was pressed; without this it does nothing. */
 	onTab?(back: boolean): void;
 }
@@ -176,6 +181,27 @@ export function TextSurface({
 					setSelection({ anchor: caret, focus: caret });
 				} catch (reason) {
 					console.warn('The edit was refused:', reason);
+				}
+			});
+		},
+		[target, setSelection],
+	);
+
+	/** Undoes or redoes a step after the edits before it, and puts the caret where the step had it. */
+	const undoer = useRef(onUndo);
+	undoer.current = onUndo;
+	const redoer = useRef(onRedo);
+	redoer.current = onRedo;
+	const history = useCallback(
+		(which: 'undo' | 'redo') => {
+			chain.current = chain.current.then(async () => {
+				try {
+					const caret = await (which === 'undo' ? undoer.current : redoer.current)?.();
+					if (caret && JSON.stringify(caret.target) === JSON.stringify(target)) {
+						setSelection({ anchor: caret.anchor, focus: caret.focus });
+					}
+				} catch (reason) {
+					console.warn(`Could not ${which}:`, reason);
 				}
 			});
 		},
@@ -334,11 +360,10 @@ export function TextSurface({
 			onTab?.(shift);
 		} else if (mod && key.toLowerCase() === 'z') {
 			handled();
-			if (shift) onRedo?.();
-			else onUndo?.();
+			history(shift ? 'redo' : 'undo');
 		} else if (mod && key.toLowerCase() === 'y') {
 			handled();
-			onRedo?.();
+			history('redo');
 		}
 	};
 
@@ -384,10 +409,10 @@ export function TextSurface({
 					remove('line', 1);
 					break;
 				case 'historyUndo':
-					onUndo?.();
+					history('undo');
 					break;
 				case 'historyRedo':
-					onRedo?.();
+					history('redo');
 					break;
 				default:
 					break;
@@ -395,7 +420,7 @@ export function TextSurface({
 		};
 		el.addEventListener('beforeinput', before);
 		return () => el.removeEventListener('beforeinput', before);
-	}, [type, remove, onUndo, onRedo]);
+	}, [type, remove, history]);
 
 	const copy = (event: React.ClipboardEvent) => {
 		event.preventDefault();

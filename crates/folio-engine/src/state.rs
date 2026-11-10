@@ -2140,6 +2140,18 @@ impl Books {
         )
     }
 
+    /// Where the editor's caret goes after the undo or redo just made, when the step was an edit to
+    /// words.
+    pub fn restored_caret(&self, id: &str) -> Result<Option<folio_model::EditCaret>, Error> {
+        let inner = locked(&self.inner);
+        inner
+            .books
+            .iter()
+            .find(|b| b.id == id)
+            .map(|open| open.session.restored_caret().cloned())
+            .ok_or_else(|| Error::NoSuchBook(id.into()))
+    }
+
     /// How many steps of the book can be undone now: a mark for [`Books::rewind`].
     pub fn history_mark(&self, id: &str) -> Result<usize, Error> {
         let inner = locked(&self.inner);

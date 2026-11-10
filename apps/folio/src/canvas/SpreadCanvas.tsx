@@ -23,6 +23,7 @@ import { PX_PER_POINT, spreadGeometry, type PlainRect } from './geometry';
 import type { FrameCommand } from './frameMenu';
 import { canEditText, TextEditor, type Speller } from './TextEditor';
 import type { EditRequest } from '@liminal-hq/folio-protocol/generated/EditRequest';
+import type { EditCaret } from '@liminal-hq/folio-protocol/generated/EditCaret';
 import type { TextPos } from '@liminal-hq/folio-protocol/generated/TextPos';
 import { paragraphsOf } from '../text/edit';
 import { TextSurface } from '../text/TextSurface';
@@ -90,8 +91,8 @@ export interface SpreadCanvasProps {
 	/** Makes an edit to some words; answers once the book has it, with where the caret goes. */
 	onEditRequest?(edit: EditRequest): Promise<{ caret: TextPos }>;
 	/** Undo and redo from inside the editor, which stays open. */
-	onEditUndo?(): void;
-	onEditRedo?(): void;
+	onEditUndo?(): Promise<EditCaret | null>;
+	onEditRedo?(): Promise<EditCaret | null>;
 	/** Underlines misspelt words in the editor, when spelling is on. */
 	speller?: Speller;
 	/** The cell being edited has changed: its row and column, or `null` when none is. */

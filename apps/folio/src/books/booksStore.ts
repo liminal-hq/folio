@@ -9,6 +9,7 @@ import type {
 	BooksChanged,
 	BooksCommandError,
 	EditAnswer,
+	EditCaret,
 	EditRequest,
 	Intent,
 	KindInfo,
@@ -71,6 +72,8 @@ export interface BooksStore {
 	): Promise<EditAnswer | null>;
 	undo(): Promise<void>;
 	redo(): Promise<void>;
+	/** Undoes (or redoes) one step and answers where the editor's caret goes, when it was an edit to words. */
+	step(direction: 'undo' | 'redo'): Promise<EditCaret | null>;
 	/** How many steps of the shown book can be undone now, or `null` with no book: a mark to rewind to. */
 	mark(): Promise<number | null>;
 	/** Undoes the shown book's steps until only `mark` can be undone. */
@@ -324,6 +327,20 @@ export function createBooksStore(
 				onPatch({ id, patch: answer.patch, canUndo: true, canRedo: false });
 				state.setState({ error: null });
 				return answer;
+			});
+		},
+		async step(direction) {
+			const id = active();
+			if (id === null) return null;
+			return inOrder(async () => {
+				try {
+					if (direction === 'undo') await client.undo(id);
+					else await client.redo(id);
+					return await client.restoredCaret(id);
+				} catch (reason) {
+					fail(reason);
+					return null;
+				}
 			});
 		},
 		async undo() {

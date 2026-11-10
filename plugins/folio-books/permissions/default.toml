@@ -27,6 +27,7 @@ permissions = [
   "allow-history-mark",
   "allow-rewind-history",
   "allow-redo",
+  "allow-restored-caret",
   "allow-layout-spread",
   "allow-edit-text",
   "allow-layout-master",

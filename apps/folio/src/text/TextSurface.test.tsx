@@ -239,3 +239,39 @@ describe('clipboard', () => {
 		expect(calls[0]).toMatchObject({ insert: { type: 'text', text: 'a\nb' }, step: 'own' });
 	});
 });
+
+describe('undo and redo', () => {
+	it('undoes through the book, keeps the editor open and puts the caret where the step had it', async () => {
+		const { onEdit } = editor();
+		const target = { type: 'frame', frame: 'f' } as const;
+		const onUndo = vi.fn(async () => ({
+			target,
+			anchor: { para: 0, offset: 2 },
+			focus: { para: 0, offset: 5 },
+		}));
+		const onClose = vi.fn();
+		const { sink } = mount(onEdit, { onUndo, onClose });
+		fireEvent.keyDown(sink, { key: 'z', ctrlKey: true });
+		await act(async () => undefined);
+		expect(onUndo).toHaveBeenCalledTimes(1);
+		expect(onClose).not.toHaveBeenCalled();
+		const rect = document.querySelector('[data-selection]') as HTMLElement;
+		expect(rect.style.left).toBe(`${2 * CHAR_W}px`);
+		expect(rect.style.width).toBe(`${3 * CHAR_W}px`);
+	});
+
+	it('redoes with Ctrl+Shift+Z and Ctrl+Y, and ignores a caret meant for other words', async () => {
+		const { onEdit } = editor();
+		const onRedo = vi.fn(async () => ({
+			target: { type: 'frame', frame: 'other' } as const,
+			anchor: { para: 0, offset: 1 },
+			focus: { para: 0, offset: 1 },
+		}));
+		const { sink } = mount(onEdit, { onRedo });
+		fireEvent.keyDown(sink, { key: 'Z', ctrlKey: true, shiftKey: true });
+		fireEvent.keyDown(sink, { key: 'y', ctrlKey: true });
+		await act(async () => undefined);
+		expect(onRedo).toHaveBeenCalledTimes(2);
+		expect(caretLeft()).toBe(11 * CHAR_W);
+	});
+});
