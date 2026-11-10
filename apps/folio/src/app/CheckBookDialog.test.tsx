@@ -118,4 +118,21 @@ describe('the Check book dialog', () => {
 		).toBeInTheDocument();
 		expect(fake.calls.filter((c) => c.startsWith('preflightBook(')).length).toBe(2);
 	});
+
+	it('says what is wrong with a link, and how to fix it', async () => {
+		await setup([
+			item({ kind: 'linkInvalid', severity: 'warning', chars: 'javascript:alert(1)' }),
+			item({ kind: 'linkNowhere', severity: 'warning', chars: '#spread-99', frame: 'fr_b' }),
+			item({ kind: 'linkEmpty', severity: 'note', chars: 'https://example.org', frame: 'fr_c' }),
+		]);
+		expect(
+			await screen.findByText(
+				'A link on Pages 1–2 goes to an address Folio cannot follow: javascript:alert(1)',
+			),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText('A link on Pages 1–2 goes to a page that is not in the book: #spread-99'),
+		).toBeInTheDocument();
+		expect(screen.getByText('A link on Pages 1–2 has no words to click')).toBeInTheDocument();
+	});
 });

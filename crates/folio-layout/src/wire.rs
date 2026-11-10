@@ -196,6 +196,14 @@ pub enum PreflightKind {
     /// Small words are set in a black made of several inks, so the plates can misregister and
     /// fringe the letters. The item's `family` names the swatch.
     RichBlackSmallText,
+    /// Words link to an address Folio does not follow (`javascript:`, a relative path, something
+    /// mistyped), so the link does nothing. The item's `chars` names the address.
+    LinkInvalid,
+    /// Words link to a spread the book does not have, so the link goes nowhere. The item's `chars`
+    /// names the address.
+    LinkNowhere,
+    /// A link has no words to click: only spaces. The item's `chars` names the address.
+    LinkEmpty,
 }
 
 /// How much an issue matters: an error waits on the person, a warning is worth a look and a note
@@ -217,7 +225,7 @@ impl PreflightKind {
             | Self::PictureMissing
             | Self::VeryLowResolution
             | Self::PicturePlaceholder => Severity::Error,
-            Self::AltMissing => Severity::Note,
+            Self::AltMissing | Self::LinkEmpty => Severity::Note,
             Self::MissingGlyphs | Self::InkOverLimit | Self::RichBlackSmallText => {
                 Severity::Warning
             }
@@ -227,6 +235,8 @@ impl PreflightKind {
             | Self::PoemLineTooLong
             | Self::LowResolution
             | Self::BleedNeeded
+            | Self::LinkInvalid
+            | Self::LinkNowhere
             | Self::FontMissing => Severity::Warning,
         }
     }

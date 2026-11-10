@@ -48,6 +48,24 @@ describe('readerDocument', () => {
 		expect(html).not.toContain('../images/');
 	});
 
+	it('keeps a link from taking the preview off to its address, and still shows it as a link', () => {
+		const linked = make({
+			preview: {
+				...preview,
+				chapters: [
+					{
+						title: 'One',
+						body: '<p>See <a href="https://example.org/">here</a> or <a href="chapter-002.xhtml#spread-3">there</a>.</p>',
+					},
+				],
+			},
+		});
+		expect(linked).not.toContain('<a href=');
+		expect(linked).toContain('<a data-href="https://example.org/">here</a>');
+		expect(linked).toContain('<a data-href="chapter-002.xhtml#spread-3">there</a>');
+		expect(linked).toContain('a[data-href] { text-decoration: underline');
+	});
+
 	it('sets the text size, the page colour and the reader font', () => {
 		expect(make({ scale: 1.25 })).toContain('font-size: 22.50px');
 		expect(make({ theme: 'sepia' })).toContain('#f4ecd8');

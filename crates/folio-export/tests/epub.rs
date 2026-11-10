@@ -357,3 +357,89 @@ fn words_in_another_language_are_marked_with_it() {
     }
     assert!(found);
 }
+
+/// Every `href` of an `<a>` in `text`.
+fn hrefs(text: &str) -> Vec<String> {
+    text.split("<a href=\"")
+        .skip(1)
+        .filter_map(|rest| rest.split('"').next())
+        .map(str::to_string)
+        .collect()
+}
+
+#[test]
+fn linked_words_are_anchors_and_a_link_to_a_spread_lands_on_the_file_that_spread_begins_in() {
+    let mut book = sample(BookKind::Novel);
+    let opening = book.flows[0]
+        .paragraphs
+        .iter()
+        .position(|p| p.text().starts_with("Mara had kept the light"))
+        .expect("the opening paragraph");
+    book.flows[0].paragraphs[opening].inline[0].href = Some("https://example.org/a?x=1&y=2".into());
+    let later = book.flows[0].paragraphs.len() - 1;
+    let last_spread = book.spreads.len();
+    book.flows[0].paragraphs[later].inline[0].href = Some(format!("#spread-{last_spread}"));
+    book.flows[0].paragraphs[later - 1].inline[0].href = Some("#spread-99".into());
+    book.flows[0].paragraphs[later - 2].inline[0].href = Some("#spread-1".into());
+    for flavour in [EpubFlavour::Standard, EpubFlavour::Kobo] {
+        let (mut zip, names) = files(&epub(&book, &NoAssets, flavour));
+        let chapters: Vec<&String> = names
+            .iter()
+            .filter(|n| n.contains("/text/chapter-"))
+            .collect();
+        let texts: Vec<(String, String)> = chapters
+            .iter()
+            .map(|n| ((*n).clone(), read(&mut zip, n)))
+            .collect();
+        let all: String = texts.iter().map(|(_, t)| t.as_str()).collect();
+        assert!(
+            all.contains("<a href=\"https://example.org/a?x=1&amp;y=2\">"),
+            "{flavour:?}"
+        );
+        for (name, text) in &texts {
+            assert!(well_formed(text), "{name}");
+        }
+        // Every link into the story lands on a place that is there, in the file it names.
+        let mut internal = 0;
+        for (name, text) in &texts {
+            for href in hrefs(text) {
+                if href.starts_with("http") {
+                    continue;
+                }
+                internal += 1;
+                let (file, id) = match href.split_once('#') {
+                    Some((file, id)) => (file.to_string(), Some(id.to_string())),
+                    None => (href.clone(), None),
+                };
+                let target = if file.is_empty() {
+                    name.clone()
+                } else {
+                    format!("OEBPS/text/{file}")
+                };
+                let (_, body) = texts
+                    .iter()
+                    .find(|(n, _)| *n == target)
+                    .unwrap_or_else(|| panic!("{href} names a file that is not there"));
+                if let Some(id) = id {
+                    assert!(body.contains(&format!("id=\"{id}\"")), "{href} in {name}");
+                }
+            }
+        }
+        assert_eq!(internal, 3, "{flavour:?}");
+        // A link to a spread the book does not have goes to the first chapter, whole.
+        assert!(
+            all.contains("<a href=\"chapter-001.xhtml\">"),
+            "{flavour:?}"
+        );
+    }
+}
+
+#[test]
+fn a_link_the_model_would_refuse_is_not_written() {
+    let mut book = sample(BookKind::Novel);
+    book.flows[0].paragraphs[0].inline[0].href = Some("javascript:alert(1)".into());
+    let (mut zip, names) = files(&epub(&book, &NoAssets, EpubFlavour::Standard));
+    for name in names.iter().filter(|n| n.ends_with(".xhtml")) {
+        assert!(!read(&mut zip, name).contains("javascript"), "{name}");
+    }
+}

@@ -23,6 +23,9 @@ const KEYS: Record<PreflightKind, string> = {
 	richBlackSmallText: 'richBlack',
 	picturePlaceholder: 'placeholder',
 	altMissing: 'altMissing',
+	linkInvalid: 'linkInvalid',
+	linkNowhere: 'linkNowhere',
+	linkEmpty: 'linkEmpty',
 };
 
 /** The kinds said once for the whole book when there are several, as the spec does ("4 pictures are still placeholders"). */

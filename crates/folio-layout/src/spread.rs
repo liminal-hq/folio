@@ -165,6 +165,7 @@ impl<'a> Layouter<'a> {
         preflight.extend(self.font_checks(spread));
         preflight.extend(crate::preflight::swatch_checks(self.book, spread));
         preflight.extend(crate::preflight::rich_black_checks(self.book, spread));
+        preflight.extend(crate::preflight::link_checks(self.book, spread));
         if let Some(facts) = self.assets {
             preflight.extend(asset_checks(self.book, spread, facts));
         }

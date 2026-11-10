@@ -6,8 +6,10 @@
 // A paragraph's `Heading 1` becomes a chapter title, other headings subheadings, quotation styles
 // the epigraph style and list items a paragraph that starts with a dash; bold, italic, underlined and struck-through runs keep
 // their emphasis. Tracked insertions are accepted and deletions dropped. Pictures, tables,
-// footnotes and comments are left out, and the report says so.
+// footnotes and comments are left out, and the report says so. A hyperlink to an address Folio
+// follows keeps its address; one to a place in the document keeps only its words.
 
+use std::collections::HashMap;
 use std::io::{Cursor, Read};
 
 use folio_model::{join_runs, Run, StoryPara, StyleId};
@@ -68,10 +70,40 @@ pub fn import_docx_with(bytes: &[u8], map: &StyleMap) -> Result<Imported, DocxEr
         .read_to_string(&mut xml)
         .map_err(|_| DocxError::NotDocx)?;
     let has_comments = zip.by_name("word/comments.xml").is_ok();
-    Ok(read_document(&xml, has_comments, map))
+    // Where each link of the document goes: its relationships name the addresses.
+    let mut rels = String::new();
+    if let Ok(mut file) = zip.by_name("word/_rels/document.xml.rels") {
+        let _ = file.read_to_string(&mut rels);
+    }
+    Ok(read_document(&xml, has_comments, map, &link_targets(&rels)))
 }
 
-fn read_document(xml: &str, has_comments: bool, map: &StyleMap) -> Imported {
+/// The addresses a document's relationships name, by relationship id.
+fn link_targets(xml: &str) -> HashMap<String, String> {
+    let mut out = HashMap::new();
+    let mut reader = Reader::from_str(xml);
+    while let Ok(event) = reader.read_event() {
+        match event {
+            Event::Eof => break,
+            Event::Start(e) | Event::Empty(e) if e.local_name().as_ref() == b"Relationship" => {
+                if let (Some(id), Some(target)) = (attr(&e, b"Id"), attr(&e, b"Target")) {
+                    if attr(&e, b"TargetMode").as_deref() == Some("External") {
+                        out.insert(id, target);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+fn read_document(
+    xml: &str,
+    has_comments: bool,
+    map: &StyleMap,
+    links: &HashMap<String, String>,
+) -> Imported {
     let mut tally = Tally::default();
     let mut reader = Reader::from_str(xml);
     let mut report = ImportReport::default();
@@ -89,6 +121,8 @@ fn read_document(xml: &str, has_comments: bool, map: &StyleMap) -> Imported {
         (Look::default(), false, 0u32, false);
     let mut skipping = 0u32;
     let mut in_table = 0u32;
+    // The address of the link being read, when the words are in one.
+    let mut link: Option<String> = None;
     loop {
         let event = match reader.read_event() {
             Ok(Event::Eof) | Err(_) => break,
@@ -149,6 +183,18 @@ fn read_document(xml: &str, has_comments: bool, map: &StyleMap) -> Imported {
                 }
                 b"t" => in_text = true,
                 b"del" => deleted += 1,
+                b"hyperlink" => {
+                    // A link to a place in the document (`w:anchor`) has nothing to go to here.
+                    link = attr(&e, b"id")
+                        .and_then(|id| links.get(&id))
+                        .and_then(|target| folio_model::clean_href(target));
+                    if link.is_none() {
+                        note(
+                            &mut report,
+                            "Links that Folio cannot follow were left out; their words were kept.",
+                        );
+                    }
+                }
                 _ => {}
             },
             Event::Empty(e) => match e.local_name().as_ref() {
@@ -203,12 +249,15 @@ fn read_document(xml: &str, has_comments: bool, map: &StyleMap) -> Imported {
             },
             Event::Text(t) if in_text && deleted == 0 && in_table == 0 => {
                 if let (Some(p), Ok(text)) = (para.as_mut(), t.unescape()) {
-                    p.runs = join_runs(&p.runs, &[run(&text, &look)]);
+                    let mut linked = look.clone();
+                    linked.href = link.clone();
+                    p.runs = join_runs(&p.runs, &[run(&text, &linked)]);
                 }
             }
             Event::End(e) => match e.local_name().as_ref() {
                 b"t" => in_text = false,
                 b"rPr" => in_run_props = false,
+                b"hyperlink" => link = None,
                 b"del" => deleted = deleted.saturating_sub(1),
                 b"tbl" => in_table = in_table.saturating_sub(1),
                 b"p" => {
@@ -238,6 +287,7 @@ struct Look {
     size: Option<f64>,
     spacing: Option<f64>,
     lang: Option<String>,
+    href: Option<String>,
 }
 
 fn run(text: &str, look: &Look) -> Run {
@@ -249,6 +299,7 @@ fn run(text: &str, look: &Look) -> Run {
         strike: look.strike,
         size: look.size,
         lang: look.lang.clone(),
+        href: look.href.clone(),
         tracking: look
             .spacing
             .and_then(|pt| crate::tracking_of(pt, look.size.unwrap_or(crate::REFERENCE_SIZE))),

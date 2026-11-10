@@ -375,3 +375,58 @@ pub fn rich_black_checks(book: &Book, spread: &Spread) -> Vec<PreflightItem> {
     }
     items
 }
+
+/// The words of a frame that holds its own, or of the story it begins when it is the first frame
+/// of a flow (a story is checked once, wherever it is poured).
+fn frame_runs<'a>(book: &'a Book, frame: &'a Frame) -> Vec<&'a folio_model::Run> {
+    match frame {
+        Frame::Text(t) => match &t.flow {
+            Some(slot) if slot.index == 0 => book
+                .flows
+                .iter()
+                .find(|f| f.id == slot.id)
+                .into_iter()
+                .flat_map(|f| f.paragraphs.iter().flat_map(|p| &p.inline))
+                .collect(),
+            Some(_) => Vec::new(),
+            None => t.content.iter().flat_map(|c| &c.inline).collect(),
+        },
+        Frame::Shape(s) => s.content.iter().flat_map(|c| &c.inline).collect(),
+        Frame::Table(t) => t
+            .rows
+            .iter()
+            .flatten()
+            .flat_map(|c| c.content.iter().flat_map(|c| &c.inline))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// The problems with the links in the words of `spread`: an address Folio does not follow, a link
+/// to a spread the book does not have, and a link with no words to click. Each address is said
+/// once for a frame.
+pub fn link_checks(book: &Book, spread: &Spread) -> Vec<PreflightItem> {
+    let mut items = Vec::new();
+    for frame in &spread.frames {
+        let mut said = std::collections::BTreeSet::new();
+        for run in frame_runs(book, frame) {
+            let Some(href) = &run.href else { continue };
+            let kind = if folio_model::clean_href(href).is_none() {
+                PreflightKind::LinkInvalid
+            } else if folio_model::spread_of_href(href).is_some_and(|n| n > book.spreads.len()) {
+                PreflightKind::LinkNowhere
+            } else if run.text.trim().is_empty() {
+                PreflightKind::LinkEmpty
+            } else {
+                continue;
+            };
+            if said.insert((kind as u8, href.clone())) {
+                items.push(PreflightItem {
+                    chars: Some(href.clone()),
+                    ..item(kind, spread, frame)
+                });
+            }
+        }
+    }
+    items
+}

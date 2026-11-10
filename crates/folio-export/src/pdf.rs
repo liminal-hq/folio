@@ -10,8 +10,11 @@ use folio_layout::scene::{focused_rect, SceneItem, SceneKind, SceneLine, SceneRe
 use folio_layout::wire::LayoutRun;
 use folio_layout::{FontBook, Layouter, StyleSheet};
 use folio_model::{Background, Book, Colour, Fit, Shape};
+use krilla::action::{Action, LinkAction};
+use krilla::annotation::{Annotation, LinkAnnotation, Target};
 use krilla::color::{cmyk, rgb};
-use krilla::geom::{PathBuilder, Point, Rect as KRect, Size, Transform};
+use krilla::destination::XyzDestination;
+use krilla::geom::{PathBuilder, Point, Quadrilateral, Rect as KRect, Size, Transform};
 use krilla::image::Image;
 use krilla::metadata::Metadata;
 use krilla::num::NormalizedF32;
@@ -42,7 +45,8 @@ impl Assets for NoAssets {
 /// What kind of PDF to make.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PdfTarget {
-    /// To read on a screen or send round: one page per page, with the book's title and author.
+    /// To read on a screen or send round: one page per page, with the book's title and author, and
+    /// the book's links live: an address opens, a link to a spread goes to its first page.
     #[default]
     Sharing,
     /// Print-ready for Kindle Direct Publishing: single pages, nothing but the title and author in
@@ -119,7 +123,15 @@ pub fn export_pdf(
     let mut drawing = Drawing::new(fonts, assets, separator, book.styles.swatches.clone());
 
     let mut scenes = Vec::new();
-    for spread in book.spreads.iter().skip(skip) {
+    // The page each spread of the book begins on (the spreads left out have none), for the links
+    // that go to a spread.
+    let mut first_page: Vec<Option<usize>> = Vec::new();
+    for (number, spread) in book.spreads.iter().enumerate() {
+        if number < skip {
+            first_page.push(None);
+            continue;
+        }
+        first_page.push(Some(scenes.len()));
         if let Some(scene) = layouter.scene_spread(&spread.id)? {
             scenes.extend(scene.pages);
         }
@@ -200,6 +212,12 @@ pub fn export_pdf(
             surface.pop();
         }
         surface.finish();
+        // Links are for a file that is read on a screen; a file for print carries none.
+        if let (Some(page), PdfTarget::Sharing) = (page, options.target) {
+            for link in link_annotations(page, &first_page, scenes.len(), (origin_x, origin_y)) {
+                pdf_page.add_annotation(link);
+            }
+        }
         pdf_page.finish();
     }
     let mut metadata = Metadata::new().title(book.title.clone());
@@ -229,6 +247,104 @@ pub fn export_pdf(
         );
     }
     Ok(bytes)
+}
+
+/// Where on the page a piece of a link is, as a rectangle `(x, y, w, h)` before the frame's turn.
+type LinkPiece = (String, (f64, f64, f64, f64));
+
+/// The link annotations of a page: one for each stretch of a line whose words link to the same
+/// place, over the line's box. `shift` is how far the page's content is moved on the sheet, and
+/// `pages` how many pages the file has, since a link to a page that is not there is left out.
+fn link_annotations(
+    page: &folio_layout::scene::PageScene,
+    first_page: &[Option<usize>],
+    pages: usize,
+    shift: (f64, f64),
+) -> Vec<Annotation> {
+    let mut out = Vec::new();
+    for item in &page.items {
+        let SceneKind::Text {
+            at,
+            size,
+            rotation,
+            lines,
+        } = &item.kind
+        else {
+            continue;
+        };
+        let mut pieces: Vec<LinkPiece> = Vec::new();
+        for line in lines {
+            let mut open: Option<(String, f64, f64)> = None;
+            let close = |open: &mut Option<(String, f64, f64)>, pieces: &mut Vec<LinkPiece>| {
+                if let Some((href, from, to)) = open.take() {
+                    pieces.push((
+                        href,
+                        (
+                            at.0 + line.x + from,
+                            at.1 + line.top,
+                            to - from,
+                            line.height,
+                        ),
+                    ));
+                }
+            };
+            for run in &line.runs {
+                let Some(href) = run.href.as_deref().filter(|_| !run.text.is_empty()) else {
+                    close(&mut open, &mut pieces);
+                    continue;
+                };
+                match &mut open {
+                    // The next word of the same link, with only the space between.
+                    Some((was, _, to)) if was == href => *to = run.x + run.width,
+                    _ => {
+                        close(&mut open, &mut pieces);
+                        open = Some((href.to_string(), run.x, run.x + run.width));
+                    }
+                }
+            }
+            close(&mut open, &mut pieces);
+        }
+        for (href, (x, y, w, h)) in pieces {
+            let target = match folio_model::spread_of_href(&href) {
+                Some(n) => {
+                    let Some(page) = first_page
+                        .get(n - 1)
+                        .copied()
+                        .flatten()
+                        .filter(|p| *p < pages)
+                    else {
+                        continue;
+                    };
+                    Target::Destination(XyzDestination::new(page, Point::from_xy(0.0, 0.0)).into())
+                }
+                None if href.starts_with('#') => continue,
+                None => Target::Action(Action::Link(LinkAction::new(href))),
+            };
+            // The corners, turned with the frame as its words are, and moved with the page.
+            let (cx, cy) = (at.0 + size.0 / 2.0, at.1 + size.1 / 2.0);
+            let (sin, cos) = rotation.to_radians().sin_cos();
+            let corner = |px: f64, py: f64| {
+                let (dx, dy) = (px - cx, py - cy);
+                Point::from_xy(
+                    (cx + dx * cos - dy * sin + shift.0) as f32,
+                    (cy + dx * sin + dy * cos + shift.1) as f32,
+                )
+            };
+            out.push(
+                LinkAnnotation::new_with_quad_points(
+                    vec![Quadrilateral([
+                        corner(x, y + h),
+                        corner(x + w, y + h),
+                        corner(x + w, y),
+                        corner(x, y),
+                    ])],
+                    target,
+                )
+                .into(),
+            );
+        }
+    }
+    out
 }
 
 struct Drawing<'a> {

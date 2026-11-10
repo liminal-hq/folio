@@ -176,3 +176,26 @@ fn a_spans_language_comes_across_and_the_bodys_is_left_to_the_book() {
         .filter(|r| r.text != "bonjour")
         .all(|r| r.lang.is_none()));
 }
+
+#[test]
+fn a_link_keeps_its_address_through_the_spans_inside_it() {
+    let body = "<text:p>See <text:a xlink:href=\"https://example.org/x\" text:style-name=\"Link\">our <text:span text:style-name=\"T1\">site</text:span></text:a>, <text:a xlink:href=\"javascript:alert(1)\">a script</text:a> and <text:a xlink:href=\"#Heading\">a heading</text:a>.</text:p>";
+    let made = import_odt(&odt(body)).unwrap();
+    let runs = &made.story[0].inline;
+    let word = |w: &str| runs.iter().find(|r| r.text.contains(w)).unwrap();
+    assert_eq!(word("our").href.as_deref(), Some("https://example.org/x"));
+    assert!(word("site").bold);
+    assert_eq!(word("site").href.as_deref(), Some("https://example.org/x"));
+    assert_eq!(word("See").href, None);
+    assert_eq!(word("a script").href, None);
+    assert_eq!(word("a heading").href, None);
+    assert_eq!(
+        text(&made.story[0]),
+        "See our site, a script and a heading."
+    );
+    assert!(made
+        .report
+        .notes
+        .iter()
+        .any(|n| n.starts_with("Links that Folio cannot follow")));
+}

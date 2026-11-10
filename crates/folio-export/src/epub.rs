@@ -68,9 +68,14 @@ fn role_of(style: &str) -> Role {
 
 /// One thing in the story, in reading order.
 enum Piece {
+    /// Where spread `n` (counted from 1) begins in the story, which a link to it lands on.
+    Anchor(usize),
     Title(Vec<Run>),
     Block(Role, String, Vec<(Vec<Run>, ParaLook)>),
-    Picture { asset: String, alt: String },
+    Picture {
+        asset: String,
+        alt: String,
+    },
     Table(Vec<Vec<String>>, u8),
 }
 
@@ -208,7 +213,10 @@ fn flow_pieces(flow: &folio_model::Flow, frame_style: &str) -> Vec<Piece> {
 fn story(book: &Book) -> Vec<Piece> {
     let mut out = Vec::new();
     let mut poured = std::collections::HashSet::new();
-    for spread in book.spreads.iter().skip(1) {
+    // The cover has no words in the story, so a link to it lands where the story begins.
+    out.push(Piece::Anchor(1));
+    for (number, spread) in book.spreads.iter().enumerate().skip(1) {
+        out.push(Piece::Anchor(number + 1));
         let page_w = book.trim.w.0;
         let mut frames: Vec<(usize, f64, f64, &Frame)> = folio_model::leaves(&spread.frames)
             .into_iter()
@@ -357,6 +365,11 @@ impl Writer {
             if run.bold {
                 text = format!("<strong>{text}</strong>");
             }
+            // A link goes round the lot. A link to a spread of the book is pointed at its place in
+            // the files once they are all written (see `resolve_links`).
+            if let Some(href) = run.href.as_deref().and_then(folio_model::clean_href) {
+                text = format!("<a href=\"{}\">{text}</a>", escape(&href));
+            }
             out.push_str(&text);
         }
         out
@@ -482,7 +495,7 @@ pub fn reflow(
     flavour: EpubFlavour,
 ) -> Result<Reflow, ExportError> {
     let pieces = story(book);
-    if pieces.is_empty() {
+    if pieces.iter().all(|p| matches!(p, Piece::Anchor(_))) {
         return Err(ExportError::NoPages);
     }
     let kobo = flavour == EpubFlavour::Kobo;
@@ -508,8 +521,15 @@ pub fn reflow(
         images.push((asset.to_string(), name.clone()));
         name
     };
+    // Spreads whose place in the files is not written yet, and where each has been written.
+    let mut waiting: Vec<usize> = Vec::new();
+    let mut anchors: BTreeMap<usize, usize> = BTreeMap::new();
     for piece in &pieces {
+        if !matches!(piece, Piece::Anchor(_) | Piece::Title(_)) {
+            place_anchors(&mut chapters, &mut waiting, &mut anchors);
+        }
         match piece {
+            Piece::Anchor(n) => waiting.push(*n),
             Piece::Title(runs) => {
                 let text = plain(runs);
                 if chapters.len() > 1 || !chapters[0].body.is_empty() {
@@ -521,6 +541,7 @@ pub fn reflow(
                 } else {
                     chapters[0].title = text.clone();
                 }
+                place_anchors(&mut chapters, &mut waiting, &mut anchors);
                 let current = chapters.last_mut().expect("a chapter is open");
                 // A chapter title is an `<h1>`, which a reader sets at twice the body text.
                 let markup = writer.runs(runs, base_size(book), 2.0);
@@ -587,7 +608,59 @@ pub fn reflow(
         }
     }
 
+    place_anchors(&mut chapters, &mut waiting, &mut anchors);
+    for (index, chapter) in chapters.iter_mut().enumerate() {
+        chapter.body = resolve_links(&chapter.body, index, &anchors);
+    }
     Ok(Reflow { chapters, images })
+}
+
+/// The file of chapter `index` (counted from 0), as the other chapters name it.
+fn chapter_file(index: usize) -> String {
+    format!("chapter-{:03}.xhtml", index + 1)
+}
+
+/// Writes where the spreads that are waiting begin into the chapter being written.
+fn place_anchors(
+    chapters: &mut [ReflowChapter],
+    waiting: &mut Vec<usize>,
+    anchors: &mut BTreeMap<usize, usize>,
+) {
+    let at = chapters.len() - 1;
+    for n in waiting.drain(..) {
+        anchors.insert(n, at);
+        chapters[at]
+            .body
+            .push_str(&format!("<span id=\"spread-{n}\"/>\n"));
+    }
+}
+
+/// Points the links to a spread of the book (`#spread-3`) at the file and place that spread
+/// begins in. A link to a spread the book does not have goes to the first chapter instead, so it
+/// is never broken.
+fn resolve_links(body: &str, here: usize, anchors: &BTreeMap<usize, usize>) -> String {
+    const OPEN: &str = "href=\"#spread-";
+    let mut out = String::with_capacity(body.len());
+    let mut rest = body;
+    while let Some(at) = rest.find(OPEN) {
+        out.push_str(&rest[..at]);
+        let after = &rest[at + OPEN.len()..];
+        let digits = after.find('"').unwrap_or(0);
+        let target = after[..digits]
+            .parse::<usize>()
+            .ok()
+            .and_then(|n| anchors.get(&n).map(|c| (n, *c)));
+        match target {
+            Some((n, chapter)) if chapter == here => out.push_str(&format!("href=\"#spread-{n}\"")),
+            Some((n, chapter)) => {
+                out.push_str(&format!("href=\"{}#spread-{n}\"", chapter_file(chapter)))
+            }
+            None => out.push_str(&format!("href=\"{}\"", chapter_file(0))),
+        }
+        rest = &after[(digits + 1).min(after.len())..];
+    }
+    out.push_str(rest);
+    out
 }
 
 /// The book as an EPUB 3 file.
@@ -656,7 +729,7 @@ pub fn export_epub(
         );
         put(
             &mut zip,
-            &format!("OEBPS/text/chapter-{:03}.xhtml", index + 1),
+            &format!("OEBPS/text/{}", chapter_file(index)),
             xhtml(&chapter.title, &book.language, &body).as_bytes(),
             deflated,
         )?;

@@ -81,3 +81,27 @@ fn a_language_that_is_not_the_bodys_comes_across() {
     assert_eq!(bonjour.lang.as_deref(), Some("fr-CA"));
     assert!(s[0].inline.iter().any(|r| r.lang.is_none()));
 }
+
+#[test]
+fn a_hyperlink_field_keeps_its_address_for_the_words_it_shows() {
+    let rtf = br#"{\rtf1\ansi\pard See {\field{\*\fldinst{HYPERLINK "https://example.org/a"}}{\fldrslt{\ul our site}}} now, {\field{\*\fldinst{HYPERLINK "javascript:alert(1)"}}{\fldrslt a script}} and {\field{\*\fldinst{HYPERLINK \\l "mark"}}{\fldrslt a mark}}.\par}"#;
+    let made = import_rtf(rtf).unwrap();
+    let runs = &made.story[0].inline;
+    let word = |w: &str| runs.iter().find(|r| r.text.contains(w)).unwrap();
+    assert_eq!(
+        word("our site").href.as_deref(),
+        Some("https://example.org/a")
+    );
+    assert!(word("our site").underline);
+    assert_eq!(word("See").href, None);
+    assert_eq!(word("now").href, None);
+    assert_eq!(word("a script").href, None);
+    assert_eq!(word("a mark").href, None);
+    let all: String = runs.iter().map(|r| r.text.as_str()).collect();
+    assert_eq!(all, "See our site now, a script and a mark.");
+    assert!(made
+        .report
+        .notes
+        .iter()
+        .any(|n| n.starts_with("Links that Folio cannot follow")));
+}

@@ -267,3 +267,50 @@ fn words_in_another_language_are_spans_with_it() {
         assert!(well_formed(&read(&mut zip, name)), "{name}");
     }
 }
+
+#[test]
+fn linked_words_are_anchors_and_a_link_to_a_spread_goes_to_the_page_it_begins_on() {
+    let (mut book, _) = sample(BookKind::Picture);
+    let spreads = book.spreads.len();
+    let mut set = 0;
+    for frame in book.spreads.iter_mut().flat_map(|s| s.frames.iter_mut()) {
+        if let folio_model::Frame::Text(t) = frame {
+            for run in t.content.iter_mut().flat_map(|c| c.inline.iter_mut()) {
+                run.href = Some(if set % 2 == 0 {
+                    "https://example.org/?a=1&b=2".to_string()
+                } else {
+                    format!("#spread-{spreads}")
+                });
+                set += 1;
+            }
+        }
+    }
+    assert!(set > 1);
+    let styles = StyleSheet::from_styles(&book.styles);
+    let bytes = export_fixed_epub(&book, &styles, &FontBook::bundled(), &NoAssets).unwrap();
+    let (mut zip, names) = open(&bytes);
+    let pages: Vec<(String, String)> = names
+        .iter()
+        .filter(|n| n.contains("/text/page-"))
+        .map(|n| (n.clone(), read(&mut zip, n)))
+        .collect();
+    let all: String = pages.iter().map(|(_, t)| t.as_str()).collect();
+    assert!(all.contains("<a href=\"https://example.org/?a=1&amp;b=2\"><span"));
+    // The last spread begins on a page of the book, and the link names that page's file.
+    let internal: Vec<&str> = all
+        .split("<a href=\"")
+        .skip(1)
+        .filter_map(|r| r.split('"').next())
+        .filter(|h| h.starts_with("page-") || h.starts_with("cover"))
+        .collect();
+    assert!(!internal.is_empty());
+    for href in internal {
+        assert!(
+            names.iter().any(|n| n.ends_with(&format!("/text/{href}"))),
+            "{href} is not a file of the book"
+        );
+    }
+    for (name, text) in &pages {
+        assert!(well_formed(text), "{name}");
+    }
+}

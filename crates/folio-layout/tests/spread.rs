@@ -2167,3 +2167,54 @@ fn a_linked_run_carries_its_address_and_a_rule_for_the_page_to_draw_but_no_under
     let end = words.link.unwrap();
     assert!(end.width < (other.x - words.x) - 0.5 || (end.width - words.width).abs() < 0.02);
 }
+
+#[test]
+fn links_that_go_nowhere_or_have_nothing_to_click_are_flagged_once_each_and_good_ones_are_not() {
+    let mut frame = text_frame("links", "body", 60.0, 60.0, 300.0, 80.0, "plain ");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    for (word, href) in [
+        ("fine ", "https://example.org"),
+        ("script ", "javascript:alert(1)"),
+        ("again ", "javascript:alert(1)"),
+        ("gone ", "#spread-99"),
+        ("   ", "https://example.org/blank"),
+    ] {
+        text.content.as_mut().unwrap().inline.push(Run {
+            text: word.into(),
+            href: Some(href.into()),
+            ..Default::default()
+        });
+    }
+    let (_, layout) = laid_with(frame);
+    let found: Vec<(PreflightKind, String)> = layout
+        .preflight
+        .iter()
+        .filter(|i| {
+            matches!(
+                i.kind,
+                PreflightKind::LinkInvalid | PreflightKind::LinkNowhere | PreflightKind::LinkEmpty
+            )
+        })
+        .map(|i| (i.kind, i.chars.clone().unwrap()))
+        .collect();
+    assert_eq!(
+        found,
+        vec![
+            (
+                PreflightKind::LinkInvalid,
+                "javascript:alert(1)".to_string()
+            ),
+            (PreflightKind::LinkNowhere, "#spread-99".to_string()),
+            (
+                PreflightKind::LinkEmpty,
+                "https://example.org/blank".to_string()
+            ),
+        ]
+    );
+    use folio_layout::wire::Severity;
+    assert_eq!(PreflightKind::LinkInvalid.severity(), Severity::Warning);
+    assert_eq!(PreflightKind::LinkNowhere.severity(), Severity::Warning);
+    assert_eq!(PreflightKind::LinkEmpty.severity(), Severity::Note);
+}

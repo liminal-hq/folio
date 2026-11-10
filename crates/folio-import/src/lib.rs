@@ -123,6 +123,8 @@ struct Reader {
     report: ImportReport,
     /// How quotes are set when Markdown's straight ones are made curly; `None` leaves them be.
     smart: Option<QuoteStyle>,
+    /// Where the words being read link to, inside a link.
+    href: Option<String>,
 }
 
 /// The words of `runs`, run together.
@@ -148,6 +150,7 @@ impl Reader {
             italic: self.italic > 0,
             font: None,
             colour: None,
+            href: self.href.clone(),
             ..Default::default()
         };
         self.current = join_runs(&self.current, &[run]);
@@ -219,7 +222,7 @@ pub fn smarten_story(story: &mut [StoryPara], style: QuoteStyle) {
 
 /// Reads Markdown (or plain text) into a story: `#` is a chapter title, other headings are
 /// subheadings, blank lines separate paragraphs, `***` is a scene break, `*` and `**` are italic
-/// and bold, quotations take the epigraph style and list items become paragraphs. Pictures, tables,
+/// and bold, `[words](https://address)` is a link, quotations take the epigraph style and list items become paragraphs. Pictures, tables,
 /// code and HTML are left out, and the report says so.
 pub fn import_markdown(text: &str) -> Imported {
     import_markdown_with(text, Some(QuoteStyle::Curly))
@@ -238,6 +241,7 @@ pub fn import_markdown_with(text: &str, smart: Option<QuoteStyle>) -> Imported {
         in_item: false,
         report: ImportReport::default(),
         smart,
+        href: None,
     };
     let mut skipping = 0u32;
     // The parser's own smart punctuation is off: it makes `--` an en dash, and Folio's rules apply.
@@ -288,9 +292,17 @@ pub fn import_markdown_with(text: &str, smart: Option<QuoteStyle>) -> Imported {
                 reader.in_item = false;
                 reader.flush();
             }
-            Event::Start(Tag::Link { .. }) => {
-                reader.note("Links were left out; their words were kept.");
+            // A link to an address Folio follows keeps it; a relative one or one that runs code is
+            // left out, and its words are kept.
+            Event::Start(Tag::Link { dest_url, .. }) => {
+                reader.href = folio_model::clean_href(&dest_url);
+                if reader.href.is_none() {
+                    reader.note(
+                        "Links that Folio cannot follow were left out; their words were kept.",
+                    );
+                }
             }
+            Event::End(TagEnd::Link) => reader.href = None,
             Event::Start(Tag::Strikethrough) => {
                 reader.note("Struck-through words were kept without the line through them.");
             }

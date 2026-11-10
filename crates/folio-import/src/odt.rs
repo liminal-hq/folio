@@ -41,6 +41,8 @@ struct Look {
     size: Option<f64>,
     spacing: Option<f64>,
     lang: Option<String>,
+    /// Where the words link to, when they are in a link.
+    href: Option<String>,
 }
 
 /// A length in points (`12pt`); other units are not read.
@@ -57,6 +59,7 @@ fn run(text: &str, look: &Look) -> Run {
         strike: look.strike,
         size: look.size,
         lang: look.lang.clone(),
+        href: look.href.clone(),
         tracking: look
             .spacing
             .and_then(|pt| crate::tracking_of(pt, look.size.unwrap_or(crate::REFERENCE_SIZE))),
@@ -173,7 +176,23 @@ fn read_content(xml: &str, map: &StyleMap) -> Imported {
                             size: look.size.or(outer.size),
                             spacing: look.spacing.or(outer.spacing),
                             lang: look.lang.or(outer.lang),
+                            href: outer.href,
                         });
+                    }
+                    // A link: its words carry the address (`xlink:href`) the span style does not.
+                    b"a" if in_para => {
+                        let mut look = spans.last().cloned().unwrap_or_default();
+                        look.href = attr(&e, b"href")
+                            .as_deref()
+                            .and_then(folio_model::clean_href)
+                            .or(look.href);
+                        if look.href.is_none() {
+                            note(
+                                &mut report,
+                                "Links that Folio cannot follow were left out; their words were kept.",
+                            );
+                        }
+                        spans.push(look);
                     }
                     _ => {}
                 }
@@ -201,6 +220,7 @@ fn read_content(xml: &str, map: &StyleMap) -> Imported {
                                     };
                                     folio_model::clean_lang(&tag)
                                 }),
+                                href: None,
                             },
                         );
                     }
@@ -224,7 +244,7 @@ fn read_content(xml: &str, map: &StyleMap) -> Imported {
             Event::End(e) => match e.local_name().as_ref() {
                 b"style" => defining = None,
                 b"list" => list = list.saturating_sub(1),
-                b"span" => {
+                b"span" | b"a" => {
                     spans.pop();
                 }
                 b"h" | b"p" if in_para => {

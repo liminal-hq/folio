@@ -50,6 +50,10 @@ struct State {
     size: Option<f64>,
     spacing: Option<f64>,
     lang: Option<String>,
+    /// Where the words link to, inside the result of a hyperlink field.
+    href: Option<String>,
+    /// Inside the instruction of a field, whose text is read for a hyperlink's address.
+    field: bool,
     skip: bool,
     /// Characters a `\uN` escape still has to step over (`\ucN`).
     skip_chars: u32,
@@ -90,6 +94,9 @@ pub fn import_rtf(bytes: &[u8]) -> Result<Imported, RtfError> {
     let mut uc = 1u32;
     let mut i = 0;
     let mut pending = String::new();
+    // The instruction of the field being read, and the address of the hyperlink it made.
+    let mut field_text = String::new();
+    let mut field_href: Option<String> = None;
     let note = |report: &mut ImportReport, text: &str| {
         if !report.notes.iter().any(|n| n == text) {
             report.notes.push(text.to_owned());
@@ -105,6 +112,7 @@ pub fn import_rtf(bytes: &[u8]) -> Result<Imported, RtfError> {
                 strike: state.strike,
                 size: state.size,
                 lang: state.lang.clone(),
+                href: state.href.clone(),
                 tracking: state.spacing.and_then(|pt| {
                     crate::tracking_of(pt, state.size.unwrap_or(crate::REFERENCE_SIZE))
                 }),
@@ -134,7 +142,19 @@ pub fn import_rtf(bytes: &[u8]) -> Result<Imported, RtfError> {
             }
             b'}' => {
                 flush_text(&mut pending, &mut runs, &state);
+                let closing = state.field;
                 state = stack.pop().unwrap_or_default();
+                // The end of a field's instruction: a hyperlink's address is in it.
+                if closing && !state.field {
+                    field_href = hyperlink_of(&field_text);
+                    if field_href.is_none() && field_text.contains("HYPERLINK") {
+                        note(
+                            &mut report,
+                            "Links that Folio cannot follow were left out; their words were kept.",
+                        );
+                    }
+                    field_text.clear();
+                }
                 i += 1;
             }
             b'\r' | b'\n' => i += 1,
@@ -194,6 +214,17 @@ pub fn import_rtf(bytes: &[u8]) -> Result<Imported, RtfError> {
                         // One space after a control word belongs to it.
                         if bytes.get(i) == Some(&b' ') {
                             i += 1;
+                        }
+                        if word == "fldinst" {
+                            state.field = true;
+                            state.skip = true;
+                            field_text.clear();
+                            continue;
+                        }
+                        // The words a field shows: a hyperlink's, linked.
+                        if word == "fldrslt" {
+                            state.href = field_href.take();
+                            continue;
                         }
                         if SKIPPED.contains(&word) {
                             if word == "pict" {
@@ -281,7 +312,10 @@ pub fn import_rtf(bytes: &[u8]) -> Result<Imported, RtfError> {
                 }
             }
             _ => {
-                if state.skip {
+                if state.field {
+                    field_text.push(char::from(b));
+                    i += 1;
+                } else if state.skip {
                     i += 1;
                 } else if state.skip_chars > 0 {
                     state.skip_chars -= 1;
@@ -307,4 +341,17 @@ pub fn import_rtf(bytes: &[u8]) -> Result<Imported, RtfError> {
     keep_unusual_looks(&mut story);
     report.paragraphs = story.len() as u32;
     Ok(Imported { story, report })
+}
+
+/// The address of the hyperlink a field's instruction (` HYPERLINK "https://example.org" `) names.
+/// A link to a place in the document (`\\l`) has none.
+fn hyperlink_of(instruction: &str) -> Option<String> {
+    let rest = instruction.trim().strip_prefix("HYPERLINK")?;
+    let rest = rest.trim_start();
+    if rest.starts_with("\\l") {
+        return None;
+    }
+    let start = rest.find('"')? + 1;
+    let end = start + rest[start..].find('"')?;
+    folio_model::clean_href(&rest[start..end])
 }

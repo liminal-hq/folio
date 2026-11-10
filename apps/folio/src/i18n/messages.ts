@@ -290,6 +290,14 @@ export const messages = {
 	'preflight.altMissing': 'A picture on {where} has no description',
 	'preflight.altMissing.many': '{count} pictures have no description',
 	'preflight.altMissing.fix': 'Add a short description so screen readers can share it.',
+	'preflight.linkInvalid': 'A link on {where} goes to an address Folio cannot follow: {chars}',
+	'preflight.linkInvalid.fix':
+		'Edit the link (Ctrl+K) and use a web, email or phone address, or choose a page of the book. Until then it does nothing.',
+	'preflight.linkNowhere': 'A link on {where} goes to a page that is not in the book: {chars}',
+	'preflight.linkNowhere.fix':
+		'The page may have been taken out. Edit the link (Ctrl+K) to choose another, or take the link away.',
+	'preflight.linkEmpty': 'A link on {where} has no words to click',
+	'preflight.linkEmpty.fix': 'Select some words for it, or take the link away.',
 
 	// Reader preview
 	'reader.label': 'Preview on a {device}',
