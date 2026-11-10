@@ -176,8 +176,15 @@ export function TextSurface({
 				snapToGrapheme(textsRef.current[p] ?? '', o),
 			);
 			if (hit) setSelection({ anchor: hit, focus: hit });
+		} else if (target.type === 'story') {
+			// A frame of a story shows only a part of it: the caret starts at what the frame shows first.
+			const first = layout.lines.find((l) => l.paragraph != null);
+			if (first && first.paragraph != null) {
+				const pos = { para: first.paragraph, offset: first.start };
+				setSelection({ anchor: pos, focus: pos });
+			}
 		}
-	}, [layout, start, setSelection]);
+	}, [layout, start, setSelection, target.type]);
 
 	useEffect(() => {
 		sink.current?.focus({ preventScroll: true });

@@ -371,6 +371,12 @@ export function SpreadCanvas({
 			// The whole of every paragraph the frame shows is edited together, one to a line.
 			const shown = laid?.lines.flatMap((l) => (l.paragraph == null ? [] : [l.paragraph])) ?? [];
 			const story = (book.flows ?? []).find((f) => f.id === frame.flow?.id);
+			if (newEditor && onEditRequest && story && shown.length > 0) {
+				// A frame of a story is edited in place with the whole story's words behind it.
+				setEditStart(at ? { x: at.x - frame.box.x, y: at.y - frame.box.y } : undefined);
+				setEditing(frame.id);
+				return;
+			}
 			if (onEditParagraphs && story && shown.length > 0) {
 				const from = Math.min(...shown);
 				const count = Math.max(...shown) - from + 1;
@@ -387,12 +393,62 @@ export function SpreadCanvas({
 		}
 	};
 	const byFrame = new Map(layout?.frames.map((f) => [f.frame, f]));
-	/** Words are edited over the page's own lines, which stay drawn under the caret. */
-	const surfaceEdits =
-		newEditor &&
-		onEditRequest !== undefined &&
-		(editedFrame?.type === 'text' || editedFrame?.type === 'shape') &&
-		editedFrame.id === editing;
+	/**
+	 * What the on-page editor edits, when it is the one in use: the words of a frame, a shape, a
+	 * table cell or a story, the lines they are laid out in, and where they are over the page.
+	 */
+	const surface = (() => {
+		if (!newEditor || !onEditRequest || editing === null || !editedFrame) return null;
+		if (editedFrame.type === 'text' && editedFrame.flow) {
+			const story = (book.flows ?? []).find((f) => f.id === editedFrame.flow?.id);
+			if (!story || editedFrame.locked || editedFrame.fromMaster) return null;
+			const runs = story.paragraphs.flatMap((p, i) =>
+				i === 0 ? p.inline : [{ text: '\n', style: null, bold: false, italic: false }, ...p.inline],
+			);
+			return {
+				target: { type: 'story', flow: story.id } as const,
+				frameId: editedFrame.id,
+				texts: story.paragraphs.map((p) => p.inline.map((r) => r.text).join('')),
+				content: { inline: runs },
+				layoutKey: editedFrame.id,
+			};
+		}
+		if (editedFrame.type === 'text' || editedFrame.type === 'shape') {
+			if (!canEditText(editedFrame)) return null;
+			return {
+				target:
+					editedFrame.type === 'text'
+						? ({ type: 'frame', frame: editedFrame.id } as const)
+						: ({ type: 'shape', frame: editedFrame.id } as const),
+				frameId: editedFrame.id,
+				texts: paragraphsOf(editedFrame.content),
+				content: editedFrame.content,
+				layoutKey: editedFrame.id,
+			};
+		}
+		if (
+			editedFrame.type === 'table' &&
+			editingCell &&
+			editingCell.row < editedFrame.rows.length &&
+			editingCell.col < editedFrame.cols.length
+		) {
+			const content = editedFrame.rows[editingCell.row]![editingCell.col]!.content;
+			return {
+				target: {
+					type: 'cell',
+					frame: editedFrame.id,
+					row: editingCell.row,
+					col: editingCell.col,
+				} as const,
+				frameId: editedFrame.id,
+				texts: paragraphsOf(content),
+				content,
+				layoutKey: editing,
+			};
+		}
+		return null;
+	})();
+	const surfaceEdits = surface !== null;
 	const furniture = masterFurniture(book, spread);
 	const grid = book.grid;
 	/** One frame as it is drawn: its art, its edges, and the words laid out in it. */
@@ -416,7 +472,10 @@ export function SpreadCanvas({
 			)}
 			{frame.type === 'table' &&
 				layout?.frames
-					.filter((cell) => cell.frame.startsWith(`${frame.id}#`) && cell.frame !== editing)
+					.filter(
+						(cell) =>
+							cell.frame.startsWith(`${frame.id}#`) && (cell.frame !== editing || surfaceEdits),
+					)
 					.map((cell) => <Lines key={cell.frame} id={cell.frame} at={frame.box} layout={cell} />)}
 		</g>
 	);
@@ -832,37 +891,49 @@ export function SpreadCanvas({
 					/>
 				))}
 			</svg>
-			{surfaceEdits &&
-				onEditRequest &&
-				(editedFrame?.type === 'text' || editedFrame?.type === 'shape') && (
-					<TextSurface
-						key={editing}
-						target={
-							editedFrame.type === 'text'
-								? { type: 'frame', frame: editedFrame.id }
-								: { type: 'shape', frame: editedFrame.id }
-						}
-						frameId={editedFrame.id}
-						texts={paragraphsOf(editedFrame.content)}
-						content={editedFrame.content}
-						layout={byFrame.get(editedFrame.id)}
-						box={editedFrame.box}
-						at={{
-							x: (editedFrame.box.x - bounds.x) * scale,
-							y: (editedFrame.box.y - bounds.y) * scale,
-						}}
-						scale={scale}
-						rotation={editedFrame.rotation}
-						start={editStart}
-						onEdit={onEditRequest}
-						onUndo={onEditUndo}
-						onRedo={onEditRedo}
-						onClose={() => {
-							setEditing(null);
-							svg.current?.focus();
-						}}
-					/>
-				)}
+			{surface && onEditRequest && editedFrame && (
+				<TextSurface
+					key={editing}
+					target={surface.target}
+					frameId={surface.frameId}
+					texts={surface.texts}
+					content={surface.content}
+					layout={byFrame.get(surface.layoutKey)}
+					box={editedFrame.box}
+					at={{
+						x: (editedFrame.box.x - bounds.x) * scale,
+						y: (editedFrame.box.y - bounds.y) * scale,
+					}}
+					scale={scale}
+					rotation={editedFrame.rotation}
+					start={editStart}
+					onEdit={onEditRequest}
+					onUndo={onEditUndo}
+					onRedo={onEditRedo}
+					onTab={
+						editedFrame.type === 'table' && editingCell
+							? (back) => {
+									const next = nextCell(editedFrame, editingCell, back);
+									if (next) {
+										setEditStart(undefined);
+										setEditing(cellId(next));
+									} else if (!back) {
+										// Tab out of the last cell makes a row for what comes next.
+										onEditTable?.(editedFrame.id, { type: 'addRow', at: editedFrame.rows.length });
+										setEditStart(undefined);
+										setEditing(
+											cellId({ frame: editedFrame.id, row: editedFrame.rows.length, col: 0 }),
+										);
+									}
+								}
+							: undefined
+					}
+					onClose={() => {
+						setEditing(null);
+						svg.current?.focus();
+					}}
+				/>
+			)}
 			{!surfaceEdits && (editedFrame?.type === 'text' || editedFrame?.type === 'shape') && (
 				<TextEditor
 					key={editing}
@@ -924,7 +995,8 @@ export function SpreadCanvas({
 						/>
 					);
 				})()}
-			{editedFrame?.type === 'table' &&
+			{!surfaceEdits &&
+				editedFrame?.type === 'table' &&
 				editingCell &&
 				editingCell.row < editedFrame.rows.length &&
 				editingCell.col < editedFrame.cols.length && (
