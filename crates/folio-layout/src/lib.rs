@@ -25,6 +25,7 @@ pub mod wire;
 
 pub use assets::{AssetFact, AssetFacts};
 pub use error::LayoutError;
+pub use flow::ParagraphCache;
 pub use fonts::{
     BookFace, Embedding, EmbeddingRights, FaceInfo, Font, FontBook, FontRequest, FontSource,
     KeepableFace, Metrics, Resolved,

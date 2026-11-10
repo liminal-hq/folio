@@ -10,6 +10,10 @@
 
 use crate::error::LayoutError;
 use crate::fonts::FontBook;
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
+use std::sync::{Arc, Mutex};
+
 use crate::paragraph::{layout_paragraph, Align, Line, ParagraphLayout, ParagraphSpec, Span, Wrap};
 
 /// The room a frame gives text, in points from the frame's top-left.
@@ -185,6 +189,85 @@ fn half_leading(line: &Line) -> f64 {
     ((line.height - line.ascent - line.descent) / 2.0).max(0.0)
 }
 
+/// Paragraphs already shaped and broken, kept between layouts, so a keystroke in one paragraph of a
+/// long story shapes that paragraph again and takes the rest as they were.
+///
+/// A paragraph is found by everything its lines depend on: its words and their looks, its
+/// alignment, indents, wrap and hyphenation, the language, whether breaks are optimal and the width
+/// of the column. The fonts are not part of the key: the owner makes a new cache when the fonts
+/// the book can use change.
+#[derive(Default)]
+pub struct ParagraphCache {
+    laid: Mutex<HashMap<u64, Arc<ParagraphLayout>>>,
+}
+
+/// The most paragraphs kept; past it the cache starts again.
+const PARAGRAPHS_KEPT: usize = 16_384;
+
+impl ParagraphCache {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// How many paragraphs are kept.
+    pub fn len(&self) -> usize {
+        self.laid.lock().expect("the cache is not poisoned").len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    fn lay(
+        &self,
+        book: &FontBook,
+        spec: &ParagraphSpec<'_>,
+        measure: f64,
+    ) -> Result<Arc<ParagraphLayout>, LayoutError> {
+        let key = paragraph_key(spec, measure);
+        if let Some(hit) = self
+            .laid
+            .lock()
+            .expect("the cache is not poisoned")
+            .get(&key)
+        {
+            return Ok(Arc::clone(hit));
+        }
+        let made = Arc::new(layout_paragraph(book, spec, measure)?);
+        let mut laid = self.laid.lock().expect("the cache is not poisoned");
+        if laid.len() >= PARAGRAPHS_KEPT {
+            laid.clear();
+        }
+        laid.insert(key, Arc::clone(&made));
+        Ok(made)
+    }
+}
+
+fn paragraph_key(spec: &ParagraphSpec<'_>, measure: f64) -> u64 {
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    for span in spec.spans {
+        span.text.hash(&mut h);
+        let st = &span.style;
+        st.family.hash(&mut h);
+        st.size_pt.to_bits().hash(&mut h);
+        st.weight.hash(&mut h);
+        st.italic.hash(&mut h);
+        st.tracking_em.to_bits().hash(&mut h);
+        st.features.hash(&mut h);
+        st.line_height.to_bits().hash(&mut h);
+    }
+    (spec.align as u8).hash(&mut h);
+    spec.first_indent.to_bits().hash(&mut h);
+    spec.hang_indent.to_bits().hash(&mut h);
+    spec.language.hash(&mut h);
+    spec.hyphenate.hash(&mut h);
+    (spec.wrap as u8).hash(&mut h);
+    spec.max_consecutive_hyphens.hash(&mut h);
+    spec.optimal.hash(&mut h);
+    measure.to_bits().hash(&mut h);
+    h.finish()
+}
+
 /// Pours `story` through `frames` in order.
 pub fn flow(
     book: &FontBook,
@@ -192,6 +275,18 @@ pub fn flow(
     frames: &[FrameBox],
     language: &str,
     options: &FlowOptions,
+) -> Result<Flowed, LayoutError> {
+    flow_cached(book, story, frames, language, options, None)
+}
+
+/// As [`flow`], taking paragraphs from `cache` when it has them and leaving the ones it shaped.
+pub fn flow_cached(
+    book: &FontBook,
+    story: &[StoryParagraph],
+    frames: &[FrameBox],
+    language: &str,
+    options: &FlowOptions,
+    cache: Option<&ParagraphCache>,
 ) -> Result<Flowed, LayoutError> {
     let columns = columns_of(frames);
     let mut out = Flowed {
@@ -242,7 +337,10 @@ pub fn flow(
             spec.wrap = para.wrap;
             spec.hyphenate = para.hyphenate;
             spec.optimal = options.optimal;
-            let laid: ParagraphLayout = layout_paragraph(book, &spec, column.width)?;
+            let laid: Arc<ParagraphLayout> = match cache {
+                Some(cache) => cache.lay(book, &spec, column.width)?,
+                None => Arc::new(layout_paragraph(book, &spec, column.width)?),
+            };
             out.overlong |= laid.overlong;
             if laid.lines.is_empty() {
                 break;

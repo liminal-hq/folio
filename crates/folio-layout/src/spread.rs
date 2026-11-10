@@ -14,7 +14,9 @@ use std::sync::{Arc, Mutex};
 
 use crate::assets::AssetFacts;
 use crate::error::LayoutError;
-use crate::flow::{flow, FlowOptions, Flowed, FrameBox, PlacedLine, StoryParagraph};
+use crate::flow::{
+    flow_cached, FlowOptions, Flowed, FrameBox, ParagraphCache, PlacedLine, StoryParagraph,
+};
 use crate::fonts::{FontBook, FontRequest};
 use crate::paragraph::{Span, Wrap};
 use crate::preflight::{asset_checks, geometry_checks};
@@ -42,6 +44,8 @@ pub struct Layouter<'a> {
     /// Flows already laid out for this book as it is, shared between the spreads laid out one after
     /// another, so a story is poured through its frames once and not once for every spread.
     flow_cache: Option<(&'a FlowCache, u64)>,
+    /// Paragraphs already shaped, kept between layouts of the book.
+    paragraphs: Option<&'a ParagraphCache>,
 }
 
 /// The flows laid out for one state of a book. The owner makes a new one whenever the book changes.
@@ -68,7 +72,15 @@ impl<'a> Layouter<'a> {
             assets: None,
             proofing: None,
             flow_cache: None,
+            paragraphs: None,
         }
+    }
+
+    /// Takes paragraphs from `cache` when it has them, and leaves the ones it shapes there, so a
+    /// change to one paragraph of a long story shapes just that one.
+    pub fn with_paragraph_cache(mut self, cache: &'a ParagraphCache) -> Self {
+        self.paragraphs = Some(cache);
+        self
     }
 
     /// Shares the flows laid out in `cache`. `variant` tells apart layouts of the same book that
@@ -500,12 +512,13 @@ impl<'a> Layouter<'a> {
         if !text.baseline_lock {
             options.baseline_grid = None;
         }
-        let laid = flow(
+        let laid = flow_cached(
             self.fonts,
             &story,
             std::slice::from_ref(&frame),
             &self.book.language,
             &options,
+            self.paragraphs,
         )?;
         let mut layout = frame_layout(&text.base.id, &laid, 0, &self.runs_info(&story));
         // How the style sets the words, so an editor in place sets them the same way.
@@ -828,7 +841,14 @@ impl<'a> Layouter<'a> {
         if !lock {
             options.baseline_grid = None;
         }
-        let laid = flow(self.fonts, &story, &boxes, &self.book.language, &options)?;
+        let laid = flow_cached(
+            self.fonts,
+            &story,
+            &boxes,
+            &self.book.language,
+            &options,
+            self.paragraphs,
+        )?;
         let styles = self.runs_info(&story);
         Ok(FlowLayout {
             id: chain.id.0.clone(),

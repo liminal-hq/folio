@@ -12,7 +12,8 @@ use folio_layout::assets::sniff;
 use folio_layout::preflight::spread_assets;
 use folio_layout::wire::PreflightItem;
 use folio_layout::{
-    AssetFact, AssetFacts, BookFace, FlowCache, FontBook, FontSource, Layouter, StyleSheet,
+    AssetFact, AssetFacts, BookFace, FlowCache, FontBook, FontSource, Layouter, ParagraphCache,
+    StyleSheet,
 };
 use folio_model::{BookFont, Intent, SpreadId};
 use folio_package::{Package, SaveOptions};
@@ -180,6 +181,9 @@ struct OpenBook {
     fonts: Option<(Vec<BookFont>, Arc<FontBook>)>,
     /// The flows laid out at one revision of the book, shared by the spreads laid out at it.
     flow_cache: Option<(u64, Arc<FlowCache>)>,
+    /// Paragraphs already shaped and broken, kept across edits and made again when the fonts the
+    /// book keeps change, so an edit to one paragraph of a long story shapes just that one.
+    paragraphs: Option<(Vec<BookFont>, Arc<ParagraphCache>)>,
     /// Keeps other programs from opening the book's file while it is open here.
     lock: Option<BookLock>,
 }
@@ -210,6 +214,19 @@ impl OpenBook {
         let mut book = self.session.book().clone();
         folio_model::resolve_swatches(&mut book);
         book
+    }
+
+    /// The cache of shaped paragraphs: the one kept while the book's own fonts stay the same.
+    fn paragraph_cache(&mut self) -> Arc<ParagraphCache> {
+        let fonts = &self.session.book().fonts;
+        match &self.paragraphs {
+            Some((was, cache)) if was == fonts => Arc::clone(cache),
+            _ => {
+                let cache = Arc::new(ParagraphCache::new());
+                self.paragraphs = Some((fonts.clone(), Arc::clone(&cache)));
+                cache
+            }
+        }
     }
 
     /// The cache of laid out flows for the book as it is now: the one kept while the revision stays
@@ -554,6 +571,7 @@ impl Books {
             facts: HashMap::new(),
             fonts: None,
             flow_cache: None,
+            paragraphs: None,
             lock,
         };
         let snapshot = book.snapshot();
@@ -759,7 +777,7 @@ impl Books {
         spelling: Option<&[String]>,
     ) -> Result<SpreadLayoutResult, Error> {
         let base = self.fonts.get_or_init(FontBook::with_system_fonts);
-        let (book, styles, revision, facts, layered, flows) = {
+        let (book, styles, revision, facts, layered, flows, paragraphs) = {
             let mut inner = locked(&self.inner);
             let open = inner
                 .books
@@ -776,6 +794,7 @@ impl Books {
                 facts,
                 layered,
                 open.flows_laid(),
+                open.paragraph_cache(),
             )
         };
         let fonts = layered.as_deref().unwrap_or(base);
@@ -807,7 +826,8 @@ impl Books {
         };
         let mut layouter = Layouter::new(&book, &styles, fonts)
             .with_assets(&facts)
-            .with_flow_cache(&flows, variant);
+            .with_flow_cache(&flows, variant)
+            .with_paragraph_cache(&paragraphs);
         if speller.is_some() {
             layouter = layouter.with_proofing(&find);
         }
@@ -2002,15 +2022,14 @@ impl Books {
         let refit = changes_a_story(&intent);
         let edits_words = edits_a_story(&intent);
         let base = self.fonts.get_or_init(FontBook::with_system_fonts);
-        let layered = if refit {
+        let (layered, paragraphs) = if refit {
             let mut inner = locked(&self.inner);
-            inner
-                .books
-                .iter_mut()
-                .find(|b| b.id == id)
-                .and_then(|open| open.font_book(base))
+            match inner.books.iter_mut().find(|b| b.id == id) {
+                Some(open) => (open.font_book(base), Some(open.paragraph_cache())),
+                None => (None, None),
+            }
         } else {
-            None
+            (None, None)
         };
         self.change(
             id,
@@ -2033,9 +2052,12 @@ impl Books {
                     .map(|f| f.id.clone())
                     .collect();
                 for flow in flows {
-                    let needed = Layouter::new(session.book(), &styles, fonts)
-                        .frames_needed(&flow)
-                        .map_err(Error::from)?;
+                    let needed = with_paragraphs(
+                        Layouter::new(session.book(), &styles, fonts),
+                        paragraphs.as_deref(),
+                    )
+                    .frames_needed(&flow)
+                    .map_err(Error::from)?;
                     if needed > 0 {
                         let more = session.apply(Intent::AddFlowPages {
                             flow,
@@ -2050,7 +2072,10 @@ impl Books {
                     if !edits_words {
                         continue;
                     }
-                    let layouter = Layouter::new(session.book(), &styles, fonts);
+                    let layouter = with_paragraphs(
+                        Layouter::new(session.book(), &styles, fonts),
+                        paragraphs.as_deref(),
+                    );
                     let used = layouter.frames_used(&flow).map_err(Error::from)?;
                     let have = session
                         .book()
@@ -2215,6 +2240,14 @@ impl Books {
 fn style_sheet(styles: &folio_model::Styles) -> StyleSheet {
     StyleSheet::from_styles(styles)
         .with_fallback(&StyleSheet::from_styles(&folio_presets::preset_styles()))
+}
+
+/// A layouter that keeps the paragraphs it shapes in `cache`, when there is one.
+fn with_paragraphs<'a>(layouter: Layouter<'a>, cache: Option<&'a ParagraphCache>) -> Layouter<'a> {
+    match cache {
+        Some(cache) => layouter.with_paragraph_cache(cache),
+        None => layouter,
+    }
 }
 
 /// Whether an intent can change how much room a story needs: its words, their styles, or the frames
