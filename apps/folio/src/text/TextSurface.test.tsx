@@ -298,6 +298,16 @@ describe('a look set at the caret', () => {
 		clearPendingLook();
 	});
 
+	it("can be a font, which goes with the next words as the edit's look", async () => {
+		const { calls, onEdit } = editor();
+		const { sink } = mount(onEdit);
+		setPendingLook('f', { font: 'Zed Sans' });
+		input(sink, 'insertText', 'x');
+		await act(async () => undefined);
+		expect(calls[0]).toMatchObject({ look: { font: 'Zed Sans' }, step: 'own' });
+		clearPendingLook();
+	});
+
 	it('is forgotten when the caret moves', async () => {
 		const { calls, onEdit } = editor();
 		const { sink } = mount(onEdit);

@@ -340,3 +340,40 @@ fn undo_and_redo_say_where_the_caret_goes() {
     s.undo().unwrap();
     assert!(s.restored_caret().is_none());
 }
+
+#[test]
+fn a_font_set_at_the_caret_goes_with_the_words_typed_and_not_the_ones_around_them() {
+    let mut s = Session::new(book());
+    s.apply(Intent::EditText {
+        target: frame_target(),
+        from: at(0, 5),
+        to: at(0, 5),
+        insert: TextInsert::Text { text: "X".into() },
+        look: Some(RunChange {
+            font: Some("Zed Sans".into()),
+            ..RunChange::default()
+        }),
+        step: EditStep::Own,
+    })
+    .unwrap();
+    let Frame::Text(t) = &s.book().spreads[1].frames[0] else {
+        panic!("not text");
+    };
+    let fonts: Vec<(String, Option<String>)> = t
+        .content
+        .as_ref()
+        .unwrap()
+        .inline
+        .iter()
+        .map(|r| (r.text.clone(), r.font.clone()))
+        .collect();
+    assert_eq!(
+        fonts,
+        vec![
+            ("Once ".into(), None),
+            ("X".into(), Some("Zed Sans".into())),
+            ("upon".into(), None),
+            (" a time".into(), None),
+        ]
+    );
+}

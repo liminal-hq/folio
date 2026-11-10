@@ -202,3 +202,50 @@ describe('words selected in a frame', () => {
 		expect(at(3, 8)).toBe(false);
 	});
 });
+
+describe('a font chosen with the caret alone in the words', () => {
+	const caret = { frame: 'fr_flow', offset: 5, target: story, pos: { para: 0, offset: 5 } };
+
+	it('is for the words typed next, and an installed font is kept with the book', () => {
+		const fonts = [
+			{ family: 'Zed Sans', origin: 'system' },
+			{ family: 'Inter', origin: 'bundled' },
+		] as never;
+		expect(editorAction('font', 'Zed Sans', input([flowed], { caret, fonts }))).toEqual({
+			kind: 'pending',
+			frame: 'fr_flow',
+			change: { font: 'Zed Sans' },
+			keep: 'Zed Sans',
+		});
+		expect(editorAction('font', 'Inter', input([flowed], { caret, fonts }))).toMatchObject({
+			kind: 'pending',
+			keep: null,
+		});
+	});
+
+	it('shows the chosen font until the caret moves, then the font of the words there', () => {
+		expect(editorState(input([flowed], { caret })).texts.font).toBe('Zed Sans');
+		const pending = { font: 'Inter' };
+		expect(editorState(input([flowed], { caret, pending })).texts.font).toBe('Inter');
+	});
+
+	it('works in a table cell and in a frame of its own', () => {
+		const inCell = { frame: 'fr_table', offset: 2, target: cell, pos: { para: 0, offset: 2 } };
+		expect(editorAction('font', 'Inter', input([table], { caret: inCell }))).toMatchObject({
+			kind: 'pending',
+			frame: 'fr_table',
+			change: { font: 'Inter' },
+		});
+		const own = {
+			type: 'text',
+			id: 't',
+			box: {},
+			locked: false,
+			style: 'body',
+			content: { inline: [run('Hello')] },
+		} as unknown as Frame;
+		expect(
+			editorAction('font', 'Inter', input([own], { caret: { frame: 't', offset: 3 } })),
+		).toMatchObject({ kind: 'pending', frame: 't', change: { font: 'Inter' } });
+	});
+});

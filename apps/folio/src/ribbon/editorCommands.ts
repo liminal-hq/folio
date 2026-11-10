@@ -111,6 +111,8 @@ export type EditorAction =
 			kind: 'pending';
 			frame: string;
 			change: { bold?: boolean; italic?: boolean; font?: string; colour?: string };
+			/** An installed font the book must keep with it, for a font chosen at the caret. */
+			keep?: string | null;
 	  }
 	| { kind: 'editMaster' }
 	| { kind: 'pageBackground' }
@@ -618,12 +620,12 @@ export function editorAction(
 			const family = typeof value === 'string' ? value : '';
 			const origin = input.fonts?.find((f) => f.family === family)?.origin;
 			const scope = lookScope(input);
-			if (scope && !scope.collapsed) {
-				return {
-					kind: 'font',
-					keep: origin === 'system' ? family : null,
-					intents: [styleIntent(scope, { font: family })],
-				};
+			const keep = origin === 'system' ? family : null;
+			// With the caret alone in the words, the font is for the words typed next.
+			if (scope?.collapsed)
+				return { kind: 'pending', frame: scope.frame.id, change: { font: family }, keep };
+			if (scope) {
+				return { kind: 'font', keep, intents: [styleIntent(scope, { font: family })] };
 			}
 			return {
 				kind: 'font',

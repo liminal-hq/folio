@@ -709,6 +709,8 @@ export function BookView({
 				break;
 			case 'pending':
 				setPendingLook(action.frame, action.change);
+				// An installed font is kept inside the book, so it opens the same on another computer.
+				if (action.keep) void client.keepFonts(id, [action.keep]).catch(() => undefined);
 				break;
 			case 'spelling':
 				void update({ spelling: { enabled: !settings.spelling.enabled } } as SettingsPatch);
