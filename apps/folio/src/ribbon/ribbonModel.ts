@@ -29,6 +29,15 @@ export const RIBBON_COMMANDS: Readonly<Record<string, CommandId>> = {
 	zoomIn: 'view.zoomIn',
 	zoomOut: 'view.zoomOut',
 	toc: 'tools.structure',
+	toolCopyright: 'tool.copyright',
+	toolContents: 'tool.contents',
+	toolPunctuation: 'tool.punctuation',
+	toolStyles: 'tool.styles',
+	toolPictures: 'tool.pictures',
+	toolAltText: 'tool.altText',
+	toolChecklist: 'tool.checklist',
+	toolKeywords: 'tool.keywords',
+	toolRoyalty: 'tool.royalty',
 	menubar: 'view.menuBar',
 	ribbonToggle: 'view.ribbon',
 };
@@ -99,7 +108,8 @@ function toRibbonItem(
 	const shownText = context.editor?.texts[source.id];
 	if (shownText !== undefined) item.value = shownText;
 	if (source.id === 'menubar') item.active = context.settings.interface.menuBar;
-	if (source.id === 'spell') item.active = context.settings.spelling.enabled;
+	if (source.id === 'spell' || source.id === 'toolSpelling')
+		item.active = context.settings.spelling.enabled;
 	const pressed = context.editor?.active[source.id];
 	if (kind === 'toggle' && pressed !== undefined) item.active = pressed;
 	const shown = context.editor?.values[source.id];

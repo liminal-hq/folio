@@ -296,6 +296,19 @@ describe('a book in the main window', () => {
 		expect(await screen.findByRole('dialog', { name: 'Margins' })).toBeInTheDocument();
 	});
 
+	it('opens a Book tool from the Tools tab', async () => {
+		const { windows } = setup();
+		await startBook();
+		await userEvent.click(within(ribbonTabs()).getByRole('tab', { name: 'Tools' }));
+		await userEvent.click(screen.getByRole('button', { name: 'Keywords' }));
+		await userEvent.click(screen.getByRole('button', { name: 'Alt text' }));
+		expect(windows.openBookTools.mock.calls).toEqual([
+			['publishing', 'publishing.keywords'],
+			['pictures', 'pictures.alt'],
+		]);
+		expect(screen.getByRole('button', { name: 'Find & replace' })).toBeDisabled();
+	});
+
 	it('saves with Ctrl+S, asking where the first time', async () => {
 		setup({ save: '/books/Pip/Pip' });
 		await startBook();
@@ -411,7 +424,7 @@ describe('a book in the main window', () => {
 			within(ribbonTabs())
 				.getAllByRole('tab')
 				.map((tab) => tab.textContent),
-		).toEqual(['Home', 'Insert', 'Pages', 'Layout', 'View', 'Export']);
+		).toEqual(['Home', 'Insert', 'Pages', 'Layout', 'View', 'Tools', 'Export']);
 		await userEvent.click(within(ribbonTabs()).getByRole('tab', { name: 'Pages' }));
 		expect(screen.queryByRole('group', { name: 'Masters' })).not.toBeInTheDocument();
 		await userEvent.click(screen.getByRole('radio', { name: 'Expert' }));

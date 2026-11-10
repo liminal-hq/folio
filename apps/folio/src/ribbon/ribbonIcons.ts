@@ -64,6 +64,7 @@ export const RIBBON_ICONS: Readonly<Record<string, string>> = {
 	indentMore: 'M2 3h12M7 6.5h7M7 10h7M2 13.5h12M2 6l2.5 2.25L2 10.5',
 	indexEntry: 'M3 3h2M3 6.5h2M3 10h2M7 3h6M7 6.5h6M7 10h6M3 13.5h10',
 	italic: 'M7 2.5h6M3 13.5h6M10 2.5L6 13.5',
+	keywords: 'M2.5 2.5h5l6 6-5 5-6-6zM5.5 5.5h.5',
 	jax: 'M8 1.5a6.5 6.5 0 110 13 6.5 6.5 0 010-13zM6.2 6.2a1.9 1.9 0 113 1.5c-.6.4-1.2.8-1.2 1.6M8 11.3v.2',
 	justify: 'M2 3h12M2 6.5h12M2 10h12M2 13.5h12',
 	line: 'M2.5 13.5l11-11',
@@ -80,12 +81,16 @@ export const RIBBON_ICONS: Readonly<Record<string, string>> = {
 		'M8 3c-2 0-3.5 1.5-3.5 3.5 0 1.5 1 2.5 2 2.5S8 8 8 7M8 3c2 0 3.5 1.5 3.5 3.5 0 1.5-1 2.5-2 2.5S8 8 8 7M8 7v6.5M5 13.5h6',
 	paraSpacing: 'M2 2.5h12M2 5h12M2 11h12M2 13.5h12M8 6.5v3.5',
 	print: 'M4.5 6V2h7v4M4.5 11.5H2V6h12v5.5h-2.5M4.5 9h7v5h-7z',
+	punctuation:
+		'M2.5 5.5h3v3h-3zM5.5 5.5c0 2-.8 3.5-2.2 4.2M9.5 5.5h3v3h-3zM12.5 5.5c0 2-.8 3.5-2.2 4.2',
 	rect: 'M2.5 3.5h11v9h-11z',
 	redo: 'M10.5 3.5l3 3-3 3M13.5 6.5H6a3.5 3.5 0 000 7h3',
 	replace: 'M2 3h12v10H2zM10 6l2 2-2 2M12 8H6',
 	rgClear: 'M5 1.5v13M1.5 10.5h13M10 3l4 4M14 3l-4 4',
 	rguides: 'M5 1.5v13M1.5 10.5h13M1.5 1.5h3v3',
 	ribbon: 'M1.5 2.5h13v4h-13zM1.5 9h13M1.5 12h13',
+	royalties:
+		'M8 1.5a6.5 6.5 0 110 13 6.5 6.5 0 010-13zM9.8 6.2C9.5 5.5 8.8 5 8 5c-1 0-1.8.6-1.8 1.4S7 7.6 8 7.9s1.8.7 1.8 1.5S9 11 8 11c-.9 0-1.6-.5-1.9-1.2M8 3.5V5M8 11v1.5',
 	rotL: 'M3 6.5A5 5 0 1 1 4 11M3 2.5v4h4',
 	rotR: 'M13 6.5A5 5 0 1 0 12 11M13 2.5v4H9',
 	round:

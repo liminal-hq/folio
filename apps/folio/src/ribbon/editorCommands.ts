@@ -177,6 +177,7 @@ export function editorState(input: EditorInput): EditorState {
 		'guides',
 		'rulers',
 		'spell',
+		'toolSpelling',
 		'rguides',
 		'snap',
 		'zoomIn',
@@ -410,6 +411,7 @@ export function editorAction(
 		case 'rulers':
 			return { kind: 'rulers' };
 		case 'spell':
+		case 'toolSpelling':
 			return { kind: 'spelling' };
 		case 'rguides':
 			return { kind: 'marks', marks: { guides: !input.marks.guides } };
