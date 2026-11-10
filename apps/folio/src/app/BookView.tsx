@@ -508,10 +508,13 @@ export function BookView({
 	const [imported, setImported] = useState<ImportOutcome | null>(null);
 	/** The file last brought in, so it can be brought in again with other choices of style. */
 	const importedPath = useRef<string | null>(null);
+	const smartPunctuation = settings.editing.smartPunctuation;
 	const bringIn = useCallback(
 		async (path: string, mapping?: Record<string, string>) => {
 			try {
-				setImported({ report: await client.importText(id, path, mapping) });
+				setImported({
+					report: await client.importText(id, path, mapping, smartPunctuation),
+				});
 			} catch (reason) {
 				setImported({
 					problem:
@@ -521,7 +524,7 @@ export function BookView({
 				});
 			}
 		},
-		[client, id],
+		[client, id, smartPunctuation],
 	);
 	useEffect(() => {
 		const run = () => {

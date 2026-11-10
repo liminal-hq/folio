@@ -390,6 +390,27 @@ impl Books {
         path: &str,
         mapping: &folio_import::StyleMap,
     ) -> Result<folio_import::ImportReport, Error> {
+        self.import_text_smart(id, path, mapping, true)
+    }
+
+    /// As `import_text_with`, setting the words with smart punctuation (D-57) in the quote style of
+    /// the book's language when `smart` is on, and leaving them as written when it is off.
+    pub fn import_text_smart(
+        &self,
+        id: &str,
+        path: &str,
+        mapping: &folio_import::StyleMap,
+        smart: bool,
+    ) -> Result<folio_import::ImportReport, Error> {
+        let style = smart.then(|| {
+            let language = locked(&self.inner)
+                .books
+                .iter()
+                .find(|b| b.id == id)
+                .map(|open| open.session.book().language.clone())
+                .unwrap_or_default();
+            folio_model::QuoteStyle::for_language(&language)
+        });
         /// More than this is not a manuscript someone typed; it would also stall the page.
         const MAX_BYTES: u64 = 8 * 1024 * 1024;
         let file = Path::new(path);
@@ -415,7 +436,7 @@ impl Books {
                 "That file is too large to bring in (the limit is 8 MB).".into(),
             ));
         }
-        let imported = if matches!(known.as_deref(), Some("docx" | "odt" | "rtf")) {
+        let mut imported = if matches!(known.as_deref(), Some("docx" | "odt" | "rtf")) {
             let bytes = std::fs::read(file).map_err(|e| Error::Import(format!("{path}: {e}")))?;
             if known.as_deref() == Some("docx") {
                 folio_import::import_docx_with(&bytes, mapping)
@@ -432,8 +453,13 @@ impl Books {
                     "{path} could not be read as text ({e}). Save it as UTF-8 and try again."
                 ))
             })?;
-            folio_import::import_markdown(&text)
+            folio_import::import_markdown_with(&text, style)
         };
+        // Markdown was set as it was read; the other formats carry the author's own characters, set
+        // here by the same rules.
+        if let (Some(style), Some("docx" | "odt" | "rtf")) = (style, known.as_deref()) {
+            folio_import::smarten_story(&mut imported.story, style);
+        }
         if imported.story.is_empty() {
             return Err(Error::Import("That file has no words to bring in.".into()));
         }

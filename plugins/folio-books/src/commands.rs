@@ -542,10 +542,15 @@ pub async fn import_text<R: Runtime>(
     id: String,
     path: String,
     mapping: Option<std::collections::BTreeMap<String, String>>,
+    smart: Option<bool>,
 ) -> Result<ImportReport, Error> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<Arc<Books>>()
-            .import_text_with(&id, &path, &mapping.unwrap_or_default())
+        app.state::<Arc<Books>>().import_text_smart(
+            &id,
+            &path,
+            &mapping.unwrap_or_default(),
+            smart.unwrap_or(true),
+        )
     })
     .await
     .expect("the import task does not panic")

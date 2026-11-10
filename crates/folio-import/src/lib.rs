@@ -17,6 +17,7 @@ pub use odt::{import_odt, import_odt_with, OdtError};
 pub use rtf::{import_rtf, RtfError};
 
 use folio_model::{join_runs, Run, StoryPara, StyleId};
+use folio_model::{smarten_with, QuoteStyle, SmartRules};
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -65,6 +66,13 @@ struct Reader {
     quote: u32,
     in_item: bool,
     report: ImportReport,
+    /// How quotes are set when Markdown's straight ones are made curly; `None` leaves them be.
+    smart: Option<QuoteStyle>,
+}
+
+/// The words of `runs`, run together.
+fn plain_text(runs: &[Run]) -> String {
+    runs.iter().map(|r| r.text.as_str()).collect()
 }
 
 impl Reader {
@@ -89,6 +97,19 @@ impl Reader {
         self.current = join_runs(&self.current, &[run]);
     }
 
+    /// Adds words that were written as text, set with smart punctuation by what comes before them
+    /// in the paragraph. Words in `code` spans are pushed as they are.
+    fn push_text(&mut self, text: &str) {
+        let Some(style) = self.smart else {
+            return self.push(text);
+        };
+        // A rule may reach back into the words before (a second hyphen, a third dot).
+        let before = plain_text(&self.current);
+        let set = smarten_with(&before, text, style, SmartRules::ALL);
+        trim_end(&mut self.current, set.rewind);
+        self.push(&set.text);
+    }
+
     /// Ends the paragraph being read, if it has words.
     fn flush(&mut self) {
         let has_words = self.current.iter().any(|r| !r.text.trim().is_empty());
@@ -105,11 +126,51 @@ impl Reader {
     }
 }
 
+/// Takes `count` characters off the end of `runs`, dropping runs left empty.
+fn trim_end(runs: &mut Vec<Run>, mut count: usize) {
+    while count > 0 {
+        let Some(last) = runs.last_mut() else { return };
+        let have = last.text.chars().count();
+        if have <= count {
+            count -= have;
+            runs.pop();
+        } else {
+            last.text = last.text.chars().take(have - count).collect();
+            count = 0;
+        }
+    }
+}
+
+/// Sets the quotes, dashes and ellipses of every paragraph of `story` the way a book sets them,
+/// in the quote style given. The runs keep their looks; a rule may reach back into the run before.
+pub fn smarten_story(story: &mut [StoryPara], style: QuoteStyle) {
+    for para in story {
+        let mut done: Vec<Run> = Vec::new();
+        for run in std::mem::take(&mut para.inline) {
+            let before = plain_text(&done);
+            let set = smarten_with(&before, &run.text, style, SmartRules::ALL);
+            trim_end(&mut done, set.rewind);
+            let mut next = run;
+            next.text = set.text;
+            if !next.text.is_empty() {
+                done.push(next);
+            }
+        }
+        para.inline = done;
+    }
+}
+
 /// Reads Markdown (or plain text) into a story: `#` is a chapter title, other headings are
 /// subheadings, blank lines separate paragraphs, `***` is a scene break, `*` and `**` are italic
 /// and bold, quotations take the epigraph style and list items become paragraphs. Pictures, tables,
 /// code and HTML are left out, and the report says so.
 pub fn import_markdown(text: &str) -> Imported {
+    import_markdown_with(text, Some(QuoteStyle::Curly))
+}
+
+/// As `import_markdown`, with the quotes of text set in `smart` style (`None` leaves them as
+/// written). Dashes and ellipses follow the same rules as typing (`folio_model::smarten`).
+pub fn import_markdown_with(text: &str, smart: Option<QuoteStyle>) -> Imported {
     let mut reader = Reader {
         story: Vec::new(),
         current: Vec::new(),
@@ -119,12 +180,12 @@ pub fn import_markdown(text: &str) -> Imported {
         quote: 0,
         in_item: false,
         report: ImportReport::default(),
+        smart,
     };
     let mut skipping = 0u32;
-    let options = Options::ENABLE_SMART_PUNCTUATION
-        | Options::ENABLE_STRIKETHROUGH
-        | Options::ENABLE_TABLES
-        | Options::ENABLE_FOOTNOTES;
+    // The parser's own smart punctuation is off: it makes `--` an en dash, and Folio's rules apply.
+    let options =
+        Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TABLES | Options::ENABLE_FOOTNOTES;
     for event in Parser::new_ext(text, options) {
         // Inside a block that is left out, only its end is looked for.
         if skipping > 0 {
@@ -176,7 +237,8 @@ pub fn import_markdown(text: &str) -> Imported {
             Event::Start(Tag::Strikethrough) => {
                 reader.note("Struck-through words were kept without the line through them.");
             }
-            Event::Text(t) | Event::Code(t) => reader.push(&t),
+            Event::Text(t) => reader.push_text(&t),
+            Event::Code(t) => reader.push(&t),
             Event::SoftBreak | Event::HardBreak => reader.push(" "),
             Event::Rule => {
                 reader.flush();

@@ -311,8 +311,14 @@ export function importText(
 	id: string,
 	path: string,
 	mapping?: Record<string, string>,
+	smart?: boolean,
 ): Promise<ImportReport> {
-	return cmd<ImportReport>('import_text', { id, path, mapping: mapping ?? null });
+	return cmd<ImportReport>('import_text', {
+		id,
+		path,
+		mapping: mapping ?? null,
+		smart: smart ?? null,
+	});
 }
 
 /** Asks a Book tool about a book; the answer is worked out in Rust. */
