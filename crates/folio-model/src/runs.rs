@@ -31,7 +31,7 @@ impl RunChange {
         self.bold.is_none() && self.italic.is_none() && self.font.is_none() && self.colour.is_none()
     }
 
-    fn apply(&self, run: &mut Run) {
+    pub(crate) fn apply(&self, run: &mut Run) {
         if let Some(bold) = self.bold {
             run.bold = bold;
         }
@@ -53,7 +53,7 @@ pub fn text_of(runs: &[Run]) -> String {
 }
 
 /// Whether two runs look the same, whatever words they hold.
-fn alike(a: &Run, b: &Run) -> bool {
+pub(crate) fn alike(a: &Run, b: &Run) -> bool {
     a.style == b.style
         && a.bold == b.bold
         && a.italic == b.italic
@@ -62,7 +62,7 @@ fn alike(a: &Run, b: &Run) -> bool {
 }
 
 /// Joins neighbouring runs that look the same, and drops empty ones (keeping one if all are).
-fn tidy(runs: Vec<Run>) -> Vec<Run> {
+pub(crate) fn tidy(runs: Vec<Run>) -> Vec<Run> {
     let mut out: Vec<Run> = Vec::new();
     for run in runs.into_iter().filter(|r| !r.text.is_empty()) {
         match out.last_mut() {
@@ -76,7 +76,7 @@ fn tidy(runs: Vec<Run>) -> Vec<Run> {
     out
 }
 
-fn plain(text: String) -> Run {
+pub(crate) fn plain(text: String) -> Run {
     Run {
         text,
         style: None,

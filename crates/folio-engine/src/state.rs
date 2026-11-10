@@ -2190,6 +2190,12 @@ fn style_sheet(styles: &folio_model::Styles) -> StyleSheet {
 fn changes_a_story(intent: &Intent) -> bool {
     matches!(
         intent,
+        Intent::EditText {
+            target: folio_model::TextTarget::Story { .. },
+            ..
+        }
+    ) || matches!(
+        intent,
         Intent::SetParagraphText { .. }
             | Intent::SpliceStory { .. }
             | Intent::SplitParagraph { .. }
@@ -2206,6 +2212,12 @@ fn changes_a_story(intent: &Intent) -> bool {
 /// Whether an intent edits the words of a story, which can make it shorter.
 fn edits_a_story(intent: &Intent) -> bool {
     matches!(
+        intent,
+        Intent::EditText {
+            target: folio_model::TextTarget::Story { .. },
+            ..
+        }
+    ) || matches!(
         intent,
         Intent::SetParagraphText { .. }
             | Intent::SpliceStory { .. }

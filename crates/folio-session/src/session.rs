@@ -19,6 +19,10 @@ pub const UNDO_DEPTH: usize = 200;
 /// arrow-key nudges, or typing.
 pub const COALESCE_WINDOW: Duration = Duration::from_millis(600);
 
+/// Typing joins the step before it for this long after the last key, so a pause of a second starts
+/// a new step.
+pub const TYPING_WINDOW: Duration = Duration::from_millis(1000);
+
 /// Makes the id of a new part of the book, given a short prefix (`sp`, `pg`, `fr`).
 pub type IdSource = Box<dyn FnMut(&str) -> String + Send>;
 
@@ -171,13 +175,20 @@ impl Session {
 
         let merges = plan.merge.is_some()
             && self.redo.is_empty()
-            && self.undo.last().is_some_and(|last| {
-                last.merge == plan.merge && at.saturating_duration_since(last.at) <= COALESCE_WINDOW
-            });
+            && self
+                .undo
+                .last()
+                .is_some_and(|last| match (&plan.merge, &last.merge) {
+                    (Some(now), Some(was)) => {
+                        now.joins(was) && at.saturating_duration_since(last.at) <= now.window()
+                    }
+                    _ => false,
+                });
         if merges {
             if let Some(last) = self.undo.last_mut() {
                 last.after = after;
                 last.at = at;
+                last.merge = plan.merge;
             }
         } else {
             self.undo.push(Entry {

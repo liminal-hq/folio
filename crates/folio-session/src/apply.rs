@@ -7,7 +7,7 @@ use folio_model::{
     clean_language, BackgroundTarget, BarcodeChoice, Book, BookFont, Colour, FlowId, Frame,
     FrameId, Guide, InlineContent, Intent, Master, MasterId, Page, Paint, Proofing, Pt, Rect,
     ReorderTo, Run, Spread, SpreadId, SpreadKind, StoryPara, Surface, TableCell, TableEdit,
-    TableFrame, MAX_IGNORED_WORDS,
+    TableFrame, TextInsert, TextPos, TextTarget, MAX_IGNORED_WORDS,
 };
 
 /// The most preflight issues a book can leave alone.
@@ -100,6 +100,39 @@ pub enum MergeKey {
     Section(SpreadId),
     Cell(FrameId, usize, usize),
     Background(BackgroundTarget),
+    /// A keystroke in some words. It joins the typing before it when that ended where this one
+    /// begins (`from`, or `to` for a Backspace), so a caret that jumped starts a new step.
+    Typing {
+        target: TextTarget,
+        from: TextPos,
+        to: TextPos,
+        end: TextPos,
+    },
+}
+
+impl MergeKey {
+    /// Whether an intent with key `self` may join the step whose last intent had key `last`.
+    pub fn joins(&self, last: &MergeKey) -> bool {
+        match (self, last) {
+            (
+                MergeKey::Typing {
+                    target, from, to, ..
+                },
+                MergeKey::Typing {
+                    target: was, end, ..
+                },
+            ) => target == was && (end == from || end == to),
+            (a, b) => a == b,
+        }
+    }
+
+    /// How long after the last intent this one may still join its step.
+    pub fn window(&self) -> std::time::Duration {
+        match self {
+            MergeKey::Typing { .. } => crate::session::TYPING_WINDOW,
+            _ => crate::session::COALESCE_WINDOW,
+        }
+    }
 }
 
 /// Whether `asset` is a path inside the book's own pictures.
@@ -1228,6 +1261,54 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 merge: Some(MergeKey::Text(frame.clone())),
             })
         }
+        Intent::EditText {
+            target,
+            from,
+            to,
+            insert,
+            look,
+            step,
+        } => {
+            if look.as_ref().is_some_and(|l| {
+                l.colour.as_deref().is_some_and(|c| {
+                    !c.is_empty()
+                        && folio_model::Colour::parse(c)
+                            .map_or(true, |colour| !swatch_is_there(book, &colour))
+                })
+            }) {
+                return Err(SessionError::BadEdit(
+                    "that colour is not #rrggbb or a swatch of the book".into(),
+                ));
+            }
+            let (touched, flows) = match target {
+                TextTarget::Story { flow } => {
+                    folio_model::check_range(&story_paragraphs(book, flow)?, *from, *to)
+                        .map_err(|e| SessionError::BadEdit(e.to_string()))?;
+                    (Vec::new(), vec![flow.clone()])
+                }
+                other => {
+                    let frame = frame_of(other);
+                    let paras = frame_paragraphs(book, other)?;
+                    folio_model::check_range(&paras, *from, *to)
+                        .map_err(|e| SessionError::BadEdit(e.to_string()))?;
+                    (touched_by(book, frame)?, Vec::new())
+                }
+            };
+            let end = folio_model::caret_after(*from, insert);
+            Ok(Plan {
+                touched,
+                new_spread: None,
+                flows,
+                new_flow: None,
+                fresh: Vec::new(),
+                merge: (*step == folio_model::EditStep::Typing).then(|| MergeKey::Typing {
+                    target: target.clone(),
+                    from: *from,
+                    to: *to,
+                    end,
+                }),
+            })
+        }
         Intent::StyleRange {
             frame,
             start,
@@ -2058,6 +2139,14 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
                 _ => {}
             }
         }
+        Intent::EditText {
+            target,
+            from,
+            to,
+            insert,
+            look,
+            ..
+        } => edit_text(book, &target, from, to, &insert, look.as_ref()),
         Intent::EditTable { frame, edit } => {
             if let Some(Frame::Table(table)) = locate_mut(book, &frame) {
                 edit_table(table, &edit);
@@ -2295,6 +2384,106 @@ pub fn check_text(book: &Book, frame: &FrameId) -> Result<(), SessionError> {
         Frame::Text(_) => ensure_free(found),
         Frame::Shape(s) if s.shape.holds_text() => ensure_free(found),
         _ => Err(SessionError::NotText(frame.0.clone())),
+    }
+}
+
+fn frame_of(target: &TextTarget) -> &FrameId {
+    match target {
+        TextTarget::Frame { frame }
+        | TextTarget::Shape { frame }
+        | TextTarget::Cell { frame, .. } => frame,
+        TextTarget::Story { .. } => unreachable!("a story has no frame"),
+    }
+}
+
+fn story_paragraphs(book: &Book, flow: &FlowId) -> Result<Vec<StoryPara>, SessionError> {
+    story_of(book, flow).map(<[StoryPara]>::to_vec)
+}
+
+/// The paragraphs of the words a frame, shape or cell target names, or why they cannot be edited.
+fn frame_paragraphs(book: &Book, target: &TextTarget) -> Result<Vec<StoryPara>, SessionError> {
+    let content = match target {
+        TextTarget::Frame { frame } => {
+            check_text(book, frame)?;
+            match locate(book, frame) {
+                Some(Frame::Text(t)) => t.content.as_ref(),
+                _ => return Err(SessionError::NotText(frame.0.clone())),
+            }
+        }
+        TextTarget::Shape { frame } => {
+            check_text(book, frame)?;
+            match locate(book, frame) {
+                Some(Frame::Shape(s)) => s.content.as_ref(),
+                _ => return Err(SessionError::NotShape(frame.0.clone())),
+            }
+        }
+        TextTarget::Cell { frame, row, col } => {
+            let found =
+                locate(book, frame).ok_or_else(|| SessionError::NoSuchFrame(frame.0.clone()))?;
+            let Frame::Table(table) = found else {
+                return Err(SessionError::NotTable(frame.0.clone()));
+            };
+            ensure_free(found)?;
+            table
+                .rows
+                .get(*row as usize)
+                .and_then(|r| r.get(*col as usize))
+                .ok_or_else(|| SessionError::BadTable("that row or column is not there".into()))?
+                .content
+                .as_ref()
+        }
+        TextTarget::Story { flow } => return story_paragraphs(book, flow),
+    };
+    Ok(folio_model::paragraphs_of(content))
+}
+
+/// Makes an edit the plan has already checked.
+fn edit_text(
+    book: &mut Book,
+    target: &TextTarget,
+    from: TextPos,
+    to: TextPos,
+    insert: &TextInsert,
+    look: Option<&folio_model::RunChange>,
+) {
+    if let TextTarget::Story { flow } = target {
+        if let Some(f) = flow_mut(book, flow) {
+            let _ = folio_model::replace_range(&mut f.paragraphs, from, to, insert, look);
+        }
+        return;
+    }
+    let Ok(mut paras) = frame_paragraphs(book, target) else {
+        return;
+    };
+    if folio_model::replace_range(&mut paras, from, to, insert, look).is_err() {
+        return;
+    }
+    let content = folio_model::content_of(&paras);
+    let empty = content.inline.iter().all(|r| r.text.is_empty());
+    match target {
+        TextTarget::Frame { frame } => {
+            if let Some(Frame::Text(t)) = locate_mut(book, frame) {
+                t.content = Some(content);
+            }
+        }
+        // Emptied words are no words, so a bubble or a cell with none draws and lays out as bare.
+        TextTarget::Shape { frame } => {
+            if let Some(Frame::Shape(s)) = locate_mut(book, frame) {
+                s.content = (!empty).then_some(content);
+            }
+        }
+        TextTarget::Cell { frame, row, col } => {
+            if let Some(Frame::Table(t)) = locate_mut(book, frame) {
+                if let Some(cell) = t
+                    .rows
+                    .get_mut(*row as usize)
+                    .and_then(|r| r.get_mut(*col as usize))
+                {
+                    cell.content = (!empty).then_some(content);
+                }
+            }
+        }
+        TextTarget::Story { .. } => {}
     }
 }
 
