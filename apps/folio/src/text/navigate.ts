@@ -4,8 +4,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { FrameLayout } from '@liminal-hq/folio-protocol/generated/FrameLayout';
+import type { LayoutLine } from '@liminal-hq/folio-protocol/generated/LayoutLine';
 import type { TextPos } from '@liminal-hq/folio-protocol/generated/TextPos';
-import { hitTest, lineOf, textSpan, xOnLine } from './caretGeometry';
+import { hitOnLine, lineOf, textSpan, xOnLine } from './caretGeometry';
 import { boundaries, cpLength } from './units';
 
 /** The words being edited, a string for each paragraph. */
@@ -84,16 +85,19 @@ export function moveLineEdge(layout: FrameLayout, pos: TextPos, edge: 'home' | '
 /**
  * Up or down one line, keeping to `goalX` (the x the caret was at before it went up or down, so a
  * run of presses does not drift). At the first or last line it goes to the start or end of the text.
+ * When the lines of several frames are in `layout`, `leftOf` says where each line's frame begins,
+ * so `goalX` is measured from the frame's left edge and a column is kept from one frame to the next.
  */
 export function moveVertical(
 	layout: FrameLayout,
 	pos: TextPos,
 	dir: -1 | 1,
 	goalX?: number,
+	leftOf: (line: LayoutLine) => number = () => 0,
 ): { pos: TextPos; goalX: number } {
 	const line = lineOf(layout, pos);
 	if (!line) return { pos, goalX: goalX ?? 0 };
-	const x = goalX ?? xOnLine(line, pos.offset);
+	const x = goalX ?? xOnLine(line, pos.offset) - leftOf(line);
 	const lines = layout.lines.filter((l) => l.paragraph != null);
 	const at = lines.indexOf(line);
 	const target = lines[at + dir];
@@ -104,7 +108,7 @@ export function moveVertical(
 			goalX: x,
 		};
 	}
-	const hit = hitTest(layout, x, target.top + target.height / 2);
+	const hit = hitOnLine(target, x + leftOf(target));
 	return { pos: hit ?? pos, goalX: x };
 }
 

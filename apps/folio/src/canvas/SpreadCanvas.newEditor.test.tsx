@@ -125,6 +125,61 @@ describe('editing the words of a story and of a table cell in place', () => {
 		expect(document.querySelector('textarea')).not.toBeNull();
 	});
 
+	it('lets the caret reach the other frames of the story that are on the spread, in story order', () => {
+		const frame = (id: string, x: number, index: number) => ({
+			...(spread.frames[0] as object),
+			id,
+			box: { x, y: 20, w: 100, h: 100 },
+			flow: { id: 'fl', index },
+			content: null,
+		});
+		// The second frame of the story is listed first on the spread.
+		const flowed = {
+			...(spread as object),
+			frames: [frame('b', 200, 1), frame('a', 20, 0)],
+		} as unknown as Spread;
+		const whole = layoutOf([['one two', 'three four']]);
+		const part = (from: number, to: number) =>
+			whole.lines.slice(from, to).map((l, i) => ({ ...l, top: i * 20 }));
+		render(
+			<SpreadCanvas
+				book={
+					{
+						...(storyBook as object),
+						flows: [{ ...storyBook.flows![0]!, frames: ['a', 'b'] }],
+					} as Book
+				}
+				spread={flowed}
+				layout={
+					{
+						spread: 's',
+						preflight: [],
+						frames: [
+							{ frame: 'a', overset: false, lines: part(0, 1) },
+							{ frame: 'b', overset: false, lines: part(1, 2) },
+						],
+					} as never
+				}
+				zoom={1}
+				label="Page"
+				selection={[]}
+				onSelect={() => undefined}
+				onEditText={() => undefined}
+				newEditor
+				onEditRequest={vi.fn(async () => ({ caret: { para: 0, offset: 0 } }))}
+			/>,
+		);
+		fireEvent.doubleClick(document.querySelector('[data-hit="a"]')!);
+		expect(document.querySelector('[data-sibling="b"]')).not.toBeNull();
+		expect(document.querySelector('[data-sibling="a"]')).toBeNull();
+		fireEvent.keyDown(screen.getByRole('textbox'), { key: 'ArrowDown' });
+		// The caret has gone to the second frame, which sits 180 points to the right of the first.
+		const left = Number.parseFloat(
+			(document.querySelector('[data-caret]') as HTMLElement).style.left,
+		);
+		expect(left).toBeGreaterThanOrEqual(180 * PX_PER_POINT);
+	});
+
 	it('opens a table cell, and Tab moves to the next one', () => {
 		const tableSpread = {
 			...(spread as object),

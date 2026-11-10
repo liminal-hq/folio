@@ -9,7 +9,7 @@ import type { TableEdit } from '@liminal-hq/folio-protocol/generated/TableEdit';
 import type { FrameLayout } from '@liminal-hq/folio-protocol/generated/FrameLayout';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { FocusedImage } from './FocusedImage';
 import { BackgroundLayer } from './BackgroundLayer';
 import { TableArt } from './TableArt';
@@ -27,6 +27,7 @@ import type { EditCaret } from '@liminal-hq/folio-protocol/generated/EditCaret';
 import type { SmartNote } from '@liminal-hq/folio-protocol/generated/SmartNote';
 import type { TextPos } from '@liminal-hq/folio-protocol/generated/TextPos';
 import { paragraphsOf } from '../text/edit';
+import type { FlowFrame } from '../text/flowGeometry';
 import { TextSurface } from '../text/TextSurface';
 import { boxOf, linesOf } from '../story/rangeEdit';
 import { DEFAULT_MARK_COLOURS, DEFAULT_MARKS, type MarkColours, type Marks } from './marksModel';
@@ -394,6 +395,25 @@ export function SpreadCanvas({
 		}
 	};
 	const byFrame = new Map(layout?.frames.map((f) => [f.frame, f]));
+	// The frames of the story being edited that are on this spread, in reading order, so the caret
+	// can cross from one to the next. Frames of the story on other spreads are out of reach.
+	const storyFrames = useMemo((): FlowFrame[] | undefined => {
+		if (editedFrame?.type !== 'text' || !editedFrame.flow) return undefined;
+		const flowId = editedFrame.flow.id;
+		const order = (book.flows ?? []).find((f) => f.id === flowId)?.frames ?? [];
+		const here = frames.filter(
+			(f): f is Extract<typeof f, { type: 'text' }> =>
+				f.type === 'text' && f.flow?.id === flowId && !f.fromMaster,
+		);
+		here.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+		return here.map((f) => ({
+			id: f.id,
+			box: f.box,
+			rotation: f.rotation,
+			layout: layout?.frames.find((l) => l.frame === f.id),
+		}));
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [editedFrame, frames, book.flows, layout]);
 	/**
 	 * What the on-page editor edits, when it is the one in use: the words of a frame, a shape, a
 	 * table cell or a story, the lines they are laid out in, and where they are over the page.
@@ -900,6 +920,7 @@ export function SpreadCanvas({
 					texts={surface.texts}
 					content={surface.content}
 					layout={byFrame.get(surface.layoutKey)}
+					story={surface.target.type === 'story' ? storyFrames : undefined}
 					box={editedFrame.box}
 					at={{
 						x: (editedFrame.box.x - bounds.x) * scale,

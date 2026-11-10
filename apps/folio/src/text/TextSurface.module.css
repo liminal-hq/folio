@@ -9,6 +9,14 @@
 	-webkit-user-select: none;
 }
 
+.sibling {
+	position: absolute;
+	box-sizing: border-box;
+	cursor: text;
+	outline: 1px dashed color-mix(in srgb, var(--folio-accent) 60%, transparent);
+	outline-offset: 0;
+}
+
 .selection {
 	position: absolute;
 	background: color-mix(in srgb, var(--folio-accent) 30%, transparent);

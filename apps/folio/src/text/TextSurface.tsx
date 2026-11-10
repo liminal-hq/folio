@@ -12,7 +12,7 @@ import type { SmartNote } from '@liminal-hq/folio-protocol/generated/SmartNote';
 import type { RunChange } from '@liminal-hq/folio-protocol/generated/RunChange';
 import type { TextPos } from '@liminal-hq/folio-protocol/generated/TextPos';
 import type { TextTarget } from '@liminal-hq/folio-protocol/generated/TextTarget';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
 	clearPendingLook,
 	getPendingLook,
@@ -27,6 +27,7 @@ import type { MenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
 import type { Speller } from '../canvas/TextEditor';
 import { caretRect, hitTest, misspellings, selectionRects, type Misspelt } from './caretGeometry';
 import { clampPos, endOf, flatOffset, ordered, replaceInTexts, samePos, textBetween } from './edit';
+import { flowGeometry, type FlowFrame } from './flowGeometry';
 import { moveGrapheme, moveLineEdge, moveVertical, moveWord, wordAt } from './navigate';
 import { cpLength, cpSlice, snapToGrapheme } from './units';
 import styles from './TextSurface.module.css';
@@ -57,6 +58,12 @@ export interface TextSurfaceProps {
 	rotation?: number;
 	/** Where the editing began, in the frame's points; without it the caret starts at the end. */
 	start?: { x: number; y: number };
+	/**
+	 * For a story: every frame of it on this spread, in reading order (the edited one among them),
+	 * so the caret and a selection can cross from one frame to the next. Frames of the story on
+	 * other spreads are not here: the caret stays on the spread.
+	 */
+	story?: readonly FlowFrame[];
 	/** Makes an edit; answers once the book has it, with where the caret goes. */
 	onEdit(edit: EditRequest): Promise<{ caret: TextPos; smart?: SmartNote }>;
 	/** The editing is over: Escape, or the focus left. */
@@ -97,12 +104,13 @@ export function TextSurface({
 	frameId,
 	texts,
 	content,
-	layout,
+	layout: ownLayout,
 	box,
 	at,
 	scale,
 	rotation = 0,
 	start,
+	story,
 	onEdit,
 	onClose,
 	onUndo,
@@ -113,8 +121,20 @@ export function TextSurface({
 	const surface = useRef<HTMLDivElement | null>(null);
 	const sink = useRef<HTMLTextAreaElement | null>(null);
 	const textsRef = useRef<string[]>([...texts]);
+	// The frames of a story on the spread are one set of lines, so the caret goes from one to the next.
+	const geometry = useMemo(() => (story ? flowGeometry(story, frameId) : null), [story, frameId]);
+	const layout = geometry?.layout ?? ownLayout;
 	const layoutRef = useRef(layout);
 	layoutRef.current = layout;
+	const geometryRef = useRef(geometry);
+	geometryRef.current = geometry;
+	/** The position under a point of the edited frame's coordinates, in whichever frame it is. */
+	const hitAt = (x: number, y: number, to: (para: number, offset: number) => number) =>
+		geometryRef.current
+			? geometryRef.current.hit(x, y, to)
+			: layoutRef.current
+				? hitTest(layoutRef.current, x, y, to)
+				: undefined;
 	const [selection, setSelectionState] = useState<Selection>(() => {
 		const end = endOf(texts);
 		return { anchor: end, focus: end };
@@ -202,19 +222,17 @@ export function TextSurface({
 		if (placed.current || !layout) return;
 		placed.current = true;
 		if (start) {
-			const hit = hitTest(layout, start.x, start.y, (p, o) =>
-				snapToGrapheme(textsRef.current[p] ?? '', o),
-			);
+			const hit = hitAt(start.x, start.y, (p, o) => snapToGrapheme(textsRef.current[p] ?? '', o));
 			if (hit) setSelection({ anchor: hit, focus: hit });
 		} else if (target.type === 'story') {
 			// A frame of a story shows only a part of it: the caret starts at what the frame shows first.
-			const first = layout.lines.find((l) => l.paragraph != null);
+			const first = ownLayout?.lines.find((l) => l.paragraph != null);
 			if (first && first.paragraph != null) {
 				const pos = { para: first.paragraph, offset: first.start };
 				setSelection({ anchor: pos, focus: pos });
 			}
 		}
-	}, [layout, start, setSelection, target.type]);
+	}, [layout, ownLayout, start, setSelection, target.type]);
 
 	useEffect(() => {
 		sink.current?.focus({ preventScroll: true });
@@ -367,7 +385,7 @@ export function TextSurface({
 		const move = (event: MouseEvent) => {
 			if (!dragging.current || !layoutRef.current) return;
 			const p = toLocal(event.clientX, event.clientY);
-			const hit = hitTest(layoutRef.current, p.x, p.y, snap);
+			const hit = hitAt(p.x, p.y, snap);
 			if (hit) setSelection({ anchor: selRef.current.anchor, focus: hit });
 		};
 		const up = () => {
@@ -390,7 +408,7 @@ export function TextSurface({
 		clearPendingLook();
 		sink.current?.focus({ preventScroll: true });
 		const p = toLocal(event.clientX, event.clientY);
-		const hit = hitTest(layout, p.x, p.y, snap);
+		const hit = hitAt(p.x, p.y, snap);
 		if (!hit) return;
 		const words = textsRef.current;
 		if (event.detail >= 3) {
@@ -438,7 +456,13 @@ export function TextSurface({
 		} else if (key === 'ArrowUp' || key === 'ArrowDown') {
 			handled();
 			if (!lay) return;
-			const moved = moveVertical(lay, focus, key === 'ArrowUp' ? -1 : 1, goalX.current);
+			const moved = moveVertical(
+				lay,
+				focus,
+				key === 'ArrowUp' ? -1 : 1,
+				goalX.current,
+				geometryRef.current?.leftOf,
+			);
 			goalX.current = moved.goalX;
 			go(moved.pos, shift, true);
 		} else if (key === 'Home' || key === 'End') {
@@ -611,7 +635,7 @@ export function TextSurface({
 	const onContextMenu = (event: React.MouseEvent) => {
 		if (!speller || !layout) return;
 		const p = toLocal(event.clientX, event.clientY);
-		const hit = hitTest(layout, p.x, p.y, snap);
+		const hit = hitAt(p.x, p.y, snap);
 		const word = hit && missAt(hit);
 		if (!word) return;
 		event.preventDefault();
@@ -670,6 +694,22 @@ export function TextSurface({
 			onMouseDown={onMouseDown}
 			onContextMenu={onContextMenu}
 		>
+			{geometry?.frames
+				.filter((f) => f.id !== frameId)
+				.map((f) => (
+					// The other frames of the story take the pointer too, so a click or a drag can reach them.
+					<div
+						key={f.id}
+						className={styles.sibling}
+						data-sibling={f.id}
+						style={{
+							left: f.box.x * scale,
+							top: f.box.y * scale,
+							width: f.box.w * scale,
+							height: f.box.h * scale,
+						}}
+					/>
+				))}
 			{rects.map((r, i) => (
 				<div
 					key={i}

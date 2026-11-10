@@ -157,7 +157,16 @@ export function hitTest(
 	snap?: (para: number, offset: number) => number,
 ): TextPos | undefined {
 	const line = lineAtY(layout, y);
-	if (!line || line.paragraph == null) return undefined;
+	return line ? hitOnLine(line, x, snap) : undefined;
+}
+
+/** The position on one line nearest to `x`. */
+export function hitOnLine(
+	line: LayoutLine,
+	x: number,
+	snap?: (para: number, offset: number) => number,
+): TextPos | undefined {
+	if (line.paragraph == null) return undefined;
 	const stops = lineStops(line);
 	let offset = line.start;
 	if (stops.length > 0) {
