@@ -463,3 +463,18 @@ describe('the selection the ribbon styles', () => {
 		});
 	});
 });
+
+describe('focus moving to a menu of the ribbon', () => {
+	it('keeps the editor open, as the menu is outside the ribbon', () => {
+		const onClose = vi.fn();
+		const { sink } = mount(editor().onEdit, { onClose });
+		const menu = document.body.appendChild(document.createElement('div'));
+		menu.setAttribute('role', 'menu');
+		const item = menu.appendChild(document.createElement('button'));
+		fireEvent.blur(sink, { relatedTarget: item });
+		expect(onClose).not.toHaveBeenCalled();
+		fireEvent.blur(sink, { relatedTarget: document.body });
+		expect(onClose).toHaveBeenCalledTimes(1);
+		menu.remove();
+	});
+});

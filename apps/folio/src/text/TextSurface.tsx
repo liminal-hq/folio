@@ -856,9 +856,11 @@ export function TextSurface({
 				onCompositionEnd={compositionEnd}
 				onChange={() => undefined}
 				onBlur={(event) => {
-					// A list in the ribbon takes the focus to open, and the words stay selected for it to style.
+					// A list in the ribbon takes the focus to open, and so does the menu it opens (which sits
+					// outside the ribbon); the words stay selected for either to style.
 					const to = event.relatedTarget;
-					if (to instanceof Element && to.closest('[data-ribbon], [data-find-bar]')) return;
+					if (to instanceof Element && to.closest('[data-ribbon], [data-find-bar], [role="menu"]'))
+						return;
 					// The spelling and link menus take the focus while they are up; that is not the end of the editing.
 					if (menuUp.current || linkMenuUp.current) return;
 					onClose();
