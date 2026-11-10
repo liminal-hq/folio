@@ -33,6 +33,7 @@ One file per feature. Each area has a standalone working artboard (`Folio <Area>
 
 ## Proofing and review — `Folio Proofing.dc.html`
 
+- [Find and replace](proofing/find-and-replace.md)
 - [Comments and sticky notes](proofing/comments.md)
 - [Print a proof at home](proofing/home-proof.md)
 - [Version history and compare](proofing/version-history.md)
