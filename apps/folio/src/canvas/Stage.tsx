@@ -33,7 +33,7 @@ import { Ruler, RULER_SIZE } from './Ruler';
 import { formatPosition, RULER_UNITS } from './rulerMath';
 import { rulerUnitItems } from './rulerMenu';
 import { snapTargets } from './snap';
-import { SpreadCanvas } from './SpreadCanvas';
+import { SpreadCanvas, type SpreadCanvasProps } from './SpreadCanvas';
 import styles from './Stage.module.css';
 import { useElementSize } from './useElementSize';
 import type { FrameBoxMove } from './useFrameDrag';
@@ -81,6 +81,10 @@ export interface StageProps {
 	onActivate?(id: string): boolean;
 	hint?: { box: { x: number; y: number; w: number; h: number }; text: string };
 	onEditText?(id: string, text: string): void;
+	newEditor?: boolean;
+	onEditRequest?: SpreadCanvasProps['onEditRequest'];
+	onEditUndo?(): void;
+	onEditRedo?(): void;
 	onEditTable?(id: string, edit: TableEdit): void;
 	onEditStory?(flow: string, paragraph?: number): void;
 	onEditParagraphs?(flow: string, from: number, before: string[], after: string[]): void;
@@ -121,6 +125,10 @@ export function Stage({
 	onActivate,
 	hint,
 	onEditText,
+	newEditor,
+	onEditRequest,
+	onEditUndo,
+	onEditRedo,
 	onEditTable,
 	onEditStory,
 	onEditParagraphs,
@@ -341,6 +349,10 @@ export function Stage({
 							onActivate={onActivate}
 							hint={hint}
 							onEditText={onEditText}
+							newEditor={newEditor}
+							onEditRequest={onEditRequest}
+							onEditUndo={onEditUndo}
+							onEditRedo={onEditRedo}
 							onEditTable={onEditTable}
 							onEditStory={onEditStory}
 							onEditParagraphs={onEditParagraphs}

@@ -91,6 +91,16 @@ impl Default for SpellingSettings {
     }
 }
 
+/// How words are edited on the page.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct EditingSettings {
+    /// Edit a text frame's words with the editor that draws the page's own lines (D-53), not a
+    /// text box over the frame. Off while the new editor is proven.
+    pub new_editor: bool,
+}
+
 /// Whether Folio keeps a recovery copy of a book with changes while it is open (D-27), and how often.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
@@ -279,6 +289,7 @@ pub struct Settings {
     pub marks: MarksSettings,
     pub rulers: RulerSettings,
     pub spelling: SpellingSettings,
+    pub editing: EditingSettings,
     pub autosave: AutosaveSettings,
     pub updates: UpdateSettings,
     /// The paths of recently opened books, newest first.
@@ -569,6 +580,18 @@ mod tests {
         assert_eq!(patched.rulers.units, RulerUnit::Picas);
         assert!(Settings::default()
             .patched(&json!({ "rulers": { "units": "cubits" } }))
+            .is_err());
+    }
+
+    #[test]
+    fn the_new_editor_starts_off_and_is_turned_on_by_a_patch() {
+        assert!(!Settings::default().editing.new_editor);
+        let on = Settings::default()
+            .patched(&json!({ "editing": { "newEditor": true } }))
+            .unwrap();
+        assert!(on.editing.new_editor);
+        assert!(Settings::default()
+            .patched(&json!({ "editing": { "newEditor": "yes" } }))
             .is_err());
     }
 

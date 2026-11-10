@@ -53,6 +53,7 @@ import { useSelection } from '../canvas/useSelection';
 import { useAssetUrls } from '../canvas/useAssetUrls';
 import { useCoverSheet } from '../canvas/useCoverSheet';
 import { useSpreadLayout } from '../canvas/useSpreadLayout';
+import { useTextEdits } from '../text/useTextEdits';
 import type { CommandId } from '../commands/appMenuModel';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
@@ -153,6 +154,11 @@ export function BookView({
 		() => (onSheet ? resolveSwatches(onSheet, displays) : onSheet),
 		[onSheet, displays],
 	);
+	const textEdits = useTextEdits(
+		store,
+		spread?.id ?? null,
+		settings.spelling.enabled ? settings.spelling.personal : null,
+	);
 	const spreadLayout = useSpreadLayout(
 		client,
 		id,
@@ -160,6 +166,7 @@ export function BookView({
 		copy.revision,
 		master !== null,
 		settings.spelling.enabled ? settings.spelling.personal : null,
+		textEdits.seed,
 	);
 	const layout = sheet?.layout ?? spreadLayout;
 	// What the stage shows: the pages as printed, or as a Kindle or a Kobo shows them.
@@ -875,6 +882,10 @@ export function BookView({
 							}}
 							hint={barcodeHint}
 							onEditText={(frame, text) => keepAsStep({ type: 'SetText', frame, text })}
+							newEditor={settings.editing.newEditor}
+							onEditRequest={textEdits.onEdit}
+							onEditUndo={() => void store.undo()}
+							onEditRedo={() => void store.redo()}
 							onEditTable={(frame, edit) => keepAsStep({ type: 'EditTable', frame, edit })}
 							onEditStory={(flow, paragraph) => {
 								setStoryPara(paragraph ?? null);

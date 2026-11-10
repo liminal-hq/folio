@@ -22,6 +22,10 @@ import './fonts.css';
 import { PX_PER_POINT, spreadGeometry, type PlainRect } from './geometry';
 import type { FrameCommand } from './frameMenu';
 import { canEditText, TextEditor, type Speller } from './TextEditor';
+import type { EditRequest } from '@liminal-hq/folio-protocol/generated/EditRequest';
+import type { TextPos } from '@liminal-hq/folio-protocol/generated/TextPos';
+import { paragraphsOf } from '../text/edit';
+import { TextSurface } from '../text/TextSurface';
 import { boxOf, linesOf } from '../story/rangeEdit';
 import { DEFAULT_MARK_COLOURS, DEFAULT_MARKS, type MarkColours, type Marks } from './marksModel';
 import { masterGuidesOn } from './masterGuides';
@@ -78,6 +82,16 @@ export interface SpreadCanvasProps {
 	 * now (`after`), after the words of a frame of it were edited in place.
 	 */
 	onEditParagraphs?(flow: string, from: number, before: string[], after: string[]): void;
+	/**
+	 * Edit a text frame's words with the editor that draws the page's own lines (D-53). It needs
+	 * `onEditRequest`; without it the text box over the frame is used.
+	 */
+	newEditor?: boolean;
+	/** Makes an edit to some words; answers once the book has it, with where the caret goes. */
+	onEditRequest?(edit: EditRequest): Promise<{ caret: TextPos }>;
+	/** Undo and redo from inside the editor, which stays open. */
+	onEditUndo?(): void;
+	onEditRedo?(): void;
 	/** Underlines misspelt words in the editor, when spelling is on. */
 	speller?: Speller;
 	/** The cell being edited has changed: its row and column, or `null` when none is. */
@@ -265,6 +279,10 @@ export function SpreadCanvas({
 	onActivate,
 	hint,
 	onEditText,
+	newEditor = false,
+	onEditRequest,
+	onEditUndo,
+	onEditRedo,
 	onEditStory,
 	onEditParagraphs,
 	onEditTable,
@@ -325,6 +343,8 @@ export function SpreadCanvas({
 	const [storyEdit, setStoryEdit] = useState<{ frame: string; flow: string; from: number } | null>(
 		null,
 	);
+	/** Where in the frame the editing began, in points, so the caret starts under the click. */
+	const [editStart, setEditStart] = useState<{ x: number; y: number } | undefined>(undefined);
 	/** The paragraphs of the stretch being edited as the book was last told them. */
 	const lastLines = useRef<string[]>([]);
 	const startEditing = (frame: Frame, at?: { x: number; y: number }) => {
@@ -360,10 +380,18 @@ export function SpreadCanvas({
 			if (onEditStory) onEditStory(frame.flow.id, para ?? undefined);
 			return;
 		}
-		if (onEditText && (frame.type === 'text' || frame.type === 'shape') && canEditText(frame))
+		if (onEditText && (frame.type === 'text' || frame.type === 'shape') && canEditText(frame)) {
+			setEditStart(at ? { x: at.x - frame.box.x, y: at.y - frame.box.y } : undefined);
 			setEditing(frame.id);
+		}
 	};
 	const byFrame = new Map(layout?.frames.map((f) => [f.frame, f]));
+	/** Words are edited over the page's own lines, which stay drawn under the caret. */
+	const surfaceEdits =
+		newEditor &&
+		onEditRequest !== undefined &&
+		(editedFrame?.type === 'text' || editedFrame?.type === 'shape') &&
+		editedFrame.id === editing;
 	const furniture = masterFurniture(book, spread);
 	const grid = book.grid;
 	/** One frame as it is drawn: its art, its edges, and the words laid out in it. */
@@ -382,7 +410,7 @@ export function SpreadCanvas({
 					strokeWidth={0.5}
 				/>
 			)}
-			{byFrame.has(frame.id) && frame.id !== editing && (
+			{byFrame.has(frame.id) && (frame.id !== editing || surfaceEdits) && (
 				<Lines id={frame.id} at={frame.box} layout={byFrame.get(frame.id)!} />
 			)}
 			{frame.type === 'table' &&
@@ -803,7 +831,37 @@ export function SpreadCanvas({
 					/>
 				))}
 			</svg>
-			{(editedFrame?.type === 'text' || editedFrame?.type === 'shape') && (
+			{surfaceEdits &&
+				onEditRequest &&
+				(editedFrame?.type === 'text' || editedFrame?.type === 'shape') && (
+					<TextSurface
+						key={editing}
+						target={
+							editedFrame.type === 'text'
+								? { type: 'frame', frame: editedFrame.id }
+								: { type: 'shape', frame: editedFrame.id }
+						}
+						frameId={editedFrame.id}
+						texts={paragraphsOf(editedFrame.content)}
+						layout={byFrame.get(editedFrame.id)}
+						box={editedFrame.box}
+						at={{
+							x: (editedFrame.box.x - bounds.x) * scale,
+							y: (editedFrame.box.y - bounds.y) * scale,
+						}}
+						scale={scale}
+						rotation={editedFrame.rotation}
+						start={editStart}
+						onEdit={onEditRequest}
+						onUndo={onEditUndo}
+						onRedo={onEditRedo}
+						onClose={() => {
+							setEditing(null);
+							svg.current?.focus();
+						}}
+					/>
+				)}
+			{!surfaceEdits && (editedFrame?.type === 'text' || editedFrame?.type === 'shape') && (
 				<TextEditor
 					key={editing}
 					speller={speller}

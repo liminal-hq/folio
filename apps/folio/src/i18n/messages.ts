@@ -563,6 +563,10 @@ export const messages = {
 	'preferences.toolbar': 'Toolbar',
 	'preferences.toolbar.ribbon': 'Ribbon',
 	'preferences.toolbar.classic': 'Classic',
+	'preferences.section.editing': 'Editing',
+	'preferences.newEditor': 'Edit text on the page itself',
+	'preferences.newEditor.description':
+		'Type in a text frame with the same lines, line breaks and formatting the page has. Still being tested.',
 	'preferences.section.spelling': 'Spelling',
 	'preferences.section.saving': 'Saving',
 	'preferences.autosave': 'Keep a recovery copy while I work',

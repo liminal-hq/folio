@@ -21,6 +21,8 @@ export function useSpreadLayout(
 	master = false,
 	/** The words added to the dictionary for every book, when misspelt words are to be marked; `null` for none marked. */
 	spelling: readonly string[] | null = null,
+	/** A layout that came back with an edit, which stands for the spread at its revision without asking again. */
+	seed: { spread: string; revision: number; layout: SpreadLayout } | null = null,
 ): SpreadLayout | null {
 	// Marking is asked for again when it is switched or the words added for every book change.
 	const spellingKey = spelling === null ? null : spelling.join('\u0000');
@@ -28,6 +30,10 @@ export function useSpreadLayout(
 
 	useEffect(() => {
 		if (spread === null) return;
+		if (!master && seed && seed.spread === spread && seed.revision === revision) {
+			setHeld({ key: `${bookId}/${spread}`, layout: seed.layout });
+			return;
+		}
 		let current = true;
 		(master
 			? client.layoutMaster(bookId, spread)
@@ -43,7 +49,7 @@ export function useSpreadLayout(
 		return () => {
 			current = false;
 		};
-	}, [client, bookId, spread, revision, master, spellingKey]);
+	}, [client, bookId, spread, revision, master, spellingKey, seed]);
 
 	return held !== null && held.key === `${bookId}/${spread}` ? held.layout : null;
 }
