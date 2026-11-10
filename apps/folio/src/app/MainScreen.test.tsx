@@ -422,6 +422,50 @@ describe('a book in the main window', () => {
 		spy.mockRestore();
 	});
 
+	it('pastes only the words into a new text box with Ctrl+Shift+V', async () => {
+		const { books } = setup();
+		await startBook();
+		const words = {
+			clipboardData: {
+				getData: (type: string) => (type === 'text/plain' ? 'Plain words' : ''),
+				files: [],
+			},
+		};
+		expect(fireEvent.keyDown(document.body, { key: 'V', ctrlKey: true, shiftKey: true })).toBe(
+			true,
+		);
+		fireEvent.paste(window, words);
+		await waitFor(() =>
+			expect(books.calls.some((c) => c.startsWith('apply(') && c.includes('AddFrame'))).toBe(true),
+		);
+		// A plain paste of words is not repeated by the clipboard read that waits for the paste event.
+		await new Promise((r) => setTimeout(r, 300));
+		expect(books.calls.filter((c) => c.includes('AddFrame'))).toHaveLength(1);
+		// An ordinary paste of words from another program is left alone.
+		fireEvent.paste(window, words);
+		expect(books.calls.filter((c) => c.includes('AddFrame'))).toHaveLength(1);
+	});
+
+	it('lists the ways to paste in the Paste special menu', async () => {
+		setup();
+		await startBook();
+		await userEvent.click(
+			within(screen.getByRole('list', { name: 'Spreads' })).getAllByRole('button')[1]!,
+		);
+		const hits = () => Array.from(document.querySelectorAll('[data-hit]'));
+		await waitFor(() => expect(hits().length).toBeGreaterThan(0));
+		// A text frame, if the spread has one.
+		const text = hits().find((h) => /text/i.test(h.getAttribute('aria-label') ?? '')) ?? hits()[0]!;
+		fireEvent.pointerDown(text, { button: 0, clientX: 10, clientY: 10 });
+		fireEvent.pointerUp(text, { button: 0, clientX: 10, clientY: 10 });
+		await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+		const group = screen.getByRole('group', { name: 'Clipboard' });
+		await userEvent.click(within(group).getByRole('button', { name: 'Paste special' }));
+		const items = (await screen.findAllByRole('menuitem')).map((i) => i.textContent);
+		expect(items).toContain('Paste text only');
+		expect(items).toContain('Paste in place');
+	});
+
 	it('leaves copy, cut and paste to a field being typed in', async () => {
 		setup();
 		await startBook();

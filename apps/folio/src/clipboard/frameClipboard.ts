@@ -241,3 +241,65 @@ export function pictureFromPaste(
 	}
 	return null;
 }
+
+/** A picture the clipboard brought, and the extension to store it under. */
+export interface PastedPicture {
+	file: Blob;
+	extension: string;
+}
+
+/** What the clipboard holds that Folio can place: its own frames, a picture, and words. */
+export interface ClipboardContent {
+	frames: Frame[] | null;
+	picture: PastedPicture | null;
+	text: string;
+}
+
+/** The content of a paste event. Folio's own frames come first, then a picture, then the last copy. */
+export function contentFromPaste(
+	data: { json: string; plain: string; files: ArrayLike<File> | null | undefined },
+	last: Held | null,
+): ClipboardContent {
+	const picture = data.json ? null : pictureFromPaste(data.files);
+	const frames = picture ? null : framesFromPaste({ json: data.json, plain: data.plain }, last);
+	return { frames, picture, text: data.plain };
+}
+
+/** The words of the content: the words on the clipboard, else those of the frames copied. */
+export const wordsOf = (content: ClipboardContent): string =>
+	content.text.trim() !== '' && !content.frames
+		? content.text
+		: content.frames
+			? plainOf(content.frames)
+			: '';
+
+/**
+ * Reads the system clipboard where the webview lets a page (a menu command has no paste event to
+ * read from). What it cannot read is left out, and the last copy stands for the frames unless the
+ * words on the clipboard show another program has copied since.
+ */
+export async function readSystem(): Promise<ClipboardContent> {
+	const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard;
+	const last = holding();
+	let text = '';
+	let picture: PastedPicture | null = null;
+	try {
+		if (clipboard?.read) {
+			for (const item of await clipboard.read()) {
+				const type = item.types.find((each) => each in PICTURE_EXTENSIONS);
+				if (type && !picture) {
+					picture = { file: await item.getType(type), extension: PICTURE_EXTENSIONS[type]! };
+				}
+				if (item.types.includes('text/plain'))
+					text = await (await item.getType('text/plain')).text();
+			}
+		} else if (clipboard?.readText) {
+			text = await clipboard.readText();
+		}
+	} catch {
+		// The webview would not let the page read it: the last copy is all there is.
+	}
+	const mine = !last || !last.onSystem || text === '' || sameText(text, last.plain);
+	const frames = !picture && mine && last ? parseFrames(last.json) : null;
+	return { frames, picture, text };
+}

@@ -32,6 +32,7 @@ import { ImportReportDialog, type ImportOutcome } from './ImportReportDialog';
 import { StoryEditorDialog } from '../story/StoryEditorDialog';
 import { rangeIntents } from '../story/rangeEdit';
 import { BookDetailsDialog } from './BookDetailsDialog';
+import type { PastedPicture } from '../clipboard/frameClipboard';
 import { useFrameClipboard } from '../clipboard/useFrameClipboard';
 import { BarcodeDialog } from './BarcodeDialog';
 import { BookSizeDialog } from './BookSizeDialog';
@@ -314,7 +315,10 @@ export function BookView({
 		surface,
 		apply,
 		select,
-		pastePicture: (picture) => void pastePicture(picture),
+		pastePicture: (picture, into) => void pastePicture(picture, into),
+		pasteText: (text, into) => pasteText(text, into),
+		say: (message) => setNotice(message),
+		nothingMessage: t('clipboard.nothing'),
 	});
 
 	/** Puts a new frame of `kind` on the spread, centred on `point` (in points) or the first page. */
@@ -333,7 +337,7 @@ export function BookView({
 	};
 
 	/** Brings a picture the clipboard held into the book and puts it on the page as an Add → Picture frame. */
-	const pastePicture = async ({ file, extension }: { file: File; extension: string }) => {
+	const pastePicture = async ({ file, extension }: PastedPicture, into?: string) => {
 		try {
 			const asset = await client.importImageBytes(
 				id,
@@ -342,11 +346,36 @@ export function BookView({
 			);
 			// The book on show may have changed while the picture was read.
 			if (store.state.getState().activeId !== id) return;
-			const frame = addFrame('picture');
+			const frame = into ? { id: into } : addFrame('picture');
 			await store.apply({ type: 'SetImage', frame: frame.id, asset, fit: null });
 		} catch {
 			setNotice(t('clipboard.pictureRefused'));
 		}
+	};
+
+	/** Puts words on the page in a new text box, or as the words of the frame `into`. */
+	const pasteText = (text: string, into?: string) => {
+		if (into) {
+			apply({ type: 'SetText', frame: into, text });
+			return;
+		}
+		const pages = spreadGeometry(book, spread).pages;
+		const first = pages[0]!;
+		const frame = newFrame(
+			'text',
+			boxAt(
+				'text',
+				{ x: first.trim.x + first.trim.w / 2, y: first.trim.y + first.trim.h / 2 },
+				first.trim,
+			),
+			defaultTextStyle(choices),
+		);
+		apply({
+			type: 'AddFrame',
+			on: surface,
+			frame: { ...frame, content: { inline: [{ text }] } } as unknown as Frame,
+		});
+		select([frame.id]);
 	};
 
 	const pageOp = (op: 'add' | 'duplicate' | 'remove', index = shown) => {
@@ -682,7 +711,10 @@ export function BookView({
 			case 'clipboard':
 				if (action.op === 'copy') void clipboard.copy();
 				else if (action.op === 'cut') void clipboard.cut();
-				else clipboard.paste(action.op === 'pasteInPlace' ? { kind: 'inPlace' } : undefined);
+				else if (action.op === 'paste') void clipboard.pasteWith('paste');
+				else if (action.op === 'pasteInPlace') void clipboard.pasteWith('inPlace');
+				else if (action.op === 'pastePlain') void clipboard.pasteWith('plain');
+				else void clipboard.pasteWith('into');
 				break;
 			case 'link':
 				// The Properties group says to choose the box the words continue in.

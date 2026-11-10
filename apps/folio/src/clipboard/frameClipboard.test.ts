@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
 	FRAMES_MIME,
 	PASTE_OFFSET,
+	contentFromPaste,
 	copyable,
 	cuttable,
 	forget,
@@ -16,10 +17,12 @@ import {
 	holding,
 	nextStep,
 	parseFrames,
+	pictureFromPaste,
 	pasteIntents,
 	plainOf,
 	renewFrame,
 	serialiseFrames,
+	wordsOf,
 } from './frameClipboard';
 
 const base = { rotation: 0, locked: false };
@@ -164,5 +167,46 @@ describe('the paste step', () => {
 		hold([text()], true);
 		expect(nextStep()).toBe(1);
 		expect(holding()?.pastes).toBe(1);
+	});
+});
+
+describe('contentFromPaste', () => {
+	const png = new File([new Uint8Array([137, 80, 78, 71])], 'a.png', { type: 'image/png' });
+
+	it('prefers Folio’s frames, then a picture, then the last copy', () => {
+		const json = serialiseFrames([text()]);
+		expect(contentFromPaste({ json, plain: 'x', files: [png] }, null)).toMatchObject({
+			frames: [text()],
+			picture: null,
+		});
+		const picture = contentFromPaste({ json: '', plain: '', files: [png] }, hold([text()], true));
+		expect(picture.frames).toBeNull();
+		expect(picture.picture).toMatchObject({ extension: 'png' });
+		expect(
+			contentFromPaste({ json: '', plain: 'Hello', files: [] }, hold([text()], true)).frames,
+		).toEqual([text()]);
+	});
+
+	it('knows a picture’s extension by its kind and ignores other files', () => {
+		const kinds: Record<string, string> = {
+			'image/jpeg': 'jpg',
+			'image/gif': 'gif',
+			'image/webp': 'webp',
+			'image/svg+xml': 'svg',
+		};
+		for (const [type, extension] of Object.entries(kinds)) {
+			expect(pictureFromPaste([new File(['x'], 'p', { type })])?.extension).toBe(extension);
+		}
+		expect(pictureFromPaste([new File(['x'], 'p.pdf', { type: 'application/pdf' })])).toBeNull();
+		expect(pictureFromPaste(null)).toBeNull();
+	});
+});
+
+describe('wordsOf', () => {
+	it('takes the words on the clipboard, else the words of the frames', () => {
+		expect(wordsOf({ frames: null, picture: null, text: 'Words' })).toBe('Words');
+		expect(wordsOf({ frames: [text()], picture: null, text: 'Hello' })).toBe('Hello');
+		expect(wordsOf({ frames: [text()], picture: null, text: '' })).toBe('Hello');
+		expect(wordsOf({ frames: null, picture: null, text: '  ' })).toBe('');
 	});
 });

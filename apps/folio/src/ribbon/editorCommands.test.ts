@@ -772,11 +772,46 @@ describe('the Home tab’s clipboard', () => {
 			op: 'cut',
 		});
 		expect(editorAction('paste', undefined, input())).toEqual({ kind: 'clipboard', op: 'paste' });
-		expect(editorState(input()).options.pasteSpecial?.map(([id]) => id)).toEqual(['inPlace']);
+		expect(editorState(input()).options.pasteSpecial?.map(([id]) => id)).toEqual([
+			'plain',
+			'inPlace',
+		]);
 		expect(editorAction('pasteSpecial', 'inPlace', input())).toEqual({
 			kind: 'clipboard',
 			op: 'pasteInPlace',
 		});
 		expect(editorAction('pasteSpecial', 'nonsense', input())).toBeNull();
+	});
+
+	it('offers only the words, and in place, with no frame to paste into', () => {
+		expect(editorAction('pasteSpecial', 'plain', input())).toEqual({
+			kind: 'clipboard',
+			op: 'pastePlain',
+		});
+		expect(editorAction('pasteSpecial', 'into', input())).toBeNull();
+		for (const selected of [
+			[text(), text({ id: 'u' })],
+			[text({ locked: true })],
+			[text({ fromMaster: 'mst_a' })],
+		]) {
+			expect(editorState(input(selected)).options.pasteSpecial?.map(([id]) => id)).not.toContain(
+				'into',
+			);
+			expect(editorAction('pasteSpecial', 'into', input(selected))).toBeNull();
+		}
+	});
+
+	it('pastes into the one free text or picture frame selected', () => {
+		for (const only of [text(), image()]) {
+			expect(editorState(input([only])).options.pasteSpecial?.map(([id]) => id)).toEqual([
+				'plain',
+				'into',
+				'inPlace',
+			]);
+			expect(editorAction('pasteSpecial', 'into', input([only]))).toEqual({
+				kind: 'clipboard',
+				op: 'pasteInto',
+			});
+		}
 	});
 });

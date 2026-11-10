@@ -104,7 +104,10 @@ export type EditorAction =
 	| { kind: 'pageMargins' }
 	| { kind: 'cover' }
 	| { kind: 'link'; frame: string }
-	| { kind: 'clipboard'; op: 'copy' | 'cut' | 'paste' | 'pasteInPlace' };
+	| {
+			kind: 'clipboard';
+			op: 'copy' | 'cut' | 'paste' | 'pasteInPlace' | 'pastePlain' | 'pasteInto';
+	  };
 
 const ALIGNS: Record<string, 'left' | 'center' | 'right' | 'justify'> = {
 	alignL: 'left',
@@ -333,7 +336,18 @@ export function editorState(input: EditorInput): EditorState {
 		['ribbon', t('ribbon.option.toolbar.ribbon')],
 		['classic', t('ribbon.option.toolbar.classic')],
 	];
-	options.pasteSpecial = [['inPlace', t('ribbon.option.paste.inPlace')]];
+	// The words alone, and in place; into a frame when there is one frame to put them in.
+	const into = selected.length === 1 ? selected[0]! : null;
+	const fillable =
+		!!into &&
+		!into.locked &&
+		!into.fromMaster &&
+		(into.type === 'text' || into.type === 'shape' || into.type === 'image');
+	options.pasteSpecial = [
+		['plain', t('ribbon.option.paste.plain')],
+		...(fillable ? [['into', t('ribbon.option.paste.into')] as const] : []),
+		['inPlace', t('ribbon.option.paste.inPlace')],
+	];
 	options.paragraphStyle = choices.map((c) => [c.id, c.name] as const);
 	if (input.fonts) options.font = fontOptions(input.fonts, input.fontsInUse ?? []);
 	return { available, active, values, texts: shown, options, contextual };
@@ -412,7 +426,18 @@ export function editorAction(
 		case 'paste':
 			return { kind: 'clipboard', op: id };
 		case 'pasteSpecial':
-			return value === 'inPlace' ? { kind: 'clipboard', op: 'pasteInPlace' } : null;
+			if (value === 'inPlace') return { kind: 'clipboard', op: 'pasteInPlace' };
+			if (value === 'plain') return { kind: 'clipboard', op: 'pastePlain' };
+			if (value === 'into') {
+				const only = selected.length === 1 ? selected[0]! : null;
+				const fills =
+					!!only &&
+					!only.locked &&
+					!only.fromMaster &&
+					(only.type === 'text' || only.type === 'shape' || only.type === 'image');
+				return fills ? { kind: 'clipboard', op: 'pasteInto' } : null;
+			}
+			return null;
 		case 'askJax':
 			return { kind: 'jax' };
 		case 'baseline':
