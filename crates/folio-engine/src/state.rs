@@ -29,8 +29,8 @@ use crate::wire::{
     CoverSheetPreview, EditAnswer, EditRequest, ExportColour, ExportProgress, ExportReport,
     ExportTarget, ExportedFile, FontChoice, FontLicence, FontOrigin, FontSkip, FontUse,
     KeepFontsReport, Misspelling, MisspeltWord, PatchEvent, PreviewChapter, PreviewImage,
-    ProofColour, ProofPage, ProofSpread, ReaderPreview, Recoverable, SkippedFont, SpellCheck,
-    SpreadLayoutResult, StoryChapter, TemplateCard, TemplateGallery,
+    ProofColour, ProofPage, ProofSpread, ReaderPreview, Recoverable, SkippedFont, SmartNote,
+    SpellCheck, SpreadLayoutResult, StoryChapter, TemplateCard, TemplateGallery,
 };
 use crate::Host;
 
@@ -847,6 +847,8 @@ impl Books {
         spread: &str,
         spelling: Option<&[String]>,
     ) -> Result<EditAnswer, Error> {
+        let mut edit = edit;
+        let smart = self.smarten_edit(id, &mut edit);
         let caret = edit.caret();
         let patch = self.apply(id, edit.into_intent())?;
         let layout = self.layout_spread(id, spread, spelling)?;
@@ -854,7 +856,52 @@ impl Books {
             patch,
             layout,
             caret,
+            smart: smart.map(|(from, raw)| SmartNote {
+                from,
+                to: caret,
+                raw,
+            }),
         })
+    }
+
+    /// Sets the plain words of `edit` with smart punctuation when it asks for it, in the style of
+    /// the book's language and by what comes before the place they go in. A rule may rewrite the
+    /// words just before (a second hyphen makes the first an em dash), so the edit begins earlier.
+    /// Returns where the set words begin and the words as typed, when anything was changed.
+    fn smarten_edit(
+        &self,
+        id: &str,
+        edit: &mut EditRequest,
+    ) -> Option<(folio_model::TextPos, String)> {
+        if edit.smart != Some(true) {
+            return None;
+        }
+        let folio_model::TextInsert::Text { text } = &edit.insert else {
+            return None;
+        };
+        let (before, language) = {
+            let inner = locked(&self.inner);
+            let open = inner.books.iter().find(|b| b.id == id)?;
+            let book = open.session.book();
+            let para = folio_session::paragraph_text(book, &edit.target, edit.from.para)?;
+            (
+                para.chars()
+                    .take(edit.from.offset as usize)
+                    .collect::<String>(),
+                book.language.clone(),
+            )
+        };
+        let set = folio_model::smarten(
+            &before,
+            text,
+            folio_model::QuoteStyle::for_language(&language),
+        );
+        if set.text == *text && set.rewind == 0 || set.text.is_empty() {
+            return None;
+        }
+        edit.from.offset -= set.rewind as u32;
+        edit.insert = folio_model::TextInsert::Text { text: set.text };
+        Some((edit.from, set.raw))
     }
 
     /// Lays out the text of one master page of a book, with its tokens as written, at the revision

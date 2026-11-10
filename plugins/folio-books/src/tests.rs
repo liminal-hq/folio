@@ -396,6 +396,7 @@ fn an_edit_answers_with_the_patch_the_spread_and_the_caret_in_one_call() {
         },
         look: None,
         step: EditStep::Own,
+        smart: None,
     };
     let answer = books(&app)
         .edit_text(&id, edit, &spread.id.0, None)
@@ -423,6 +424,7 @@ fn an_edit_answers_with_the_patch_the_spread_and_the_caret_in_one_call() {
         insert: TextInsert::Text { text: "x".into() },
         look: None,
         step: EditStep::Own,
+        smart: None,
     };
     assert!(books(&app).edit_text(&id, bad, &spread.id.0, None).is_err());
 }

@@ -50,6 +50,24 @@ pub struct EditRequest {
     #[ts(optional)]
     pub look: Option<folio_model::RunChange>,
     pub step: folio_model::EditStep,
+    /// Whether typed or pasted plain words are set with smart punctuation (quotes in the book's
+    /// language, dashes, ellipses) before they go in. Rust decides, from the words before the place.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub smart: Option<bool>,
+}
+
+/// Words that smart punctuation changed on their way in, so the editor can put back what was typed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct SmartNote {
+    /// Where the words that were set begin; a rule may have begun before where the edit did.
+    pub from: folio_model::TextPos,
+    /// Where they end, which is where the caret goes.
+    pub to: folio_model::TextPos,
+    /// The words as they were typed, from `from`.
+    pub raw: String,
 }
 
 impl EditRequest {
@@ -79,6 +97,10 @@ pub struct EditAnswer {
     pub patch: Patch,
     pub layout: SpreadLayoutResult,
     pub caret: folio_model::TextPos,
+    /// What smart punctuation did to the words, when it changed them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub smart: Option<SmartNote>,
 }
 
 /// An open book in full, for a window that is showing it.

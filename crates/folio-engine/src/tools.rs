@@ -357,6 +357,22 @@ enum Source {
         frame: folio_model::FrameId,
         text: String,
     },
+    Cell {
+        frame: folio_model::FrameId,
+        row: usize,
+        col: usize,
+        text: String,
+    },
+}
+
+impl Source {
+    fn text(&self) -> &str {
+        match self {
+            Source::Paragraph { text, .. }
+            | Source::Frame { text, .. }
+            | Source::Cell { text, .. } => text,
+        }
+    }
 }
 
 fn sources(book: &Book) -> Vec<Source> {
@@ -389,6 +405,20 @@ fn sources(book: &Book) -> Vec<Source> {
                         });
                     }
                 }
+                Frame::Table(t) => {
+                    for (row, cells) in t.rows.iter().enumerate() {
+                        for (col, cell) in cells.iter().enumerate() {
+                            if let Some(content) = &cell.content {
+                                out.push(Source::Cell {
+                                    frame: t.base.id.clone(),
+                                    row,
+                                    col,
+                                    text: folio_model::text_of(&content.inline),
+                                });
+                            }
+                        }
+                    }
+                }
                 _ => {}
             }
         }
@@ -398,19 +428,18 @@ fn sources(book: &Book) -> Vec<Source> {
 
 fn punctuation_found(book: &Book) -> Vec<PunctuationFound> {
     let all = sources(book);
+    let style = folio_model::QuoteStyle::for_language(&book.language);
     punctuation::RULES
         .iter()
         .filter_map(|&rule| {
             let mut count = 0;
             let mut examples = Vec::new();
             for source in &all {
-                let text = match source {
-                    Source::Paragraph { text, .. } | Source::Frame { text, .. } => text,
-                };
-                let (_, n) = punctuation::apply(text, rule);
+                let text = source.text();
+                let (_, n) = punctuation::apply(text, rule, style);
                 count += n as u32;
                 if n > 0 && examples.len() < 3 {
-                    if let Some((before, after)) = punctuation::example(text, rule) {
+                    if let Some((before, after)) = punctuation::example(text, rule, style) {
                         examples.push(PunctuationExample { before, after });
                     }
                 }
@@ -479,23 +508,42 @@ pub fn fix_intents(
     match fix {
         ToolFix::CopyrightPage { fields } => frontmatter::copyright_intents(book, fields, k),
         ToolFix::ContentsPage => frontmatter::contents_intents(book, &findings.contents, k),
-        ToolFix::Punctuation { rules } => sources(book)
-            .into_iter()
-            .filter_map(|source| match source {
-                Source::Paragraph { flow, para, text } => {
-                    let new = punctuation::smarten(&text, rules);
-                    (new != text).then_some(Intent::SetParagraphText {
-                        flow,
-                        para,
-                        text: new,
-                    })
-                }
-                Source::Frame { frame, text } => {
-                    let new = punctuation::smarten(&text, rules);
-                    (new != text).then_some(Intent::SetText { frame, text: new })
-                }
-            })
-            .collect(),
+        ToolFix::Punctuation { rules } => {
+            let style = folio_model::QuoteStyle::for_language(&book.language);
+            sources(book)
+                .into_iter()
+                .filter_map(|source| match source {
+                    Source::Paragraph { flow, para, text } => {
+                        let new = punctuation::smarten(&text, rules, style);
+                        (new != text).then_some(Intent::SetParagraphText {
+                            flow,
+                            para,
+                            text: new,
+                        })
+                    }
+                    Source::Frame { frame, text } => {
+                        let new = punctuation::smarten(&text, rules, style);
+                        (new != text).then_some(Intent::SetText { frame, text: new })
+                    }
+                    Source::Cell {
+                        frame,
+                        row,
+                        col,
+                        text,
+                    } => {
+                        let new = punctuation::smarten(&text, rules, style);
+                        (new != text).then_some(Intent::EditTable {
+                            frame,
+                            edit: folio_model::TableEdit::SetCell {
+                                row,
+                                col,
+                                text: new,
+                            },
+                        })
+                    }
+                })
+                .collect()
+        }
         ToolFix::ResetStyles { frames } => style_strays(book)
             .into_iter()
             .filter(|stray| frames.contains(&stray.frame))

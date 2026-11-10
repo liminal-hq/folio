@@ -8,4 +8,9 @@ import type { TextTarget } from "./TextTarget";
 /**
  * A replacement of some words, as the editor makes it. See `Intent::EditText`.
  */
-export type EditRequest = { target: TextTarget, from: TextPos, to: TextPos, insert: TextInsert, look?: RunChange, step: EditStep, };
+export type EditRequest = { target: TextTarget, from: TextPos, to: TextPos, insert: TextInsert, look?: RunChange, step: EditStep, 
+/**
+ * Whether typed or pasted plain words are set with smart punctuation (quotes in the book's
+ * language, dashes, ellipses) before they go in. Rust decides, from the words before the place.
+ */
+smart?: boolean, };

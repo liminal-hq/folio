@@ -2437,6 +2437,18 @@ fn frame_paragraphs(book: &Book, target: &TextTarget) -> Result<Vec<StoryPara>, 
     Ok(folio_model::paragraphs_of(content))
 }
 
+/// The words of paragraph `para` of the words `target` names, or `None` when they cannot be edited
+/// or the paragraph is not there. Typing uses it to know what a quote or a hyphen follows.
+pub fn paragraph_text(book: &Book, target: &TextTarget, para: u32) -> Option<String> {
+    let paras = match target {
+        TextTarget::Story { flow } => story_paragraphs(book, flow).ok()?,
+        _ => frame_paragraphs(book, target).ok()?,
+    };
+    paras
+        .get(para as usize)
+        .map(|p| folio_model::text_of(&p.inline))
+}
+
 /// Makes an edit the plan has already checked.
 fn edit_text(
     book: &mut Book,
