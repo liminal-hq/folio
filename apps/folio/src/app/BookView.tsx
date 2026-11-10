@@ -1085,6 +1085,7 @@ export function BookView({
 							onEditRequest={textEdits.onEdit}
 							onEditUndo={() => store.step('undo')}
 							onEditRedo={() => store.step('redo')}
+							onPasteHtml={(html) => client.pasteHtml(id, html).then((read) => read.paragraphs)}
 							onEditTable={(frame, edit) => keepAsStep({ type: 'EditTable', frame, edit })}
 							onEditStory={(flow, paragraph) => {
 								setStoryPara(paragraph ?? null);

@@ -26,6 +26,7 @@ import type { EditRequest } from '@liminal-hq/folio-protocol/generated/EditReque
 import type { EditCaret } from '@liminal-hq/folio-protocol/generated/EditCaret';
 import type { SmartNote } from '@liminal-hq/folio-protocol/generated/SmartNote';
 import type { TextPos } from '@liminal-hq/folio-protocol/generated/TextPos';
+import type { StoryPara } from '@liminal-hq/folio-protocol/generated/StoryPara';
 import { paragraphsOf } from '../text/edit';
 import type { FlowFrame } from '../text/flowGeometry';
 import { TextSurface } from '../text/TextSurface';
@@ -99,6 +100,8 @@ export interface SpreadCanvasProps {
 	/** Undo and redo from inside the editor, which stays open. */
 	onEditUndo?(): Promise<EditCaret | null>;
 	onEditRedo?(): Promise<EditCaret | null>;
+	/** Reads HTML pasted from another program into paragraphs of runs; refused when it is too large. */
+	onPasteHtml?(html: string): Promise<StoryPara[]>;
 	/** Underlines misspelt words in the editor, when spelling is on. */
 	speller?: Speller;
 	/** The cell being edited has changed: its row and column, or `null` when none is. */
@@ -319,6 +322,7 @@ export function SpreadCanvas({
 	onEditRequest,
 	onEditUndo,
 	onEditRedo,
+	onPasteHtml,
 	onEditStory,
 	onEditParagraphs,
 	onEditTable,
@@ -1046,6 +1050,7 @@ export function SpreadCanvas({
 					onEdit={onEditRequest}
 					onUndo={onEditUndo}
 					onRedo={onEditRedo}
+					onPasteHtml={onPasteHtml}
 					onTab={
 						editedFrame.type === 'table' && editingCell
 							? (back) => {

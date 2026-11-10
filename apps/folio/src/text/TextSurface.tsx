@@ -87,6 +87,11 @@ export interface TextSurfaceProps {
 	/** Tab was pressed; without this it does nothing. */
 	onTab?(back: boolean): void;
 	/**
+	 * Reads HTML from another program's clipboard into paragraphs of runs (D-68). Without it, or when
+	 * it refuses (too large), the plain words are pasted.
+	 */
+	onPasteHtml?(html: string): Promise<StoryPara[]>;
+	/**
 	 * Selects these words (the find bar's current match). Each `nonce` is applied once. The editor
 	 * does not take the focus for it, so the find bar keeps typing and Enter.
 	 */
@@ -129,6 +134,7 @@ export function TextSurface({
 	onUndo,
 	onRedo,
 	onTab,
+	onPasteHtml,
 	speller,
 	reveal,
 }: TextSurfaceProps) {
@@ -275,9 +281,9 @@ export function TextSurface({
 	const edit = useRef(onEdit);
 	edit.current = onEdit;
 	const queue = useCallback(
-		(build: () => Change | null) => {
+		(build: () => Change | null | Promise<Change | null>) => {
 			chain.current = chain.current.then(async () => {
-				const change = build();
+				const change = await build();
 				if (!change) return;
 				const request: EditRequest = {
 					target,
@@ -329,29 +335,36 @@ export function TextSurface({
 		[target, setSelection],
 	);
 
+	/** The change that replaces the selection with `text`, as the selection is when it is asked for. */
+	const typed = useCallback(
+		(text: string, step: 'typing' | 'own', smart = true): Change | null => {
+			const clean = text.replace(/\r\n?/g, '\n');
+			if (clean === '') return null;
+			const [from, to] = ordered(selRef.current.anchor, selRef.current.focus);
+			// A look set at the caret goes with the first words typed after it, as a step of its own.
+			const look = getPendingLook(frameId) ?? undefined;
+			if (look) clearPendingLook();
+			const leave = leaveAt.current !== null && samePos(leaveAt.current, from);
+			leaveAt.current = null;
+			return {
+				from,
+				to,
+				text: clean,
+				step: look ? 'own' : step,
+				...(smart && !leave && clean !== '\n' ? { smart: true } : {}),
+				...(look ? { look } : {}),
+			};
+		},
+		[frameId],
+	);
+
 	/** Replaces the selection with `text`. */
 	const type = useCallback(
 		(text: string, step: 'typing' | 'own', smart = true) => {
-			const clean = text.replace(/\r\n?/g, '\n');
-			if (clean === '') return;
-			queue(() => {
-				const [from, to] = ordered(selRef.current.anchor, selRef.current.focus);
-				// A look set at the caret goes with the first words typed after it, as a step of its own.
-				const look = getPendingLook(frameId) ?? undefined;
-				if (look) clearPendingLook();
-				const leave = leaveAt.current !== null && samePos(leaveAt.current, from);
-				leaveAt.current = null;
-				return {
-					from,
-					to,
-					text: clean,
-					step: look ? 'own' : step,
-					...(smart && !leave && clean !== '\n' ? { smart: true } : {}),
-					...(look ? { look } : {}),
-				};
-			});
+			if (text.replace(/\r\n?/g, '\n') === '') return;
+			queue(() => typed(text, step, smart));
 		},
-		[queue, frameId],
+		[queue, typed],
 	);
 
 	/** Deletes the selection, or a grapheme or word from the caret. */
@@ -504,6 +517,9 @@ export function TextSurface({
 			handled();
 			if (mod) go(key === 'Home' ? { para: 0, offset: 0 } : endOf(words), shift);
 			else if (lay) go(moveLineEdge(lay, focus, key === 'Home' ? 'home' : 'end'), shift);
+		} else if (mod && shift && key.toLowerCase() === 'v') {
+			// Left to the browser, which sends the paste; the paste is told to take the plain words.
+			plainKey.current = Date.now();
 		} else if (mod && key.toLowerCase() === 'a') {
 			handled();
 			setSelection({ anchor: { para: 0, offset: 0 }, focus: endOf(words) });
@@ -619,9 +635,15 @@ export function TextSurface({
 		copy(event);
 		if (!samePos(selRef.current.anchor, selRef.current.focus)) remove('grapheme', -1);
 	};
+	// Ctrl+Shift+V pastes the plain words only: the key is noted, and the paste that follows it
+	// ignores the formatting the clipboard holds.
+	const plainKey = useRef(0);
 	const paste = (event: React.ClipboardEvent) => {
 		event.preventDefault();
-		const rich = fromClipboard(event.clipboardData.getData(FOLIO_TEXT_MIME));
+		const data = event.clipboardData;
+		const plainOnly = Date.now() - plainKey.current < 1000;
+		plainKey.current = 0;
+		const rich = plainOnly ? null : fromClipboard(data.getData(FOLIO_TEXT_MIME));
 		if (rich) {
 			queue(() => {
 				const [from, to] = ordered(selRef.current.anchor, selRef.current.focus);
@@ -629,7 +651,25 @@ export function TextSurface({
 			});
 			return;
 		}
-		type(event.clipboardData.getData('text/plain'), 'own');
+		const plain = data.getData('text/plain');
+		const html = plainOnly || !onPasteHtml ? '' : data.getData('text/html');
+		if (html.trim() === '') {
+			type(plain, 'own');
+			return;
+		}
+		// Words from another program come in with their formatting, read by Rust. Smart punctuation
+		// is not set again on them: they were punctuated where they came from.
+		queue(async () => {
+			let paragraphs: StoryPara[] = [];
+			try {
+				paragraphs = (await onPasteHtml!(html)) ?? [];
+			} catch (reason) {
+				console.warn('The pasted formatting could not be read; pasting the plain words:', reason);
+			}
+			if (paragraphs.length === 0) return typed(plain, 'own');
+			const [from, to] = ordered(selRef.current.anchor, selRef.current.focus);
+			return { from, to, text: toPlain(paragraphs), step: 'own', rich: paragraphs };
+		});
 	};
 
 	// Composition: the sink shows what is being composed, and the finished words are one edit.

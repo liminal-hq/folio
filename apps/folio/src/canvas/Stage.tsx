@@ -85,6 +85,7 @@ export interface StageProps {
 	onEditRequest?: SpreadCanvasProps['onEditRequest'];
 	onEditUndo?: SpreadCanvasProps['onEditUndo'];
 	onEditRedo?: SpreadCanvasProps['onEditRedo'];
+	onPasteHtml?: SpreadCanvasProps['onPasteHtml'];
 	onEditTable?(id: string, edit: TableEdit): void;
 	onEditStory?(flow: string, paragraph?: number): void;
 	onEditParagraphs?(flow: string, from: number, before: string[], after: string[]): void;
@@ -131,6 +132,7 @@ export function Stage({
 	onEditRequest,
 	onEditUndo,
 	onEditRedo,
+	onPasteHtml,
 	onEditTable,
 	onEditStory,
 	onEditParagraphs,
@@ -356,6 +358,7 @@ export function Stage({
 							onEditRequest={onEditRequest}
 							onEditUndo={onEditUndo}
 							onEditRedo={onEditRedo}
+							onPasteHtml={onPasteHtml}
 							onEditTable={onEditTable}
 							onEditStory={onEditStory}
 							onEditParagraphs={onEditParagraphs}
