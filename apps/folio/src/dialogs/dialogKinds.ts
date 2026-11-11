@@ -5,6 +5,7 @@
 
 import type { DialogKind } from '@liminal-hq/folio-protocol/generated/DialogKind';
 import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTarget';
+import type { ImportOutcome } from '../app/ImportReportDialog';
 
 /** What the opener sends a dialog window of each kind to start from. */
 export interface DialogPayloads {
@@ -17,6 +18,10 @@ export interface DialogPayloads {
 	Barcode: { bookId: string };
 	BookSize: { bookId: string };
 	Margins: { bookId: string };
+	SpreadTemplates: { bookId: string };
+	ImportReport: { outcome: ImportOutcome };
+	CoverSheet: { bookId: string };
+	SoftProof: { bookId: string; spread: string };
 }
 
 /** What a dialog window of each kind hands back when it ends with a result (not when it is closed). */
@@ -27,6 +32,12 @@ export interface DialogResults {
 	Barcode: never;
 	BookSize: never;
 	Margins: never;
+	/** The template the person chose, to be added after the spread on show. */
+	SpreadTemplates: { template: string; name: string };
+	/** Bring the file in again with this choice of Folio style for each of its styles. */
+	ImportReport: { mapping: Record<string, string> };
+	CoverSheet: never;
+	SoftProof: never;
 }
 
 /** The dialog kinds this build can open as windows. */
@@ -39,6 +50,10 @@ const LABELS: Record<OpenableKind, string> = {
 	Barcode: 'dialog-barcode',
 	BookSize: 'dialog-book-size',
 	Margins: 'dialog-margins',
+	SpreadTemplates: 'dialog-spread-templates',
+	ImportReport: 'dialog-import-report',
+	CoverSheet: 'dialog-cover-sheet',
+	SoftProof: 'dialog-soft-proof',
 };
 
 /** The kind a webview label denotes, or null when it is not a dialog window. */
@@ -52,7 +67,15 @@ export function dialogLabel(kind: OpenableKind): string {
 	return LABELS[kind];
 }
 
-/** The kinds whose payload names a book, which the dialog watches and changes. */
+/** The kinds whose window watches and changes the book its payload names (through a pinned books store). */
+const BOOK_DIALOGS: readonly OpenableKind[] = [
+	'BookDetails',
+	'Barcode',
+	'BookSize',
+	'Margins',
+	'CoverSheet',
+];
+
 export function isBookDialog(kind: OpenableKind): boolean {
-	return kind !== 'Export';
+	return BOOK_DIALOGS.includes(kind);
 }

@@ -7,6 +7,10 @@ import { useEffect, useState } from 'react';
 import { BarcodeDialogWindow } from '../app/BarcodeDialogWindow';
 import { BookDetailsDialogWindow } from '../app/BookDetailsDialogWindow';
 import { BookSizeDialogWindow } from '../app/BookSizeDialogWindow';
+import { CoverSheetDialogWindow } from '../app/CoverSheetDialogWindow';
+import { ImportReportDialogWindow } from '../app/ImportReportDialogWindow';
+import { SoftProofDialogWindow } from '../app/SoftProofDialogWindow';
+import { SpreadTemplatesDialogWindow } from '../app/SpreadTemplatesDialogWindow';
 import { ExportDialogWindow } from '../app/ExportDialogWindow';
 import { MarginsDialogWindow } from '../app/MarginsDialogWindow';
 import { BooksProvider } from '../books/BooksProvider';
@@ -91,5 +95,25 @@ function body(kind: OpenableKind, payload: unknown, session: DialogSession) {
 			return <BookSizeDialogWindow session={session} />;
 		case 'Margins':
 			return <MarginsDialogWindow session={session} />;
+		case 'CoverSheet':
+			return <CoverSheetDialogWindow session={session} />;
+		case 'SpreadTemplates':
+			return (
+				<SpreadTemplatesDialogWindow
+					payload={payload as DialogPayloads['SpreadTemplates']}
+					session={session}
+				/>
+			);
+		case 'ImportReport':
+			return (
+				<ImportReportDialogWindow
+					payload={payload as DialogPayloads['ImportReport']}
+					session={session}
+				/>
+			);
+		case 'SoftProof':
+			return (
+				<SoftProofDialogWindow payload={payload as DialogPayloads['SoftProof']} session={session} />
+			);
 	}
 }

@@ -3,10 +3,10 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
 import type { ImportReport } from '@liminal-hq/folio-protocol/generated/ImportReport';
 import { useState } from 'react';
+import { DialogSurface } from '../dialogs/DialogSurface';
 import { t, type MessageKey } from '../i18n/messages';
 import styles from './ImportReportDialog.module.css';
 
@@ -36,7 +36,7 @@ export function ImportReportDialog({ outcome, onClose, onRemap }: ImportReportDi
 		onClose();
 	};
 	return (
-		<Dialog
+		<DialogSurface
 			open={outcome !== null}
 			title={t('import.title')}
 			size="medium"
@@ -123,6 +123,6 @@ export function ImportReportDialog({ outcome, onClose, onRemap }: ImportReportDi
 					<p className={styles.hint}>{t('import.undo')}</p>
 				</section>
 			)}
-		</Dialog>
+		</DialogSurface>
 	);
 }

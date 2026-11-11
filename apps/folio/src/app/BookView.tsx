@@ -36,6 +36,7 @@ import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../can
 import { keepWords } from '../canvas/editCheckpoint';
 import { CheckBookDialog } from './CheckBookDialog';
 import { openDialog } from '../dialogs/openDialog';
+import { putDescriptionIntent } from './coverSheetIntents';
 import { useWindowedDialog } from '../dialogs/useWindowedDialog';
 import { ExportDialog } from './ExportDialog';
 import {
@@ -719,6 +720,54 @@ export function BookView({
 	const showMargins = useWindowedDialog('Margins', marginsOpen, dialogWindows, bookDialog, () =>
 		setMarginsOpen(false),
 	);
+	const showProof = useWindowedDialog(
+		'SoftProof',
+		proofOpen,
+		dialogWindows,
+		{ bookId: id, spread: spread?.id ?? '' },
+		() => setProofOpen(false),
+	);
+	const showSheet = useWindowedDialog('CoverSheet', sheetOpen, dialogWindows, bookDialog, () =>
+		setSheetOpen(false),
+	);
+	// The spread on show decides where a template goes, so the window hands the choice back.
+	const addTemplateRef = useRef<(template: string, name: string) => Promise<void>>(async () => {});
+	const showTemplates = useWindowedDialog(
+		'SpreadTemplates',
+		templatesOpen,
+		dialogWindows,
+		bookDialog,
+		(chosen) => {
+			setTemplatesOpen(false);
+			if (chosen) {
+				addTemplateRef.current(chosen.template, chosen.name).catch(() => {
+					setNotice(t('templates.refused'));
+				});
+			}
+		},
+	);
+	useWindowedDialog(
+		'ImportReport',
+		imported !== null,
+		dialogWindows,
+		{ outcome: imported as ImportOutcome },
+		(answer) => {
+			setImported(null);
+			if (answer && importedPath.current !== null)
+				void bringIn(importedPath.current, answer.mapping);
+		},
+	);
+	/** Adds a template after the spread on show, or after the first page when the cover is. */
+	const addTemplate = async (template: string, name: string) => {
+		const index = spread?.kind === 'cover' ? 1 : shown;
+		const after = book.spreads[index];
+		if (!after) throw new Error(t('templates.refused'));
+		await client.applyTemplate(id, template, after.id);
+		setSpreadIndex(index + 1);
+		select([]);
+		setNotice(t('templates.added', { name }));
+	};
+	addTemplateRef.current = addTemplate;
 	const [reveal, setReveal] = useState<{ spread: string; frame: string } | null>(null);
 	useEffect(() => {
 		if (reveal && spread?.id === reveal.spread) {
@@ -1438,7 +1487,7 @@ export function BookView({
 				}}
 			/>
 			<ImportReportDialog
-				outcome={imported}
+				outcome={dialogWindows ? null : imported}
 				onClose={() => setImported(null)}
 				onRemap={(mapping) => {
 					if (importedPath.current !== null) void bringIn(importedPath.current, mapping);
@@ -1462,20 +1511,13 @@ export function BookView({
 				onPaper={(paper) => apply({ type: 'SetPaper', paper })}
 			/>
 			<SpreadTemplatesDialog
-				open={templatesOpen}
+				open={showTemplates}
 				onClose={() => setTemplatesOpen(false)}
 				client={client}
 				id={id}
 				onChoose={async (template, name) => {
-					// A template goes after the spread on show, and after the first page when the cover is.
-					const index = spread?.kind === 'cover' ? 1 : shown;
-					const after = book.spreads[index];
-					if (!after) throw new Error(t('templates.refused'));
-					await client.applyTemplate(id, template, after.id);
-					setSpreadIndex(index + 1);
-					select([]);
+					await addTemplate(template, name);
 					setTemplatesOpen(false);
-					setNotice(t('templates.added', { name }));
 				}}
 			/>
 			<LinkDialog
@@ -1515,7 +1557,7 @@ export function BookView({
 				apply={apply}
 			/>
 			<CoverSheetDialog
-				open={sheetOpen}
+				open={showSheet}
 				onClose={() => setSheetOpen(false)}
 				client={client}
 				id={id}
@@ -1523,31 +1565,12 @@ export function BookView({
 				book={book}
 				onSave={(details) => apply({ type: 'SetDetails', details })}
 				onPutDescription={(text) => {
-					const cover = book.spreads[0];
-					if (!cover) return;
-					if (cover.frames.some((f) => f.id === 'blurb')) {
-						apply({ type: 'SetText', frame: 'blurb', text });
-						return;
-					}
-					// The back cover's own page, from its top-left: half an inch in from each edge.
-					const frame = newFrame(
-						'text',
-						{ x: 36, y: 54, w: book.trim.w - 72, h: book.trim.h - 144 },
-						'body',
-					);
-					apply({
-						type: 'AddFrame',
-						on: { spread: cover.id },
-						frame: {
-							...frame,
-							id: 'blurb',
-							content: { inline: [{ text }] },
-						} as unknown as Frame,
-					});
+					const intent = putDescriptionIntent(book, text);
+					if (intent) apply(intent);
 				}}
 			/>
 			<SoftProofDialog
-				open={proofOpen}
+				open={showProof}
 				onClose={() => setProofOpen(false)}
 				client={client}
 				id={id}

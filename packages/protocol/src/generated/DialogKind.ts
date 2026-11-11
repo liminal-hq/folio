@@ -4,4 +4,4 @@
  * A dialog that opens as a window of its own (D-77). It is separate from `WindowKind`: a window
  * kind is one window for the whole app, while a dialog belongs to the window that opened it.
  */
-export type DialogKind = "Export" | "BookDetails" | "Barcode" | "BookSize" | "Margins";
+export type DialogKind = "Export" | "BookDetails" | "Barcode" | "BookSize" | "Margins" | "SpreadTemplates" | "ImportReport" | "CoverSheet" | "SoftProof";

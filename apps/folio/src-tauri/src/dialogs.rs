@@ -32,19 +32,28 @@ fn fixed(title: &str, width: f64, height: f64) -> DialogSpec {
     }
 }
 
+/// A modal dialog that can be resized, down to a minimum, and remembers its size.
+fn resizable(title: &str, width: f64, height: f64, min_width: f64, min_height: f64) -> DialogSpec {
+    DialogSpec {
+        resizable: true,
+        min_width: Some(min_width),
+        min_height: Some(min_height),
+        ..fixed(title, width, height)
+    }
+}
+
 /// How a kind of dialog is made, in logical pixels.
 pub fn spec_for(kind: DialogKind) -> DialogSpec {
     match kind {
-        DialogKind::Export => DialogSpec {
-            resizable: true,
-            min_width: Some(480.0),
-            min_height: Some(420.0),
-            ..fixed("Export book", 640.0, 720.0)
-        },
+        DialogKind::Export => resizable("Export book", 640.0, 720.0, 480.0, 420.0),
         DialogKind::BookDetails => fixed("Book details", 600.0, 760.0),
         DialogKind::Barcode => fixed("Barcode", 560.0, 680.0),
         DialogKind::BookSize => fixed("Book size", 460.0, 380.0),
         DialogKind::Margins => fixed("Margins", 460.0, 440.0),
+        DialogKind::SpreadTemplates => resizable("Spread templates", 900.0, 680.0, 560.0, 420.0),
+        DialogKind::ImportReport => resizable("Import report", 700.0, 640.0, 480.0, 360.0),
+        DialogKind::CoverSheet => resizable("Cover sheet", 1000.0, 760.0, 640.0, 480.0),
+        DialogKind::SoftProof => resizable("Soft proof", 900.0, 760.0, 560.0, 420.0),
     }
 }
 

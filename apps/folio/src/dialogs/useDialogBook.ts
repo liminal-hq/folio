@@ -13,6 +13,8 @@ import type { DialogSession } from './DialogHost';
 export interface DialogBook {
 	id: string;
 	book: Book;
+	/** Changes when the book does. */
+	revision: number;
 	client: BooksClient;
 	/** Changes the book through Rust, so the main window shows it at once (one undo step of the book). */
 	apply(intent: Intent): void;
@@ -35,5 +37,12 @@ export function useDialogBook(session: DialogSession): DialogBook | null {
 		void Promise.allSettled(pending.current).then(() => session.close());
 	}, [session]);
 	if (!active) return null;
-	return { id: active.summary.id, book: active.copy.book, client, apply, close };
+	return {
+		id: active.summary.id,
+		book: active.copy.book,
+		revision: active.copy.revision,
+		client,
+		apply,
+		close,
+	};
 }

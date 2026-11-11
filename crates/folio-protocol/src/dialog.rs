@@ -19,16 +19,24 @@ pub enum DialogKind {
     Barcode,
     BookSize,
     Margins,
+    SpreadTemplates,
+    ImportReport,
+    CoverSheet,
+    SoftProof,
 }
 
 impl DialogKind {
     /// Every kind, for tests and for building capability lists.
-    pub const ALL: [DialogKind; 5] = [
+    pub const ALL: [DialogKind; 9] = [
         DialogKind::Export,
         DialogKind::BookDetails,
         DialogKind::Barcode,
         DialogKind::BookSize,
         DialogKind::Margins,
+        DialogKind::SpreadTemplates,
+        DialogKind::ImportReport,
+        DialogKind::CoverSheet,
+        DialogKind::SoftProof,
     ];
 
     /// The webview label of the window for this kind.
@@ -39,6 +47,10 @@ impl DialogKind {
             Self::Barcode => "dialog-barcode",
             Self::BookSize => "dialog-book-size",
             Self::Margins => "dialog-margins",
+            Self::SpreadTemplates => "dialog-spread-templates",
+            Self::ImportReport => "dialog-import-report",
+            Self::CoverSheet => "dialog-cover-sheet",
+            Self::SoftProof => "dialog-soft-proof",
         }
     }
 
