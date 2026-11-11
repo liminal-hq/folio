@@ -332,7 +332,10 @@ export function Stage({
 					onPointerDown={(event) => {
 						// A press on the bare table, not on the page, lets go of the selection. The words being
 						// edited sit beside the page, so a press in them (placing the caret, picking a word) does not.
-						if (!(event.target as Element).closest('svg, textarea')) onSelect?.([]);
+						// The on-page editor draws its caret and selection in a box of its own over the page, and
+						// that box is what a press in the words lands on: its frame stays selected for the ribbon.
+						if (!(event.target as Element).closest('svg, textarea, [data-text-surface]'))
+							onSelect?.([]);
 					}}
 				>
 					<div className={styles.sheet}>

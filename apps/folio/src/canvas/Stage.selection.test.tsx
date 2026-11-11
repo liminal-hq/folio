@@ -61,4 +61,29 @@ describe('Stage selection', () => {
 		fireEvent.pointerDown(container.querySelector('[class*="table"]')!, { button: 0 });
 		expect(onSelect).toHaveBeenCalledWith([]);
 	});
+
+	it('keeps the frame selected while words are picked in the on-page editor', async () => {
+		const onSelect = vi.fn();
+		const { container } = render(
+			<Stage
+				book={book}
+				spread={spread}
+				label="Cover"
+				layout={null}
+				selection={['t1']}
+				onSelect={onSelect}
+				onEditText={() => {}}
+				newEditor
+				onEditRequest={async () => ({ caret: { para: 0, offset: 0 } })}
+			/>,
+		);
+		fireEvent.doubleClick(container.querySelector('[data-hit="t1"]')!);
+		// The press lands on the editor's own box over the page, where its caret and selection are drawn.
+		const surface = container.querySelector('[data-text-surface]')!;
+		expect(surface).not.toBeNull();
+		onSelect.mockClear();
+
+		fireEvent.pointerDown(surface, { button: 0 });
+		expect(onSelect).not.toHaveBeenCalled();
+	});
 });
