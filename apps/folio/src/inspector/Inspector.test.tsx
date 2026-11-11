@@ -240,6 +240,42 @@ describe('with several frames selected', () => {
 	});
 });
 
+describe('with frames grouped', () => {
+	it('offers to group several free frames, and not locked ones', async () => {
+		const { apply } = setup([text(), text({ id: 'u' })]);
+		await userEvent.click(screen.getByRole('button', { name: 'Group these frames' }));
+		expect(apply).toHaveBeenCalledWith({
+			type: 'GroupFrames',
+			on: expect.anything(),
+			frames: ['t', 'u'],
+		});
+	});
+
+	it('does not offer to group frames when one is locked', () => {
+		setup([text(), text({ id: 'u', locked: true })]);
+		expect(screen.queryByRole('button', { name: 'Group these frames' })).not.toBeInTheDocument();
+	});
+
+	it('says what a group is and takes it apart', async () => {
+		const group = {
+			type: 'group',
+			id: 'g',
+			box: { x: 0, y: 0, w: 100, h: 100 },
+			locked: false,
+			children: [text(), text({ id: 'u' })],
+		} as unknown as Frame;
+		const { apply } = setup([group]);
+		expect(screen.getByRole('heading', { name: 'Group' })).toBeInTheDocument();
+		expect(screen.getByText(/group of 2 frames/i)).toBeInTheDocument();
+		await userEvent.click(screen.getByRole('button', { name: 'Ungroup' }));
+		expect(apply).toHaveBeenCalledWith({
+			type: 'UngroupFrames',
+			on: expect.anything(),
+			frame: 'g',
+		});
+	});
+});
+
 describe('in Expert mode', () => {
 	it('shows no number boxes in Easy mode', () => {
 		setup([]);

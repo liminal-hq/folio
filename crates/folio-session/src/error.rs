@@ -32,6 +32,8 @@ pub enum SessionError {
     BadShape(String),
     #[error("{0}")]
     BadGeometry(String),
+    #[error("those frames cannot be grouped: {0}")]
+    BadGroup(String),
     #[error("the frame `{0}` is not a table")]
     NotTable(String),
     #[error("that word cannot be ignored: {0}")]

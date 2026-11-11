@@ -215,6 +215,14 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function importImage(id, path) {
         return cmd('import_image', { id, path });
     }
+    /**
+     * Puts picture bytes (a picture pasted from the clipboard) into the book; `extension` is the kind of
+     * file they are (`png`, `jpg`, …). Resolves to the picture's path inside the book. The bytes cross as
+     * the raw body of the call, not as a list of numbers.
+     */
+    function importImageBytes(id, bytes, extension) {
+        return core.invoke(`${PREFIX}import_image_bytes`, bytes, { headers: { id, extension } });
+    }
     /** One of the book's pictures as raw bytes. */
     function assetData(id, asset) {
         return cmd('asset_data', { id, asset });
@@ -268,6 +276,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.getStatus = getStatus;
     exports.historyMark = historyMark;
     exports.importImage = importImage;
+    exports.importImageBytes = importImageBytes;
     exports.importText = importText;
     exports.keepFonts = keepFonts;
     exports.layoutMaster = layoutMaster;

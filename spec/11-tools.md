@@ -75,15 +75,15 @@ See 09. They are collected in Structure → Notes, glossary and index.
 ## Arrange: multi-select, align, distribute, group, lock, layers
 
 - **Shift-click** adds or removes items. **Ctrl+A** selects everything on the spread. The status bar shows "3 selected".
-- **Align** (Layout tab, sidebar when multi): left edges, centres, right edges, tops, middles, bottoms. With one item it aligns to the page margins.
+- **Align** (Layout tab, sidebar when multi): left edges, centres, right edges, tops, middles, bottoms. With one item it aligns to the page it is on (the trimmed page).
 - **Distribute** across / down: three or more items, equal gaps inside the selection's bounds.
-- **Group** (Ctrl+G) sets a shared `g`. Clicking any member selects the group, and they move together. **Ungroup** is Ctrl+Shift+G.
+- **Group** (Ctrl+G) wraps two or more free frames of a spread in a `group` frame that takes the place of the frontmost of them in the stacking order; **Ungroup** (Ctrl+Shift+G) takes it apart again. A group is one frame to the canvas: clicking any member selects the group, and it moves, resizes, locks, duplicates and deletes as one. Its frames keep their own boxes in the page's coordinates, so nothing is drawn differently: layout, preflight and export open a group out into its frames. Moving the group moves its frames; resizing it stretches each frame's box with it. A group is not turned (take it apart to turn its frames), is made only on the pages and not on a master page, and cannot hold a frame whose words flow from frame to frame. Grouping and ungrouping are each one undo step.
 - **Lock** (`lock`) still selects but won't drag or nudge.
 - **Layers panel** (Structure): top-to-bottom list with hide (`hide`), lock, and forward/backward. Clicking selects; Shift-click adds.
 
 ## Book tools
 
-The Book tools window (spec 12) hosts the workbenches of `spec/features/`, each working on the open book with its analysis done in Rust and its changes made as ordinary intents (one undo step each). **Built so far:** Book structure (Copyright page, Contents), Typesetting checks (Smart punctuation, Consistent styles), Pictures (Pictures in this book, Alt text) and Publishing helpers (Upload checklist, Keywords, Print cost and royalties); each feature's own page says what of it is built. **Not built yet:** the Front matter checklist, back matter, index and glossary builders, widows, orphans and runts, rivers and loose lines, the hyphenation dictionary, linked and embedded pictures, the launch planner and blurb writer, and the Proofing, Series, Accessibility and Picture-book areas.
+The Book tools window (spec 12) hosts the workbenches of `spec/features/`, each working on the open book with its analysis done in Rust and its changes made as ordinary intents (one undo step each). **Built so far:** Book structure (Copyright page, Contents), Typesetting checks (Smart punctuation, Consistent styles), Pictures (Pictures in this book, Alt text) and Publishing helpers (Upload checklist, Keywords, Print cost and royalties); each feature's own page says what of it is built. **Not built yet:** the Front matter checklist, back matter, index and glossary builders, widows, orphans and runts, rivers and loose lines, the hyphenation dictionary, linked and embedded pictures, the launch planner and blurb writer, and the Proofing, Series, Accessibility and Picture-book areas. The ribbon's **Tools** tab has a button for each built tool, grouped as the areas are, and opens the window on that tool; **Consistent styles** is for Expert mode, and Spelling and Find & replace are shortcuts to the Home tab's controls (Find & replace stays unavailable until it exists).
 
 ## Spread templates (Insert or Pages → Spread templates)
 

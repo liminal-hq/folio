@@ -34,7 +34,7 @@ export function Sidebar({ group, onGroup, panels, groups = GROUPS }: SidebarProp
 		const at = groups.indexOf(group);
 		let next = at;
 		if (event.key === 'ArrowRight') next = (at + 1) % groups.length;
-		else if (event.key === 'ArrowLeft') next = (at - 1 + GROUPS.length) % groups.length;
+		else if (event.key === 'ArrowLeft') next = (at - 1 + groups.length) % groups.length;
 		else if (event.key === 'Home') next = 0;
 		else if (event.key === 'End') next = groups.length - 1;
 		else return;

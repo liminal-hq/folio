@@ -4141,3 +4141,228 @@ fn the_keywords_are_one_undo_step_that_merges_while_typed_and_a_bad_list_is_refu
         ));
     }
 }
+
+// ── Groups ──
+
+fn on_sp1() -> Surface {
+    Surface::Spread(spread("sp_1"))
+}
+
+fn group_of(ids: &[&str]) -> Intent {
+    Intent::GroupFrames {
+        on: on_sp1(),
+        frames: ids.iter().map(|id| frame(id)).collect(),
+    }
+}
+
+fn ids_on_sp1(s: &Session) -> Vec<String> {
+    s.book().spreads[1]
+        .frames
+        .iter()
+        .map(|f| f.base().id.0.clone())
+        .collect()
+}
+
+#[test]
+fn frames_grouped_are_wrapped_in_the_place_of_the_frontmost_and_ungroup_puts_them_back() {
+    let mut s = session();
+    s.apply(group_of(&["fr_text", "fr_pic"])).unwrap();
+    assert_eq!(ids_on_sp1(&s), ["fr_new1", "fr_flowed"].map(String::from));
+    let Frame::Group { base, children } = &s.book().spreads[1].frames[0] else {
+        panic!("the group is a group");
+    };
+    // The picture (0, 0, 100, 100) and the text (10, 120, 200, 40) are held by 0, 0 to 210, 160.
+    assert_eq!(
+        (base.rect.x.0, base.rect.y.0, base.rect.w.0, base.rect.h.0),
+        (0.0, 0.0, 210.0, 160.0)
+    );
+    // The children keep their order and their places on the page.
+    let order: Vec<_> = children.iter().map(|c| c.base().id.0.as_str()).collect();
+    assert_eq!(order, ["fr_pic", "fr_text"]);
+    assert_eq!(children[1].base().rect.x.0, 10.0);
+
+    s.apply(Intent::UngroupFrames {
+        on: on_sp1(),
+        frame: frame("fr_new1"),
+    })
+    .unwrap();
+    assert_eq!(
+        ids_on_sp1(&s),
+        ["fr_pic", "fr_text", "fr_flowed"].map(String::from)
+    );
+}
+
+#[test]
+fn grouping_and_ungrouping_are_each_one_undo_step() {
+    let mut s = session();
+    let before = s.book().clone();
+    s.apply(group_of(&["fr_pic", "fr_text"])).unwrap();
+    let grouped = s.book().clone();
+    s.apply(Intent::UngroupFrames {
+        on: on_sp1(),
+        frame: frame("fr_new1"),
+    })
+    .unwrap();
+    s.undo().unwrap();
+    assert_eq!(s.book(), &grouped);
+    s.undo().unwrap();
+    assert_eq!(s.book(), &before);
+    s.redo().unwrap();
+    assert_eq!(s.book(), &grouped);
+}
+
+#[test]
+fn a_group_needs_two_free_frames_on_a_page_and_none_of_a_story() {
+    let mut s = session();
+    let refused = |s: &mut Session, intent| match s.apply(intent) {
+        Err(SessionError::BadGroup(why)) => why,
+        other => panic!("expected a refused group, got {other:?}"),
+    };
+    assert!(refused(&mut s, group_of(&["fr_pic"])).contains("at least two"));
+    assert!(refused(&mut s, group_of(&["fr_pic", "fr_pic"])).contains("twice"));
+    assert!(refused(&mut s, group_of(&["fr_pic", "fr_flowed"])).contains("story"));
+    assert!(matches!(
+        s.apply(group_of(&["fr_pic", "fr_gone"])),
+        Err(SessionError::NoSuchFrame(_))
+    ));
+    s.apply(Intent::LockFrame {
+        on: on_sp1(),
+        frame: frame("fr_text"),
+        locked: true,
+    })
+    .unwrap();
+    assert_eq!(
+        s.apply(group_of(&["fr_pic", "fr_text"])).unwrap_err(),
+        SessionError::Locked("fr_text".into())
+    );
+    // Nothing changed.
+    assert_eq!(ids_on_sp1(&s).len(), 3);
+
+    // A frame already in a group is not grouped again from outside it.
+    let mut s = session();
+    s.apply(group_of(&["fr_pic", "fr_text"])).unwrap();
+    assert!(refused(&mut s, group_of(&["fr_pic", "fr_flowed"])).contains("already in a group"));
+}
+
+#[test]
+fn a_page_that_is_a_master_cannot_hold_groups_and_a_frame_that_is_not_a_group_is_not_ungrouped() {
+    let mut s = session();
+    assert!(matches!(
+        s.apply(Intent::UngroupFrames {
+            on: on_sp1(),
+            frame: frame("fr_pic")
+        }),
+        Err(SessionError::BadGroup(_))
+    ));
+    assert!(matches!(
+        s.apply(Intent::GroupFrames {
+            on: Surface::Master(folio_model::MasterId("mst_a".into())),
+            frames: vec![frame("fr_pic"), frame("fr_text")],
+        }),
+        Err(SessionError::BadGroup(_))
+    ));
+}
+
+#[test]
+fn moving_and_resizing_a_group_takes_its_frames_with_it() {
+    let mut s = session();
+    s.apply(group_of(&["fr_pic", "fr_text"])).unwrap();
+    let to = |x: f64, y: f64, w: f64, h: f64| Rect {
+        x: Pt(x),
+        y: Pt(y),
+        w: Pt(w),
+        h: Pt(h),
+    };
+    s.apply(Intent::MoveFrame {
+        on: on_sp1(),
+        frame: frame("fr_new1"),
+        rect: to(50.0, 20.0, 210.0, 160.0),
+    })
+    .unwrap();
+    let kids = |s: &Session| -> Vec<(f64, f64, f64, f64)> {
+        let Frame::Group { children, .. } = &s.book().spreads[1].frames[0] else {
+            panic!("a group");
+        };
+        children
+            .iter()
+            .map(|c| {
+                let r = c.base().rect;
+                (r.x.0, r.y.0, r.w.0, r.h.0)
+            })
+            .collect()
+    };
+    assert_eq!(
+        kids(&s),
+        [(50.0, 20.0, 100.0, 100.0), (60.0, 140.0, 200.0, 40.0)]
+    );
+    // Twice as wide and half as tall: each frame is stretched with the group.
+    s.apply(Intent::MoveFrames {
+        on: on_sp1(),
+        moves: vec![folio_model::FrameMove {
+            frame: frame("fr_new1"),
+            rect: to(50.0, 20.0, 420.0, 80.0),
+        }],
+    })
+    .unwrap();
+    assert_eq!(
+        kids(&s),
+        [(50.0, 20.0, 200.0, 50.0), (70.0, 80.0, 400.0, 20.0)]
+    );
+    s.undo().unwrap();
+    assert_eq!(kids(&s)[0], (50.0, 20.0, 100.0, 100.0));
+}
+
+#[test]
+fn a_group_is_duplicated_with_new_ids_and_its_frames_beside_the_first() {
+    let mut s = session();
+    s.apply(group_of(&["fr_pic", "fr_text"])).unwrap();
+    s.apply(Intent::DuplicateFrame {
+        on: on_sp1(),
+        frame: frame("fr_new1"),
+    })
+    .unwrap();
+    let frames = &s.book().spreads[1].frames;
+    let Frame::Group { base, children } = frames.last().unwrap() else {
+        panic!("the copy is a group");
+    };
+    assert_ne!(base.id.0, "fr_new1");
+    assert_eq!((base.rect.x.0, base.rect.y.0), (12.0, 12.0));
+    assert_eq!(children[0].base().rect.x.0, 12.0);
+    assert!(children
+        .iter()
+        .all(|c| !["fr_pic", "fr_text"].contains(&c.base().id.0.as_str())));
+}
+
+#[test]
+fn a_group_is_not_turned_but_a_locked_one_is_not_moved_or_deleted() {
+    let mut s = session();
+    s.apply(group_of(&["fr_pic", "fr_text"])).unwrap();
+    assert!(matches!(
+        s.apply(Intent::RotateFrame {
+            on: on_sp1(),
+            frame: frame("fr_new1"),
+            degrees: 90.0
+        }),
+        Err(SessionError::BadGroup(_))
+    ));
+    s.apply(Intent::LockFrame {
+        on: on_sp1(),
+        frame: frame("fr_new1"),
+        locked: true,
+    })
+    .unwrap();
+    assert!(matches!(
+        s.apply(Intent::DeleteFrame {
+            on: on_sp1(),
+            frame: frame("fr_new1")
+        }),
+        Err(SessionError::Locked(_))
+    ));
+    assert!(matches!(
+        s.apply(Intent::UngroupFrames {
+            on: on_sp1(),
+            frame: frame("fr_new1")
+        }),
+        Err(SessionError::Locked(_))
+    ));
+}

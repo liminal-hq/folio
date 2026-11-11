@@ -402,7 +402,7 @@ export function Stage({
 			)}
 			{menu && chosen.length > 0 && (
 				<ContextMenu
-					items={frameMenuItems(chosen)}
+					items={frameMenuItems(chosen, isMasterSpread(spread))}
 					position={menu}
 					ariaLabel={t('frame.menu')}
 					onSelect={(item) => {

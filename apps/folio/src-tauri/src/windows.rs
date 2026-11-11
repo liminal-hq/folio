@@ -9,6 +9,7 @@
 // cannot, so the page's window frame draws its own inside a small transparent margin (D-13).
 
 use folio_protocol::WindowKind;
+use serde::Serialize;
 use std::sync::Mutex;
 
 use tauri::{
@@ -137,40 +138,80 @@ pub async fn open_window<R: Runtime>(app: AppHandle<R>, kind: WindowKind) -> Res
 /// The areas of the Book tools window, the first being where it opens.
 pub const TOOL_AREAS: [&str; 4] = ["structure", "typesetting", "pictures", "publishing"];
 
-/// Sent to the Book tools window when it is asked to show another area while it is open.
+/// Sent to the Book tools window when it is asked to show another area or tool while it is open.
 pub const TOOLS_AREA_EVENT: &str = "book-tools://area";
 
-/// The area the Book tools window was last asked to open on, for a window that is built after it
-/// was asked.
-pub struct ToolsArea(pub Mutex<String>);
+/// What the Book tools window was asked to open on: an area of tools and, optionally, one tool in
+/// it. A tool's id starts with its area (`structure.contents`), so the tool decides the area.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ToolsAsked {
+    pub area: String,
+    pub tool: Option<String>,
+}
 
-impl Default for ToolsArea {
+impl Default for ToolsAsked {
     fn default() -> Self {
-        Self(Mutex::new(TOOL_AREAS[0].to_owned()))
+        Self {
+            area: TOOL_AREAS[0].to_owned(),
+            tool: None,
+        }
     }
 }
 
-/// Opens the Book tools window on `area`, or focuses it and moves it there. An area it does not know
-/// is the first one.
+impl ToolsAsked {
+    /// The request for `area`, or for `tool` when one is named. An area or tool it does not know is
+    /// left out, so a request never names something that is not there.
+    pub fn new(area: &str, tool: Option<&str>) -> Self {
+        let named = tool.and_then(|tool| {
+            let (of, name) = tool.split_once('.')?;
+            let known = TOOL_AREAS.contains(&of)
+                && !name.is_empty()
+                && name.chars().all(|c| c.is_ascii_alphanumeric());
+            known.then(|| (of.to_owned(), tool.to_owned()))
+        });
+        match named {
+            Some((area, tool)) => Self {
+                area,
+                tool: Some(tool),
+            },
+            None => Self {
+                area: if TOOL_AREAS.contains(&area) {
+                    area.to_owned()
+                } else {
+                    TOOL_AREAS[0].to_owned()
+                },
+                tool: None,
+            },
+        }
+    }
+}
+
+/// What the Book tools window was last asked to open on, for a window that is built after it was
+/// asked.
+#[derive(Default)]
+pub struct ToolsArea(pub Mutex<ToolsAsked>);
+
+/// Opens the Book tools window on `area`, or on `tool` in its area, or focuses it and moves it
+/// there. An area it does not know is the first one.
 #[tauri::command]
-pub async fn open_book_tools<R: Runtime>(app: AppHandle<R>, area: String) -> Result<(), String> {
-    let area = if TOOL_AREAS.contains(&area.as_str()) {
-        area
-    } else {
-        TOOL_AREAS[0].to_owned()
-    };
+pub async fn open_book_tools<R: Runtime>(
+    app: AppHandle<R>,
+    area: String,
+    tool: Option<String>,
+) -> Result<(), String> {
+    let asked = ToolsAsked::new(&area, tool.as_deref());
     *app.state::<ToolsArea>()
         .0
         .lock()
-        .expect("the tools area is not poisoned") = area.clone();
+        .expect("the tools area is not poisoned") = asked.clone();
     let window = open_or_focus(&app, WindowKind::BookTools).map_err(|e| e.to_string())?;
-    let _ = app.emit_to(window.label(), TOOLS_AREA_EVENT, area);
+    let _ = app.emit_to(window.label(), TOOLS_AREA_EVENT, asked);
     Ok(())
 }
 
-/// The area the Book tools window was last asked to open on.
+/// What the Book tools window was last asked to open on.
 #[tauri::command]
-pub async fn book_tools_area<R: Runtime>(app: AppHandle<R>) -> String {
+pub async fn book_tools_area<R: Runtime>(app: AppHandle<R>) -> ToolsAsked {
     app.state::<ToolsArea>()
         .0
         .lock()
@@ -237,19 +278,74 @@ mod tests {
     fn the_tools_window_opens_on_the_area_asked_for_and_an_unknown_one_is_the_first() {
         let app = tauri::test::mock_app();
         app.manage(ToolsArea::default());
-        tauri::async_runtime::block_on(open_book_tools(app.handle().clone(), "pictures".into()))
-            .expect("opens");
+        tauri::async_runtime::block_on(open_book_tools(
+            app.handle().clone(),
+            "pictures".into(),
+            None,
+        ))
+        .expect("opens");
         assert_eq!(
             tauri::async_runtime::block_on(book_tools_area(app.handle().clone())),
-            "pictures"
+            ToolsAsked {
+                area: "pictures".into(),
+                tool: None
+            }
         );
-        tauri::async_runtime::block_on(open_book_tools(app.handle().clone(), "nonsense".into()))
-            .expect("focuses");
+        tauri::async_runtime::block_on(open_book_tools(
+            app.handle().clone(),
+            "nonsense".into(),
+            None,
+        ))
+        .expect("focuses");
         assert_eq!(
             tauri::async_runtime::block_on(book_tools_area(app.handle().clone())),
-            "structure"
+            ToolsAsked::default()
         );
         assert_eq!(app.webview_windows().len(), 1);
+    }
+
+    #[test]
+    fn a_tool_asked_for_decides_the_area_and_a_made_up_one_is_dropped() {
+        let ask = ToolsAsked::new;
+        assert_eq!(
+            ask("structure", Some("publishing.keywords")),
+            ToolsAsked {
+                area: "publishing".into(),
+                tool: Some("publishing.keywords".into())
+            }
+        );
+        // The area alone is kept when the tool is not a tool id of any area.
+        for bad in [
+            "keywords",
+            "nowhere.keywords",
+            "publishing.",
+            "publishing.a b",
+            "",
+        ] {
+            assert_eq!(
+                ask("typesetting", Some(bad)),
+                ToolsAsked {
+                    area: "typesetting".into(),
+                    tool: None
+                },
+                "{bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_tools_window_remembers_the_tool_it_was_asked_for() {
+        let app = tauri::test::mock_app();
+        app.manage(ToolsArea::default());
+        tauri::async_runtime::block_on(open_book_tools(
+            app.handle().clone(),
+            "structure".into(),
+            Some("pictures.alt".into()),
+        ))
+        .expect("opens");
+        let asked = tauri::async_runtime::block_on(book_tools_area(app.handle().clone()));
+        assert_eq!(asked.area, "pictures");
+        assert_eq!(asked.tool.as_deref(), Some("pictures.alt"));
     }
 
     #[test]

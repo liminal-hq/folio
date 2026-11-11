@@ -26,6 +26,15 @@ pub enum Frame {
     },
 }
 impl Frame {
+    /// The frames that are drawn: this one, or for a group the frames in it, however deep. A group
+    /// is only a wrapper, its children being placed on the page like any other frame.
+    pub fn leaves<'a>(&'a self, out: &mut Vec<&'a Frame>) {
+        match self {
+            Frame::Group { children, .. } => children.iter().for_each(|c| c.leaves(out)),
+            other => out.push(other),
+        }
+    }
+
     pub fn base_mut(&mut self) -> &mut FrameBase {
         match self {
             Frame::Text(f) => &mut f.base,
@@ -358,4 +367,52 @@ pub enum Shape {
     Thought,
     /// A jagged shout bubble.
     Shout,
+}
+
+/// The frames of a spread or master that are drawn, groups opened out into their children, in
+/// stacking order (the last is in front).
+pub fn leaves(frames: &[Frame]) -> Vec<&Frame> {
+    let mut out = Vec::with_capacity(frames.len());
+    frames.iter().for_each(|f| f.leaves(&mut out));
+    out
+}
+
+impl Frame {
+    /// Moves a frame and everything in it by `dx` and `dy`.
+    pub fn translate(&mut self, dx: f64, dy: f64) {
+        let base = self.base_mut();
+        base.rect.x = Pt(base.rect.x.0 + dx);
+        base.rect.y = Pt(base.rect.y.0 + dy);
+        if let Frame::Group { children, .. } = self {
+            children.iter_mut().for_each(|c| c.translate(dx, dy));
+        }
+    }
+
+    /// Gives a frame a new box. A group's children keep their places in it: they move with it and
+    /// are stretched with it, each box scaled by how much the group's box grew or shrank.
+    pub fn set_rect(&mut self, rect: Rect) {
+        let old = self.base().rect;
+        self.base_mut().rect = rect;
+        if let Frame::Group { children, .. } = self {
+            let sx = if old.w.0 > 0.0 {
+                rect.w.0 / old.w.0
+            } else {
+                1.0
+            };
+            let sy = if old.h.0 > 0.0 {
+                rect.h.0 / old.h.0
+            } else {
+                1.0
+            };
+            for child in children {
+                let at = child.base().rect;
+                child.set_rect(Rect {
+                    x: Pt(rect.x.0 + (at.x.0 - old.x.0) * sx),
+                    y: Pt(rect.y.0 + (at.y.0 - old.y.0) * sy),
+                    w: Pt(at.w.0 * sx),
+                    h: Pt(at.h.0 * sy),
+                });
+            }
+        }
+    }
 }

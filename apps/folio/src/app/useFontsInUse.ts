@@ -7,11 +7,14 @@ import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
 import { useEffect, useState } from 'react';
 import type { BooksClient } from '../books/booksClient';
 
-/** The uses for the book `id`, or `undefined` until read; `revision` is when to ask again. */
+/**
+ * The uses for the book `id`, or `undefined` until read; `revision` is when to ask again, and
+ * `wanted` is false for a window that has no use for them yet.
+ */
 export function useFontsInUse(
 	client: BooksClient,
 	id: string,
-	revision: number,
+	revision: number | string,
 	wanted: boolean,
 ): FontUse[] | undefined {
 	const [uses, setUses] = useState<FontUse[] | undefined>(undefined);

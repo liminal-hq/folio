@@ -94,7 +94,7 @@ pub fn geometry_checks(book: &Book, spread: &Spread) -> Vec<PreflightItem> {
     let y1 = first.rect.y.0 + first.rect.h.0;
     let bleed = book.bleed.0;
 
-    for frame in &spread.frames {
+    for frame in folio_model::leaves(&spread.frames) {
         let base = frame.base();
         if base.from_master.is_some() {
             continue;
@@ -191,7 +191,7 @@ pub fn picture_ppi(natural: (u32, u32), w: f64, h: f64, fit: Fit) -> f64 {
 /// with no bleed. Covers are checked too, since a cover's picture is its background.
 pub fn asset_checks(book: &Book, spread: &Spread, facts: &AssetFacts) -> Vec<PreflightItem> {
     let mut out = Vec::new();
-    for frame in &spread.frames {
+    for frame in folio_model::leaves(&spread.frames) {
         let Frame::Image(image) = frame else {
             continue;
         };
@@ -262,9 +262,8 @@ pub fn asset_checks(book: &Book, spread: &Spread, facts: &AssetFacts) -> Vec<Pre
 /// The paths of the pictures `spread` uses: those in its picture frames and in the backgrounds its
 /// pages show.
 pub fn spread_assets(book: &Book, spread: &Spread) -> Vec<String> {
-    let mut out: Vec<String> = spread
-        .frames
-        .iter()
+    let mut out: Vec<String> = folio_model::leaves(&spread.frames)
+        .into_iter()
         .filter_map(|f| match f {
             Frame::Image(i) => i.image.asset.clone(),
             _ => None,
@@ -332,7 +331,7 @@ const RICH_BLACK_COLOUR: u32 = 20;
 /// Small text set in a rich black, said once for each swatch on a frame.
 pub fn rich_black_checks(book: &Book, spread: &Spread) -> Vec<PreflightItem> {
     let mut items = Vec::new();
-    for frame in &spread.frames {
+    for frame in folio_model::leaves(&spread.frames) {
         let folio_model::Frame::Text(text) = frame else {
             continue;
         };

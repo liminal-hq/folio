@@ -50,6 +50,17 @@ function keepFocus(event: MouseEvent) {
 	event.preventDefault();
 }
 
+/** Runs of neighbouring options that share a group; options with none stand alone, in order. */
+function optionGroups(options: NonNullable<RibbonItem['options']>) {
+	const runs: { group: string | undefined; options: typeof options }[] = [];
+	for (const option of options) {
+		const last = runs[runs.length - 1];
+		if (last && last.group === option[2]) last.options.push(option);
+		else runs.push({ group: option[2], options: [option] });
+	}
+	return runs;
+}
+
 export function RibbonControl(props: ControlProps) {
 	const { item, showLabel, tooltip, pressed, value, labels, onPress, onValue } = props;
 	const kind = item.kind ?? 'button';
@@ -79,11 +90,23 @@ export function RibbonControl(props: ControlProps) {
 					}}
 					{...tipHandlers}
 				>
-					{(item.options ?? []).map(([v, l]) => (
-						<option key={v} value={v}>
-							{l}
-						</option>
-					))}
+					{optionGroups(item.options ?? []).map(({ group, options }) =>
+						group === undefined ? (
+							options.map(([v, l]) => (
+								<option key={v} value={v}>
+									{l}
+								</option>
+							))
+						) : (
+							<optgroup key={`group:${group}`} label={group}>
+								{options.map(([v, l]) => (
+									<option key={v} value={v}>
+										{l}
+									</option>
+								))}
+							</optgroup>
+						),
+					)}
 				</select>
 				<span className={styles.selectCaret} aria-hidden="true">
 					▾

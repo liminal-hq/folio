@@ -32,6 +32,15 @@ export const RIBBON_LAYOUT: readonly LayoutTab[] = [
 		id: 'home',
 		groups: [
 			{
+				id: 'home.clipboard',
+				items: [
+					{ id: 'paste', large: true },
+					{ id: 'pasteSpecial', kind: 'menu', icon: 'paste' },
+					{ id: 'copy' },
+					{ id: 'cut' },
+				],
+			},
+			{
 				id: 'home.history',
 				items: [
 					{
@@ -604,6 +613,47 @@ export const RIBBON_LAYOUT: readonly LayoutTab[] = [
 						id: 'menubar',
 						kind: 'toggle',
 					},
+				],
+			},
+		],
+	},
+	{
+		id: 'tools',
+		groups: [
+			{
+				id: 'tools.structure',
+				items: [
+					{ id: 'toolCopyright', icon: 'book' },
+					{ id: 'toolContents', icon: 'toc' },
+				],
+			},
+			{
+				id: 'tools.typesetting',
+				items: [
+					{ id: 'toolPunctuation', icon: 'punctuation' },
+					{ id: 'toolStyles', icon: 'text', expert: true },
+				],
+			},
+			{
+				id: 'tools.pictures',
+				items: [
+					{ id: 'toolPictures', icon: 'image' },
+					{ id: 'toolAltText', icon: 'eye' },
+				],
+			},
+			{
+				id: 'tools.publishing',
+				items: [
+					{ id: 'toolChecklist', icon: 'check' },
+					{ id: 'toolKeywords', icon: 'keywords' },
+					{ id: 'toolRoyalty', icon: 'royalties' },
+				],
+			},
+			{
+				id: 'tools.proofing',
+				items: [
+					{ id: 'toolSpelling', kind: 'toggle', icon: 'spell' },
+					{ id: 'toolFind', icon: 'find' },
 				],
 			},
 		],

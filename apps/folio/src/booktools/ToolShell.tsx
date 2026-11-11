@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { t } from '../i18n/messages';
 import styles from './ToolShell.module.css';
 import { toolsIn } from './registry';
@@ -16,11 +16,23 @@ interface ToolShellProps {
 	work: Omit<ToolProps, 'say'> | null;
 	/** The title and kind of the book, for the line under the switcher. */
 	about: string | null;
+	/** The id of the tool to show in its area, such as `structure.contents`: where the window opens. */
+	tool?: string | null;
+	/** Told which tool the person picks, so a later request for the same one is a change. */
+	onTool?(tool: string): void;
 }
 
-export function ToolShell({ area, onArea, work, about }: ToolShellProps) {
+/** The area a tool id belongs to: what comes before its first dot. */
+const areaOf = (tool: string) => tool.split('.')[0]!;
+
+export function ToolShell({ area, onArea, work, about, tool: asked, onTool }: ToolShellProps) {
 	const tools = toolsIn(area);
-	const [chosen, setChosen] = useState<Record<string, string>>({});
+	const [chosen, setChosen] = useState<Record<string, string>>(() =>
+		asked ? { [areaOf(asked)]: asked } : {},
+	);
+	useEffect(() => {
+		if (asked) setChosen((now) => ({ ...now, [areaOf(asked)]: asked }));
+	}, [asked]);
 	const [message, setMessage] = useState('');
 	const current = tools.find((tool) => tool.id === chosen[area]) ?? tools[0] ?? null;
 
@@ -62,7 +74,10 @@ export function ToolShell({ area, onArea, work, about }: ToolShellProps) {
 								type="button"
 								className={styles.tool}
 								aria-current={tool.id === current?.id ? 'true' : undefined}
-								onClick={() => setChosen({ ...chosen, [area]: tool.id })}
+								onClick={() => {
+									setChosen({ ...chosen, [area]: tool.id });
+									onTool?.(tool.id);
+								}}
 							>
 								{t(tool.titleKey)}
 							</button>

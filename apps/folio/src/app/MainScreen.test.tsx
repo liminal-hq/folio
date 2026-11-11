@@ -250,6 +250,254 @@ describe('a book in the main window', () => {
 		expect(screen.getByRole('button', { name: 'Fit' })).toHaveAttribute('aria-pressed', 'true');
 	});
 
+	it('keeps the sidebar group the writer opened while a frame stays selected', async () => {
+		setup();
+		await startBook();
+		await userEvent.click(screen.getByRole('radio', { name: 'Expert' }));
+		const shelf = within(screen.getByRole('list', { name: 'Spreads' })).getAllByRole('button');
+		await userEvent.click(shelf[1]!);
+		const hits = () => Array.from(document.querySelectorAll('[data-hit]'));
+		await waitFor(() => expect(hits().length).toBeGreaterThan(0));
+		const frames = hits();
+		fireEvent.pointerDown(frames[0]!, { button: 0, clientX: 10, clientY: 10 });
+		fireEvent.pointerUp(frames[0]!, { button: 0, clientX: 10, clientY: 10 });
+		await waitFor(() =>
+			expect(hits().filter((h) => h.getAttribute('aria-selected') === 'true').length).toBe(1),
+		);
+		const sidebar = screen.getByRole('complementary', { name: 'Sidebar' });
+		expect(within(sidebar).getByRole('tab', { name: 'Properties' })).toHaveAttribute(
+			'aria-selected',
+			'true',
+		);
+		for (const name of ['Fonts', 'Pages', 'Swatches']) {
+			await userEvent.click(within(sidebar).getByRole('tab', { name }));
+			await act(async () => {
+				await new Promise((r) => setTimeout(r, 20));
+			});
+			expect(within(sidebar).getByRole('tab', { name })).toHaveAttribute('aria-selected', 'true');
+			expect(hits().filter((h) => h.getAttribute('aria-selected') === 'true').length).toBe(1);
+		}
+	});
+
+	it('opens the Book size and Margins dialogs and goes to the cover from the Pages tab', async () => {
+		setup();
+		await startBook();
+		await userEvent.click(within(ribbonTabs()).getByRole('tab', { name: 'Pages' }));
+		const shelf = within(screen.getByRole('list', { name: 'Spreads' })).getAllByRole('button');
+		await userEvent.click(shelf[1]!);
+		expect(shelf[1]).toHaveAttribute('aria-current', 'true');
+		const book = screen.getByRole('group', { name: 'Book' });
+		await userEvent.click(within(book).getByRole('button', { name: 'Cover' }));
+		expect(shelf[0]).toHaveAttribute('aria-current', 'true');
+		await userEvent.click(within(book).getByRole('button', { name: 'Book size' }));
+		const size = await screen.findByRole('dialog', { name: 'Book size' });
+		await userEvent.click(within(size).getByRole('button', { name: 'Cancel' }));
+		await userEvent.click(within(book).getByRole('button', { name: 'Margins' }));
+		expect(await screen.findByRole('dialog', { name: 'Margins' })).toBeInTheDocument();
+	});
+
+	it('opens a Book tool from the Tools tab', async () => {
+		const { windows } = setup();
+		await startBook();
+		await userEvent.click(within(ribbonTabs()).getByRole('tab', { name: 'Tools' }));
+		await userEvent.click(screen.getByRole('button', { name: 'Keywords' }));
+		await userEvent.click(screen.getByRole('button', { name: 'Alt text' }));
+		expect(windows.openBookTools.mock.calls).toEqual([
+			['publishing', 'publishing.keywords'],
+			['pictures', 'pictures.alt'],
+		]);
+		expect(screen.getByRole('button', { name: 'Find & replace' })).toBeDisabled();
+	});
+
+	it('reads the fonts the book uses without the Fonts group being open', async () => {
+		const { books } = setup();
+		await startBook();
+		await waitFor(() => expect(books.calls.some((c) => c.startsWith('fontsInUse('))).toBe(true));
+		expect(screen.getByRole('tab', { name: 'Properties', selected: true })).toBeInTheDocument();
+	});
+
+	it('copies, pastes and cuts the selected frames with the keys, without the webview’s own copy', async () => {
+		const { books } = setup();
+		await startBook();
+		await userEvent.click(
+			within(screen.getByRole('list', { name: 'Spreads' })).getAllByRole('button')[1]!,
+		);
+		const hits = () => Array.from(document.querySelectorAll('[data-hit]'));
+		await waitFor(() => expect(hits().length).toBeGreaterThan(0));
+		fireEvent.pointerDown(hits()[0]!, { button: 0, clientX: 10, clientY: 10 });
+		fireEvent.pointerUp(hits()[0]!, { button: 0, clientX: 10, clientY: 10 });
+		const applied = (type: string) =>
+			books.calls.filter((c) => c.startsWith('apply(') && c.includes(type)).length;
+
+		// Copy is the program’s, so the webview is not asked to copy.
+		expect(fireEvent.keyDown(document.body, { key: 'c', ctrlKey: true })).toBe(false);
+		expect(applied('AddFrame')).toBe(0);
+		// What the system clipboard then holds is the words of the copy, which is how a paste knows it.
+		const copied = await waitFor(async () => {
+			const words = await navigator.clipboard.readText();
+			expect(words).not.toBe('');
+			return words;
+		});
+		const holdingCopy = {
+			clipboardData: {
+				getData: (type: string) => (type === 'text/plain' ? copied : ''),
+				files: [],
+			},
+		};
+		fireEvent.paste(window, holdingCopy);
+		await waitFor(() => expect(applied('AddFrame')).toBe(1));
+		fireEvent.paste(window, holdingCopy);
+		await waitFor(() => expect(applied('AddFrame')).toBe(2));
+
+		// Words copied in another program are not taken for the frames.
+		fireEvent.paste(window, {
+			clipboardData: {
+				getData: (type: string) => (type === 'text/plain' ? 'Elsewhere' : ''),
+				files: [],
+				types: [],
+			},
+		});
+		expect(applied('AddFrame')).toBe(2);
+
+		// Cut copies and takes the frame off the page. (The fake book does not grow the pasted frames, so
+		// the first one is chosen again.)
+		fireEvent.pointerDown(hits()[0]!, { button: 0, clientX: 10, clientY: 10 });
+		fireEvent.pointerUp(hits()[0]!, { button: 0, clientX: 10, clientY: 10 });
+		const before = applied('DeleteFrame');
+		expect(fireEvent.keyDown(document.body, { key: 'x', ctrlKey: true })).toBe(false);
+		await waitFor(() => expect(applied('DeleteFrame')).toBeGreaterThan(before));
+	});
+
+	it('copies and pastes with the Home tab’s Clipboard buttons', async () => {
+		const { books } = setup();
+		await startBook();
+		await userEvent.click(
+			within(screen.getByRole('list', { name: 'Spreads' })).getAllByRole('button')[1]!,
+		);
+		const group = screen.getByRole('group', { name: 'Clipboard' });
+		expect(within(group).getByRole('button', { name: 'Copy' })).toBeDisabled();
+		expect(within(group).getByRole('button', { name: 'Paste' })).toBeEnabled();
+		const hits = () => Array.from(document.querySelectorAll('[data-hit]'));
+		await waitFor(() => expect(hits().length).toBeGreaterThan(0));
+		fireEvent.pointerDown(hits()[0]!, { button: 0, clientX: 10, clientY: 10 });
+		fireEvent.pointerUp(hits()[0]!, { button: 0, clientX: 10, clientY: 10 });
+		await userEvent.click(await within(group).findByRole('button', { name: 'Copy' }));
+		await userEvent.click(within(group).getByRole('button', { name: 'Paste' }));
+		const added = () => books.calls.filter((c) => c.includes('AddFrame')).length;
+		await waitFor(() => expect(added()).toBe(1));
+		await userEvent.click(within(group).getByRole('button', { name: 'Paste special' }));
+		await userEvent.click(await screen.findByRole('menuitem', { name: 'Paste in place' }));
+		await waitFor(() => expect(added()).toBe(2));
+	});
+
+	it('pastes a picture from the clipboard as a picture frame holding it', async () => {
+		const { books } = setup();
+		await startBook();
+		const png = new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'shot.png', {
+			type: 'image/png',
+		});
+		fireEvent.paste(window, {
+			clipboardData: { getData: () => '', files: [png], types: ['Files'] },
+		});
+		await waitFor(() =>
+			expect(books.calls.some((c) => c.startsWith('importImageBytes('))).toBe(true),
+		);
+		expect(books.calls.find((c) => c.startsWith('importImageBytes('))).toContain('"png"');
+		await waitFor(() =>
+			expect(
+				books.calls.filter((c) => c.startsWith('apply(')).map((c) => c.match(/Add|SetImage/)?.[0]),
+			).toEqual(['Add', 'SetImage']),
+		);
+	});
+
+	it('says so when a pasted picture is refused', async () => {
+		const { books } = setup();
+		await startBook();
+		const spy = vi.spyOn(books.client, 'importImageBytes').mockRejectedValue({ kind: 'image' });
+		const png = new File([new Uint8Array([1, 2, 3])], 'bad.png', { type: 'image/png' });
+		fireEvent.paste(window, {
+			clipboardData: { getData: () => '', files: [png], types: ['Files'] },
+		});
+		expect(await screen.findByText(/could not be pasted/)).toBeInTheDocument();
+		spy.mockRestore();
+	});
+
+	it('pastes only the words into a new text box with Ctrl+Shift+V', async () => {
+		const { books } = setup();
+		await startBook();
+		const words = {
+			clipboardData: {
+				getData: (type: string) => (type === 'text/plain' ? 'Plain words' : ''),
+				files: [],
+			},
+		};
+		expect(fireEvent.keyDown(document.body, { key: 'V', ctrlKey: true, shiftKey: true })).toBe(
+			true,
+		);
+		fireEvent.paste(window, words);
+		await waitFor(() =>
+			expect(books.calls.some((c) => c.startsWith('apply(') && c.includes('AddFrame'))).toBe(true),
+		);
+		// A plain paste of words is not repeated by the clipboard read that waits for the paste event.
+		await new Promise((r) => setTimeout(r, 300));
+		expect(books.calls.filter((c) => c.includes('AddFrame'))).toHaveLength(1);
+		// An ordinary paste of words from another program is left alone.
+		fireEvent.paste(window, words);
+		expect(books.calls.filter((c) => c.includes('AddFrame'))).toHaveLength(1);
+	});
+
+	it('lists the ways to paste in the Paste special menu', async () => {
+		setup();
+		await startBook();
+		await userEvent.click(
+			within(screen.getByRole('list', { name: 'Spreads' })).getAllByRole('button')[1]!,
+		);
+		const hits = () => Array.from(document.querySelectorAll('[data-hit]'));
+		await waitFor(() => expect(hits().length).toBeGreaterThan(0));
+		// A text frame, if the spread has one.
+		const text = hits().find((h) => /text/i.test(h.getAttribute('aria-label') ?? '')) ?? hits()[0]!;
+		fireEvent.pointerDown(text, { button: 0, clientX: 10, clientY: 10 });
+		fireEvent.pointerUp(text, { button: 0, clientX: 10, clientY: 10 });
+		await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+		const group = screen.getByRole('group', { name: 'Clipboard' });
+		await userEvent.click(within(group).getByRole('button', { name: 'Paste special' }));
+		const items = (await screen.findAllByRole('menuitem')).map((i) => i.textContent);
+		expect(items).toContain('Paste text only');
+		expect(items).toContain('Paste in place');
+	});
+
+	it('groups the frames selected with Ctrl+G and from the Layout tab’s Group button', async () => {
+		const { books } = setup();
+		await startBook();
+		await userEvent.click(
+			within(screen.getByRole('list', { name: 'Spreads' })).getAllByRole('button')[1]!,
+		);
+		const hits = () => Array.from(document.querySelectorAll('[data-hit]'));
+		await waitFor(() => expect(hits().length).toBeGreaterThan(0));
+		const page = document.querySelector('svg[role="group"]')!;
+		// The picture and the words are free; the third frame carries a story and is left out.
+		fireEvent.pointerDown(hits()[0]!, { button: 0, clientX: 10, clientY: 10 });
+		fireEvent.pointerUp(hits()[0]!, { button: 0, clientX: 10, clientY: 10 });
+		fireEvent.pointerDown(hits()[1]!, { button: 0, shiftKey: true, clientX: 10, clientY: 10 });
+		fireEvent.pointerUp(hits()[1]!, { button: 0, shiftKey: true, clientX: 10, clientY: 10 });
+		const grouped = () =>
+			books.calls.filter((c) => c.startsWith('apply(') && c.includes('GroupFrames')).length;
+		fireEvent.keyDown(page, { key: 'g', ctrlKey: true });
+		await waitFor(() => expect(grouped()).toBe(1));
+		await userEvent.click(within(ribbonTabs()).getByRole('tab', { name: 'Layout' }));
+		await userEvent.click(screen.getByRole('button', { name: 'Group' }));
+		await waitFor(() => expect(grouped()).toBe(2));
+	});
+
+	it('leaves copy, cut and paste to a field being typed in', async () => {
+		setup();
+		await startBook();
+		render(<input aria-label="Name" />);
+		const input = screen.getByLabelText('Name');
+		expect(fireEvent.keyDown(input, { key: 'c', ctrlKey: true })).toBe(true);
+		expect(fireEvent.keyDown(input, { key: 'x', ctrlKey: true })).toBe(true);
+	});
+
 	it('saves with Ctrl+S, asking where the first time', async () => {
 		setup({ save: '/books/Pip/Pip' });
 		await startBook();
@@ -365,7 +613,7 @@ describe('a book in the main window', () => {
 			within(ribbonTabs())
 				.getAllByRole('tab')
 				.map((tab) => tab.textContent),
-		).toEqual(['Home', 'Insert', 'Pages', 'Layout', 'View', 'Export']);
+		).toEqual(['Home', 'Insert', 'Pages', 'Layout', 'View', 'Tools', 'Export']);
 		await userEvent.click(within(ribbonTabs()).getByRole('tab', { name: 'Pages' }));
 		expect(screen.queryByRole('group', { name: 'Masters' })).not.toBeInTheDocument();
 		await userEvent.click(screen.getByRole('radio', { name: 'Expert' }));

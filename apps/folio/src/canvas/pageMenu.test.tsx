@@ -14,6 +14,11 @@ const items = [
 ];
 
 describe('pageMenuItems', () => {
+	it('offers Paste first', () => {
+		const first = pageMenuItems(DEFAULT_MARKS, true);
+		expect(first[0]).toMatchObject({ id: 'paste', shortcut: 'Ctrl+V' });
+	});
+
 	it('gives the master item rows an icon', () => {
 		expectEveryItemHasIcon(
 			pageMenuItems(DEFAULT_MARKS, true, items).filter((r) => String(r.id).includes('Master:')),

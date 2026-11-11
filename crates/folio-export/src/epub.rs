@@ -146,9 +146,8 @@ fn story(book: &Book) -> Vec<Piece> {
     let mut poured = std::collections::HashSet::new();
     for spread in book.spreads.iter().skip(1) {
         let page_w = book.trim.w.0;
-        let mut frames: Vec<(usize, f64, f64, &Frame)> = spread
-            .frames
-            .iter()
+        let mut frames: Vec<(usize, f64, f64, &Frame)> = folio_model::leaves(&spread.frames)
+            .into_iter()
             .map(|f| {
                 let r = f.base().rect;
                 let page = ((r.x.0 + r.w.0 / 2.0) / page_w).floor().max(0.0) as usize;

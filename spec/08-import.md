@@ -57,3 +57,6 @@ Imported "Watercolour Basics.idml"
 • Font "Freight Text Pro" isn't installed — using Literata for now
 That's everything.
 ```
+
+
+A picture can also come from the clipboard: pasting a PNG, JPEG, GIF, WebP or SVG picture makes a picture frame holding it. The bytes go through the same checks as a picture file — the kind of file must be one Folio can place, the bytes must really be that kind, and the picture must be under 100 MB — and the same bytes are stored once.

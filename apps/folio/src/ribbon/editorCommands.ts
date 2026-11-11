@@ -9,6 +9,17 @@ import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
+import { cuttable } from '../clipboard/frameClipboard';
+import { canGroup, canUngroup } from '../canvas/grouping';
+import type { RulerUnit } from '@liminal-hq/folio-protocol/generated/RulerUnit';
+import { RULER_UNIT_ORDER } from '../canvas/rulerMath';
+import {
+	ALIGN_CONTROLS,
+	DISTRIBUTE_CONTROLS,
+	alignMoves,
+	distributeMoves,
+} from '../canvas/arrange';
+import type { PlainRect } from '../canvas/geometry';
 import type { TextSelection } from '../canvas/textSelection';
 import type { Marks } from '../canvas/marksModel';
 import { surfaceOf } from '../canvas/masterView';
@@ -27,6 +38,8 @@ export interface EditorInput {
 	choices: StyleChoice[];
 	/** The typefaces the book can draw in, for the Font list. */
 	fonts?: FontChoice[];
+	/** The families the book uses, which the Font list shows under the book's own heading. */
+	fontsInUse?: readonly string[];
 	marks: Marks;
 	snap: boolean;
 	/** Whether the rulers show. */
@@ -41,6 +54,12 @@ export interface EditorInput {
 	swatches?: { id: string; name: string }[];
 	/** The words selected in the open text editor: bold, italic and the font apply to just those. */
 	selection?: TextSelection | null;
+	/** The trimmed pages of `spread`, which a lone frame aligns with. */
+	pages?: PlainRect[];
+	/** Whether the book has a cover spread to go to. */
+	hasCover?: boolean;
+	/** Whether Jax is switched on, which is what Ask Jax needs. */
+	jax?: boolean;
 }
 
 /** What the controls show: which can be used now, which are pressed, the numbers, the extra tabs. */
@@ -50,8 +69,8 @@ export interface EditorState {
 	values: Readonly<Record<string, number>>;
 	/** The text a list shows as chosen, by control: the font of the selected words. */
 	texts: Readonly<Record<string, string>>;
-	/** The choices of a list, by control, as value and label. */
-	options: Readonly<Record<string, ReadonlyArray<readonly [string, string]>>>;
+	/** The choices of a list, by control, as value, label and the heading to draw it under. */
+	options: Readonly<Record<string, ReadonlyArray<readonly [string, string, string?]>>>;
 	contextual: readonly string[];
 }
 
@@ -78,7 +97,20 @@ export type EditorAction =
 	| { kind: 'bookDetails' }
 	| { kind: 'exportBook'; quick: boolean }
 	| { kind: 'editMaster' }
-	| { kind: 'pageBackground' };
+	| { kind: 'pageBackground' }
+	| { kind: 'rulerUnit'; unit: RulerUnit }
+	| { kind: 'toolbar'; toolbar: 'ribbon' | 'classic' }
+	| { kind: 'jax' }
+	| { kind: 'bookSize' }
+	| { kind: 'pageMargins' }
+	| { kind: 'cover' }
+	| { kind: 'link'; frame: string }
+	| { kind: 'group'; frames: Frame[] }
+	| { kind: 'ungroup'; frame: Frame }
+	| {
+			kind: 'clipboard';
+			op: 'copy' | 'cut' | 'paste' | 'pasteInPlace' | 'pastePlain' | 'pasteInto';
+	  };
 
 const ALIGNS: Record<string, 'left' | 'center' | 'right' | 'justify'> = {
 	alignL: 'left',
@@ -129,6 +161,30 @@ const TEXT_COLOURS: ReadonlyArray<readonly [hex: string, name: MessageKey]> = [
 	['#ffffff', 'colour.white'],
 ];
 
+/**
+ * The Font list: the typefaces that travel with the book (kept in it, bundled with Folio, or used by
+ * it) under "In this book", then the others installed on this computer under "Installed". Each keeps
+ * the order it came in.
+ */
+export function fontOptions(
+	fonts: readonly FontChoice[],
+	inUse: readonly string[],
+): ReadonlyArray<readonly [string, string, string]> {
+	const mine = (f: FontChoice) => f.origin !== 'system' || inUse.includes(f.family);
+	const group = (heading: MessageKey, of: FontChoice[]) =>
+		of.map((f) => [f.family, f.family, t(heading)] as const);
+	return [
+		...group('ribbon.fonts.book', fonts.filter(mine)),
+		...group(
+			'ribbon.fonts.installed',
+			fonts.filter((f) => !mine(f)),
+		),
+	];
+}
+
+/** The shapes the Shape menu draws. */
+const SHAPE_CHOICES = ['rect', 'round', 'ellipse', 'line'] as const;
+
 const free = (frames: Frame[]) => frames.filter((f) => !f.locked && !f.fromMaster);
 
 export function editorState(input: EditorInput): EditorState {
@@ -152,15 +208,31 @@ export function editorState(input: EditorInput): EditorState {
 		'guides',
 		'rulers',
 		'spell',
+		'toolSpelling',
 		'rguides',
 		'snap',
 		'zoomIn',
 		'zoomOut',
 		'fit',
+		'shape',
+		'shapeMenu',
+		'rulerUnits',
+		'baseline',
+		'columns',
+		'toolbarLayout',
+		'pageSize',
+		'marginsT',
 	]);
+	if (input.hasCover) available.add('cover');
+	// What is on the system clipboard cannot be read from here, so Paste is there whenever there is a page.
+	available.add('paste');
+	available.add('pasteSpecial');
+	if (input.jax) available.add('askJax');
 	const active: Record<string, boolean> = {
 		margins: marks.margins,
 		grid: marks.columns || marks.baseline,
+		baseline: marks.baseline,
+		columns: marks.columns,
 		bleed: marks.bleed,
 		guides: marks.frameEdges,
 		rulers: input.rulers,
@@ -200,6 +272,16 @@ export function editorState(input: EditorInput): EditorState {
 		available.add('front');
 		available.add('back');
 	}
+	// Several free frames line up with each other, one with its page; spreading out takes three.
+	const movable = free(selected);
+	if (movable.length >= 2 || (movable.length === 1 && (input.pages?.length ?? 0) > 0)) {
+		for (const id of Object.keys(ALIGN_CONTROLS)) available.add(id);
+	}
+	if (movable.length >= 3) for (const id of Object.keys(DISTRIBUTE_CONTROLS)) available.add(id);
+	if (canGroup(selected, !!input.master)) available.add('group');
+	if (canUngroup(selected)) available.add('ungroup');
+	if (selected.length > 0) available.add('copy');
+	if (cuttable(selected).length > 0) available.add('cut');
 	const words = texts(selected);
 	if (words.length > 0) {
 		for (const id of ['bold', 'italic', ...Object.keys(ALIGNS), 'size']) available.add(id);
@@ -212,6 +294,10 @@ export function editorState(input: EditorInput): EditorState {
 		available.add('font');
 		available.add('colour');
 		shown.font = first.overrides?.font ?? '';
+		if (choices.length > 0) {
+			available.add('paragraphStyle');
+			shown.paragraphStyle = first.style;
+		}
 	}
 	const only = selected.length === 1 ? selected[0]! : null;
 	if (only?.type === 'image') {
@@ -220,6 +306,10 @@ export function editorState(input: EditorInput): EditorState {
 		// Bleed is square to the page, so a turned picture cannot be stretched to it.
 		if (only.rotation) available.delete('toBleed');
 		active.fitFill = only.image.fit === 'fit';
+	}
+	// A text box whose words are its own can have them continue in another box.
+	if (only?.type === 'text' && !only.locked && !only.fromMaster && !only.flow) {
+		available.add('thread');
 	}
 	if (only?.type === 'shape') contextual.push('shape');
 	if (only?.type === 'table') {
@@ -240,12 +330,31 @@ export function editorState(input: EditorInput): EditorState {
 		available.add('rotL');
 		available.add('rotR');
 	}
-	const options: Record<string, ReadonlyArray<readonly [string, string]>> = {};
+	const options: Record<string, ReadonlyArray<readonly [string, string, string?]>> = {};
 	options.colour = [
 		...TEXT_COLOURS.map(([hex, name]) => [hex, t(name)] as const),
 		...(input.swatches ?? []).map((s) => [`swatch:${s.id}`, s.name] as const),
 	];
-	if (input.fonts) options.font = input.fonts.map((f) => [f.family, f.family] as const);
+	options.rulerUnits = RULER_UNIT_ORDER.map((unit) => [unit, t(`ruler.unit.${unit}`)] as const);
+	options.shapeMenu = SHAPE_CHOICES.map((id) => [id, t(`ribbon.item.${id}`)] as const);
+	options.toolbarLayout = [
+		['ribbon', t('ribbon.option.toolbar.ribbon')],
+		['classic', t('ribbon.option.toolbar.classic')],
+	];
+	// The words alone, and in place; into a frame when there is one frame to put them in.
+	const into = selected.length === 1 ? selected[0]! : null;
+	const fillable =
+		!!into &&
+		!into.locked &&
+		!into.fromMaster &&
+		(into.type === 'text' || into.type === 'shape' || into.type === 'image');
+	options.pasteSpecial = [
+		['plain', t('ribbon.option.paste.plain')],
+		...(fillable ? [['into', t('ribbon.option.paste.into')] as const] : []),
+		['inPlace', t('ribbon.option.paste.inPlace')],
+	];
+	options.paragraphStyle = choices.map((c) => [c.id, c.name] as const);
+	if (input.fonts) options.font = fontOptions(input.fonts, input.fontsInUse ?? []);
 	return { available, active, values, texts: shown, options, contextual };
 }
 
@@ -294,6 +403,64 @@ export function editorAction(
 			return { kind: 'add', shape: id };
 		case 'bubble':
 			return { kind: 'add', shape: 'speech' };
+		case 'shape':
+			return { kind: 'add', shape: 'note' };
+		case 'shapeMenu': {
+			const shape = SHAPE_CHOICES.find((each) => each === value);
+			return shape ? { kind: 'add', shape } : null;
+		}
+		case 'rulerUnits': {
+			const unit = RULER_UNIT_ORDER.find((each) => each === value);
+			return unit ? { kind: 'rulerUnit', unit } : null;
+		}
+		case 'toolbarLayout':
+			return value === 'ribbon' || value === 'classic' ? { kind: 'toolbar', toolbar: value } : null;
+		case 'pageSize':
+			return { kind: 'bookSize' };
+		case 'marginsT':
+			return { kind: 'pageMargins' };
+		case 'cover':
+			return input.hasCover ? { kind: 'cover' } : null;
+		case 'thread': {
+			const only = selected.length === 1 ? selected[0]! : null;
+			if (only?.type !== 'text' || only.locked || only.fromMaster || only.flow) return null;
+			return { kind: 'link', frame: only.id };
+		}
+		case 'group':
+			return canGroup(selected, !!input.master) ? { kind: 'group', frames: selected } : null;
+		case 'ungroup':
+			return canUngroup(selected) ? { kind: 'ungroup', frame: selected[0]! } : null;
+		case 'copy':
+		case 'cut':
+		case 'paste':
+			return { kind: 'clipboard', op: id };
+		case 'pasteSpecial':
+			if (value === 'inPlace') return { kind: 'clipboard', op: 'pasteInPlace' };
+			if (value === 'plain') return { kind: 'clipboard', op: 'pastePlain' };
+			if (value === 'into') {
+				const only = selected.length === 1 ? selected[0]! : null;
+				const fills =
+					!!only &&
+					!only.locked &&
+					!only.fromMaster &&
+					(only.type === 'text' || only.type === 'shape' || only.type === 'image');
+				return fills ? { kind: 'clipboard', op: 'pasteInto' } : null;
+			}
+			return null;
+		case 'askJax':
+			return { kind: 'jax' };
+		case 'baseline':
+			return { kind: 'marks', marks: { baseline: !input.marks.baseline } };
+		case 'columns':
+			return { kind: 'marks', marks: { columns: !input.marks.columns } };
+		case 'paragraphStyle': {
+			// The list's first entry, the style a box already has, changes nothing.
+			if (typeof value !== 'string' || value === '') return null;
+			return {
+				kind: 'intents',
+				intents: texts(selected).map((f) => ({ type: 'SetStyle', frame: f.id, style: value })),
+			};
+		}
 		case 'addPage':
 			return { kind: 'page', op: 'add' };
 		case 'dupPage':
@@ -315,6 +482,7 @@ export function editorAction(
 		case 'rulers':
 			return { kind: 'rulers' };
 		case 'spell':
+		case 'toolSpelling':
 			return { kind: 'spelling' };
 		case 'rguides':
 			return { kind: 'marks', marks: { guides: !input.marks.guides } };
@@ -341,6 +509,26 @@ export function editorAction(
 					to: id === 'front' ? 'front' : 'back',
 				})),
 			};
+		case 'alignLeftE':
+		case 'alignCenterE':
+		case 'alignRightE':
+		case 'alignTopE':
+		case 'alignMidE':
+		case 'alignBotE': {
+			const moves = alignMoves(free(selected), ALIGN_CONTROLS[id]!, input.pages ?? []);
+			return {
+				kind: 'intents',
+				intents: moves.length ? [{ type: 'MoveFrames', ...on, moves }] : [],
+			};
+		}
+		case 'distH':
+		case 'distV': {
+			const moves = distributeMoves(free(selected), DISTRIBUTE_CONTROLS[id]!);
+			return {
+				kind: 'intents',
+				intents: moves.length ? [{ type: 'MoveFrames', ...on, moves }] : [],
+			};
+		}
 		case 'lock': {
 			const lock = !selected.every((f) => f.locked);
 			return {

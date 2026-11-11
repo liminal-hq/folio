@@ -60,6 +60,18 @@ const model: RibbonModel = {
 							],
 							value: 'a',
 						},
+						{
+							id: 'face',
+							label: 'Typeface',
+							d,
+							kind: 'select',
+							options: [
+								['', 'From style'],
+								['x', 'Literata', 'In this book'],
+								['y', 'Inter', 'In this book'],
+								['z', 'Arial', 'Installed'],
+							],
+						},
 						{ id: 'size', label: 'Size', d, kind: 'stepper', value: 12, min: 8, max: 14, step: 2 },
 					],
 				},
@@ -224,6 +236,26 @@ describe('Ribbon', () => {
 		const { onCommand } = setup();
 		await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Font' }), 'b');
 		expect(onCommand).toHaveBeenCalledWith(expect.objectContaining({ id: 'font', value: 'b' }));
+	});
+
+	it('draws choices that share a group under one heading, and the ungrouped ones before them', async () => {
+		const { onCommand } = setup();
+		const face = screen.getByRole('combobox', { name: 'Typeface' });
+		const groups = within(face).getAllByRole('group');
+		expect(groups.map((g) => g.getAttribute('label'))).toEqual(['In this book', 'Installed']);
+		expect(
+			within(groups[0]!)
+				.getAllByRole('option')
+				.map((o) => o.textContent),
+		).toEqual(['Literata', 'Inter']);
+		expect(
+			within(groups[1]!)
+				.getAllByRole('option')
+				.map((o) => o.textContent),
+		).toEqual(['Arial']);
+		expect(within(face).getAllByRole('option')[0]).toHaveTextContent('From style');
+		await userEvent.selectOptions(face, 'z');
+		expect(onCommand).toHaveBeenCalledWith(expect.objectContaining({ id: 'face', value: 'z' }));
 	});
 
 	it('steps within the stepper bounds', async () => {
@@ -497,5 +529,67 @@ describe('Ribbon', () => {
 			});
 			expect(screen.queryByRole('tooltip')).toBeNull();
 		});
+	});
+});
+
+describe('fitting a narrow window', () => {
+	/** How wide each control and folded group is drawn, in pixels, so the panel can be measured. */
+	const widthOf = (panel: Element) =>
+		Array.from(panel.querySelectorAll('[role="toolbar"] > [role="group"]')).reduce(
+			(sum, group) =>
+				sum +
+				(group.getAttribute('data-level') === 'more'
+					? 40
+					: group.getAttribute('data-level') === 'folded'
+						? 60
+						: group.querySelectorAll('button, select').length *
+							(group.getAttribute('data-level') === 'compact' ? 30 : 90)),
+			0,
+		);
+	let room = 1000;
+	beforeEach(() => {
+		vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (
+			this: HTMLElement,
+		) {
+			return this.getAttribute('role') === 'tabpanel' ? widthOf(this) : 0;
+		});
+		vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (
+			this: HTMLElement,
+		) {
+			return this.getAttribute('role') === 'tabpanel' ? room : 0;
+		});
+	});
+	afterEach(() => vi.restoreAllMocks());
+
+	const groupLevels = () =>
+		within(screen.getByRole('toolbar', { name: 'Ribbon controls' }))
+			.getAllByRole('group')
+			.filter((g) => g.parentElement?.getAttribute('role') === 'toolbar')
+			.map((g) => `${g.getAttribute('aria-label')}:${g.getAttribute('data-level') ?? 'full'}`);
+
+	it('draws every group whole when there is room', () => {
+		room = 2000;
+		setup();
+		expect(groupLevels()).toEqual(['History:full', 'Text:full']);
+	});
+
+	it('gives way from the right without scrolling, and drops a folded group down', async () => {
+		room = 125;
+		const { onCommand } = setup();
+		expect(groupLevels()).toEqual(['History:compact', 'Text:folded']);
+		const fold = screen.getByRole('button', { name: /^Text/ });
+		expect(fireEvent.mouseDown(fold)).toBe(false);
+		await userEvent.click(fold);
+		expect(fold).toHaveAttribute('aria-expanded', 'true');
+		await userEvent.click(screen.getByRole('button', { name: 'Centre' }));
+		expect(onCommand).toHaveBeenCalledWith(expect.objectContaining({ id: 'alignC' }));
+		await userEvent.keyboard('{Escape}');
+		expect(fold).toHaveAttribute('aria-expanded', 'false');
+	});
+
+	it('puts the last groups under More when even folded they do not fit', () => {
+		room = 110;
+		setup();
+		expect(groupLevels()).toEqual(['History:folded', 'More:more']);
 	});
 });

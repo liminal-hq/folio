@@ -22,6 +22,7 @@ function context(overrides: Partial<CommandContext['settings']> = {}) {
 		redo: vi.fn(async () => {}),
 		exportBook: vi.fn(async () => {}),
 		importText: vi.fn(async () => {}),
+		clipboard: vi.fn(),
 	};
 	const closeWindow = vi.fn();
 	const openWindow = vi.fn();
@@ -98,6 +99,16 @@ describe('runCommand', () => {
 		expect(openBookTools.mock.calls).toEqual([['pictures'], ['structure']]);
 	});
 
+	it('opens the Book tools window on the one tool a tool command names', async () => {
+		const { value, openBookTools } = context();
+		await runCommand('tool.keywords', value, NONE);
+		await runCommand('tool.altText', value, NONE);
+		expect(openBookTools.mock.calls).toEqual([
+			['publishing', 'publishing.keywords'],
+			['pictures', 'pictures.alt'],
+		]);
+	});
+
 	it('opens the New book wizard for File → New book…', async () => {
 		const { value, openWindow } = context();
 		await runCommand('file.new', value, NONE);
@@ -114,7 +125,18 @@ describe('runCommand', () => {
 		await runCommand('file.importText', value, OPEN);
 		await runCommand('edit.undo', value, OPEN);
 		await runCommand('edit.redo', value, OPEN);
-		for (const call of Object.values(books)) expect(call).toHaveBeenCalledOnce();
+		await runCommand('edit.cut', value, OPEN);
+		await runCommand('edit.copy', value, OPEN);
+		await runCommand('edit.paste', value, OPEN);
+		const { clipboard, ...rest } = books;
+		for (const call of Object.values(rest)) expect(call).toHaveBeenCalledOnce();
+		expect(clipboard.mock.calls).toEqual([['cut'], ['copy'], ['paste']]);
+	});
+
+	it('has no clipboard commands without a book', async () => {
+		const { value, books } = context();
+		for (const id of ['edit.cut', 'edit.copy', 'edit.paste']) await runCommand(id, value, NONE);
+		expect(books.clipboard).not.toHaveBeenCalled();
 	});
 
 	it('opens a recent book by the path in its id, even with nothing open', async () => {

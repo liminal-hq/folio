@@ -368,6 +368,19 @@ export function importImage(id: string, path: string): Promise<string> {
 	return cmd<string>('import_image', { id, path });
 }
 
+/**
+ * Puts picture bytes (a picture pasted from the clipboard) into the book; `extension` is the kind of
+ * file they are (`png`, `jpg`, …). Resolves to the picture's path inside the book. The bytes cross as
+ * the raw body of the call, not as a list of numbers.
+ */
+export function importImageBytes(
+	id: string,
+	bytes: Uint8Array | ArrayBuffer,
+	extension: string,
+): Promise<string> {
+	return invoke<string>(`${PREFIX}import_image_bytes`, bytes, { headers: { id, extension } });
+}
+
 /** One of the book's pictures as raw bytes. */
 export function assetData(id: string, asset: string): Promise<ArrayBuffer> {
 	return cmd<ArrayBuffer>('asset_data', { id, asset });

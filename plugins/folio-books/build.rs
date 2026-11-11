@@ -33,6 +33,7 @@ const COMMANDS: &[&str] = &[
     "layout_spread",
     "layout_master",
     "import_image",
+    "import_image_bytes",
     "asset_data",
     "spell_check",
     "spell_suggest",

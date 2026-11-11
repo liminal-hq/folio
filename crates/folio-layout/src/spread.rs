@@ -155,7 +155,7 @@ impl<'a> Layouter<'a> {
             preflight.extend(asset_checks(self.book, spread, facts));
         }
         let mut flowed: Vec<Arc<FlowLayout>> = Vec::new();
-        for frame in &spread.frames {
+        for frame in folio_model::leaves(&spread.frames) {
             if let Frame::Shape(shape) = frame {
                 if let Some(laid) = self.shape_text(shape)? {
                     if laid.overset {
@@ -528,7 +528,7 @@ impl<'a> Layouter<'a> {
     /// has used a stand-in. One item for each family a frame asks for that is missing.
     fn font_checks(&self, spread: &Spread) -> Vec<PreflightItem> {
         let mut items = Vec::new();
-        for frame in &spread.frames {
+        for frame in folio_model::leaves(&spread.frames) {
             let (style, overrides, runs): (_, _, Vec<&folio_model::Run>) = match frame {
                 Frame::Text(t) => (
                     Some(&t.style),
@@ -841,7 +841,7 @@ impl<'a> Layouter<'a> {
     /// Whether the page a frame is on is a right-hand one, when the frame is on a page.
     fn frame_is_recto(&self, id: &FrameId) -> Option<bool> {
         let spread = self.book.spreads.iter().find(|s| {
-            s.frames.iter().any(|f| match f {
+            folio_model::leaves(&s.frames).into_iter().any(|f| match f {
                 Frame::Text(t) => t.base.id == *id,
                 _ => false,
             })
@@ -858,7 +858,7 @@ impl<'a> Layouter<'a> {
         self.book
             .spreads
             .iter()
-            .flat_map(|s| s.frames.iter())
+            .flat_map(|s| folio_model::leaves(&s.frames))
             .find_map(|f| match f {
                 Frame::Text(t) if t.base.id == *id => Some(t),
                 _ => None,

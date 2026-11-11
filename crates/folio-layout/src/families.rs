@@ -30,8 +30,12 @@ pub fn families_used(book: &Book) -> Vec<String> {
     let frames = book
         .spreads
         .iter()
-        .flat_map(|s| s.frames.iter())
-        .chain(book.master_pages.iter().flat_map(|m| m.frames.iter()));
+        .flat_map(|s| folio_model::leaves(&s.frames))
+        .chain(
+            book.master_pages
+                .iter()
+                .flat_map(|m| folio_model::leaves(&m.frames)),
+        );
     for frame in frames {
         match frame {
             Frame::Text(t) => {

@@ -9,6 +9,10 @@ import type { CommandId } from '../commands/appMenuModel';
 import { messages } from '../i18n/messages';
 import type { Settings } from '@liminal-hq/folio-protocol/generated/Settings';
 import { DEFAULT_SETTINGS } from '../settings/fakeSettingsClient';
+import { DEFAULT_MARKS } from '../canvas/marksModel';
+import { TOOL_COMMANDS } from '../commands/toolCommands';
+import { TOOLS } from '../booktools/registry';
+import { editorState } from './editorCommands';
 import { RIBBON_ICONS } from './ribbonIcons';
 import { RIBBON_LAYOUT } from './ribbonLayout';
 import { RIBBON_COMMANDS, buildRibbonModel, buildToolbarModel } from './ribbonModel';
@@ -30,6 +34,7 @@ describe('the ribbon layout', () => {
 			'pages',
 			'layout',
 			'view',
+			'tools',
 			'export',
 			'picture',
 			'shape',
@@ -138,6 +143,162 @@ describe('buildRibbonModel', () => {
 			expect(item.label, item.id).not.toBe('');
 		}
 		expect(items.find((i) => i.id === 'text')?.size).toBe('large');
+	});
+});
+
+describe('the menus of the ribbon', () => {
+	it('gives the menus that are live their choices, so none opens empty', () => {
+		const editor = editorState({
+			spread: { id: 'sp', kind: 'spread', pages: [], frames: [], guides: [] } as never,
+			spreadIndex: 1,
+			spreadCount: 3,
+			selected: [],
+			layout: null,
+			choices: [],
+			marks: DEFAULT_MARKS,
+			snap: true,
+			rulers: false,
+			jax: true,
+		});
+		const items = allItems(
+			buildRibbonModel({ settings: DEFAULT_SETTINGS, available: none, editor }),
+		);
+		for (const id of ['rulerUnits', 'toolbarLayout', 'shapeMenu']) {
+			const item = items.find((i) => i.id === id);
+			expect(item?.kind, id).toBe('menu');
+			expect(item?.disabled, id).toBe(false);
+			expect(item?.options?.length, id).toBeGreaterThan(1);
+		}
+		expect(items.find((i) => i.id === 'rulerUnits')?.options).toContainEqual([
+			'millimetres',
+			'Millimetres',
+		]);
+		for (const id of ['baseline', 'columns', 'shape', 'askJax']) {
+			expect(items.find((i) => i.id === id)?.disabled, id).toBe(false);
+		}
+	});
+
+	it('opens Contents in Book tools, and leaves the unbuilt layouts unavailable', () => {
+		expect(RIBBON_COMMANDS.toc).toBe('tools.structure');
+		const items = allItems(
+			buildRibbonModel({
+				settings: DEFAULT_SETTINGS,
+				available: new Set<CommandId>(['tools.structure']),
+			}),
+		);
+		expect(items.find((i) => i.id === 'toc')?.disabled).toBe(false);
+		expect(items.find((i) => i.id === 'sidebarLayout')?.disabled).toBe(true);
+		expect(items.find((i) => i.id === 'importLayout')?.disabled).toBe(true);
+	});
+});
+
+describe('the Home tab', () => {
+	it('starts with the clipboard: a large Paste, Paste special below it, then Copy and Cut', () => {
+		const home = RIBBON_LAYOUT.find((tab) => tab.id === 'home')!;
+		expect(home.groups[0]!.id).toBe('home.clipboard');
+		expect(home.groups[0]!.items!.map((i) => [i.id, i.kind ?? 'button', !!i.large])).toEqual([
+			['paste', 'button', true],
+			['pasteSpecial', 'menu', false],
+			['copy', 'button', false],
+			['cut', 'button', false],
+		]);
+	});
+});
+
+describe('the Font list', () => {
+	it('carries the heading of each font through to the select', () => {
+		const editor = editorState({
+			spread: { id: 'sp', kind: 'spread', pages: [], frames: [], guides: [] } as never,
+			spreadIndex: 1,
+			spreadCount: 3,
+			selected: [],
+			layout: null,
+			choices: [],
+			marks: DEFAULT_MARKS,
+			snap: true,
+			rulers: false,
+			fonts: [
+				{ family: 'Literata', origin: 'bundled' },
+				{ family: 'Arial', origin: 'system' },
+			],
+		});
+		const font = allItems(
+			buildRibbonModel({ settings: DEFAULT_SETTINGS, available: none, editor }),
+		).find((i) => i.id === 'font');
+		expect(font?.options).toEqual([
+			['', 'Style’s font'],
+			['Literata', 'Literata', 'In this book'],
+			['Arial', 'Arial', 'Installed'],
+		]);
+	});
+});
+
+describe('the Tools tab', () => {
+	const tools = RIBBON_LAYOUT.find((tab) => tab.id === 'tools')!;
+	const items = tools.groups.flatMap((g) => g.items ?? []);
+
+	it('sits between View and Export with a group for each area of tools', () => {
+		const ids = RIBBON_LAYOUT.map((tab) => tab.id);
+		expect(ids.indexOf('tools')).toBe(ids.indexOf('view') + 1);
+		expect(ids.indexOf('export')).toBe(ids.indexOf('tools') + 1);
+		expect(tools.groups.map((g) => g.id)).toEqual([
+			'tools.structure',
+			'tools.typesetting',
+			'tools.pictures',
+			'tools.publishing',
+			'tools.proofing',
+		]);
+	});
+
+	it('opens each of the nine tools through its own command', () => {
+		const opening = items.filter((i) => i.id !== 'toolSpelling' && i.id !== 'toolFind');
+		expect(opening).toHaveLength(9);
+		for (const item of opening) {
+			const command = RIBBON_COMMANDS[item.id];
+			expect(command, item.id).toMatch(/^tool\./);
+			expect(command && TOOL_COMMANDS[command as keyof typeof TOOL_COMMANDS], item.id).toBeTruthy();
+		}
+		// Every tool that is built has a button, once.
+		expect(new Set(opening.map((i) => RIBBON_COMMANDS[i.id])).size).toBe(9);
+		expect(new Set(Object.values(TOOL_COMMANDS))).toEqual(new Set(TOOLS.map((tool) => tool.id)));
+	});
+
+	it('keeps its ids apart from the Home tab, whose Spelling and Find stay', () => {
+		const home = RIBBON_LAYOUT.find((tab) => tab.id === 'home')!;
+		const homeIds = home.groups
+			.flatMap((g) => [...(g.items ?? []), ...(g.rows ?? []).flat(2)])
+			.map((i) => i.id);
+		expect(homeIds).toContain('spell');
+		expect(homeIds).toContain('find');
+		for (const item of items) expect(homeIds).not.toContain(item.id);
+	});
+
+	it('runs the tools without a selection, switches Spelling and leaves Find unavailable', () => {
+		const available = new Set<CommandId>(Object.keys(TOOL_COMMANDS) as CommandId[]);
+		const editor = editorState({
+			spread: { id: 'sp', kind: 'spread', pages: [], frames: [], guides: [] } as never,
+			spreadIndex: 1,
+			spreadCount: 3,
+			selected: [],
+			layout: null,
+			choices: [],
+			marks: DEFAULT_MARKS,
+			snap: true,
+			rulers: false,
+		});
+		const shown = allItems(buildRibbonModel({ settings: DEFAULT_SETTINGS, available, editor }));
+		const byId = (id: string) => shown.find((i) => i.id === id)!;
+		for (const item of items.filter((i) => i.id !== 'toolSpelling' && i.id !== 'toolFind')) {
+			expect(byId(item.id).disabled, item.id).toBe(false);
+		}
+		expect(byId('toolSpelling').disabled).toBe(false);
+		expect(byId('toolSpelling').active).toBe(true);
+		expect(byId('toolFind').disabled).toBe(true);
+		expect(byId('toolFind').desc).toBe('Not available yet');
+	});
+
+	it('marks the technical tool for Expert mode', () => {
+		expect(items.filter((i) => i.expert).map((i) => i.id)).toEqual(['toolStyles']);
 	});
 });
 

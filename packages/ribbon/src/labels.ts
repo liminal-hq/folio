@@ -21,6 +21,8 @@ export interface RibbonLabels {
 	/** Prefix of a stepper's accessible names: "Decrease {label}". */
 	decrease: string;
 	increase: string;
+	/** The button that drops down the groups there is no room for in a narrow window. */
+	more: string;
 }
 
 export const defaultRibbonLabels: RibbonLabels = {
@@ -34,4 +36,5 @@ export const defaultRibbonLabels: RibbonLabels = {
 	unpin: 'Let the ribbon close',
 	decrease: 'Decrease',
 	increase: 'Increase',
+	more: 'More',
 };

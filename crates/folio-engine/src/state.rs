@@ -963,7 +963,7 @@ impl Books {
         };
         let mut flowed = std::collections::HashSet::new();
         for spread in &book.spreads {
-            for frame in &spread.frames {
+            for frame in folio_model::leaves(&spread.frames) {
                 match frame {
                     Frame::Text(t) if t.flow.is_none() => {
                         let (text, ok) = plain(&t.content);
@@ -1072,10 +1072,45 @@ impl Books {
         }
         let bytes = std::fs::read(path)
             .map_err(|e| Error::BadImage(format!("`{}` could not be read: {e}", path.display())))?;
-        if !looks_like(&extension, &bytes) {
+        self.store_image(id, bytes, &extension, &format!("`{}`", path.display()))
+    }
+
+    /// Puts picture bytes (a picture pasted from the clipboard) into the book's package and returns
+    /// its path there, under the same checks as a file: the extension names a picture Folio can
+    /// place, the bytes are really that kind, and the picture is not too large. The same bytes give
+    /// the same path.
+    pub fn import_image_bytes(
+        &self,
+        id: &str,
+        bytes: Vec<u8>,
+        extension: &str,
+    ) -> Result<String, Error> {
+        let extension = extension.trim_start_matches('.').to_ascii_lowercase();
+        if !IMAGE_EXTENSIONS.contains(&extension.as_str()) {
+            return Err(Error::BadImage(
+                "that is not a picture Folio can place (PNG, JPEG, GIF, WebP or SVG)".into(),
+            ));
+        }
+        if bytes.len() as u64 > MAX_IMAGE_BYTES {
             return Err(Error::BadImage(format!(
-                "`{}` is not really a {} picture",
-                path.display(),
+                "the picture is larger than {} MB",
+                MAX_IMAGE_BYTES / (1024 * 1024)
+            )));
+        }
+        self.store_image(id, bytes, &extension, "the picture")
+    }
+
+    /// Checks that `bytes` are the kind of picture `extension` says and adds them to the package.
+    fn store_image(
+        &self,
+        id: &str,
+        bytes: Vec<u8>,
+        extension: &str,
+        what: &str,
+    ) -> Result<String, Error> {
+        if !looks_like(extension, &bytes) {
+            return Err(Error::BadImage(format!(
+                "{what} is not really a {} picture",
                 extension.to_ascii_uppercase()
             )));
         }
@@ -1085,7 +1120,7 @@ impl Books {
             .iter_mut()
             .find(|b| b.id == id)
             .ok_or_else(|| Error::NoSuchBook(id.into()))?;
-        Ok(open.package.add_image(bytes, &extension))
+        Ok(open.package.add_image(bytes, extension))
     }
 
     /// The bytes of one of the book's pictures, for drawing it.

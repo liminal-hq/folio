@@ -13,7 +13,8 @@ import { shelfLabels } from '../books/shelfLabels';
 import type { OpenBookCopy } from '../books/booksStore';
 import { useBooks } from '../books/useBooks';
 import { backgroundAssets } from '../canvas/backgrounds';
-import { frameIntents } from '../canvas/frameMenu';
+import { CLIPBOARD_COMMANDS, GROUP_COMMANDS, frameIntents } from '../canvas/frameMenu';
+import { canGroup, canUngroup, childIds, groupIntent, ungroupIntent } from '../canvas/grouping';
 import { boxAt, newFrame, type NewFrameKind } from '../canvas/newFrames';
 import { spreadGeometry } from '../canvas/geometry';
 import { masterFurniture, pageAt } from '../canvas/masterItems';
@@ -32,7 +33,11 @@ import { ImportReportDialog, type ImportOutcome } from './ImportReportDialog';
 import { StoryEditorDialog } from '../story/StoryEditorDialog';
 import { rangeIntents } from '../story/rangeEdit';
 import { BookDetailsDialog } from './BookDetailsDialog';
+import type { PastedPicture } from '../clipboard/frameClipboard';
+import { useFrameClipboard } from '../clipboard/useFrameClipboard';
 import { BarcodeDialog } from './BarcodeDialog';
+import { BookSizeDialog } from './BookSizeDialog';
+import { MarginsDialog } from './MarginsDialog';
 import { SpreadTemplatesDialog } from './SpreadTemplatesDialog';
 import { CoverSheetDialog } from './CoverSheetDialog';
 import { JAX_TOGGLE_EVENT } from '../jax/jaxToggle';
@@ -172,6 +177,17 @@ export function BookView({
 	]);
 	const choices = useMemo(() => styleChoices(copy.styles), [copy.styles]);
 	const fonts = useFontChoices(client, id, (book.fonts ?? []).map((f) => f.path).join('|'));
+	// The sidebar's open group. Selecting something on the page brings the Properties forward.
+	const [group, setGroup] = useState<SidebarGroup>('properties');
+	// The Font list wants the families in use whichever group is open. It asks again when the styles or
+	// the kept fonts change, not on every edit; the Fonts group asks on every one, as it shows them.
+	const stylesKey = useMemo(() => JSON.stringify(copy.styles ?? null), [copy.styles]);
+	const fontUses = useFontsInUse(
+		client,
+		id,
+		group === 'fonts' ? copy.revision : `${stylesKey}|${(book.fonts ?? []).length}`,
+		true,
+	);
 	const selected = useMemo(
 		() => spread?.frames.filter((f) => selection.includes(f.id)) ?? [],
 		[spread, selection],
@@ -207,10 +223,14 @@ export function BookView({
 				layout,
 				choices,
 				...(fonts ? { fonts } : {}),
+				...(fontUses ? { fontsInUse: fontUses.map((u) => u.family) } : {}),
 				marks,
 				snap,
 				rulers: rulers.on,
 				preview,
+				hasCover: book.spreads[0]?.kind === 'cover',
+				pages: spreadGeometry(book, spread).pages.map((p) => p.trim),
+				jax: settings.jax !== 'off',
 				master: master !== null,
 				cell: editingCell,
 				swatches: (book.styles?.swatches ?? []).map((s) => ({ id: s.id, name: s.name })),
@@ -225,9 +245,15 @@ export function BookView({
 			selected,
 			layout,
 			choices,
+			fonts,
+			fontUses,
 			marks,
 			snap,
 			rulers.on,
+			settings.jax,
+			book.spreads[0]?.kind,
+			book.trim,
+			book.margins,
 			editingCell,
 			book.styles,
 		],
@@ -284,6 +310,41 @@ export function BookView({
 		void store.apply(intent);
 	};
 
+	/** The frames just grouped, until the group they went into appears and can be selected. */
+	const [grouping, setGrouping] = useState<string[] | null>(null);
+	const makeGroup = (frames: Frame[]) => {
+		if (!canGroup(frames, master !== null)) return;
+		apply(groupIntent(frames, surface));
+		setGrouping(frames.map((f) => f.id));
+	};
+	const breakGroup = (group: Frame) => {
+		if (!canUngroup([group])) return;
+		apply(ungroupIntent(group, surface));
+		// Its frames stay where they are, and are chosen once they are back among the page's own.
+		select(childIds(group));
+	};
+	useEffect(() => {
+		if (!grouping || !spread) return;
+		const made = spread.frames.find(
+			(f) => f.type === 'group' && grouping.every((id) => f.children.some((c) => c.id === id)),
+		);
+		if (made) {
+			select([made.id]);
+			setGrouping(null);
+		}
+	});
+	const clipboard = useFrameClipboard({
+		active: preview === 'print',
+		selected,
+		surface,
+		apply,
+		select,
+		pastePicture: (picture, into) => void pastePicture(picture, into),
+		pasteText: (text, into) => pasteText(text, into),
+		say: (message) => setNotice(message),
+		nothingMessage: t('clipboard.nothing'),
+	});
+
 	/** Puts a new frame of `kind` on the spread, centred on `point` (in points) or the first page. */
 	const addFrame = (kind: NewFrameKind, point?: { x: number; y: number }) => {
 		const pages = spreadGeometry(book, spread).pages;
@@ -295,6 +356,49 @@ export function BookView({
 		const page = pages.find((p) => at.x >= p.trim.x && at.x <= p.trim.x + p.trim.w) ?? first;
 		const frame = newFrame(kind, boxAt(kind, at, page.trim), defaultTextStyle(choices));
 		apply({ type: 'AddFrame', on: surface, frame });
+		select([frame.id]);
+		return frame;
+	};
+
+	/** Brings a picture the clipboard held into the book and puts it on the page as an Add → Picture frame. */
+	const pastePicture = async ({ file, extension }: PastedPicture, into?: string) => {
+		try {
+			const asset = await client.importImageBytes(
+				id,
+				new Uint8Array(await file.arrayBuffer()),
+				extension,
+			);
+			// The book on show may have changed while the picture was read.
+			if (store.state.getState().activeId !== id) return;
+			const frame = into ? { id: into } : addFrame('picture');
+			await store.apply({ type: 'SetImage', frame: frame.id, asset, fit: null });
+		} catch {
+			setNotice(t('clipboard.pictureRefused'));
+		}
+	};
+
+	/** Puts words on the page in a new text box, or as the words of the frame `into`. */
+	const pasteText = (text: string, into?: string) => {
+		if (into) {
+			apply({ type: 'SetText', frame: into, text });
+			return;
+		}
+		const pages = spreadGeometry(book, spread).pages;
+		const first = pages[0]!;
+		const frame = newFrame(
+			'text',
+			boxAt(
+				'text',
+				{ x: first.trim.x + first.trim.w / 2, y: first.trim.y + first.trim.h / 2 },
+				first.trim,
+			),
+			defaultTextStyle(choices),
+		);
+		apply({
+			type: 'AddFrame',
+			on: surface,
+			frame: { ...frame, content: { inline: [{ text }] } } as unknown as Frame,
+		});
 		select([frame.id]);
 	};
 
@@ -383,6 +487,8 @@ export function BookView({
 		return () => window.removeEventListener(JAX_TOGGLE_EVENT, toggle);
 	}, []);
 	const [barcodeOpen, setBarcodeOpen] = useState(false);
+	const [bookSizeOpen, setBookSizeOpen] = useState(false);
+	const [marginsOpen, setMarginsOpen] = useState(false);
 	/** The text frame whose words are to continue in the next frame clicked. */
 	const [linking, setLinking] = useState<string | null>(null);
 	/** What the last text import did, or why it could not. */
@@ -477,14 +583,14 @@ export function BookView({
 		setBackground(null);
 		if (mark !== null) void store.rewind(mark);
 	};
-	// The sidebar's open group. Selecting something on the page brings the Properties forward.
-	const [group, setGroup] = useState<SidebarGroup>('properties');
-	const fontUses = useFontsInUse(client, id, copy.revision, group === 'fonts');
 	const chapters = useStoryChapters(client, id, copy.revision, group === 'pages');
+	// `useSelection` hands back a new array on every render, so the effect keys on the ids themselves:
+	// opening Fonts or Swatches with a frame selected must not bring Properties back.
+	const selectionKey = selection.join('|');
 	useEffect(() => {
 		// The Proofing list is a task: showing a word selects it, and the list stays.
-		if (selection.length > 0) setGroup((open) => (open === 'proofing' ? open : 'properties'));
-	}, [selection]);
+		if (selectionKey !== '') setGroup((open) => (open === 'proofing' ? open : 'properties'));
+	}, [selectionKey]);
 	// What spelling finds in the whole book, read when the Proofing group is open and read again a
 	// moment after the book, the dictionary or the words added for every book change.
 	const [proofing, setProofing] = useState<BookSpelling | null>(null);
@@ -607,6 +713,46 @@ export function BookView({
 				break;
 			case 'exportBook':
 				setExporting({ quick: action.quick });
+				break;
+			case 'rulerUnit':
+				void update({ rulers: { units: action.unit } } as SettingsPatch);
+				break;
+			case 'toolbar':
+				void update({ interface: { toolbar: action.toolbar } } as SettingsPatch);
+				break;
+			case 'bookSize':
+				setBookSizeOpen(true);
+				break;
+			case 'pageMargins':
+				setMarginsOpen(true);
+				break;
+			case 'cover':
+				// The cover is the first spread; a master being edited gives way to it.
+				setEditing(null);
+				setSpreadIndex(0);
+				select([]);
+				break;
+			case 'clipboard':
+				if (action.op === 'copy') void clipboard.copy();
+				else if (action.op === 'cut') void clipboard.cut();
+				else if (action.op === 'paste') void clipboard.pasteWith('paste');
+				else if (action.op === 'pasteInPlace') void clipboard.pasteWith('inPlace');
+				else if (action.op === 'pastePlain') void clipboard.pasteWith('plain');
+				else void clipboard.pasteWith('into');
+				break;
+			case 'group':
+				makeGroup(action.frames);
+				break;
+			case 'ungroup':
+				breakGroup(action.frame);
+				break;
+			case 'link':
+				// The Properties group says to choose the box the words continue in.
+				setGroup('properties');
+				setLinking(action.frame);
+				break;
+			case 'jax':
+				setJaxOpen((open) => !open);
 				break;
 			case 'editMaster': {
 				if (editing !== null) setEditing(null);
@@ -752,7 +898,8 @@ export function BookView({
 									addNote: 'note',
 								};
 								const kind = kinds[command];
-								if (kind) addFrame(kind, point);
+								if (command === 'paste') clipboard.paste({ kind: 'point', ...point });
+								else if (kind) addFrame(kind, point);
 								else if (command === 'pageBackground')
 									setBackground({ page: pageAt(book, spread, point) });
 								else if (command.startsWith('editMaster:'))
@@ -782,6 +929,18 @@ export function BookView({
 								}
 							}}
 							onCommand={(command, ids) => {
+								if (GROUP_COMMANDS.includes(command)) {
+									const frames = ids.flatMap((id) => spread.frames.filter((f) => f.id === id));
+									if (command === 'group') makeGroup(frames);
+									else if (frames[0]) breakGroup(frames[0]);
+									return;
+								}
+								if (CLIPBOARD_COMMANDS.includes(command)) {
+									if (command === 'paste') clipboard.paste();
+									else if (command === 'copy') void clipboard.copy();
+									else void clipboard.cut();
+									return;
+								}
 								for (const frameId of ids) {
 									const target = spread.frames.find((f) => f.id === frameId);
 									if (!target) continue;
@@ -1045,6 +1204,20 @@ export function BookView({
 				open={barcodeOpen}
 				onClose={() => setBarcodeOpen(false)}
 				book={book}
+				apply={apply}
+			/>
+			<BookSizeDialog
+				open={bookSizeOpen}
+				onClose={() => setBookSizeOpen(false)}
+				book={book}
+				units={settings.units}
+				apply={apply}
+			/>
+			<MarginsDialog
+				open={marginsOpen}
+				onClose={() => setMarginsOpen(false)}
+				book={book}
+				units={settings.units}
 				apply={apply}
 			/>
 			<CoverSheetDialog

@@ -7,7 +7,7 @@ import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_MARKS } from '../canvas/marksModel';
-import { editorAction, editorState, type EditorInput } from './editorCommands';
+import { editorAction, editorState, fontOptions, type EditorInput } from './editorCommands';
 
 const spread = (kind = 'spread') =>
 	({ id: 'sp', kind, pages: [], frames: [], guides: [] }) as unknown as Spread;
@@ -349,11 +349,30 @@ describe('the font list', () => {
 		expect(state.available.has('font')).toBe(true);
 		expect(state.texts.font).toBe('Zed Sans');
 		expect(state.options.font).toEqual([
-			['Literata', 'Literata'],
-			['Zed Sans', 'Zed Sans'],
-			['Quill Mono', 'Quill Mono'],
+			['Literata', 'Literata', 'In this book'],
+			['Quill Mono', 'Quill Mono', 'In this book'],
+			['Zed Sans', 'Zed Sans', 'Installed'],
 		]);
 		expect(editorState(input([text()], { fonts: [...fonts] })).texts.font).toBe('');
+	});
+
+	it('lists an installed font the book uses under the book, and keeps each group in order', () => {
+		expect(fontOptions(fonts, ['Zed Sans'])).toEqual([
+			['Literata', 'Literata', 'In this book'],
+			['Zed Sans', 'Zed Sans', 'In this book'],
+			['Quill Mono', 'Quill Mono', 'In this book'],
+		]);
+		const more = [...fonts, { family: 'Arial', origin: 'system' as const }];
+		expect(fontOptions(more, []).map(([family, , group]) => `${group}: ${family}`)).toEqual([
+			'In this book: Literata',
+			'In this book: Quill Mono',
+			'Installed: Zed Sans',
+			'Installed: Arial',
+		]);
+		expect(
+			editorState(input([text()], { fonts: [...fonts], fontsInUse: ['Zed Sans'] })).options
+				.font?.[2],
+		).toEqual(['Quill Mono', 'Quill Mono', 'In this book']);
 	});
 
 	it('sets the font of the words, and asks to keep an installed one with the book', () => {
@@ -524,5 +543,318 @@ describe('the text colour list', () => {
 		expect(editorAction('colour', '', input([frame]))).toMatchObject({
 			intents: [{ change: { colour: '' } }],
 		});
+	});
+});
+
+describe('the controls that were listed but never live', () => {
+	it('offers the six ruler units and sets the one chosen', () => {
+		const state = editorState(input());
+		expect(state.available.has('rulerUnits')).toBe(true);
+		expect(state.options.rulerUnits?.map(([unit]) => unit)).toEqual([
+			'inches',
+			'millimetres',
+			'centimetres',
+			'points',
+			'picas',
+			'pixels',
+		]);
+		expect(editorAction('rulerUnits', 'picas', input())).toEqual({
+			kind: 'rulerUnit',
+			unit: 'picas',
+		});
+		expect(editorAction('rulerUnits', 'cubits', input())).toBeNull();
+	});
+
+	it('toggles the baseline grid and the columns on their own, and shows them pressed', () => {
+		const state = editorState(input([], { marks: { ...DEFAULT_MARKS, baseline: true } }));
+		expect(state.available.has('baseline')).toBe(true);
+		expect(state.available.has('columns')).toBe(true);
+		expect(state.active.baseline).toBe(true);
+		expect(state.active.columns).toBe(DEFAULT_MARKS.columns);
+		expect(editorAction('baseline', true, input())).toEqual({
+			kind: 'marks',
+			marks: { baseline: !DEFAULT_MARKS.baseline },
+		});
+		expect(editorAction('columns', true, input())).toEqual({
+			kind: 'marks',
+			marks: { columns: !DEFAULT_MARKS.columns },
+		});
+	});
+
+	it('adds a note box from the Insert tab and a shape from the Shape menu', () => {
+		const state = editorState(input());
+		expect(state.available.has('shape')).toBe(true);
+		expect(editorAction('shape', undefined, input())).toEqual({ kind: 'add', shape: 'note' });
+		expect(state.options.shapeMenu?.map(([id]) => id)).toEqual([
+			'rect',
+			'round',
+			'ellipse',
+			'line',
+		]);
+		expect(editorAction('shapeMenu', 'ellipse', input())).toEqual({
+			kind: 'add',
+			shape: 'ellipse',
+		});
+		expect(editorAction('shapeMenu', 'star', input())).toBeNull();
+	});
+
+	it('switches the toolbar between the ribbon and the classic toolbar', () => {
+		const state = editorState(input());
+		expect(state.available.has('toolbarLayout')).toBe(true);
+		expect(state.options.toolbarLayout?.map(([id]) => id)).toEqual(['ribbon', 'classic']);
+		expect(editorAction('toolbarLayout', 'classic', input())).toEqual({
+			kind: 'toolbar',
+			toolbar: 'classic',
+		});
+		expect(editorAction('toolbarLayout', 'rail', input())).toBeNull();
+	});
+
+	it('asks Jax only while Jax is switched on', () => {
+		expect(editorState(input()).available.has('askJax')).toBe(false);
+		expect(editorState(input([], { jax: true })).available.has('askJax')).toBe(true);
+		expect(editorAction('askJax', undefined, input([], { jax: true }))).toEqual({ kind: 'jax' });
+	});
+
+	it('leaves the layouts that are not built, and the layout importer, unavailable', () => {
+		const state = editorState(input([text()], { jax: true }));
+		expect(state.available.has('sidebarLayout')).toBe(false);
+		expect(state.available.has('importLayout')).toBe(false);
+	});
+
+	it('sets the paragraph style of the free text frames selected', () => {
+		const choices = [
+			{ id: 'body', name: 'Body', size: 13 },
+			{ id: 'title', name: 'Title', size: 28 },
+		];
+		const state = editorState(input([text()], { choices }));
+		expect(state.available.has('paragraphStyle')).toBe(true);
+		expect(state.texts.paragraphStyle).toBe('body');
+		expect(state.options.paragraphStyle).toEqual([
+			['body', 'Body'],
+			['title', 'Title'],
+		]);
+		expect(
+			editorAction('paragraphStyle', 'title', input([text(), text({ id: 'u' })], { choices })),
+		).toEqual({
+			kind: 'intents',
+			intents: [
+				{ type: 'SetStyle', frame: 't', style: 'title' },
+				{ type: 'SetStyle', frame: 'u', style: 'title' },
+			],
+		});
+		expect(editorAction('paragraphStyle', '', input([text()], { choices }))).toBeNull();
+		expect(editorState(input([], { choices })).available.has('paragraphStyle')).toBe(false);
+		expect(
+			editorState(input([text({ locked: true })], { choices })).available.has('paragraphStyle'),
+		).toBe(false);
+	});
+});
+
+describe('Align and Distribute', () => {
+	const at = (id: string, x: number, y = 0) =>
+		text({ id, box: { x, y, w: 20, h: 10 }, rotation: 0 });
+	const pages = [{ x: 0, y: 0, w: 300, h: 400 }];
+	const ids = ['alignLeftE', 'alignCenterE', 'alignRightE', 'alignTopE', 'alignMidE', 'alignBotE'];
+
+	it('aligns two free frames, or one to its page, and spreads three', () => {
+		const live = (selected: Frame[], extra = {}) => editorState(input(selected, extra)).available;
+		expect(live([at('a', 0)], { pages }).has('alignLeftE')).toBe(true);
+		expect(live([at('a', 0)]).has('alignLeftE')).toBe(false);
+		expect(live([]).has('alignLeftE')).toBe(false);
+		const two = live([at('a', 0), at('b', 50)]);
+		for (const id of ids) expect(two.has(id), id).toBe(true);
+		expect(two.has('distH')).toBe(false);
+		const three = live([at('a', 0), at('b', 50), at('c', 90)]);
+		expect(three.has('distH')).toBe(true);
+		expect(three.has('distV')).toBe(true);
+		// Locked frames and frames from a master do not count.
+		const locked = live([at('a', 0), at('b', 50, 0), { ...at('c', 90), locked: true } as Frame]);
+		expect(locked.has('distH')).toBe(false);
+		expect(locked.has('alignLeftE')).toBe(true);
+	});
+
+	it('moves the frames in one batch, leaving the locked ones alone', () => {
+		const a = at('a', 10);
+		const b = at('b', 50);
+		const lockedOne = { ...at('c', 200), locked: true } as Frame;
+		expect(editorAction('alignLeftE', undefined, input([a, b, lockedOne]))).toEqual({
+			kind: 'intents',
+			intents: [
+				{
+					type: 'MoveFrames',
+					on: { spread: 'sp' },
+					moves: [{ frame: 'b', box: { x: 10, y: 0, w: 20, h: 10 } }],
+				},
+			],
+		});
+		expect(editorAction('alignTopE', undefined, input([a, b]))).toEqual({
+			kind: 'intents',
+			intents: [],
+		});
+		expect(editorAction('alignCenterE', undefined, input([a], { pages }))).toMatchObject({
+			intents: [{ type: 'MoveFrames', moves: [{ frame: 'a', box: { x: 140 } }] }],
+		});
+		const spread3 = [at('a', 0), at('b', 10), at('c', 80)];
+		expect(editorAction('distH', undefined, input(spread3))).toMatchObject({
+			intents: [{ type: 'MoveFrames', moves: [{ frame: 'b', box: { x: 40 } }] }],
+		});
+	});
+});
+
+describe('Book size, Margins and Cover', () => {
+	it('opens the size and margins dialogs from the Pages tab', () => {
+		const state = editorState(input());
+		expect(state.available.has('pageSize')).toBe(true);
+		expect(state.available.has('marginsT')).toBe(true);
+		expect(editorAction('pageSize', undefined, input())).toEqual({ kind: 'bookSize' });
+		expect(editorAction('marginsT', undefined, input())).toEqual({ kind: 'pageMargins' });
+	});
+
+	it('goes to the cover only when the book has one', () => {
+		expect(editorState(input()).available.has('cover')).toBe(false);
+		expect(editorAction('cover', undefined, input())).toBeNull();
+		expect(editorState(input([], { hasCover: true })).available.has('cover')).toBe(true);
+		expect(editorAction('cover', undefined, input([], { hasCover: true }))).toEqual({
+			kind: 'cover',
+		});
+	});
+});
+
+describe('Link text', () => {
+	it('is live for one free text box whose words are its own', () => {
+		expect(editorState(input([text()])).available.has('thread')).toBe(true);
+		expect(editorAction('thread', undefined, input([text()]))).toEqual({
+			kind: 'link',
+			frame: 't',
+		});
+		for (const selected of [
+			[],
+			[text(), text({ id: 'u' })],
+			[text({ locked: true })],
+			[text({ fromMaster: 'mst_a' })],
+			[text({ flow: { id: 'fl', index: 0 } })],
+			[image()],
+		]) {
+			expect(editorState(input(selected)).available.has('thread')).toBe(false);
+			expect(editorAction('thread', undefined, input(selected))).toBeNull();
+		}
+	});
+});
+
+describe('the Home tab’s clipboard', () => {
+	it('always offers Paste, and Copy and Cut for a selection', () => {
+		const none = editorState(input()).available;
+		expect(none.has('paste')).toBe(true);
+		expect(none.has('pasteSpecial')).toBe(true);
+		expect(none.has('copy')).toBe(false);
+		expect(none.has('cut')).toBe(false);
+		const some = editorState(input([text()])).available;
+		expect(some.has('copy') && some.has('cut')).toBe(true);
+	});
+
+	it('cannot cut what is locked or a master’s, but can copy it', () => {
+		const locked = editorState(input([text({ locked: true })])).available;
+		expect(locked.has('copy')).toBe(true);
+		expect(locked.has('cut')).toBe(false);
+		const fromMaster = editorState(input([text({ fromMaster: 'mst_a' })])).available;
+		expect(fromMaster.has('copy')).toBe(true);
+		expect(fromMaster.has('cut')).toBe(false);
+		expect(editorState(input([text({ locked: true }), image()])).available.has('cut')).toBe(true);
+	});
+
+	it('asks for the clipboard, and for a paste in place from the Paste special menu', () => {
+		expect(editorAction('copy', undefined, input([text()]))).toEqual({
+			kind: 'clipboard',
+			op: 'copy',
+		});
+		expect(editorAction('cut', undefined, input([text()]))).toEqual({
+			kind: 'clipboard',
+			op: 'cut',
+		});
+		expect(editorAction('paste', undefined, input())).toEqual({ kind: 'clipboard', op: 'paste' });
+		expect(editorState(input()).options.pasteSpecial?.map(([id]) => id)).toEqual([
+			'plain',
+			'inPlace',
+		]);
+		expect(editorAction('pasteSpecial', 'inPlace', input())).toEqual({
+			kind: 'clipboard',
+			op: 'pasteInPlace',
+		});
+		expect(editorAction('pasteSpecial', 'nonsense', input())).toBeNull();
+	});
+
+	it('offers only the words, and in place, with no frame to paste into', () => {
+		expect(editorAction('pasteSpecial', 'plain', input())).toEqual({
+			kind: 'clipboard',
+			op: 'pastePlain',
+		});
+		expect(editorAction('pasteSpecial', 'into', input())).toBeNull();
+		for (const selected of [
+			[text(), text({ id: 'u' })],
+			[text({ locked: true })],
+			[text({ fromMaster: 'mst_a' })],
+		]) {
+			expect(editorState(input(selected)).options.pasteSpecial?.map(([id]) => id)).not.toContain(
+				'into',
+			);
+			expect(editorAction('pasteSpecial', 'into', input(selected))).toBeNull();
+		}
+	});
+
+	it('pastes into the one free text or picture frame selected', () => {
+		for (const only of [text(), image()]) {
+			expect(editorState(input([only])).options.pasteSpecial?.map(([id]) => id)).toEqual([
+				'plain',
+				'into',
+				'inPlace',
+			]);
+			expect(editorAction('pasteSpecial', 'into', input([only]))).toEqual({
+				kind: 'clipboard',
+				op: 'pasteInto',
+			});
+		}
+	});
+});
+
+describe('Group and Ungroup', () => {
+	const shape2 = (id: string) => text({ id });
+	const aGroup = (extra = {}) =>
+		({
+			type: 'group',
+			id: 'g',
+			box: {},
+			locked: false,
+			children: [shape2('a'), shape2('b')],
+			...extra,
+		}) as unknown as Frame;
+
+	it('groups two or more free frames and takes one group apart', () => {
+		const two = editorState(input([shape2('a'), shape2('b')])).available;
+		expect(two.has('group')).toBe(true);
+		expect(two.has('ungroup')).toBe(false);
+		expect(editorState(input([shape2('a')])).available.has('group')).toBe(false);
+		const one = editorState(input([aGroup()])).available;
+		expect(one.has('ungroup')).toBe(true);
+		expect(one.has('group')).toBe(false);
+	});
+
+	it('leaves them off for locked frames, a master page and a story', () => {
+		const has = (selected: Frame[], extra = {}) =>
+			editorState(input(selected, extra)).available.has('group');
+		expect(has([shape2('a'), text({ id: 'b', locked: true })])).toBe(false);
+		expect(has([shape2('a'), shape2('b')], { master: true })).toBe(false);
+		expect(has([shape2('a'), text({ id: 'b', flow: { id: 'fl', index: 0 } })])).toBe(false);
+		expect(editorState(input([aGroup({ locked: true })])).available.has('ungroup')).toBe(false);
+	});
+
+	it('asks for the group or its undoing', () => {
+		const frames = [shape2('a'), shape2('b')];
+		expect(editorAction('group', undefined, input(frames))).toEqual({ kind: 'group', frames });
+		expect(editorAction('group', undefined, input([shape2('a')]))).toBeNull();
+		expect(editorAction('ungroup', undefined, input([aGroup()]))).toMatchObject({
+			kind: 'ungroup',
+			frame: { id: 'g' },
+		});
+		expect(editorAction('ungroup', undefined, input([shape2('a')]))).toBeNull();
 	});
 });

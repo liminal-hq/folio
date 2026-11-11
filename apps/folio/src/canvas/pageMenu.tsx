@@ -4,12 +4,13 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { MenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
-import { AddPagesIcon, BackgroundIcon, DuplicateIcon } from '../icons/AppIcons';
+import { AddPagesIcon, BackgroundIcon, DuplicateIcon, PasteIcon } from '../icons/AppIcons';
 import { t } from '../i18n/messages';
 import type { MasterItem } from './masterItems';
 import type { Marks } from './marksModel';
 
 export type PageCommand =
+	| 'paste'
 	| 'addText'
 	| 'addPicture'
 	| 'addNote'
@@ -69,6 +70,14 @@ export function pageMenuItems(
 			];
 	const hide = onMaster ? [] : masterItems;
 	return [
+		{
+			type: 'action',
+			id: 'paste',
+			label: t('command.paste'),
+			shortcut: 'Ctrl+V',
+			icon: <PasteIcon />,
+		},
+		{ type: 'separator' },
 		{ type: 'action', id: 'addText', label: t('page.addText'), icon: <Box /> },
 		{ type: 'action', id: 'addPicture', label: t('page.addPicture'), icon: <Box /> },
 		{ type: 'action', id: 'addNote', label: t('page.addNote'), icon: <Box /> },
