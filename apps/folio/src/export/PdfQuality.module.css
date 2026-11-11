@@ -1,0 +1,59 @@
+.quality {
+	display: grid;
+	gap: 12px;
+	margin-block-start: 16px;
+}
+
+.group {
+	display: grid;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.legend {
+	margin-block-end: 6px;
+	padding: 0;
+	color: var(--folio-text-secondary);
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.option {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 6px 4px;
+}
+
+.text {
+	display: grid;
+	gap: 2px;
+}
+
+.name {
+	color: var(--folio-text-primary);
+	font-size: 14px;
+}
+
+.sub {
+	color: var(--folio-text-secondary);
+	font-size: 12px;
+}
+
+.defaults {
+	justify-self: start;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--folio-accent);
+	font: inherit;
+	font-size: 13px;
+	cursor: pointer;
+}
+
+.defaults:disabled {
+	color: var(--folio-text-disabled, var(--folio-text-secondary));
+	cursor: default;
+}
