@@ -52,6 +52,7 @@ import { rangeIntents } from '../story/rangeEdit';
 import { BookDetailsDialog } from './BookDetailsDialog';
 import type { PastedPicture } from '../clipboard/frameClipboard';
 import { useFrameClipboard } from '../clipboard/useFrameClipboard';
+import { openEditor } from '../text/openEditor';
 import { BarcodeDialog } from './BarcodeDialog';
 import { BookSizeDialog } from './BookSizeDialog';
 import { MarginsDialog } from './MarginsDialog';
@@ -978,6 +979,12 @@ export function BookView({
 		});
 		if (!action) return false;
 		perform(action);
+		// A list in the ribbon keeps the focus once it is chosen from; the words being edited get it back.
+		if (
+			document.activeElement instanceof Element &&
+			document.activeElement.closest('[data-ribbon]')
+		)
+			openEditor()?.focus();
 		return true;
 	};
 
