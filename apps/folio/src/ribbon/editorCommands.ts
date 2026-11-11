@@ -81,6 +81,8 @@ export interface EditorInput {
 	pending?: PendingLook | null;
 	/** The paragraphs the open editor's caret or selection is in: the Paragraph group acts on those. */
 	paragraphs?: TextParagraphs | null;
+	/** The on-page editor, when it is open, and whether words are selected in it: Copy and Cut take those. */
+	words?: { selected: boolean } | null;
 	/** The book's stories, for the looks of the paragraphs of a frame that flows. */
 	flows?: readonly { id: string; paragraphs: readonly StoryPara[] }[];
 }
@@ -351,8 +353,15 @@ export function editorState(input: EditorInput): EditorState {
 	if (movable.length >= 3) for (const id of Object.keys(DISTRIBUTE_CONTROLS)) available.add(id);
 	if (canGroup(selected, !!input.master)) available.add('group');
 	if (canUngroup(selected)) available.add('ungroup');
-	if (selected.length > 0) available.add('copy');
-	if (cuttable(selected).length > 0) available.add('cut');
+	if (input.words) {
+		if (input.words.selected) {
+			available.add('copy');
+			available.add('cut');
+		}
+	} else {
+		if (selected.length > 0) available.add('copy');
+		if (cuttable(selected).length > 0) available.add('cut');
+	}
 	const words = texts(selected);
 	if (words.length > 0) {
 		for (const id of [

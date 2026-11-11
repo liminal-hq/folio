@@ -860,3 +860,113 @@ describe('find and replace', () => {
 		expect(within(bar).getByRole('checkbox', { name: 'Regular expression' })).toBeInTheDocument();
 	});
 });
+
+describe('the ribbon acting on words selected in the on-page editor', () => {
+	/** Opens the editor on the first text frame of Page 1 that has words, with Expert on. */
+	const openEditor = async () => {
+		const { books } = setup();
+		await startBook();
+		await userEvent.click(screen.getByRole('radio', { name: 'Expert' }));
+		await userEvent.click(screen.getByRole('button', { name: /^Page 1/ }));
+		await waitFor(() => expect(screen.getAllByRole('option').length).toBeGreaterThan(0));
+		const bold = () => screen.getByRole('button', { name: 'Bold' }) as HTMLButtonElement;
+		const frame = screen.getAllByRole('option').find((option) => {
+			fireEvent.pointerDown(option, { button: 0 });
+			fireEvent.pointerUp(option);
+			return !bold().disabled;
+		})!;
+		fireEvent.doubleClick(frame);
+		const surface = await waitFor(() => {
+			const found = document.querySelector('[data-text-surface]');
+			expect(found).not.toBeNull();
+			return found as HTMLElement;
+		});
+		const sink = surface.querySelector('textarea')!;
+		return { books, frame, surface, sink, bold };
+	};
+
+	/** A press on a ribbon control as WebKitGTK sends it: the blur it causes does not say where to. */
+	const pressOnRibbon = (control: HTMLElement, sink: HTMLElement) => {
+		fireEvent.pointerDown(control, { button: 0 });
+		const kept = !fireEvent.mouseDown(control, { button: 0 });
+		if (!kept) fireEvent.blur(sink, { relatedTarget: null });
+		fireEvent.pointerUp(control, { button: 0 });
+		fireEvent.mouseUp(control, { button: 0 });
+		return kept;
+	};
+
+	it('keeps the frame selected and the controls live when words are picked in the editor', async () => {
+		const { frame, surface, sink, bold } = await openEditor();
+		// A press in the words lands on the editor's own box, over the page.
+		fireEvent.pointerDown(surface, { button: 0 });
+		fireEvent.mouseDown(surface, { button: 0 });
+		fireEvent.keyDown(sink, { key: 'a', ctrlKey: true });
+		expect(frame).toHaveAttribute('aria-selected', 'true');
+		expect(bold()).toBeEnabled();
+		expect(screen.getByRole('combobox', { name: 'Text colour' })).toBeEnabled();
+		expect(screen.getByRole('button', { name: 'Copy' })).toBeEnabled();
+		expect(screen.getByRole('button', { name: 'Cut' })).toBeEnabled();
+	});
+
+	it('styles the selected words from the ribbon, though the blur does not say where the focus went', async () => {
+		const { books, surface, sink, bold } = await openEditor();
+		fireEvent.pointerDown(surface, { button: 0 });
+		fireEvent.keyDown(sink, { key: 'a', ctrlKey: true });
+		const styled = () =>
+			books.calls.filter((c) => c.includes('StyleRange') || c.includes('StyleText')).length;
+
+		expect(pressOnRibbon(bold(), sink)).toBe(true);
+		fireEvent.click(bold());
+		await waitFor(() => expect(styled()).toBe(1));
+		expect(document.querySelector('[data-text-surface]')).not.toBeNull();
+
+		// A list takes the focus to open; the editor stays open and gets it back once a colour is chosen.
+		const colour = screen.getByRole('combobox', { name: 'Text colour' }) as HTMLSelectElement;
+		expect(pressOnRibbon(colour, sink)).toBe(false);
+		expect(document.querySelector('[data-text-surface]')).not.toBeNull();
+		fireEvent.change(colour, { target: { value: colour.options[2]!.value } });
+		await waitFor(() => expect(styled()).toBe(2));
+
+		// A press outside the editor and the ribbon still ends the editing.
+		fireEvent.pointerDown(document.body, { button: 0 });
+		fireEvent.blur(document.activeElement ?? sink, { relatedTarget: null });
+		fireEvent.blur(sink, { relatedTarget: null });
+		await waitFor(() => expect(document.querySelector('[data-text-surface]')).toBeNull());
+	});
+
+	it('copies, cuts and pastes the words with the Clipboard buttons, as the keys do', async () => {
+		const { books, surface, sink } = await openEditor();
+		fireEvent.pointerDown(surface, { button: 0 });
+		fireEvent.keyDown(sink, { key: 'a', ctrlKey: true });
+		// The webview sends the copy and paste events a button asks for, as it does for the keys.
+		const held = new Map<string, string>();
+		const clipboardData = {
+			setData: (type: string, value: string) => held.set(type, value),
+			getData: (type: string) => held.get(type) ?? '',
+		};
+		const exec = vi.fn((command: string) => {
+			if (command === 'copy') fireEvent.copy(sink, { clipboardData });
+			if (command === 'paste') fireEvent.paste(sink, { clipboardData });
+			return false;
+		});
+		Object.defineProperty(document, 'execCommand', { value: exec, configurable: true });
+		try {
+			const group = screen.getByRole('group', { name: 'Clipboard' });
+			pressOnRibbon(within(group).getByRole('button', { name: 'Copy' }), sink);
+			fireEvent.click(within(group).getByRole('button', { name: 'Copy' }));
+			await waitFor(() => expect(held.get('text/plain')).toBeTruthy());
+
+			const edits = () => books.calls.filter((c) => c.startsWith('editText(')).length;
+			pressOnRibbon(within(group).getByRole('button', { name: 'Paste' }), sink);
+			fireEvent.click(within(group).getByRole('button', { name: 'Paste' }));
+			await waitFor(() => expect(edits()).toBe(1));
+			expect(
+				screen.queryByText('There was nothing on the clipboard that could be pasted there.'),
+			).not.toBeInTheDocument();
+			// The words go back into the editor, not onto the page as a new frame.
+			expect(books.calls.some((c) => c.includes('AddFrame'))).toBe(false);
+		} finally {
+			Reflect.deleteProperty(document, 'execCommand');
+		}
+	});
+});

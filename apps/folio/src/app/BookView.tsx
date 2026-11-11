@@ -300,6 +300,9 @@ export function BookView({
 				cell: editingCell,
 				swatches: (book.styles?.swatches ?? []).map((s) => ({ id: s.id, name: s.name })),
 				paragraphs: textParagraphs,
+				// Copy and Cut take the words selected in the open editor, not the frame.
+				words:
+					textLook.caret || textLook.selection ? { selected: textLook.selection !== null } : null,
 				flows: book.flows ?? [],
 				selection: expert ? textLook.selection : null,
 				caret: expert ? textLook.caret : null,
@@ -933,7 +936,18 @@ export function BookView({
 				setSpreadIndex(0);
 				select([]);
 				break;
-			case 'clipboard':
+			case 'clipboard': {
+				// While the on-page editor is open, the clipboard is for its words, as Ctrl+C and Ctrl+V are.
+				const words = openEditor();
+				if (words && action.op !== 'pasteInPlace') {
+					if (action.op === 'copy') void words.copy();
+					else if (action.op === 'cut') void words.cut();
+					else
+						void words.paste(action.op === 'pastePlain').then((pasted) => {
+							if (!pasted) setNotice(t('clipboard.nothing'));
+						});
+					break;
+				}
 				if (action.op === 'copy') void clipboard.copy();
 				else if (action.op === 'cut') void clipboard.cut();
 				else if (action.op === 'paste') void clipboard.pasteWith('paste');
@@ -941,6 +955,7 @@ export function BookView({
 				else if (action.op === 'pastePlain') void clipboard.pasteWith('plain');
 				else void clipboard.pasteWith('into');
 				break;
+			}
 			case 'group':
 				makeGroup(action.frames);
 				break;

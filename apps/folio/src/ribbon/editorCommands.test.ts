@@ -955,3 +955,19 @@ describe('Vertical alignment', () => {
 		expect(editorAction('valign', 'sideways', input([words]))).toBeNull();
 	});
 });
+
+describe('Copy and Cut with the on-page editor open', () => {
+	const copyCut = (extra: Partial<EditorInput>) => {
+		const { available } = editorState(input([text()], extra));
+		return [available.has('copy'), available.has('cut')];
+	};
+
+	it('take the selected frames when no editor is open', () => {
+		expect(copyCut({ words: null })).toEqual([true, true]);
+	});
+
+	it('are for the words, so they wait for some to be selected', () => {
+		expect(copyCut({ words: { selected: false } })).toEqual([false, false]);
+		expect(copyCut({ words: { selected: true } })).toEqual([true, true]);
+	});
+});
