@@ -98,3 +98,23 @@ export function fromClipboard(json: string): StoryPara[] | null {
 		return null;
 	}
 }
+
+/** The words last copied in a Folio editor, so a paste that cannot read Folio's type keeps their look. */
+let copied: { plain: string; paragraphs: StoryPara[] | null } | null = null;
+
+const sameWords = (a: string, b: string) => a.replace(/\r\n?/g, '\n') === b.replace(/\r\n?/g, '\n');
+
+/** Remembers the words a Folio editor just copied, with their look when they have one. */
+export function rememberCopied(plain: string, paragraphs: StoryPara[] | null): void {
+	copied = { plain, paragraphs };
+}
+
+/** The look of the words last copied in Folio, when the clipboard still holds those words. */
+export function copiedLook(plain: string): StoryPara[] | null {
+	return copied && copied.paragraphs && sameWords(copied.plain, plain) ? copied.paragraphs : null;
+}
+
+/** The words last copied in Folio, for when the clipboard cannot be read at all. */
+export function lastCopied(): string | null {
+	return copied?.plain ?? null;
+}

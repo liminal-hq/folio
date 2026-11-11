@@ -21,7 +21,17 @@ import {
 	setTextSelection,
 } from '../canvas/textSelection';
 import { t } from '../i18n/messages';
-import { FOLIO_TEXT_MIME, fromClipboard, sliceParagraphs, toHtml, toPlain } from './clipboard';
+import {
+	FOLIO_TEXT_MIME,
+	copiedLook,
+	fromClipboard,
+	rememberCopied,
+	sliceParagraphs,
+	toHtml,
+	toPlain,
+} from './clipboard';
+import { setOpenEditor, type OpenEditor } from './openEditor';
+import { readClipboardWords, writeClipboardWords } from './systemWords';
 import { ContextMenu } from '@liminal-hq/folio-chrome/ContextMenu';
 import type { MenuItem } from '@liminal-hq/folio-chrome/ContextMenu/types';
 import type { Speller } from '../canvas/TextEditor';
@@ -616,19 +626,28 @@ export function TextSurface({
 		return () => el.removeEventListener('beforeinput', before);
 	}, [type, remove, history]);
 
+	/** The selected words as the clipboard takes them: plain, and with their look when they have one. */
+	const selectedWords = () => {
+		const [lo, hi] = ordered(selRef.current.anchor, selRef.current.focus);
+		if (samePos(lo, hi)) return null;
+		if (!content) return { plain: textBetween(textsRef.current, lo, hi), paras: null };
+		const paras = sliceParagraphs(content, lo, hi);
+		return { plain: toPlain(paras), paras };
+	};
+	/** Whether a copy or paste event came, for the ribbon's buttons that ask the webview for one. */
+	const heard = useRef({ copy: false, paste: false });
 	const copy = (event: React.ClipboardEvent) => {
 		event.preventDefault();
-		const [lo, hi] = ordered(selRef.current.anchor, selRef.current.focus);
-		if (samePos(lo, hi)) return;
+		heard.current.copy = true;
+		const words = selectedWords();
+		if (!words) return;
 		const data = event.clipboardData;
-		if (content) {
-			// Folio keeps the look; other programs get HTML; everything else gets the words.
-			const paras = sliceParagraphs(content, lo, hi);
-			data.setData('text/plain', toPlain(paras));
-			data.setData('text/html', toHtml(paras));
-			data.setData(FOLIO_TEXT_MIME, JSON.stringify(paras));
-		} else {
-			data.setData('text/plain', textBetween(textsRef.current, lo, hi));
+		rememberCopied(words.plain, words.paras);
+		// Folio keeps the look; other programs get HTML; everything else gets the words.
+		data.setData('text/plain', words.plain);
+		if (words.paras) {
+			data.setData('text/html', toHtml(words.paras));
+			data.setData(FOLIO_TEXT_MIME, JSON.stringify(words.paras));
 		}
 	};
 	const cut = (event: React.ClipboardEvent) => {
@@ -640,10 +659,34 @@ export function TextSurface({
 	const plainKey = useRef(0);
 	const paste = (event: React.ClipboardEvent) => {
 		event.preventDefault();
+		heard.current.paste = true;
 		const data = event.clipboardData;
 		const plainOnly = Date.now() - plainKey.current < 1000;
 		plainKey.current = 0;
-		const rich = plainOnly ? null : fromClipboard(data.getData(FOLIO_TEXT_MIME));
+		const plain = data.getData('text/plain');
+		pasteWords({
+			plain,
+			html: data.getData('text/html'),
+			rich: fromClipboard(data.getData(FOLIO_TEXT_MIME)) ?? copiedLook(plain),
+			plainOnly,
+		});
+	};
+	/**
+	 * Pastes words over the selection: a Ctrl+V's, or the ribbon's Paste, which reads the clipboard
+	 * itself. Folio's own words keep their look; another program's HTML is read by Rust.
+	 */
+	const pasteWords = ({
+		plain,
+		html: given,
+		rich: own,
+		plainOnly,
+	}: {
+		plain: string;
+		html: string;
+		rich: StoryPara[] | null;
+		plainOnly: boolean;
+	}) => {
+		const rich = plainOnly ? null : own;
 		if (rich) {
 			queue(() => {
 				const [from, to] = ordered(selRef.current.anchor, selRef.current.focus);
@@ -651,8 +694,7 @@ export function TextSurface({
 			});
 			return;
 		}
-		const plain = data.getData('text/plain');
-		const html = plainOnly || !onPasteHtml ? '' : data.getData('text/html');
+		const html = plainOnly || !onPasteHtml ? '' : given;
 		if (html.trim() === '') {
 			type(plain, 'own');
 			return;
@@ -671,6 +713,87 @@ export function TextSurface({
 			return { from, to, text: toPlain(paragraphs), step: 'own', rich: paragraphs };
 		});
 	};
+
+	// The ribbon's Copy, Cut and Paste act on the words while the editor is open. A button has no
+	// clipboard event of its own: Copy asks the webview for one (the same as Ctrl+C, so Folio's own
+	// type goes too) and writes the clipboard itself when the webview will not; Paste reads it.
+	const ribbonCopy = async (): Promise<boolean> => {
+		const words = selectedWords();
+		if (!words) return false;
+		rememberCopied(words.plain, words.paras);
+		sink.current?.focus({ preventScroll: true });
+		// The copy event is what fills the clipboard; the answer `execCommand` gives does not say whether
+		// it did (WebKitGTK answers false and copies all the same).
+		heard.current.copy = false;
+		try {
+			document.execCommand('copy');
+		} catch {
+			// No copy event: the clipboard is written below.
+		}
+		if (!heard.current.copy)
+			await writeClipboardWords(words.plain, words.paras ? toHtml(words.paras) : null);
+		return true;
+	};
+	const editor = useRef<OpenEditor | null>(null);
+	editor.current = {
+		copy: ribbonCopy,
+		async cut() {
+			if (!(await ribbonCopy())) return false;
+			remove('grapheme', -1);
+			return true;
+		},
+		async paste(plainOnly) {
+			// The webview pastes for the ribbon as for Ctrl+V when it may: the paste event is the same.
+			sink.current?.focus({ preventScroll: true });
+			heard.current.paste = false;
+			if (plainOnly) plainKey.current = Date.now();
+			try {
+				document.execCommand('paste');
+			} catch {
+				// No paste event: the clipboard is read below.
+			}
+			if (heard.current.paste) return true;
+			plainKey.current = 0;
+			const words = await readClipboardWords();
+			if (!words || (words.plain === '' && words.html.trim() === '')) return false;
+			pasteWords({ ...words, rich: copiedLook(words.plain), plainOnly });
+			sink.current?.focus({ preventScroll: true });
+			return true;
+		},
+		focus: () => sink.current?.focus({ preventScroll: true }),
+	};
+	useEffect(() => {
+		const handle: OpenEditor = {
+			copy: () => editor.current!.copy(),
+			cut: () => editor.current!.cut(),
+			paste: (plainOnly) => editor.current!.paste(plainOnly),
+			focus: () => editor.current!.focus(),
+		};
+		setOpenEditor(handle);
+		return () => setOpenEditor(null, handle);
+	}, []);
+
+	// Where the last press went down, so a blur that does not say where the focus went (WebKitGTK
+	// leaves `relatedTarget` empty for some presses) can still tell a press on the ribbon from one
+	// outside. The press comes before the blur it causes.
+	const pressedOn = useRef<Element | null>(null);
+	useEffect(() => {
+		const press = (event: Event) => {
+			pressedOn.current = event.target instanceof Element ? event.target : null;
+		};
+		// A key moves the focus by itself, so a press before it says nothing about where it went.
+		const key = () => {
+			pressedOn.current = null;
+		};
+		window.addEventListener('pointerdown', press, true);
+		window.addEventListener('mousedown', press, true);
+		window.addEventListener('keydown', key, true);
+		return () => {
+			window.removeEventListener('pointerdown', press, true);
+			window.removeEventListener('mousedown', press, true);
+			window.removeEventListener('keydown', key, true);
+		};
+	}, []);
 
 	// Composition: the sink shows what is being composed, and the finished words are one edit.
 	const compositionEnd = (event: React.CompositionEvent<HTMLTextAreaElement>) => {
@@ -858,9 +981,14 @@ export function TextSurface({
 				onBlur={(event) => {
 					// A list in the ribbon takes the focus to open, and so does the menu it opens (which sits
 					// outside the ribbon); the words stay selected for either to style.
-					const to = event.relatedTarget;
-					if (to instanceof Element && to.closest('[data-ribbon], [data-find-bar], [role="menu"]'))
-						return;
+					// When the blur does not say where the focus went, the press that took it says.
+					const keep = '[data-ribbon], [data-find-bar], [role="menu"], [data-folio-menu-root]';
+					const to = event.relatedTarget ?? pressedOn.current;
+					pressedOn.current = null;
+					if (to instanceof Element && to.closest(keep)) return;
+					// The window lost the focus (another program, the system's own list of a select): the
+					// editor is still where the person left it.
+					if (event.relatedTarget === null && !document.hasFocus()) return;
 					// The spelling and link menus take the focus while they are up; that is not the end of the editing.
 					if (menuUp.current || linkMenuUp.current) return;
 					onClose();

@@ -99,6 +99,11 @@ pub fn build_window<R: Runtime>(
     if let Some((width, height)) = spec.min_size {
         builder = builder.min_inner_size(width, height);
     }
+    if kind == WindowKind::Main {
+        // The ribbon's Paste asks the webview to paste into the words being edited, as Ctrl+V does,
+        // which WebKitGTK and WebView2 allow a page only with this on. The page is Folio's own.
+        builder = builder.enable_clipboard_access();
+    }
     if spec.child_of_main {
         // On Wayland a window's place cannot be set, so a child is placed by the compositor over
         // its parent. Without a main window there is nothing to belong to.

@@ -478,3 +478,31 @@ describe('focus moving to a menu of the ribbon', () => {
 		menu.remove();
 	});
 });
+
+describe('a blur that does not say where the focus went', () => {
+	it('keeps the editor open after a press on the ribbon, and closes it after a press elsewhere', () => {
+		const onClose = vi.fn();
+		const { sink } = mount(editor().onEdit, { onClose });
+		const ribbon = document.body.appendChild(document.createElement('div'));
+		ribbon.setAttribute('data-ribbon', '');
+		const list = ribbon.appendChild(document.createElement('select'));
+		// WebKitGTK leaves `relatedTarget` empty for some presses; the press itself says where it was.
+		fireEvent.pointerDown(list);
+		fireEvent.blur(sink, { relatedTarget: null });
+		expect(onClose).not.toHaveBeenCalled();
+
+		fireEvent.pointerDown(document.body);
+		fireEvent.blur(sink, { relatedTarget: null });
+		expect(onClose).toHaveBeenCalledTimes(1);
+		ribbon.remove();
+	});
+
+	it('keeps the editor open when the window loses the focus', () => {
+		const onClose = vi.fn();
+		const { sink } = mount(editor().onEdit, { onClose });
+		const focused = vi.spyOn(document, 'hasFocus').mockReturnValue(false);
+		fireEvent.blur(sink, { relatedTarget: null });
+		expect(onClose).not.toHaveBeenCalled();
+		focused.mockRestore();
+	});
+});

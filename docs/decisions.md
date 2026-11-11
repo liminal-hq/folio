@@ -314,6 +314,10 @@ In the on-page editor the paste handler decides in this order: a clipboard Folio
 
 Not built: headings becoming a paragraph style, super and subscript, small caps, highlight (`background-color`) and pasted pictures (the clipboard layers' concern).
 
-## A press in the on-page editor keeps the frame selected
+## The on-page editor keeps its frame selected, stays open, and offers its words to the app
 
 Words selected in the on-page editor could not be styled from the ribbon. The stage let go of the selection on a press anywhere but the page's SVG or a text area, and the on-page editor draws its caret and selection in a box of its own over the page, so a press in the words deselected the frame; every control that needs a selected frame (Bold, Font, Text colour, the Paragraph group) went unavailable and a colour chosen did nothing. A press in the editor's box (`[data-text-surface]`) now keeps the selection.
+
+The editor's blur also no longer relies on `relatedTarget`: WebKitGTK leaves it empty for some presses, so the press that caused the blur says whether it was on the ribbon, a list, a menu or the find bar, and a blur because the window lost the focus keeps the editor open.
+
+The editor also offers the words it holds to the rest of the app (`text/openEditor.ts`): copy, cut, paste (or paste as plain words) and focus, through the same handlers as the keys. A copy or paste asks the webview for the event with `document.execCommand`. WebKitGTK sends the copy event and fills the clipboard from it (though it answers `false`), but sends a paste event only to a page given clipboard access, so the main window is built with `enable_clipboard_access` (the page is Folio's own; no other window has it). Where no event comes, the async clipboard API is used, with a wait so a webview that never answers is given up on, and last the words copied in Folio (`text/systemWords.ts`). The clipboard plugin was tried as the fallback and dropped: on GNOME under Wayland it could not reach a clipboard at all.
