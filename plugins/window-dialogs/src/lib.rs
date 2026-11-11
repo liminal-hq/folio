@@ -26,7 +26,7 @@ use unsupported as platform;
 
 use tauri::{
     plugin::{Builder, TauriPlugin},
-    Manager, Runtime,
+    AppHandle, Manager, Runtime,
 };
 
 pub use error::Error;
@@ -37,6 +37,13 @@ mod tests;
 
 /// Registers the plugin.
 pub fn init<R: Runtime>(options: Options) -> TauriPlugin<R> {
+    init_with(move |_| options)
+}
+
+/// Registers the plugin with options made once the app exists, for options that need its handle.
+pub fn init_with<R: Runtime>(
+    options: impl FnOnce(&AppHandle<R>) -> Options + Send + 'static,
+) -> TauriPlugin<R> {
     Builder::new("window-dialogs")
         .invoke_handler(tauri::generate_handler![
             commands::open_dialog,
@@ -47,6 +54,7 @@ pub fn init<R: Runtime>(options: Options) -> TauriPlugin<R> {
             commands::focus_dialog,
         ])
         .setup(move |app, _api| {
+            let options = options(app);
             app.manage(Dialogs::new(options));
             Ok(())
         })

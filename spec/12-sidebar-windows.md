@@ -49,6 +49,15 @@ The **menu bar** stays hidden by default in every layout except "Menu bar + comp
 - **Opening:** the app menu's **Book tools** submenu and the menu bar's **Tools** menu list the areas — Book structure, Typesetting checks, Pictures, Publishing helpers — and choosing one opens the window on it or moves the open window there. The ribbon's Tools tab opens it on a single tool (`open_book_tools` with a `tool`), and the window remembers the tool it was asked for until another is picked. The window's own switcher also lists Proofing and review, Series and editions, Accessibility and Picture-book extras as not built yet.
 - **Shape:** a sidebar with the area switcher and that area's tools, a header with the tool's title and one line, and the tool itself; one tool at a time. With no book open it says so.
 
+### Dialog windows (D-77)
+
+- **What becomes a window.** A dialog with a form or a lot to read opens as a native window of its own: the Export dialog first, then the rest in turn (Book details, Barcode, Book size, Margins, Spread templates, Import report, Cover sheet, Soft proof, Check book, Page background, Story editor, Update, Connect an agent). Small bars and popovers (Find, the Marks menu, context menus, ribbon drop-downs, toasts, the Jax panel) stay in the page. A question with two or three answers uses the system's message dialog.
+- **Modal where the platform allows.** A dialog window is a child of the window that opened it and blocks it while it is open. On Windows the dialog is owned by its opener, which is disabled and then enabled and focused before the dialog goes away. On Linux it is a transient and a GTK modal: GNOME attaches it to its parent, while KWin and wlroots compositors treat it as an ordinary transient, so the opener also covers itself with a blocker that takes the pointer and brings the dialog forward when clicked. A window has one modal dialog at a time, and opening the same dialog again focuses it.
+- **Results.** The opener opens a dialog with a payload and waits for its result. Choosing a button ends the dialog with a result; closing the window (the ✕, Esc, or the window manager) is a cancellation, reported once. Focus goes back to the control that opened the dialog.
+- **Look.** The window is frameless and shadowed like the others, with a close-only title bar, a scrolling body and a button row; Esc cancels and Enter in a field presses the default button.
+- **Where it lands.** Windows are centred over their opener on Windows and X11; on Wayland the compositor places them. A dialog that can be resized remembers its size (`dialogs.sizes` in the settings); a position is never remembered.
+- **Experimental switch.** While the dialogs move over one at a time, **Preferences → Experimental → Open dialogs in their own windows** chooses between the window and the in-page dialog. Once every dialog has moved the switch goes and windows are the only way.
+
 ### Tear-off panels
 
 - Popped-out groups become **utility windows** (`always_on_top` relative to the owner, `skip_taskbar`, Waypoint chrome with only close and a Dock button). Positions are remembered per monitor.
@@ -57,7 +66,7 @@ The **menu bar** stays hidden by default in every layout except "Menu bar + comp
 
 ## Persistence
 
-`settings.json` (app-wide, not per book; its `export` section holds the person's default export choices, which a book's own and a single export's are laid over, D-73): `toolbarLayout`, `sidebarLayout`, `sidebarWidth`, `sidebarCollapsed`, `tornPanels: { group: { monitor, x, y, w, h } }`, `menuBar`, `mode`, `theme`, `units`.
+`settings.json` (app-wide, not per book; its `export` section holds the person's default export choices, which a book's own and a single export's are laid over, D-73): `toolbarLayout`, `sidebarLayout`, `sidebarWidth`, `sidebarCollapsed`, `tornPanels: { group: { monitor, x, y, w, h } }`, `menuBar`, `mode`, `theme`, `units`, `dialogs: { ownWindows, sizes: { label: { width, height } } }`.
 
 ## Accessibility
 

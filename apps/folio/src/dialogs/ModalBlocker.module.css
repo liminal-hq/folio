@@ -1,0 +1,8 @@
+/* Over everything in the window, including its title bar, but under nothing a dialog needs. */
+.blocker {
+	position: fixed;
+	inset: 0;
+	z-index: 2147483000;
+	background: var(--folio-scrim);
+	cursor: default;
+}

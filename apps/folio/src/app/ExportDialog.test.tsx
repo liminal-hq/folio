@@ -151,7 +151,6 @@ describe('the Export dialog', () => {
 		expect(await screen.findByText(/One thing is waiting on you/)).toBeInTheDocument();
 		await userEvent.click(screen.getByRole('button', { name: 'Check the book first' }));
 		expect(onCheck).toHaveBeenCalled();
-		expect(onClose).toHaveBeenCalled();
 	});
 });
 

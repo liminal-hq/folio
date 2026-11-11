@@ -209,4 +209,36 @@ describe('createBooksStore', () => {
 		await tools.setActive(second!.summary.id);
 		expect(fake.calls.filter((c) => c.startsWith('setActiveBook')).length).toBe(before);
 	});
+
+	it('shows the one book a pinned window names, whichever the main window shows', async () => {
+		const fake = createFakeBooksClient();
+		const main = createBooksStore(fake.client);
+		await main.start();
+		const first = await main.newBook({ title: 'First' });
+		const second = await main.newBook({ title: 'Second' });
+		const dialog = createBooksStore(fake.client, 'pinned', first!.summary.id);
+		await dialog.start();
+		expect(dialog.state.getState().activeId).toBe(first!.summary.id);
+		expect(dialog.state.getState().copies[first!.summary.id]).toBeDefined();
+		// The main window moving on does not move it, and it says nothing of its own.
+		await main.setActive(second!.summary.id);
+		await new Promise((r) => setTimeout(r, 0));
+		expect(dialog.state.getState().activeId).toBe(first!.summary.id);
+		const before = fake.calls.filter((c) => c.startsWith('setActiveBook')).length;
+		await dialog.setActive(second!.summary.id);
+		await dialog.setActive(first!.summary.id);
+		expect(fake.calls.filter((c) => c.startsWith('setActiveBook')).length).toBe(before);
+	});
+
+	it('lets go of its book when the book is closed', async () => {
+		const fake = createFakeBooksClient();
+		const main = createBooksStore(fake.client);
+		await main.start();
+		const first = await main.newBook({ title: 'First' });
+		const dialog = createBooksStore(fake.client, 'pinned', first!.summary.id);
+		await dialog.start();
+		await main.close(first!.summary.id);
+		await new Promise((r) => setTimeout(r, 0));
+		expect(dialog.state.getState().activeId).toBeNull();
+	});
 });

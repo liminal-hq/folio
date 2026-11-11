@@ -35,6 +35,7 @@ export const DEFAULT_SETTINGS: Settings = {
 	autosave: { enabled: true, intervalSecs: 30 },
 	updates: { automatic: false, asked: false },
 	export: { pdf: { sharing: {}, kdp: {}, printShop: {} } },
+	dialogs: { ownWindows: false, sizes: {} },
 	recentBooks: [],
 	recentColours: [],
 };

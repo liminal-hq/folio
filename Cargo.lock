@@ -1435,6 +1435,7 @@ dependencies = [
  "tauri-plugin-store",
  "tauri-plugin-system-appearance",
  "tauri-plugin-updater",
+ "tauri-plugin-window-dialogs",
  "tauri-plugin-window-manager",
  "tempfile",
  "windows",

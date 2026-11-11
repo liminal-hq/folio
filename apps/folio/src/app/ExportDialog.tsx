@@ -3,7 +3,6 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
 import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
@@ -11,6 +10,7 @@ import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTa
 import { useEffect, useRef, useState } from 'react';
 import type { BooksClient } from '../books/booksClient';
 import { t, type MessageKey } from '../i18n/messages';
+import { DialogSurface } from '../dialogs/DialogSurface';
 import styles from './ExportDialog.module.css';
 import { EXPORT_TARGETS } from './exportTargets';
 import { whereItGoes } from './uploadGuide';
@@ -27,7 +27,7 @@ interface ExportDialogProps {
 	id: string;
 	/** Targets to make the moment the dialog opens, for the Quick PDF button. */
 	autoStart?: ExportTarget[] | null;
-	/** Opens the Check book dialog. */
+	/** Opens the Check book dialog, and closes this one. */
 	onCheck(): void;
 }
 
@@ -132,7 +132,7 @@ export function ExportDialog({
 		setChosen((now) => (now.includes(target) ? now.filter((x) => x !== target) : [...now, target]));
 
 	return (
-		<Dialog
+		<DialogSurface
 			open={open}
 			title={t('export.title')}
 			size="medium"
@@ -161,14 +161,7 @@ export function ExportDialog({
 			{stage.kind !== 'done' && waiting !== null && waiting > 0 && (
 				<p role="status" className={styles.warning}>
 					{waiting === 1 ? t('export.waiting.one') : t('export.waiting', { count: waiting })}{' '}
-					<button
-						type="button"
-						className={styles.link}
-						onClick={() => {
-							onClose();
-							onCheck();
-						}}
-					>
+					<button type="button" className={styles.link} onClick={onCheck}>
 						{t('export.checkFirst')}
 					</button>
 				</p>
@@ -274,6 +267,6 @@ export function ExportDialog({
 					</label>
 				</fieldset>
 			)}
-		</Dialog>
+		</DialogSurface>
 	);
 }

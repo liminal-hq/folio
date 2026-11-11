@@ -1,0 +1,7 @@
+{
+	"$schema": "../gen/schemas/desktop-schema.json",
+	"identifier": "dialogs",
+	"description": "The windows that open dialogs and the dialog windows themselves: a dialog asks for what it was opened with, says when it has painted, ends with a result, and posts to the window that opened it.",
+	"windows": ["main", "book-tools", "dialog-*"],
+	"permissions": ["window-dialogs:default"]
+}

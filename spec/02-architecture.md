@@ -24,6 +24,7 @@ folio/
 ├─ plugins/
 │  ├─ folio-books/             # domain plugin: a thin Tauri wrapper over folio-engine (windows, events, paths)
 │  ├─ folio-settings/          # domain plugin: typed, versioned app settings (D-11)
+│  ├─ window-dialogs/          # reusable: dialogs as windows of their own, modal where the platform allows (D-77)
 │  ├─ window-tearoff/          # copied until published (D-08)
 │  └─ window-effects/          # copied until published (D-08)
 └─ spec/                       # this folder

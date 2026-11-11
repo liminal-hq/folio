@@ -43,6 +43,7 @@
 		"./Dialog/Dialog": "./src/Dialog/Dialog.tsx",
 		"./Dialog/DialogActions": "./src/Dialog/DialogActions.tsx",
 		"./Dialog/dialogContext": "./src/Dialog/dialogContext.ts",
+		"./DialogWindow/DialogWindowFrame": "./src/DialogWindow/DialogWindowFrame.tsx",
 		"./ContextMenu": "./src/ContextMenu/ContextMenu.tsx",
 		"./ContextMenu/types": "./src/ContextMenu/types.ts",
 		"./ContextMenu/expectEveryItemHasIcon": "./src/ContextMenu/expectEveryItemHasIcon.ts",

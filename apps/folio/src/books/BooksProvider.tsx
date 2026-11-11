@@ -14,18 +14,24 @@ export function BooksProvider({
 	client,
 	dialogs,
 	follow = false,
+	pin = null,
 	children,
 }: {
 	client: BooksClient;
 	dialogs: FileDialogs;
 	/** Show the book the main window shows, rather than choosing one (the Book tools window). */
 	follow?: boolean;
+	/** Show the one book this id names, and never say which book is shown (a dialog window). */
+	pin?: string | null;
 	children: ReactNode;
 }) {
 	const value = useMemo(() => {
-		const store = createBooksStore(client, follow ? 'follow' : 'main');
+		const store =
+			pin !== null
+				? createBooksStore(client, 'pinned', pin)
+				: createBooksStore(client, follow ? 'follow' : 'main');
 		return { store, client, dialogs, actions: createBookActions(store, client, dialogs) };
-	}, [client, dialogs, follow]);
+	}, [client, dialogs, follow, pin]);
 
 	useEffect(() => {
 		let active = true;

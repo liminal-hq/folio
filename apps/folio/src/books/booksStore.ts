@@ -108,9 +108,11 @@ export function createBooksStore(
 	client: BooksClient,
 	/**
 	 * `main` tells the other windows which book it shows; `follow` shows the book the main window
-	 * does, as the Book tools window does.
+	 * does, as the Book tools window does; `pinned` shows the one book `pinnedId` names, as a dialog
+	 * window does, and says nothing of its own.
 	 */
-	role: 'main' | 'follow' = 'main',
+	role: 'main' | 'follow' | 'pinned' = 'main',
+	pinnedId: string | null = null,
 ): BooksStore {
 	const state = createStore<BooksState>(() => ({
 		summaries: [],
@@ -196,7 +198,12 @@ export function createBooksStore(
 			const arrived = event.books.filter((b) => !known.has(b.id)).at(-1)?.id;
 			const stillThere = s.activeId !== null && listed.has(s.activeId);
 			const activeId =
-				arrived ?? (stillThere ? s.activeId : (event.books[event.books.length - 1]?.id ?? null));
+				role === 'pinned'
+					? pinnedId !== null && listed.has(pinnedId)
+						? pinnedId
+						: null
+					: (arrived ??
+						(stillThere ? s.activeId : (event.books[event.books.length - 1]?.id ?? null)));
 			return { summaries: event.books, copies, activeId };
 		});
 		const { activeId, copies } = state.getState();
@@ -238,10 +245,15 @@ export function createBooksStore(
 				const books = await client.list();
 				state.setState((s) => ({
 					summaries: books,
-					activeId: s.activeId ?? books[0]?.id ?? null,
+					activeId:
+						role === 'pinned'
+							? books.some((b) => b.id === pinnedId)
+								? pinnedId
+								: null
+							: (s.activeId ?? books[0]?.id ?? null),
 				}));
 				if (role === 'follow') await follow(await client.activeBook());
-				else await client.setActiveBook(state.getState().activeId);
+				else if (role === 'main') await client.setActiveBook(state.getState().activeId);
 				const { activeId } = state.getState();
 				if (activeId !== null && !state.getState().copies[activeId]) await load(activeId);
 			} catch {

@@ -35,6 +35,7 @@ import { guideIntents } from '../canvas/guides';
 import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../canvas/marksModel';
 import { keepWords } from '../canvas/editCheckpoint';
 import { CheckBookDialog } from './CheckBookDialog';
+import { openDialog } from '../dialogs/openDialog';
 import { ExportDialog } from './ExportDialog';
 import {
 	getPendingLook,
@@ -689,6 +690,21 @@ export function BookView({
 	};
 	const marked =
 		find.open && spread ? find.matches.filter((m) => onShown(m, spread.id, editing)) : [];
+	// With dialogs in their own windows the Export dialog is one, and it hands back "check the book
+	// first" as its only answer.
+	const dialogWindows = settings.dialogs.ownWindows;
+	useEffect(() => {
+		if (!dialogWindows || exporting === null) return;
+		const asked = exporting;
+		setExporting(null);
+		openDialog('Export', { bookId: id, autoStart: asked.quick ? ['sharingPdf'] : null })
+			.then((answer) => {
+				if (answer?.next === 'check') setChecking(true);
+			})
+			.catch(() => {
+				// Another modal dialog is open already, or the window could not be made.
+			});
+	}, [dialogWindows, exporting, id]);
 	const [reveal, setReveal] = useState<{ spread: string; frame: string } | null>(null);
 	useEffect(() => {
 		if (reveal && spread?.id === reveal.spread) {
@@ -1397,12 +1413,15 @@ export function BookView({
 				)}
 			</div>
 			<ExportDialog
-				open={exporting !== null}
+				open={exporting !== null && !dialogWindows}
 				onClose={() => setExporting(null)}
 				client={client}
 				id={id}
 				autoStart={exporting?.quick ? ['sharingPdf'] : null}
-				onCheck={() => setChecking(true)}
+				onCheck={() => {
+					setExporting(null);
+					setChecking(true);
+				}}
 			/>
 			<ImportReportDialog
 				outcome={imported}

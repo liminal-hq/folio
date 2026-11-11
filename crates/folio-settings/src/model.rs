@@ -5,6 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::BTreeMap;
 use thiserror::Error;
 use ts_rs::TS;
 
@@ -290,6 +291,32 @@ impl MarksSettings {
     }
 }
 
+/// The size a dialog window was last left at, in logical pixels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct DialogSize {
+    pub width: u32,
+    pub height: u32,
+}
+
+/// The smallest and largest a remembered dialog dimension can be, in logical pixels.
+pub const DIALOG_DIMENSION_MIN: u32 = 200;
+pub const DIALOG_DIMENSION_MAX: u32 = 10_000;
+/// The most dialog sizes that are remembered.
+pub const DIALOG_SIZES_MAX: usize = 64;
+
+/// How dialogs are shown (D-77): in windows of their own, and the sizes of the ones that can be resized.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct DialogSettings {
+    /// Whether dialogs with a form or long content open as native windows instead of in the page.
+    pub own_windows: bool,
+    /// The size each resizable dialog window was left at, by the dialog's window label.
+    pub sizes: BTreeMap<String, DialogSize>,
+}
+
 /// The application settings: one document every window reads.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
@@ -309,6 +336,7 @@ pub struct Settings {
     /// What the person chose for their exports, which every book starts from: a book's own
     /// choices, and those of a single export, are laid over these.
     pub export: folio_model::ExportPrefs,
+    pub dialogs: DialogSettings,
     /// The paths of recently opened books, newest first.
     pub recent_books: Vec<String>,
     /// The colours last chosen in the colour picker as `#rrggbb`, newest first, kept per user and
@@ -380,6 +408,19 @@ impl Settings {
                 "a personal word is one word of at most 64 characters".into(),
             ));
         }
+        let sizes = &self.dialogs.sizes;
+        let in_range = |n: u32| (DIALOG_DIMENSION_MIN..=DIALOG_DIMENSION_MAX).contains(&n);
+        if sizes.len() > DIALOG_SIZES_MAX
+            || sizes
+                .values()
+                .any(|size| !in_range(size.width) || !in_range(size.height))
+        {
+            return Err(SettingsError::OutOfRange {
+                field: "dialogs.sizes",
+                min: DIALOG_DIMENSION_MIN,
+                max: DIALOG_DIMENSION_MAX,
+            });
+        }
         if self.recent_books.len() > RECENT_BOOKS_MAX {
             return Err(SettingsError::OutOfRange {
                 field: "recentBooks",
@@ -415,6 +456,15 @@ impl Settings {
         self.recent_books.truncate(RECENT_BOOKS_MAX);
         self.recent_colours.retain(|c| is_hex_colour(c));
         self.recent_colours.truncate(RECENT_COLOURS_MAX);
+        for size in self.dialogs.sizes.values_mut() {
+            size.width = size.width.clamp(DIALOG_DIMENSION_MIN, DIALOG_DIMENSION_MAX);
+            size.height = size
+                .height
+                .clamp(DIALOG_DIMENSION_MIN, DIALOG_DIMENSION_MAX);
+        }
+        while self.dialogs.sizes.len() > DIALOG_SIZES_MAX {
+            self.dialogs.sizes.pop_last();
+        }
         self.autosave.interval_secs = self
             .autosave
             .interval_secs
@@ -822,5 +872,55 @@ mod tests {
         let mut stored = Settings::default();
         stored.marks.baseline.colour = 9;
         assert_eq!(stored.clamped().marks.baseline.colour, 3);
+    }
+    #[test]
+    fn dialogs_open_in_the_page_until_asked_and_remember_no_sizes() {
+        let dialogs = Settings::default().dialogs;
+        assert!(!dialogs.own_windows);
+        assert!(dialogs.sizes.is_empty());
+    }
+
+    #[test]
+    fn a_dialog_size_is_remembered_by_a_patch_and_survives_a_round_trip() {
+        let settings = Settings::default()
+            .patched(&json!({ "dialogs": { "sizes": { "dialog-export": { "width": 700, "height": 800 } } } }))
+            .expect("fits");
+        let again: Settings =
+            serde_json::from_value(serde_json::to_value(&settings).unwrap()).unwrap();
+        assert_eq!(
+            again.dialogs.sizes["dialog-export"],
+            DialogSize {
+                width: 700,
+                height: 800
+            }
+        );
+        // Another dialog's size is added, not replaced.
+        let two = again
+            .patched(&json!({ "dialogs": { "sizes": { "dialog-soft-proof": { "width": 900, "height": 700 } } } }))
+            .expect("fits");
+        assert_eq!(two.dialogs.sizes.len(), 2);
+    }
+
+    #[test]
+    fn a_dialog_size_out_of_range_is_refused_and_clamped_from_a_stored_file() {
+        let patch =
+            json!({ "dialogs": { "sizes": { "dialog-export": { "width": 20, "height": 800 } } } });
+        assert!(Settings::default().patched(&patch).is_err());
+        let mut stored = Settings::default();
+        stored.dialogs.sizes.insert(
+            "dialog-export".into(),
+            DialogSize {
+                width: 20,
+                height: 99_999,
+            },
+        );
+        let size = stored.clamped().dialogs.sizes["dialog-export"];
+        assert_eq!(
+            size,
+            DialogSize {
+                width: DIALOG_DIMENSION_MIN,
+                height: DIALOG_DIMENSION_MAX
+            }
+        );
     }
 }
