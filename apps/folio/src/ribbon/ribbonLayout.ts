@@ -166,6 +166,10 @@ export const RIBBON_LAYOUT: readonly LayoutTab[] = [
 								kind: 'menu',
 								icon: 'paraSpacing',
 							},
+							{
+								id: 'valign',
+								kind: 'menu',
+							},
 						],
 					],
 					[

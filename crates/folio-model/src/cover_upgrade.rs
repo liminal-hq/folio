@@ -122,6 +122,7 @@ pub fn upgrade_cover(book: &mut Book, paper: Option<crate::Paper>) {
                 let mut frame = words_frame(&id, note.rect, turn, &note.text);
                 if let Frame::Text(f) = &mut frame {
                     f.overrides = Some(StyleOverrides {
+                        valign: None,
                         size: Some(Pt(note.size)),
                         align: None,
                         bold: None,

@@ -40,6 +40,7 @@ import {
 import type { StoryPara } from '@liminal-hq/folio-protocol/generated/StoryPara';
 import type { RunChange } from '@liminal-hq/folio-protocol/generated/RunChange';
 import type { Run } from '@liminal-hq/folio-protocol/generated/Run';
+import type { VAlign } from '@liminal-hq/folio-protocol/generated/VAlign';
 
 export interface EditorInput {
 	spread: Spread;
@@ -144,6 +145,21 @@ export type EditorAction =
 			kind: 'clipboard';
 			op: 'copy' | 'cut' | 'paste' | 'pasteInPlace' | 'pastePlain' | 'pasteInto';
 	  };
+
+/** Where the words sit up and down in a box, as the Vertical alignment menu offers it. */
+const VALIGNS: ReadonlyArray<readonly [VAlign, MessageKey]> = [
+	['top', 'inspector.valign.top'],
+	['middle', 'inspector.valign.middle'],
+	['bottom', 'inspector.valign.bottom'],
+];
+
+/** The free frames whose words can be placed up and down: text boxes, and shapes that hold words. */
+const placeable = (frames: Frame[]) =>
+	frames.flatMap((f) =>
+		(f.type === 'text' || (f.type === 'shape' && f.content)) && !f.locked && !f.fromMaster
+			? [f]
+			: [],
+	);
 
 const ALIGNS: Record<string, 'left' | 'center' | 'right' | 'justify'> = {
 	alignL: 'left',
@@ -432,6 +448,17 @@ export function editorState(input: EditorInput): EditorState {
 		shown.lang = spoken;
 	}
 	paragraphState(input, available, active, options);
+	{
+		// A text box sits at the top, a shape's words in the middle, until one is chosen.
+		const boxes = placeable(selected);
+		if (boxes.length > 0) available.add('valign');
+		const first = boxes[0];
+		const now: VAlign | undefined =
+			first?.overrides?.valign ?? (first?.type === 'shape' ? 'middle' : first ? 'top' : undefined);
+		options.valign = VALIGNS.map(
+			([value, name]) => [value, now === value ? `✓ ${t(name)}` : t(name)] as const,
+		);
+	}
 	const only = selected.length === 1 ? selected[0]! : null;
 	if (only?.type === 'image') {
 		contextual.push('picture');
@@ -726,6 +753,18 @@ export function editorAction(
 					type: 'OverrideStyle',
 					frame: f.id,
 					overrides: withOverrides(f, { [id]: turnOn }),
+				})),
+			};
+		}
+		case 'valign': {
+			const place = VALIGNS.find(([v]) => v === value)?.[0];
+			if (!place) return null;
+			return {
+				kind: 'intents',
+				intents: placeable(selected).map((f) => ({
+					type: 'OverrideStyle',
+					frame: f.id,
+					overrides: withOverrides(f, { valign: place }),
 				})),
 			};
 		}

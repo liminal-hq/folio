@@ -184,6 +184,33 @@ pub struct StyleOverrides {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub font: Option<String>,
+    /// Where the words sit in the box when they do not fill it: at the top (a text box's way),
+    /// in the middle (a shape's) or at the bottom.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub valign: Option<VAlign>,
+}
+
+/// Where words sit up and down in a box that has room to spare.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(rename_all = "lowercase")]
+pub enum VAlign {
+    Top,
+    Middle,
+    Bottom,
+}
+
+impl VAlign {
+    /// How much of the room to spare goes above the words.
+    pub fn share(self) -> f64 {
+        match self {
+            Self::Top => 0.0,
+            Self::Middle => 0.5,
+            Self::Bottom => 1.0,
+        }
+    }
 }
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]

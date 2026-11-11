@@ -69,6 +69,7 @@ const TIPS: ReadonlySet<string> = new Set([
 	'lineSpacing',
 	'spaceBefore',
 	'spaceAfter',
+	'valign',
 	'indentLess',
 	'indentMore',
 	'firstIndent',

@@ -2501,6 +2501,7 @@ fn words_go_into_a_shape_and_emptying_them_takes_them_out_but_a_line_has_no_insi
     s.apply(Intent::OverrideStyle {
         frame: frame("fr_shape"),
         overrides: folio_model::StyleOverrides {
+            valign: None,
             size: Some(folio_model::Pt(20.0)),
             align: None,
             bold: Some(true),

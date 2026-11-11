@@ -916,3 +916,42 @@ describe('a look set with the caret alone in the words', () => {
 		expect(action).toMatchObject({ kind: 'intents' });
 	});
 });
+
+describe('Vertical alignment', () => {
+	it('is offered for a text box, ticks top until chosen, and sets the box without losing its other overrides', () => {
+		const box = text({ overrides: { size: 14, align: null, bold: true, italic: null } });
+		const state = editorState(input([box]));
+		expect(state.available.has('valign')).toBe(true);
+		expect(state.options.valign?.map(([v, l]) => [v, l.startsWith('✓')])).toEqual([
+			['top', true],
+			['middle', false],
+			['bottom', false],
+		]);
+		expect(editorAction('valign', 'middle', input([box]))).toEqual({
+			kind: 'intents',
+			intents: [
+				{
+					type: 'OverrideStyle',
+					frame: box.id,
+					overrides: { size: 14, align: null, bold: true, italic: null, valign: 'middle' },
+				},
+			],
+		});
+		const placed = text({
+			overrides: { size: null, align: null, bold: null, italic: null, valign: 'bottom' },
+		});
+		expect(editorState(input([placed])).options.valign?.[2]?.[1]).toMatch(/^✓/);
+		// Bold keeps the place the words were given.
+		const bold = editorAction('bold', undefined, input([placed]));
+		expect(bold).toMatchObject({ intents: [{ overrides: { valign: 'bottom', bold: true } }] });
+	});
+
+	it('ticks middle for a shape that holds words, and is not offered with nothing to place', () => {
+		const words = shape({
+			content: { inline: [{ text: 'Hi', style: null, bold: false, italic: false }] },
+		});
+		expect(editorState(input([words])).options.valign?.[1]?.[1]).toMatch(/^✓/);
+		expect(editorState(input([image()])).available.has('valign')).toBe(false);
+		expect(editorAction('valign', 'sideways', input([words]))).toBeNull();
+	});
+});

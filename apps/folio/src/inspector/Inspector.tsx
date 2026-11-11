@@ -383,6 +383,7 @@ function WordsBox({
 }
 
 const ALIGNS = ['left', 'center', 'right', 'justify'] as const;
+const VALIGNS = ['top', 'middle', 'bottom'] as const;
 
 function TextSection({ frame, props }: { frame: TextFrame; props: InspectorProps }) {
 	const { layout, styleFile, apply } = props;
@@ -513,6 +514,17 @@ function TextSection({ frame, props }: { frame: TextFrame; props: InspectorProps
 						const intents = paragraphIntents(alignIds[next], undefined, paraInput);
 						if (intents) intents.forEach((intent) => apply(intent));
 						else apply(overrides({ align: next }));
+					}}
+				/>
+			</div>
+			<div className={styles.field}>
+				<span>{t('inspector.valign')}</span>
+				<Segmented
+					label={t('inspector.valign')}
+					value={frame.overrides?.valign ?? 'top'}
+					options={VALIGNS.map((v) => ({ value: v, label: t(`inspector.valign.${v}`) }))}
+					onChange={(next) => {
+						if (!frame.locked) apply(overrides({ valign: next }));
 					}}
 				/>
 			</div>

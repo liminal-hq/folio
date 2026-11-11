@@ -167,6 +167,20 @@ describe('with a text frame selected', () => {
 		});
 	});
 
+	it('puts the words at the top, in the middle or at the bottom of the box', async () => {
+		const { apply } = setup([
+			text({ overrides: { size: 14, align: null, bold: null, italic: null } }),
+		]);
+		const place = screen.getByRole('radiogroup', { name: 'Vertical alignment' });
+		expect(within(place).getByRole('radio', { name: 'Top' })).toBeChecked();
+		await userEvent.click(within(place).getByRole('radio', { name: 'Middle' }));
+		expect(apply).toHaveBeenLastCalledWith({
+			type: 'OverrideStyle',
+			frame: 't',
+			overrides: { size: 14, align: null, bold: null, italic: null, valign: 'middle' },
+		});
+	});
+
 	it('sets the space after the paragraphs of the frame, from the Paragraph section', async () => {
 		const { apply } = setup([text({ content: { inline: [{ text: 'One\nTwo' }] } })]);
 		const field = screen.getByRole('textbox', { name: /Space after/ });

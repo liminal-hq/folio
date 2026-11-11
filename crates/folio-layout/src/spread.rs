@@ -199,7 +199,7 @@ impl<'a> Layouter<'a> {
             let Frame::Text(text) = frame else {
                 continue;
             };
-            let layout = match &text.flow {
+            let mut layout = match &text.flow {
                 None => {
                     let (laid, overlong) = self.own_text(&self.with_tokens(spread, text))?;
                     if overlong {
@@ -221,7 +221,9 @@ impl<'a> Layouter<'a> {
                                 &text.base.id,
                             ));
                         }
-                        frames.push(own.0);
+                        let mut own = own.0;
+                        place_text_vertically(&mut own, text);
+                        frames.push(own);
                         continue;
                     };
                     if !flowed.iter().any(|f| f.id == chain.id.0) {
@@ -243,6 +245,7 @@ impl<'a> Layouter<'a> {
                     flow_frame(&text.base.id, laid, index, info)
                 }
             };
+            place_text_vertically(&mut layout, text);
             if layout.overset {
                 preflight.push(PreflightItem::of_frame(
                     PreflightKind::OversetText,
@@ -310,6 +313,7 @@ impl<'a> Layouter<'a> {
                 copy.base.id = FrameId(format!("{}@{}", text.base.id.0, page.id.0));
                 self.fill_tokens(&mut copy, &label);
                 let (mut laid, _) = self.own_text(&copy)?;
+                place_text_vertically(&mut laid, &copy);
                 laid.origin = Some(Origin {
                     x: copy.base.rect.x.0,
                     y: copy.base.rect.y.0,
@@ -403,6 +407,12 @@ impl<'a> Layouter<'a> {
             baseline_lock: false,
             overrides: shape.overrides.clone(),
         };
+        // A shape's words sit in the middle of its room unless it says otherwise.
+        let share = shape
+            .overrides
+            .as_ref()
+            .and_then(|o| o.valign)
+            .map_or(0.5, folio_model::VAlign::share);
         let resolved = self.styles.resolve(&words.style, words.overrides.as_ref());
         let (mut laid, _) = self.own_text(&words)?;
         laid.text_align = Some(match resolved.align {
@@ -416,7 +426,7 @@ impl<'a> Layouter<'a> {
             .iter()
             .map(|l| l.top + l.height)
             .fold(0.0, f64::max);
-        let shift = y + ((inner_h - used) / 2.0).max(0.0);
+        let shift = y + ((inner_h - used) * share).max(0.0);
         for line in &mut laid.lines {
             line.x += x;
             line.top += shift;
@@ -1181,6 +1191,33 @@ fn run_marks(placed: &PlacedLine, info: &StoryInfo) -> Vec<Vec<(u32, u32)>> {
                 .collect()
         })
         .collect()
+}
+
+/// Moves the lines of a text frame down when its overrides put its words in the middle or at the
+/// bottom of the box: the room left under the last line, or that share of it, goes above the
+/// first. A frame of a story is placed on its own, with the lines it holds (D-70): a frame the story
+/// fills has no room to spare, so in practice the last frame of a story moves. A frame locked to the
+/// baseline grid stays at the top, so its lines stay on the grid.
+fn place_text_vertically(layout: &mut FrameLayout, text: &TextFrame) {
+    let Some(valign) = text.overrides.as_ref().and_then(|o| o.valign) else {
+        return;
+    };
+    if text.baseline_lock || layout.lines.is_empty() {
+        return;
+    }
+    let bottom = layout
+        .lines
+        .iter()
+        .map(|l| l.top + l.height)
+        .fold(0.0, f64::max);
+    let shift = ((text.base.rect.h.0 - bottom) * valign.share()).max(0.0);
+    if shift <= 0.0 {
+        return;
+    }
+    for line in &mut layout.lines {
+        line.top += shift;
+        line.baseline += shift;
+    }
 }
 
 /// Where a line is in its paragraph, in the wire's units.

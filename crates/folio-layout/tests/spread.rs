@@ -2218,3 +2218,75 @@ fn links_that_go_nowhere_or_have_nothing_to_click_are_flagged_once_each_and_good
     assert_eq!(PreflightKind::LinkNowhere.severity(), Severity::Warning);
     assert_eq!(PreflightKind::LinkEmpty.severity(), Severity::Note);
 }
+
+#[test]
+fn a_frame_puts_its_words_at_the_top_in_the_middle_or_at_the_bottom_of_its_room() {
+    let (mut book, styles) = sample(BookKind::Picture);
+    book.spreads[1].frames.push(text_frame(
+        "v",
+        "body",
+        60.0,
+        60.0,
+        300.0,
+        200.0,
+        "A few words",
+    ));
+    let lines_of = |book: &Book| {
+        lay(book, &styles, 1)
+            .frames
+            .into_iter()
+            .find(|f| f.frame.0 == "v")
+            .expect("laid out")
+            .lines
+    };
+    let top = lines_of(&book);
+    assert!(!top.is_empty());
+    let used = top.iter().map(|l| l.top + l.height).fold(0.0, f64::max);
+    let set = |book: &mut Book, valign: Option<folio_model::VAlign>, lock: bool| {
+        let Some(Frame::Text(t)) = book.spreads[1].frames.last_mut() else {
+            unreachable!()
+        };
+        t.overrides = Some(folio_model::StyleOverrides {
+            valign,
+            ..Default::default()
+        });
+        t.baseline_lock = lock;
+    };
+
+    set(&mut book, Some(folio_model::VAlign::Middle), false);
+    let middle = lines_of(&book);
+    let spare = 200.0 - used;
+    assert!((middle[0].top - (top[0].top + spare / 2.0)).abs() < 1e-6);
+    assert!((middle[0].baseline - (top[0].baseline + spare / 2.0)).abs() < 1e-6);
+
+    set(&mut book, Some(folio_model::VAlign::Bottom), false);
+    let bottom = lines_of(&book);
+    let last = bottom.last().unwrap();
+    assert!(
+        (last.top + last.height - 200.0).abs() < 1e-6,
+        "the last line ends at the bottom"
+    );
+
+    // Locked to the baseline grid, the words stay at the top, on the grid.
+    set(&mut book, Some(folio_model::VAlign::Bottom), true);
+    let locked = lines_of(&book);
+    assert!(locked[0].top <= top[0].top + 12.0);
+
+    set(&mut book, Some(folio_model::VAlign::Top), false);
+    assert_eq!(lines_of(&book)[0].top, top[0].top);
+}
+
+#[test]
+fn the_overrides_of_a_frame_without_a_vertical_place_read_and_write_as_before() {
+    let json = r#"{"size":null,"align":null,"bold":null,"italic":null}"#;
+    let read: folio_model::StyleOverrides = serde_json::from_str(json).unwrap();
+    assert_eq!(read.valign, None);
+    assert_eq!(serde_json::to_string(&read).unwrap(), json);
+    let middle = folio_model::StyleOverrides {
+        valign: Some(folio_model::VAlign::Middle),
+        ..Default::default()
+    };
+    assert!(serde_json::to_string(&middle)
+        .unwrap()
+        .contains(r#""valign":"middle""#));
+}
