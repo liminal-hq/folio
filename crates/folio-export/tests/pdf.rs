@@ -41,6 +41,7 @@ fn export(kind: BookKind, target: PdfTarget) -> (Book, Vec<u8>) {
             target,
             ink: None,
             crop_marks: target == PdfTarget::PrintShop,
+            ..PdfOptions::default()
         },
     )
     .unwrap();
@@ -318,6 +319,7 @@ fn a_file_of_ink_uses_cmyk_and_black_alone_for_the_text() {
             target: PdfTarget::Print,
             ink: Some(InkOptions::default()),
             crop_marks: false,
+            ..PdfOptions::default()
         },
     )
     .unwrap();
@@ -353,6 +355,7 @@ fn a_textured_page_is_tiled_with_one_shared_picture() {
             target: PdfTarget::Sharing,
             ink: None,
             crop_marks: false,
+            ..PdfOptions::default()
         },
     )
     .unwrap();
@@ -394,6 +397,7 @@ fn underlined_and_struck_words_are_drawn_with_lines() {
         target: PdfTarget::Sharing,
         ink: None,
         crop_marks: false,
+        ..PdfOptions::default()
     };
     let before = fills(&export_pdf(&book, &styles, &fonts, &NoAssets, &options).unwrap());
     for frame in book.spreads.iter_mut().flat_map(|s| s.frames.iter_mut()) {
@@ -486,6 +490,7 @@ fn linked_words_are_link_annotations_over_their_lines_and_only_a_file_for_the_sc
                 target,
                 ink: None,
                 crop_marks: target == PdfTarget::PrintShop,
+                ..PdfOptions::default()
             },
         )
         .unwrap()

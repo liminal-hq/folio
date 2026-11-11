@@ -16,7 +16,6 @@ use krilla::color::{cmyk, rgb};
 use krilla::destination::XyzDestination;
 use krilla::geom::{PathBuilder, Point, Quadrilateral, Rect as KRect, Size, Transform};
 use krilla::image::Image;
-use krilla::metadata::Metadata;
 use krilla::num::NormalizedF32;
 use krilla::page::PageSettings;
 use krilla::paint::{Fill, FillRule, LinearGradient, SpreadMethod, Stop, Stroke};
@@ -27,6 +26,7 @@ use krilla::{Data, SerializeSettings};
 use folio_colour::Separator;
 
 use crate::error::ExportError;
+use crate::outline::{Navigation, Origin};
 use crate::picture::{ImagePolicy, PictureCache};
 
 /// Where the bytes of a picture come from: the book's package, in the app.
@@ -69,6 +69,8 @@ pub struct PdfOptions {
     pub ink: Option<InkOptions>,
     /// Crop marks and room for them, for a print shop.
     pub crop_marks: bool,
+    /// Bookmarks, page labels and what the file says about itself.
+    pub navigation: Navigation,
 }
 
 /// Print colour for a file.
@@ -159,16 +161,28 @@ pub fn export_pdf_with(
     // The page each spread of the book begins on (the spreads left out have none), for the links
     // that go to a spread.
     let mut first_page: Vec<Option<usize>> = Vec::new();
-    for (number, spread) in book.spreads.iter().enumerate() {
-        if number < skip {
+    let mut origins: Vec<Origin> = Vec::new();
+    let labels = folio_model::page_labels(&book.spreads);
+    for (at, spread) in book.spreads.iter().enumerate() {
+        if at < skip {
             first_page.push(None);
             continue;
         }
         first_page.push(Some(scenes.len()));
         if let Some(scene) = layouter.scene_spread(&spread.id)? {
+            for page in &scene.pages {
+                let label = labels.get(at).and_then(|l| l.get(page.index));
+                origins.push(Origin {
+                    spread: spread.id.0.clone(),
+                    index: page.index,
+                    label: label.map(|l| l.label.clone()).unwrap_or_default(),
+                    section: label.map(|l| l.section.clone()).unwrap_or_default(),
+                });
+            }
             scenes.extend(scene.pages);
         }
     }
+    let navigation = options.navigation.for_target(options.target);
     if scenes.is_empty() {
         return Err(ExportError::NoPages);
     }
@@ -212,6 +226,11 @@ pub fn export_pdf_with(
         let size = Size::from_wh(media_w as f32, media_h as f32)
             .ok_or_else(|| ExportError::Pdf("a page has no size".into()))?;
         let mut settings = PageSettings::new(size);
+        if navigation.page_labels {
+            if let Some(label) = origins.get(number).and_then(crate::outline::page_label) {
+                settings = settings.with_page_label(label);
+            }
+        }
         let (origin_x, origin_y) = (left + slug, bleed + slug);
         if bleed > 0.0 || shop || sheet {
             settings = settings
@@ -254,13 +273,16 @@ pub fn export_pdf_with(
         }
         pdf_page.finish();
     }
-    let mut metadata = Metadata::new().title(book.title.clone());
     let authors: Vec<String> = book.authors.iter().map(|a| a.name.clone()).collect();
-    if !authors.is_empty() {
-        metadata = metadata.authors(authors);
-    }
-    if options.target == PdfTarget::Sharing {
-        metadata = metadata.language(book.language.clone());
+    let metadata = crate::outline::metadata(
+        &navigation,
+        options.target,
+        &book.title,
+        &authors,
+        &book.language,
+    );
+    if let Some(outline) = crate::outline::outline(&navigation.bookmarks, &origins) {
+        document.set_outline(outline);
     }
     document.set_metadata(metadata);
     let bytes = document

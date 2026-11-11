@@ -114,6 +114,7 @@ pub fn export_target(
                 target: kind,
                 ink,
                 crop_marks: kind == PdfTarget::PrintShop,
+                ..PdfOptions::default()
             },
         )
     };
@@ -146,6 +147,7 @@ pub fn export_target(
                     // chosen press profile when there is one, by a plain separation when not.
                     ink: Some(ink.cloned().unwrap_or_default()),
                     crop_marks: false,
+                    ..PdfOptions::default()
                 },
             )?]
         }

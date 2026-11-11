@@ -40,6 +40,7 @@ fn main() {
             target,
             ink: None,
             crop_marks: target == PdfTarget::PrintShop,
+            ..PdfOptions::default()
         },
     )
     .expect("the book exports");

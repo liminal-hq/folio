@@ -12,6 +12,7 @@ pub mod epub;
 pub mod error;
 pub mod fixed;
 pub mod job;
+pub mod outline;
 pub mod pdf;
 pub mod pdfx;
 pub mod picture;

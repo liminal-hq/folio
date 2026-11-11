@@ -99,6 +99,7 @@ fn export(book: &Book, styles: &StyleSheet, assets: &Memory, target: PdfTarget) 
             target,
             ink: None,
             crop_marks: false,
+            ..PdfOptions::default()
         },
     )
     .unwrap()
@@ -261,6 +262,7 @@ fn original_leaves_every_picture_as_it_was() {
         target: PdfTarget::Sharing,
         ink: None,
         crop_marks: false,
+        ..PdfOptions::default()
     };
     let bytes = export_pdf_with(
         &book,
@@ -320,6 +322,7 @@ fn pictures_in_a_file_in_ink_are_cmyk_whatever_they_were() {
             target: PdfTarget::Print,
             ink: Some(InkOptions::default()),
             crop_marks: false,
+            ..PdfOptions::default()
         },
     )
     .unwrap();
