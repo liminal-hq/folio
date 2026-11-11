@@ -163,6 +163,7 @@ pub fn new_book_with_ids(
         back_notes: Vec::new(),
         preflight_ignore: Vec::new(),
         proofing: folio_model::Proofing::default(),
+        export: folio_model::ExportPrefs::default(),
         styles: style_file(spec.look, data, &used),
         metadata: BookMetadata {
             isbn: Isbns {

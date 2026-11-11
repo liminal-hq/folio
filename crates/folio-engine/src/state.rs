@@ -340,6 +340,27 @@ struct Inner {
     next: u64,
 }
 
+/// Where the files go when a folder was chosen: an absolute one as it is, a relative one from the
+/// book's own folder `base`. `Err(None)` is no choice, so the usual `exports` folder; `Err(Some(..))`
+/// is a choice of a folder that is not there, which the report says (a book moved to another
+/// computer, or a drive that is not plugged in).
+fn chosen_folder(base: &Path, chosen: Option<&str>) -> Result<PathBuf, Option<String>> {
+    let Some(chosen) = chosen.map(str::trim).filter(|c| !c.is_empty()) else {
+        return Err(None);
+    };
+    let path = Path::new(chosen);
+    let full = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        base.join(path)
+    };
+    if full.is_dir() {
+        Ok(full)
+    } else {
+        Err(Some(chosen.to_owned()))
+    }
+}
+
 fn locked<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     // A poisoned lock only means a hook panicked; the books are still consistent.
     mutex.lock().unwrap_or_else(|e| e.into_inner())
@@ -2002,8 +2023,10 @@ impl Books {
         colour_layer.pdf.kdp.ink = Some(colour.cmyk || colour.profile.is_some());
         colour_layer.pdf.kdp.profile = colour.profile.clone();
         let empty = ExportPrefs::default();
+        let book_prefs = self.snapshot(id)?.book.export;
         let layers = [
             request.user.as_ref().unwrap_or(&empty),
+            &book_prefs,
             &colour_layer,
             request.prefs.as_ref().unwrap_or(&empty),
         ];
@@ -2057,13 +2080,22 @@ impl Books {
                     .parent()
                     .map(Path::to_path_buf)
                     .unwrap_or_default(),
-            }
-            .join("exports");
+            };
             let styles = style_sheet(&book.styles);
             let layered = open.font_book(base);
             (book, styles, assets, layered, folder, paper)
         };
         let fonts = layered.as_deref().unwrap_or(base);
+        let mut notes: Vec<String> = Vec::new();
+        let folder = chosen_folder(&folder, layers.iter().rev().find_map(|l| l.folder.as_deref()))
+            .unwrap_or_else(|missing| {
+                if let Some(missing) = missing {
+                    notes.push(format!(
+                        "The folder {missing} is not on this computer, so the files went to the exports folder instead"
+                    ));
+                }
+                folder.join("exports")
+            });
         std::fs::create_dir_all(&folder)
             .map_err(|e| Error::Export(format!("{}: {e}", folder.display())))?;
         let source = MemoryAssets(assets);
@@ -2071,7 +2103,7 @@ impl Books {
             folder: folder.to_string_lossy().into_owned(),
             files: Vec::new(),
             cancelled: false,
-            notes: Vec::new(),
+            notes,
         };
         self.cancel_export.store(false, Ordering::SeqCst);
         for (done, &target) in targets.iter().enumerate() {

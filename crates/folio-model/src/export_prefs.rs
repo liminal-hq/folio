@@ -258,12 +258,9 @@ impl PdfPrefs {
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase", default)]
 pub struct PdfPrefsByTarget {
-    #[serde(skip_serializing_if = "PdfPrefs::is_empty")]
     pub sharing: PdfPrefs,
     /// The paperback interior and cover for Kindle Direct Publishing.
-    #[serde(skip_serializing_if = "PdfPrefs::is_empty")]
     pub kdp: PdfPrefs,
-    #[serde(skip_serializing_if = "PdfPrefs::is_empty")]
     pub print_shop: PdfPrefs,
 }
 
@@ -273,7 +270,6 @@ pub struct PdfPrefsByTarget {
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase", default)]
 pub struct ExportPrefs {
-    #[serde(skip_serializing_if = "PdfPrefsByTarget::is_empty")]
     pub pdf: PdfPrefsByTarget,
     /// Where the files go, when not the usual `exports` folder. In a book, a folder inside the
     /// book's own is kept relative to it.

@@ -93,6 +93,11 @@ function applyOp(book: Book, op: PatchOp): Book {
 			const { fonts: _fonts, ...rest } = book;
 			return op.fonts.length > 0 ? { ...rest, fonts: op.fonts } : rest;
 		}
+		case 'setExportPrefs': {
+			// Rust leaves empty choices out of the book, and so does the copy.
+			const { export: _export, ...rest } = book;
+			return blank(op.prefs) ? rest : { ...rest, export: op.prefs };
+		}
 		case 'setProofing': {
 			// Rust leaves an empty list out of the book, and so does the copy.
 			const { proofing: _proofing, ...rest } = book;
@@ -113,6 +118,17 @@ function applyOp(book: Book, op: PatchOp): Book {
  * The book with `patch` applied, as a new object. Ops apply in order, and Rust lists the spreads
  * it set before the new order, so an added spread is already in the book when the order names it.
  */
+/** Whether a value holds no choice at all: nothing, or objects of nothing. */
+function blank(value: unknown): boolean {
+	return (
+		value === undefined ||
+		(typeof value === 'object' &&
+			value !== null &&
+			!Array.isArray(value) &&
+			Object.values(value).every(blank))
+	);
+}
+
 export function applyPatch(book: Book, patch: Patch): Book {
 	return patch.ops.reduce(applyOp, book);
 }

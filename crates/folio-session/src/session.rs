@@ -408,6 +408,11 @@ fn ops_between(before: &Delta, after: &Delta) -> Vec<PatchOp> {
             fonts: after.fonts.clone(),
         });
     }
+    if before.export != after.export {
+        ops.push(PatchOp::SetExportPrefs {
+            prefs: Box::new(after.export.clone()),
+        });
+    }
     if before.proofing != after.proofing {
         ops.push(PatchOp::SetProofing {
             proofing: after.proofing.clone(),

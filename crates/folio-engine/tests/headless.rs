@@ -486,3 +486,54 @@ fn export_settings_are_combined_and_each_target_says_what_it_changed() {
         report.notes
     );
 }
+
+#[test]
+fn a_books_own_export_choices_apply_and_its_folder_is_relative_and_falls_back_when_missing() {
+    use folio_model::{BookmarkChoice, ExportPrefs, Intent};
+    let books = Books::new(Arc::new(Recorder::default()));
+    let id = books
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id
+        .clone();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("Otter").join("Otter.folio");
+    books.save(&id, Some(file.as_path())).unwrap();
+    std::fs::create_dir_all(dir.path().join("Otter").join("for-print")).unwrap();
+
+    // The book chooses a folder beside its file, and bookmarks for each page.
+    let mut prefs = ExportPrefs {
+        folder: Some("for-print".into()),
+        ..ExportPrefs::default()
+    };
+    prefs.pdf.sharing.bookmarks = Some(BookmarkChoice::Pages);
+    books.apply(&id, Intent::SetExportPrefs { prefs }).unwrap();
+    let report = books
+        .export(&id, &[ExportTarget::SharingPdf], ExportColour::default())
+        .unwrap();
+    assert!(report.folder.ends_with("for-print"), "{}", report.folder);
+    assert!(report.notes.is_empty());
+    let doc = lopdf::Document::load(&report.files[0].path).unwrap();
+    assert!(
+        doc.catalog().unwrap().has(b"Outlines"),
+        "the book's choice applies"
+    );
+
+    // A folder that is not on this computer falls back to `exports` and says so.
+    let moved = ExportPrefs {
+        folder: Some("/no/such/place/for/folio".into()),
+        ..ExportPrefs::default()
+    };
+    books
+        .apply(&id, Intent::SetExportPrefs { prefs: moved })
+        .unwrap();
+    let report = books
+        .export(&id, &[ExportTarget::SharingPdf], ExportColour::default())
+        .unwrap();
+    assert!(report.folder.ends_with("exports"), "{}", report.folder);
+    assert!(report
+        .notes
+        .iter()
+        .any(|n| n.contains("not on this computer")));
+}

@@ -4369,3 +4369,51 @@ fn a_group_is_not_turned_but_a_locked_one_is_not_moved_or_deleted() {
         Err(SessionError::Locked(_))
     ));
 }
+
+#[test]
+fn export_choices_are_one_undo_step_unchanged_choices_change_nothing_and_bad_ones_are_refused() {
+    use folio_model::{ExportPrefs, PdfPrefs, PicturePreset};
+    let mut s = Session::new(book());
+    let mut prefs = ExportPrefs::default();
+    prefs.pdf.sharing = PdfPrefs {
+        preset: Some(PicturePreset::High),
+        ..PdfPrefs::default()
+    };
+    prefs.folder = Some("exports/for-print".into());
+    let patch = s
+        .apply(Intent::SetExportPrefs {
+            prefs: prefs.clone(),
+        })
+        .unwrap();
+    assert_eq!(
+        patch.ops,
+        vec![PatchOp::SetExportPrefs {
+            prefs: Box::new(prefs.clone())
+        }]
+    );
+    assert_eq!(s.book().export, prefs);
+    // The same choices again are no change and no step.
+    let revision = s.revision();
+    let again = s
+        .apply(Intent::SetExportPrefs {
+            prefs: prefs.clone(),
+        })
+        .unwrap();
+    assert!(again.ops.is_empty());
+    assert_eq!(s.revision(), revision);
+    // One undo takes them away.
+    let undone = s.undo().unwrap();
+    assert_eq!(
+        undone.ops,
+        vec![PatchOp::SetExportPrefs {
+            prefs: Box::new(ExportPrefs::default())
+        }]
+    );
+    assert!(s.book().export.is_empty());
+    let mut bad = ExportPrefs::default();
+    bad.pdf.kdp.jpeg_quality = Some(0);
+    assert!(matches!(
+        s.apply(Intent::SetExportPrefs { prefs: bad }),
+        Err(SessionError::BadExport(_))
+    ));
+}

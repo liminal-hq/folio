@@ -305,6 +305,11 @@ pub enum Intent {
     SetPreflightIgnore {
         keys: Vec<String>,
     },
+    /// Sets how this book is exported: the choices that are made for it, laid over the person's own
+    /// defaults. One undo step.
+    SetExportPrefs {
+        prefs: crate::ExportPrefs,
+    },
     /// Closes the last undo step, so the next change on the same frame starts a new one instead of
     /// joining it. It changes nothing in the book. Words typed in an editor send it before each pause
     /// or paste is kept, so undo takes back one stretch of typing at a time.

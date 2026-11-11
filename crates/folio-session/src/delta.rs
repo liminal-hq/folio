@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    BarcodeChoice, Book, BookFont, Details, Flow, FlowId, Grid, Margins, Master, MasterId,
-    PageNumbers, Paper, Proofing, Pt, Size, Spread, SpreadId, Styles,
+    BarcodeChoice, Book, BookFont, Details, ExportPrefs, Flow, FlowId, Grid, Margins, Master,
+    MasterId, PageNumbers, Paper, Proofing, Pt, Size, Spread, SpreadId, Styles,
 };
 
 use crate::patch::PatchOp;
@@ -86,6 +86,7 @@ pub struct Delta {
     pub geometry: Geometry,
     pub masters: Masters,
     pub proofing: Proofing,
+    pub export: ExportPrefs,
     pub language: String,
     pub details: Details,
     pub styles: Styles,
@@ -107,6 +108,7 @@ impl Delta {
             geometry: Geometry::of(book),
             masters: Masters::of(book),
             proofing: book.proofing.clone(),
+            export: book.export.clone(),
             language: book.language.clone(),
             details: Details::of(book),
             styles: book.styles.clone(),
@@ -173,6 +175,7 @@ impl Delta {
         let was_geometry = Geometry::of(book);
         let was_masters = Masters::of(book);
         let was_proofing = book.proofing.clone();
+        let was_export = book.export.clone();
         let was_language = book.language.clone();
         let was_details = Details::of(book);
         let was_keywords = book.metadata.keywords.clone();
@@ -283,6 +286,12 @@ impl Delta {
             book.fonts = self.fonts.clone();
             ops.push(PatchOp::SetFonts {
                 fonts: self.fonts.clone(),
+            });
+        }
+        if was_export != self.export {
+            book.export = self.export.clone();
+            ops.push(PatchOp::SetExportPrefs {
+                prefs: Box::new(self.export.clone()),
             });
         }
         if was_proofing != self.proofing {

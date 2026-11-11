@@ -10,6 +10,7 @@ use ts_rs::TS;
 
 use crate::background::Background;
 use crate::cover::{BarcodeChoice, Paper};
+use crate::export_prefs::ExportPrefs;
 use crate::flow::Flow;
 use crate::frame::Frame;
 use crate::ids::{BookId, MasterId};
@@ -95,6 +96,10 @@ pub struct Book {
     /// What the person has told the proofing tools to leave alone, kept with the book.
     #[serde(default, skip_serializing_if = "Proofing::is_empty")]
     pub proofing: Proofing,
+    /// How the person likes this book exported (D-73): laid over their own defaults, under the
+    /// choices of a single export. An older Folio keeps the key without reading it.
+    #[serde(default, skip_serializing_if = "ExportPrefs::is_empty")]
+    pub export: ExportPrefs,
     /// The named styles and the typeface body text starts in; `styles.json` in the package.
     #[serde(default, skip_serializing_if = "Styles::is_empty")]
     pub styles: Styles,

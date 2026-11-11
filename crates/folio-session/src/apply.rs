@@ -955,6 +955,17 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
                 merge: None,
             })
         }
+        Intent::SetExportPrefs { prefs } => {
+            prefs.check().map_err(SessionError::BadExport)?;
+            Ok(Plan {
+                touched: Vec::new(),
+                new_spread: None,
+                flows: Vec::new(),
+                new_flow: None,
+                fresh: Vec::new(),
+                merge: None,
+            })
+        }
         Intent::EndUndoStep => Ok(Plan {
             touched: Vec::new(),
             new_spread: None,
@@ -2009,6 +2020,7 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
             folio_model::sync_blurb(book, &was, &details.description);
         }
         Intent::SetPreflightIgnore { keys } => book.preflight_ignore = keys,
+        Intent::SetExportPrefs { prefs } => book.export = prefs,
         Intent::EndUndoStep => {}
         Intent::IgnoreWord { word } => {
             if let Ok(word) = Proofing::clean(&word) {

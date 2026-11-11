@@ -572,10 +572,11 @@ mod tests {
         // An old settings file without the section loads, and an empty section is not written.
         let old: Settings = serde_json::from_value(json!({ "mode": "expert" })).unwrap();
         assert!(old.export.is_empty());
-        assert!(serde_json::to_value(&fresh).unwrap()["export"]
-            .as_object()
-            .unwrap()
-            .is_empty());
+        // The empty choices are written out, so a reader always finds each kind of PDF.
+        assert_eq!(
+            serde_json::to_value(&fresh).unwrap()["export"],
+            json!({ "pdf": { "sharing": {}, "kdp": {}, "printShop": {} } })
+        );
         let chosen = Settings::default()
             .patched(&json!({ "export": {
                 "folder": "/home/mom/Books/out",

@@ -166,3 +166,47 @@ fn the_ignored_words_are_kept_and_an_empty_list_is_left_out() {
     let back: Book = serde_json::from_value(written).unwrap();
     assert_eq!(back.proofing.ignore, ["Zorblat"]);
 }
+
+#[test]
+fn a_book_without_export_choices_writes_none_and_with_them_keeps_every_key() {
+    use folio_model::PicturePreset;
+    let plain: Book = serde_json::from_value(sample()).unwrap();
+    assert!(plain.export.is_empty());
+    assert!(serde_json::to_value(&plain)
+        .unwrap()
+        .get("export")
+        .is_none());
+
+    let mut document = sample();
+    document["export"] = json!({
+        "pdf": {
+            "sharing": { "preset": "small", "fromANewerFolio": 7 },
+            "kdp": {}, "printShop": {}
+        },
+        "folder": "exports/print",
+        "alsoNewer": { "kept": true }
+    });
+    let book: Book = serde_json::from_value(document).unwrap();
+    assert_eq!(book.export.pdf.sharing.preset, Some(PicturePreset::Small));
+    assert_eq!(book.export.folder.as_deref(), Some("exports/print"));
+    let written = serde_json::to_value(&book).unwrap();
+    // Choices this version does not know sit beside the ones it does, and are written back.
+    assert_eq!(written["export"]["alsoNewer"], json!({ "kept": true }));
+    let again: Book = serde_json::from_value(written).unwrap();
+    assert_eq!(again.export, book.export);
+}
+
+#[test]
+fn a_build_that_does_not_know_export_choices_writes_them_back_untouched() {
+    // The state of an older Folio: no `export` field, so the key is one of the extensions.
+    let mut document = sample();
+    document["export"] = json!({ "pdf": { "sharing": { "preset": "small" } } });
+    let mut book: Book = serde_json::from_value(document.clone()).unwrap();
+    let kept = book.export.clone();
+    // An older build holds the key in `extensions` and writes it out as it was.
+    book.extensions
+        .insert("export".into(), serde_json::to_value(&kept).unwrap());
+    book.export = Default::default();
+    let written = serde_json::to_value(&book).unwrap();
+    assert_eq!(written["export"]["pdf"]["sharing"]["preset"], "small");
+}
