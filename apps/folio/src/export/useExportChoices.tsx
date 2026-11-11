@@ -17,6 +17,7 @@ import { DEFAULT_SETTINGS } from '../settings/fakeSettingsClient';
 import { SettingsContext } from '../settings/useSettings';
 import { settingsOf, type SettingsState } from '../settings/settingsStore';
 import { emptyPrefs, isBlank, kindOf, overlay, withPdf, type PdfKind } from './exportPrefs';
+import { ExpertPdfOptions } from './ExpertPdfOptions';
 import { PdfQuality } from './PdfQuality';
 import { SizeEstimate } from './SizeEstimate';
 
@@ -105,6 +106,9 @@ export function useExportChoices(
 					onMakeDefaults={store ? () => void makeDefaults() : undefined}
 					changed={!isBlank(edits)}
 				/>
+				{settings.mode === 'expert' && (
+					<ExpertPdfOptions kinds={kinds} user={user} book={book} edits={edits} onChange={change} />
+				)}
 				<SizeEstimate
 					client={client}
 					id={id}

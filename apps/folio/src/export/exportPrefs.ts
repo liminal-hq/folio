@@ -85,3 +85,69 @@ export function isBlank(prefs: ExportPrefs): boolean {
 			Object.values(value).every(blank));
 	return blank(prefs);
 }
+
+/** What nothing chosen means for each choice of a kind of PDF; the twin of Rust's built-in settings. */
+export function builtinPdf(kind: PdfKind): PdfPrefs {
+	return {
+		preset: BUILTIN_PRESET[kind],
+		compression: 'auto',
+		keepJpeg: false,
+		bookmarks: kind === 'sharing' ? 'chapters' : 'none',
+		pageLabels: kind === 'sharing',
+		links: false,
+		viewerLayout: 'single',
+		sheets: 'pages',
+		cover: 'front',
+		cropMarks: kind === 'printShop',
+		bleed: { kind: 'book' },
+		ink: false,
+	};
+}
+
+/** The ppi and quality a preset means, for showing what an empty field stands for. */
+export const PRESET_FACTS: Record<PicturePreset, { ppi: number | null; quality: number }> = {
+	small: { ppi: 100, quality: 60 },
+	standard: { ppi: 150, quality: 80 },
+	high: { ppi: 300, quality: 90 },
+	original: { ppi: null, quality: 95 },
+};
+
+/** The choices of a kind of PDF that its destination fixes, each with why. */
+export type LockedField = keyof PdfPrefs;
+
+const NO_EXTRAS: LockedField[] = [
+	'bookmarks',
+	'pageLabels',
+	'links',
+	'viewerLayout',
+	'subject',
+	'keywords',
+];
+const WHOLE_BOOK: LockedField[] = ['sheets', 'range', 'cover'];
+const NO_MARKS: LockedField[] = ['cropMarks', 'bleed', 'slug'];
+const SHOP_ONLY: LockedField[] = ['cropMarks', 'bleed', 'slug'];
+
+export type LockReason =
+	| 'export.locked.kdp.info'
+	| 'export.locked.pages'
+	| 'export.locked.marks'
+	| 'export.locked.links'
+	| 'export.locked.kdpInk';
+
+/** The message that says why `field` is fixed for `kind`, or `null` when it is free. */
+export function lockedBecause(kind: PdfKind, field: LockedField): LockReason | null {
+	if (kind === 'kdp') {
+		if (NO_EXTRAS.includes(field)) return 'export.locked.kdp.info';
+		if (WHOLE_BOOK.includes(field)) return 'export.locked.pages';
+		if (NO_MARKS.includes(field)) return 'export.locked.marks';
+		if (field === 'ink' || field === 'profile') return 'export.locked.kdpInk';
+	}
+	if (kind === 'printShop') {
+		if (field === 'links') return 'export.locked.links';
+		if (WHOLE_BOOK.includes(field)) return 'export.locked.pages';
+	}
+	if (kind === 'sharing' && (SHOP_ONLY.includes(field) || field === 'profile' || field === 'ink')) {
+		return 'export.locked.marks';
+	}
+	return null;
+}
