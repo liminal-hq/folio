@@ -227,6 +227,81 @@ impl Separator {
     }
 }
 
+#[allow(clippy::chunks_exact_to_as_chunks)]
+impl Separator {
+    /// Every pixel of `rgb` (three bytes each, sRGB) as ink, four bytes each. Unlike `cmyk`, a
+    /// picture's dark neutrals are separated like any other colour: only text wants black alone.
+    pub fn pixels(&self, rgb: &[u8]) -> Vec<u8> {
+        let count = rgb.len() / 3;
+        let mut out = vec![0u8; count * 4];
+        match &self.transform {
+            Some(transform) => {
+                let src: Vec<[u8; 3]> = rgb.chunks_exact(3).map(|p| [p[0], p[1], p[2]]).collect();
+                let mut dst = vec![[0u8; 4]; count];
+                transform.transform_pixels(&src, &mut dst);
+                for (to, from) in out.chunks_exact_mut(4).zip(dst) {
+                    to.copy_from_slice(&from);
+                }
+            }
+            None => {
+                for (to, from) in out.chunks_exact_mut(4).zip(rgb.chunks_exact(3)) {
+                    let ink = rgb_to_cmyk((from[0], from[1], from[2]));
+                    let plate = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+                    to.copy_from_slice(&[plate(ink.c), plate(ink.m), plate(ink.y), plate(ink.k)]);
+                }
+            }
+        }
+        out
+    }
+}
+
+impl Profile {
+    /// Whether this is an sRGB profile, by the name it gives itself: a picture in sRGB needs no
+    /// conversion, and most pictures are.
+    pub fn is_srgb(&self) -> bool {
+        self.inner
+            .info(lcms2::InfoType::Description, lcms2::Locale::none())
+            .is_some_and(|name| name.to_ascii_lowercase().contains("srgb"))
+    }
+
+    /// A conversion of RGB pixels in this profile to sRGB, or `None` when they already are, or the
+    /// profile does not describe RGB.
+    pub fn to_srgb(&self) -> Result<Option<ToSrgb>, ColourError> {
+        if self.space() != Space::Rgb || self.is_srgb() {
+            return Ok(None);
+        }
+        let srgb = LcmsProfile::new_srgb();
+        let transform = Transform::new_flags(
+            &self.inner,
+            PixelFormat::RGB_8,
+            &srgb,
+            PixelFormat::RGB_8,
+            LcmsIntent::RelativeColorimetric,
+            Flags::BLACKPOINT_COMPENSATION,
+        )
+        .map_err(|e| ColourError::BadProfile(e.to_string()))?;
+        Ok(Some(ToSrgb { transform }))
+    }
+}
+
+/// Turns the pixels of a picture in another RGB profile into sRGB.
+pub struct ToSrgb {
+    transform: Transform<[u8; 3], [u8; 3]>,
+}
+
+#[allow(clippy::chunks_exact_to_as_chunks)]
+impl ToSrgb {
+    /// Converts `rgb` (three bytes a pixel) in place.
+    pub fn pixels(&self, rgb: &mut [u8]) {
+        let src: Vec<[u8; 3]> = rgb.chunks_exact(3).map(|p| [p[0], p[1], p[2]]).collect();
+        let mut dst = vec![[0u8; 3]; src.len()];
+        self.transform.transform_pixels(&src, &mut dst);
+        for (to, from) in rgb.chunks_exact_mut(3).zip(dst) {
+            to.copy_from_slice(&from);
+        }
+    }
+}
+
 /// What a screen shows for a colour printed on a given press: the colour sent through the press's
 /// profile and back to sRGB, and whether it was outside what the press can reproduce.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

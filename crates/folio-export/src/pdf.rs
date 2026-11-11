@@ -27,6 +27,7 @@ use krilla::{Data, SerializeSettings};
 use folio_colour::Separator;
 
 use crate::error::ExportError;
+use crate::picture::{ImagePolicy, PictureCache};
 
 /// Where the bytes of a picture come from: the book's package, in the app.
 pub trait Assets {
@@ -77,13 +78,34 @@ pub struct InkOptions {
     pub profile: Option<Vec<u8>>,
 }
 
-/// Draws every page of `book` into a PDF.
+/// Draws every page of `book` into a PDF, with the pictures treated as the target usually has them.
 pub fn export_pdf(
     book: &Book,
     styles: &StyleSheet,
     fonts: &FontBook,
     assets: &dyn Assets,
     options: &PdfOptions,
+) -> Result<Vec<u8>, ExportError> {
+    export_pdf_with(
+        book,
+        styles,
+        fonts,
+        assets,
+        options,
+        &ImagePolicy::for_target(options.target),
+        &PictureCache::default(),
+    )
+}
+
+/// Draws every page of `book` into a PDF, its pictures prepared by `pictures` and kept in `cache`.
+pub fn export_pdf_with(
+    book: &Book,
+    styles: &StyleSheet,
+    fonts: &FontBook,
+    assets: &dyn Assets,
+    options: &PdfOptions,
+    pictures: &ImagePolicy,
+    cache: &PictureCache,
 ) -> Result<Vec<u8>, ExportError> {
     // A print PDF is the interior only: the cover is made for the cover file.
     let skip = usize::from(
@@ -121,6 +143,8 @@ pub fn export_pdf(
         }),
     };
     let mut drawing = Drawing::new(fonts, assets, separator, book.styles.swatches.clone());
+    drawing.policy = *pictures;
+    drawing.cache = cache.clone();
 
     let mut scenes = Vec::new();
     // The page each spread of the book begins on (the spreads left out have none), for the links
@@ -150,6 +174,7 @@ pub fn export_pdf(
         0.0
     };
     // Room outside the bleed for crop marks.
+    drawing.demand = crate::picture::demand(&scenes, assets, bleed);
     let slug = if shop && options.crop_marks {
         SLUG
     } else {
@@ -358,6 +383,10 @@ struct Drawing<'a> {
     /// its own font to the PDF.
     faces: HashMap<(String, u16, u32), Option<Font>>,
     images: HashMap<String, Option<Image>>,
+    /// The widest each picture is drawn, which is what it is sized for.
+    demand: crate::picture::Demand,
+    policy: ImagePolicy,
+    cache: PictureCache,
     /// Texture tiles made so far, by texture and tint, with each tile's side in points.
     textures: HashMap<String, Option<(Image, f64)>>,
 }
@@ -407,6 +436,9 @@ impl<'a> Drawing<'a> {
             assets,
             faces: HashMap::new(),
             images: HashMap::new(),
+            demand: HashMap::new(),
+            policy: ImagePolicy::standard(),
+            cache: PictureCache::default(),
             textures: HashMap::new(),
         }
     }
@@ -739,21 +771,11 @@ impl<'a> Drawing<'a> {
         if let Some(found) = self.images.get(path) {
             return found.clone();
         }
-        let made = self.assets.bytes(path).and_then(|bytes| {
-            let lower = path.to_ascii_lowercase();
-            let data: Data = Arc::new(bytes).into();
-            if lower.ends_with(".png") {
-                Image::from_png(data, true).ok()
-            } else if lower.ends_with(".jpg") || lower.ends_with(".jpeg") {
-                Image::from_jpeg(data, true).ok()
-            } else if lower.ends_with(".gif") {
-                Image::from_gif(data, true).ok()
-            } else if lower.ends_with(".webp") {
-                Image::from_webp(data, true).ok()
-            } else {
-                None
-            }
-        });
+        let width = self.demand.get(path).copied().unwrap_or(0.0);
+        let made = self
+            .cache
+            .get(path, self.assets, width, &self.policy)
+            .and_then(|prepared| prepared.image());
         self.images.insert(path.to_string(), made.clone());
         made
     }
