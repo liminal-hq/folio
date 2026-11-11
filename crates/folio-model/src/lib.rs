@@ -14,6 +14,7 @@ mod colour_walk;
 mod cover;
 mod cover_upgrade;
 mod edit;
+mod export_prefs;
 mod flow;
 mod frame;
 mod ids;
@@ -35,6 +36,7 @@ pub use colour_walk::{colours_of, resolve_swatches, visit_colours, visit_spread}
 pub use cover::*;
 pub use cover_upgrade::*;
 pub use edit::*;
+pub use export_prefs::*;
 pub use flow::*;
 pub use frame::*;
 pub use ids::*;

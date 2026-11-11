@@ -15,7 +15,7 @@ use folio_layout::{
     AssetFact, AssetFacts, BookFace, FlowCache, FontBook, FontSource, Layouter, ParagraphCache,
     StyleSheet,
 };
-use folio_model::{BookFont, Intent, SpreadId};
+use folio_model::{BookFont, ExportPrefs, Intent, SpreadId};
 use folio_package::{Package, SaveOptions};
 use folio_presets::{kind_infos, new_book, suggest_save_path, KindInfo, NewBookSpec};
 use folio_session::{Patch, Session};
@@ -27,11 +27,11 @@ use crate::spelling::Spelling;
 use crate::wire::{
     BatchOutcome, BookSnapshot, BookSpelling, BookSummary, BooksChanged, CoverCanvas,
     CoverSheetPreview, EditAnswer, EditRequest, ExportColour, ExportProgress, ExportReport,
-    ExportTarget, ExportedFile, FindReport, FindRequest, FontChoice, FontLicence, FontOrigin,
-    FontSkip, FontUse, KeepFontsReport, Misspelling, MisspeltWord, PastedHtml, PatchEvent,
-    PreviewChapter, PreviewImage, ProofColour, ProofPage, ProofSpread, ReaderPreview, Recoverable,
-    ReplaceReport, ReplaceRequest, SkippedFont, SmartNote, SpellCheck, SpreadLayoutResult,
-    StoryChapter, TemplateCard, TemplateGallery,
+    ExportRequest, ExportTarget, ExportedFile, FindReport, FindRequest, FontChoice, FontLicence,
+    FontOrigin, FontSkip, FontUse, KeepFontsReport, Misspelling, MisspeltWord, PastedHtml,
+    PatchEvent, PreviewChapter, PreviewImage, ProofColour, ProofPage, ProofSpread, ReaderPreview,
+    Recoverable, ReplaceReport, ReplaceRequest, SkippedFont, SmartNote, SpellCheck,
+    SpreadLayoutResult, StoryChapter, TemplateCard, TemplateGallery,
 };
 use crate::Host;
 
@@ -1978,20 +1978,61 @@ impl Books {
         targets: &[ExportTarget],
         colour: ExportColour,
     ) -> Result<ExportReport, Error> {
-        // The press's profile is read once; a file that is not a CMYK profile is refused up front.
-        let ink = match (&colour.profile, colour.cmyk) {
-            (Some(path), _) => {
-                let bytes =
-                    std::fs::read(path).map_err(|e| Error::Export(format!("{path}: {e}")))?;
-                folio_colour::Profile::from_icc(&bytes)
-                    .map_err(|e| Error::Export(format!("{path}: {e}")))?;
-                Some(folio_export::pdf::InkOptions {
-                    profile: Some(bytes),
+        self.export_with(
+            id,
+            &ExportRequest {
+                targets: targets.to_vec(),
+                colour: Some(colour),
+                ..ExportRequest::default()
+            },
+        )
+    }
+
+    /// Makes the files `request` asks for. Its settings are combined as `folio_export::prefs`
+    /// says: built-in, then the person's defaults (`user`), then this export's `prefs`; each target
+    /// puts right what its destination does not allow and the report says what it changed.
+    pub fn export_with(&self, id: &str, request: &ExportRequest) -> Result<ExportReport, Error> {
+        let targets = &request.targets;
+        for layer in [&request.prefs, &request.user].into_iter().flatten() {
+            layer.check().map_err(Error::Export)?;
+        }
+        // The old colour choice is the paperback's ink, below this export's own settings.
+        let colour = request.colour.clone().unwrap_or_default();
+        let mut colour_layer = ExportPrefs::default();
+        colour_layer.pdf.kdp.ink = Some(colour.cmyk || colour.profile.is_some());
+        colour_layer.pdf.kdp.profile = colour.profile.clone();
+        let empty = ExportPrefs::default();
+        let layers = [
+            request.user.as_ref().unwrap_or(&empty),
+            &colour_layer,
+            request.prefs.as_ref().unwrap_or(&empty),
+        ];
+        // Chapters are looked for only when a file wants bookmarks by chapter: it lays the book out.
+        let wants_chapters = targets.iter().any(|t| {
+            *t == ExportTarget::SharingPdf
+                && folio_export::prefs::wants_chapters(
+                    folio_export::prefs::PdfKind::Sharing,
+                    &layers,
+                )
+                || *t == ExportTarget::PrintShopPdf
+                    && folio_export::prefs::wants_chapters(
+                        folio_export::prefs::PdfKind::PrintShop,
+                        &layers,
+                    )
+        });
+        let chapters: Vec<folio_export::outline::Chapter> = if wants_chapters {
+            self.chapter_places(id)?
+                .into_iter()
+                .map(|(title, spread, page)| folio_export::outline::Chapter {
+                    title,
+                    spread,
+                    page,
                 })
-            }
-            (None, true) => Some(folio_export::pdf::InkOptions::default()),
-            (None, false) => None,
+                .collect()
+        } else {
+            Vec::new()
         };
+        let pictures = folio_export::picture::PictureCache::default();
         let base = self.fonts.get_or_init(FontBook::with_system_fonts);
         let (book, styles, assets, layered, folder, paper) = {
             let mut inner = locked(&self.inner);
@@ -2030,6 +2071,7 @@ impl Books {
             folder: folder.to_string_lossy().into_owned(),
             files: Vec::new(),
             cancelled: false,
+            notes: Vec::new(),
         };
         self.cancel_export.store(false, Ordering::SeqCst);
         for (done, &target) in targets.iter().enumerate() {
@@ -2044,7 +2086,51 @@ impl Books {
                 report.cancelled = true;
                 break;
             }
-            let made = folio_export::export_target(
+            let kind = match target {
+                ExportTarget::SharingPdf => Some(folio_export::prefs::PdfKind::Sharing),
+                ExportTarget::KdpInterior | ExportTarget::KdpCover => {
+                    Some(folio_export::prefs::PdfKind::Kdp)
+                }
+                ExportTarget::PrintShopPdf => Some(folio_export::prefs::PdfKind::PrintShop),
+                _ => None,
+            };
+            let (extras, ink) = match kind {
+                Some(kind) => {
+                    let mut resolved = folio_export::prefs::resolve(kind, &layers, &book);
+                    if let folio_export::outline::Bookmarks::Chapters(list) =
+                        &mut resolved.extras.navigation.bookmarks
+                    {
+                        list.clone_from(&chapters);
+                    }
+                    resolved.extras.cache = pictures.clone();
+                    for note in &resolved.notes {
+                        if !report.notes.contains(note) {
+                            report.notes.push(note.clone());
+                        }
+                    }
+                    // The press's profile is read once; a file that is not a CMYK profile is
+                    // refused up front.
+                    let ink = match (resolved.ink.enabled, &resolved.ink.profile) {
+                        (true, Some(path)) => {
+                            let bytes = std::fs::read(path)
+                                .map_err(|e| Error::Export(format!("{path}: {e}")))?;
+                            folio_colour::Profile::from_icc(&bytes)
+                                .map_err(|e| Error::Export(format!("{path}: {e}")))?;
+                            Some(folio_export::pdf::InkOptions {
+                                profile: Some(bytes),
+                            })
+                        }
+                        (true, None) => Some(folio_export::pdf::InkOptions::default()),
+                        (false, _) => None,
+                    };
+                    if kind == folio_export::prefs::PdfKind::PrintShop {
+                        resolved.extras.shop.ink = ink.clone();
+                    }
+                    (resolved.extras, ink)
+                }
+                None => (folio_export::PdfExtras::default(), None),
+            };
+            let made = folio_export::export_target_with(
                 match target {
                     ExportTarget::SharingPdf => folio_export::Target::SharingPdf,
                     ExportTarget::KdpInterior => folio_export::Target::KdpInterior,
@@ -2061,6 +2147,7 @@ impl Books {
                 fonts,
                 &source,
                 ink.as_ref(),
+                &extras,
             )
             .map_err(|e| Error::Export(e.to_string()))?;
             for file in made {

@@ -7,7 +7,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use folio_engine::{
-    Books, BooksChanged, Error, ExportColour, ExportProgress, ExportTarget, Host, PatchEvent,
+    Books, BooksChanged, Error, ExportColour, ExportProgress, ExportRequest, ExportTarget, Host,
+    PatchEvent,
 };
 use folio_model::{Intent, Pt, Rect, SpreadId, Surface};
 use folio_presets::NewBookSpec;
@@ -430,4 +431,58 @@ fn the_contents_lists_each_chapter_with_the_page_it_begins_on() {
         .find(|s| s.frames.iter().any(|f| f.base().id.0 == "toc_titles"))
         .expect("the contents page");
     assert_eq!(toc.frames.len(), 3);
+}
+
+#[test]
+fn export_settings_are_combined_and_each_target_says_what_it_changed() {
+    use folio_model::{BookmarkChoice, ExportPrefs, PdfPrefs, PicturePreset};
+    let books = Books::new(Arc::new(Recorder::default()));
+    let id = books
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id
+        .clone();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("Otter").join("Otter.folio");
+    books.save(&id, Some(file.as_path())).unwrap();
+
+    // The person's defaults ask for small pictures everywhere and bookmarks for each page; this
+    // export asks for none for the Sharing PDF.
+    let mut user = ExportPrefs::default();
+    user.pdf.sharing = PdfPrefs {
+        preset: Some(PicturePreset::Small),
+        bookmarks: Some(BookmarkChoice::Pages),
+        ..PdfPrefs::default()
+    };
+    user.pdf.kdp = PdfPrefs {
+        preset: Some(PicturePreset::Small),
+        bookmarks: Some(BookmarkChoice::Pages),
+        ..PdfPrefs::default()
+    };
+    let mut once = ExportPrefs::default();
+    once.pdf.sharing.bookmarks = Some(BookmarkChoice::None);
+    let report = books
+        .export_with(
+            &id,
+            &ExportRequest {
+                targets: vec![ExportTarget::SharingPdf, ExportTarget::KdpInterior],
+                prefs: Some(once),
+                user: Some(user),
+                ..ExportRequest::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(report.files.len(), 2);
+    let outlines = |i: usize| {
+        let doc = lopdf::Document::load(&report.files[i].path).unwrap();
+        doc.catalog().unwrap().has(b"Outlines")
+    };
+    assert!(!outlines(0), "this export's choice beats the person's");
+    assert!(!outlines(1), "a paperback has no bookmarks");
+    assert!(
+        report.notes.iter().any(|n| n.contains("Changed for KDP")),
+        "{:?}",
+        report.notes
+    );
 }

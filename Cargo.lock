@@ -1466,6 +1466,7 @@ dependencies = [
  "folio-session",
  "folio-spell",
  "log",
+ "lopdf",
  "regex",
  "schemars 1.2.3",
  "serde",

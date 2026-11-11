@@ -443,6 +443,30 @@ pub struct ExportReport {
     /// Set when the person stopped the export, so the files are those made before that.
     #[serde(default)]
     pub cancelled: bool,
+    /// What was changed because a destination needs it, one line each, such as "Changed for KDP:
+    /// pictures kept at 300 ppi".
+    #[serde(default)]
+    pub notes: Vec<String>,
+}
+
+/// What to export and with which choices.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ExportRequest {
+    pub targets: Vec<ExportTarget>,
+    /// The old paperback colour choice; `prefs` is the way now.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub colour: Option<ExportColour>,
+    /// Choices for this export only; they beat every other layer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub prefs: Option<folio_model::ExportPrefs>,
+    /// The person's own defaults, which the window reads from settings and passes in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub user: Option<folio_model::ExportPrefs>,
 }
 
 /// A chapter of the book as a reader shows it.

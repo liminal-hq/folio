@@ -840,8 +840,15 @@ export function createFakeBooksClient(): FakeBooks {
 			await call('cancelExport', []);
 			exportStopped = true;
 		},
-		async exportBook(id, targets, colour) {
-			await call('exportBook', colour ? [id, targets, colour] : [id, targets]);
+		async exportBook(id, targets, colour, choices) {
+			await call(
+				'exportBook',
+				choices
+					? [id, targets, colour ?? null, choices]
+					: colour
+						? [id, targets, colour]
+						: [id, targets],
+			);
 			find(id);
 			const names: Record<string, string[]> = {
 				sharingPdf: ['pip-share.pdf'],
@@ -858,6 +865,7 @@ export function createFakeBooksClient(): FakeBooks {
 				folder: '/home/mom/Books/Pip/exports',
 				files: [],
 				cancelled: false,
+				notes: [],
 			};
 			for (const [done, target] of targets.entries()) {
 				for (const listener of exportListeners)

@@ -12,4 +12,9 @@ folder: string, files: Array<ExportedFile>,
 /**
  * Set when the person stopped the export, so the files are those made before that.
  */
-cancelled: boolean, };
+cancelled: boolean, 
+/**
+ * What was changed because a destination needs it, one line each, such as "Changed for KDP:
+ * pictures kept at 300 ppi".
+ */
+notes: Array<string>, };

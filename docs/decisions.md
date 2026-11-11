@@ -351,3 +351,7 @@ The PDF writer used to pass every picture of the book to the library untouched, 
 ## D-72 · Fonts stay subset and transparency stays live in every PDF
 
 Full font embedding and transparency flattening are not offered for any PDF. The PDF writer (`krilla`) only embeds subsets of the glyphs a book uses, KDP accepts embedded subsets, and PDF/X-4 allows live transparency; flattening belongs with PDF/X-1a (D-42). The paperback row of `spec/05-export.md` is corrected to say so, with a ⚠ to check against KDP's help pages before a release.
+
+## D-73 · Export settings: built-in, then your defaults, then the book's, then this export's
+
+A person's PDF choices live in four layers, each of which may leave any choice unset: Folio's built-in settings for each kind of file (Sharing, KDP paperback, print shop), the person's own defaults (kept in settings), the book's own (kept in the book, so a collaborator's export matches), and the choices of one export. `folio_export::prefs::resolve` is the one place they are combined: the highest layer that made a choice wins. Each target then locks what its destination requires, putting a value right instead of refusing it and saying so ("Changed for KDP: pictures kept at 300 ppi"). Rust does the combining: the window reads the person's defaults from settings and passes them in with the request, since plugins never call each other (D-27). The old paperback colour choice (`ExportColour`) stays for agents and sits below this export's own choices.

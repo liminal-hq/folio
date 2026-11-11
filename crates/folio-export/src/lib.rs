@@ -17,6 +17,7 @@ pub mod pages;
 pub mod pdf;
 pub mod pdfx;
 pub mod picture;
+pub mod prefs;
 pub mod proof;
 pub mod raster;
 pub mod shop;

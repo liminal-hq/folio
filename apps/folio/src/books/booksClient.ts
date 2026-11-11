@@ -107,6 +107,7 @@ import {
 	type ReplaceReport,
 	type ReplaceRequest,
 } from '@liminal-hq/folio-plugin-books';
+import type { ExportChoices } from '@liminal-hq/folio-plugin-books';
 
 /** Hears what happens to the open books, from any window. */
 export interface BooksListener {
@@ -199,7 +200,12 @@ export interface BooksClient {
 	/** Stops the export in progress after the file it is making; what was made is kept. */
 	cancelExport(): Promise<void>;
 	/** Makes the files for `targets` and writes them into the book's `exports` folder. */
-	exportBook(id: string, targets: ExportTarget[], colour?: ExportColour): Promise<ExportReport>;
+	exportBook(
+		id: string,
+		targets: ExportTarget[],
+		colour?: ExportColour,
+		choices?: ExportChoices,
+	): Promise<ExportReport>;
 	/** Brings the words of a Markdown or plain text file in as the book's story. */
 	importText(
 		id: string,

@@ -37,3 +37,4 @@ ureq = "3"
 
 [dev-dependencies]
 tempfile = "3"
+lopdf = "0.34"
