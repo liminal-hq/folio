@@ -13,6 +13,7 @@ pub mod error;
 pub mod fixed;
 pub mod job;
 pub mod outline;
+pub mod pages;
 pub mod pdf;
 pub mod pdfx;
 pub mod picture;

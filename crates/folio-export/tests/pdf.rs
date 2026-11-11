@@ -543,3 +543,45 @@ fn linked_words_are_link_annotations_over_their_lines_and_only_a_file_for_the_sc
         );
     }
 }
+
+#[test]
+fn a_link_follows_its_spread_into_a_page_range_and_is_left_out_when_the_spread_is_not_kept() {
+    let (mut book, styles) = sample(BookKind::Picture);
+    let fonts = FontBook::bundled();
+    let spreads = book.spreads.len();
+    for frame in book.spreads.iter_mut().flat_map(|s| s.frames.iter_mut()) {
+        if let folio_model::Frame::Text(t) = frame {
+            for run in t.content.iter_mut().flat_map(|c| c.inline.iter_mut()) {
+                run.href = Some(format!("#spread-{spreads}"));
+            }
+        }
+    }
+    let make = |range| {
+        export_pdf(
+            &book,
+            &styles,
+            &fonts,
+            &NoAssets,
+            &PdfOptions {
+                target: PdfTarget::Sharing,
+                pages: folio_export::pages::PageChoice {
+                    range,
+                    ..Default::default()
+                },
+                ..PdfOptions::default()
+            },
+        )
+        .unwrap()
+    };
+    let whole = make(None);
+    let total = Document::load_mem(&whole).unwrap().get_pages().len();
+    let last = book.spreads[spreads - 1].pages.len();
+    // Only the pages of the last spread: its links go to the first page of the file.
+    let tail = make(Some((total - last + 1, total)));
+    let found = links(&tail);
+    assert!(!found.is_empty());
+    assert!(found.iter().all(|(_, page)| *page == Some(1)), "{found:?}");
+    // Only the first page: the last spread is not in the file, so its links are left out.
+    let head = make(Some((1, 1)));
+    assert!(links(&head).is_empty());
+}

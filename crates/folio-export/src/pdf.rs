@@ -27,6 +27,7 @@ use folio_colour::Separator;
 
 use crate::error::ExportError;
 use crate::outline::{Navigation, Origin};
+use crate::pages::{CoverPages, PageChoice};
 use crate::picture::{ImagePolicy, PictureCache};
 
 /// Where the bytes of a picture come from: the book's package, in the app.
@@ -71,6 +72,8 @@ pub struct PdfOptions {
     pub crop_marks: bool,
     /// Bookmarks, page labels and what the file says about itself.
     pub navigation: Navigation,
+    /// Which pages the file has and how they sit on its sheets.
+    pub pages: PageChoice,
 }
 
 /// Print colour for a file.
@@ -109,9 +112,10 @@ pub fn export_pdf_with(
     pictures: &ImagePolicy,
     cache: &PictureCache,
 ) -> Result<Vec<u8>, ExportError> {
+    let choice = options.pages.for_target(options.target);
     // A print PDF is the interior only: the cover is made for the cover file.
     let skip = usize::from(
-        options.target == PdfTarget::Print
+        (options.target == PdfTarget::Print || choice.cover == CoverPages::None)
             && book
                 .spreads
                 .first()
@@ -119,7 +123,7 @@ pub fn export_pdf_with(
     );
     // Only the cover file wants the whole cover: everything else wants the front, as a page.
     let front;
-    let book = if options.target == PdfTarget::Cover {
+    let book = if options.target == PdfTarget::Cover || choice.cover == CoverPages::FrontAndBack {
         book
     } else {
         front = folio_model::front_cover_view(book);
@@ -183,6 +187,22 @@ pub fn export_pdf_with(
         }
     }
     let navigation = options.navigation.for_target(options.target);
+    let kept = crate::pages::kept(scenes.len(), choice.range);
+    if kept != (0..scenes.len()) {
+        // A link to a spread that falls outside the kept pages goes nowhere.
+        for page in first_page.iter_mut() {
+            *page = page.and_then(|p| kept.contains(&p).then(|| p - kept.start));
+        }
+        origins = origins[kept.clone()].to_vec();
+        scenes = scenes[kept].to_vec();
+    }
+    let sheets = crate::pages::sheets(&origins, choice.sheets);
+    // A link goes to the sheet that holds the page its spread begins on.
+    for page in first_page.iter_mut() {
+        *page = page.and_then(|p| sheets.iter().position(|s| s.contains(&p)));
+    }
+    // A sheet is labelled and bookmarked as the first page on it.
+    let sheet_origins: Vec<Origin> = sheets.iter().map(|s| origins[s[0]].clone()).collect();
     if scenes.is_empty() {
         return Err(ExportError::NoPages);
     }
@@ -205,10 +225,20 @@ pub fn export_pdf_with(
     };
     // A printed book has an even number of pages: a blank one closes an odd count.
     let blank_at_end = print && scenes.len() % 2 == 1;
-    let total = scenes.len() + usize::from(blank_at_end);
+    let total = sheets.len() + usize::from(blank_at_end);
     for number in 0..total {
-        let page = scenes.get(number);
-        let (width, height) = page.map_or((book.trim.w.0, book.trim.h.0), |p| (p.width, p.height));
+        let members: Vec<&folio_layout::scene::PageScene> = sheets
+            .get(number)
+            .map(|s| s.iter().filter_map(|&i| scenes.get(i)).collect())
+            .unwrap_or_default();
+        let page = members.first().copied();
+        let (width, height) = match page {
+            None => (book.trim.w.0, book.trim.h.0),
+            Some(_) => (
+                members.iter().map(|p| p.width).sum(),
+                members.iter().map(|p| p.height).fold(0.0, f64::max),
+            ),
+        };
         let recto = page.map_or(number % 2 == 0, |p| p.recto);
         // KDP's bleed is on the outer edge, away from the fold; a print shop's is on every side.
         let (left, right) = match (shop || sheet, recto) {
@@ -227,7 +257,10 @@ pub fn export_pdf_with(
             .ok_or_else(|| ExportError::Pdf("a page has no size".into()))?;
         let mut settings = PageSettings::new(size);
         if navigation.page_labels {
-            if let Some(label) = origins.get(number).and_then(crate::outline::page_label) {
+            if let Some(label) = sheet_origins
+                .get(number)
+                .and_then(crate::outline::page_label)
+            {
                 settings = settings.with_page_label(label);
             }
         }
@@ -253,10 +286,32 @@ pub fn export_pdf_with(
         if moved {
             surface.push_transform(&Transform::from_translate(origin_x as f32, origin_y as f32));
         }
-        if let Some(page) = page {
-            for item in &page.items {
-                drawing.item(&mut surface, item, &area);
+        // The pages of a sheet sit side by side, each drawn in its own coordinates.
+        let mut across = 0.0;
+        for page in &members {
+            let shifted = across != 0.0;
+            if shifted {
+                surface.push_transform(&Transform::from_translate(across as f32, 0.0));
             }
+            let own = SceneRect {
+                w: page.width,
+                ..area
+            };
+            for item in &page.items {
+                drawing.item(
+                    &mut surface,
+                    item,
+                    if shifted || members.len() > 1 {
+                        &own
+                    } else {
+                        &area
+                    },
+                );
+            }
+            if shifted {
+                surface.pop();
+            }
+            across += page.width;
         }
         if slug > 0.0 {
             drawing.crop_marks(&mut surface, width, height, bleed);
@@ -266,9 +321,18 @@ pub fn export_pdf_with(
         }
         surface.finish();
         // Links are for a file that is read on a screen; a file for print carries none.
-        if let (Some(page), PdfTarget::Sharing) = (page, options.target) {
-            for link in link_annotations(page, &first_page, scenes.len(), (origin_x, origin_y)) {
-                pdf_page.add_annotation(link);
+        if options.target == PdfTarget::Sharing {
+            let mut across = 0.0;
+            for page in &members {
+                for link in link_annotations(
+                    page,
+                    &first_page,
+                    sheets.len(),
+                    (origin_x + across, origin_y),
+                ) {
+                    pdf_page.add_annotation(link);
+                }
+                across += page.width;
             }
         }
         pdf_page.finish();
@@ -281,7 +345,7 @@ pub fn export_pdf_with(
         &authors,
         &book.language,
     );
-    if let Some(outline) = crate::outline::outline(&navigation.bookmarks, &origins) {
+    if let Some(outline) = crate::outline::outline(&navigation.bookmarks, &sheet_origins) {
         document.set_outline(outline);
     }
     document.set_metadata(metadata);
