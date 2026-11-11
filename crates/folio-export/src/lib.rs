@@ -7,6 +7,7 @@
 //! a file holds the very glyphs layout chose.
 
 pub mod barcode;
+pub mod cancel;
 pub mod cover;
 pub mod epub;
 pub mod error;

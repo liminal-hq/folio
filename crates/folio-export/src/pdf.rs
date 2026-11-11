@@ -77,6 +77,8 @@ pub struct PdfOptions {
     pub pages: PageChoice,
     /// What only a print shop's file has: its bleed, the room for crop marks and press ink.
     pub shop: ShopOptions,
+    /// Stops the file when a newer request has made it not worth finishing.
+    pub cancel: crate::cancel::Cancel,
 }
 
 /// Print colour for a file.
@@ -163,6 +165,7 @@ pub fn export_pdf_with(
     let mut drawing = Drawing::new(fonts, assets, separator, book.styles.swatches.clone());
     drawing.policy = *pictures;
     drawing.cache = cache.clone();
+    drawing.cancel = options.cancel.clone();
     drawing.ink_key = match ink.and_then(|ink| ink.profile.as_ref()) {
         Some(bytes) => {
             use std::hash::{Hash, Hasher};
@@ -241,6 +244,9 @@ pub fn export_pdf_with(
     let blank_at_end = print && scenes.len() % 2 == 1;
     let total = sheets.len() + usize::from(blank_at_end);
     for number in 0..total {
+        if options.cancel.is_set() {
+            return Err(ExportError::Cancelled);
+        }
         let members: Vec<&folio_layout::scene::PageScene> = sheets
             .get(number)
             .map(|s| s.iter().filter_map(|&i| scenes.get(i)).collect())
@@ -507,6 +513,7 @@ struct Drawing<'a> {
     demand: crate::picture::Demand,
     policy: ImagePolicy,
     cache: PictureCache,
+    cancel: crate::cancel::Cancel,
     /// Tells one separation from another, so the cache keeps each apart.
     ink_key: u64,
     /// Texture tiles made so far, by texture and tint, with each tile's side in points.
@@ -558,6 +565,7 @@ impl<'a> Drawing<'a> {
             demand: HashMap::new(),
             policy: ImagePolicy::standard(),
             cache: PictureCache::default(),
+            cancel: Default::default(),
             ink_key: 0,
             textures: HashMap::new(),
         }
@@ -890,6 +898,9 @@ impl<'a> Drawing<'a> {
     fn image(&mut self, path: &str) -> Option<Image> {
         if let Some(found) = self.images.get(path) {
             return found.clone();
+        }
+        if self.cancel.is_set() {
+            return None;
         }
         let width = self.demand.get(path).copied().unwrap_or(0.0);
         let made = self

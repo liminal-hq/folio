@@ -16,6 +16,7 @@ import type { CoverCanvas } from '@liminal-hq/folio-protocol/generated/CoverCanv
 import type { StoryChapter } from '@liminal-hq/folio-protocol/generated/StoryChapter';
 import type { ProofSpread } from '@liminal-hq/folio-protocol/generated/ProofSpread';
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
+import type { SizeEstimate } from '@liminal-hq/folio-protocol/generated/SizeEstimate';
 import type { ExportColour } from '@liminal-hq/folio-protocol/generated/ExportColour';
 import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
 import type { CoverSheetPreview } from '@liminal-hq/folio-protocol/generated/CoverSheetPreview';
@@ -43,6 +44,7 @@ import {
 	unkeepFonts,
 	readerPreview,
 	exportBook,
+	estimateExport,
 	proofSpread,
 	previewCoverSheet,
 	coverSheetCanvas,
@@ -206,6 +208,13 @@ export interface BooksClient {
 		colour?: ExportColour,
 		choices?: ExportChoices,
 	): Promise<ExportReport>;
+	/** How big the PDFs would be; a newer ask stops an older one, which answers `cancelled`. */
+	estimateExport(
+		id: string,
+		targets: ExportTarget[],
+		colour?: ExportColour,
+		choices?: ExportChoices,
+	): Promise<SizeEstimate>;
 	/** Brings the words of a Markdown or plain text file in as the book's story. */
 	importText(
 		id: string,
@@ -280,6 +289,7 @@ export const tauriBooksClient: BooksClient = {
 	spellSuggest,
 	readerPreview,
 	exportBook,
+	estimateExport,
 	proofSpread,
 	previewCoverSheet,
 	coverSheetCanvas,

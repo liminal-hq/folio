@@ -272,6 +272,7 @@ pub fn resolve(kind: PdfKind, layers: &[&ExportPrefs], book: &Book) -> Resolved 
             shop,
             pictures: Some(picture_policy(&prefs)),
             cache: Default::default(),
+            cancel: Default::default(),
         },
         ink,
         wants_chapters: chapters,

@@ -13,6 +13,7 @@ import type { DictionaryOffer } from '@liminal-hq/folio-protocol/generated/Dicti
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import type { ExportColour } from '@liminal-hq/folio-protocol/generated/ExportColour';
+import type { SizeEstimate } from '@liminal-hq/folio-protocol/generated/SizeEstimate';
 import type { ExportPrefs } from '@liminal-hq/folio-protocol/generated/ExportPrefs';
 import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
 import type { CoverSheetPreview } from '@liminal-hq/folio-protocol/generated/CoverSheetPreview';
@@ -343,6 +344,25 @@ export function exportBook(
 	choices?: ExportChoices,
 ): Promise<ExportReport> {
 	return cmd<ExportReport>('export_book', {
+		id,
+		targets,
+		colour,
+		prefs: choices?.prefs ?? null,
+		user: choices?.user ?? null,
+	});
+}
+
+/**
+ * How big the PDFs `targets` would be, made in memory with the choices `exportBook` would use.
+ * Asking again while one is working stops the older; its answer says `cancelled`.
+ */
+export function estimateExport(
+	id: string,
+	targets: ExportTarget[],
+	colour?: ExportColour,
+	choices?: ExportChoices,
+): Promise<SizeEstimate> {
+	return cmd<SizeEstimate>('estimate_export', {
 		id,
 		targets,
 		colour,

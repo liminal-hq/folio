@@ -333,3 +333,35 @@ fn pictures_in_a_file_in_ink_are_cmyk_whatever_they_were() {
     }
     assert!(made.iter().any(|p| p.has_mask), "transparency is kept");
 }
+
+#[test]
+fn a_cancelled_export_stops_and_a_second_export_reuses_the_pictures() {
+    let assets = Memory(HashMap::from([(
+        "a.png".to_string(),
+        png(&noise(1800, 1800, 31).into()),
+    )]));
+    let (book, styles) = book_showing(&["a.png"]);
+    let fonts = FontBook::bundled();
+    let stopped = PdfOptions {
+        target: PdfTarget::Sharing,
+        cancel: folio_export::cancel::Cancel::when(|| true),
+        ..PdfOptions::default()
+    };
+    let result = export_pdf(&book, &styles, &fonts, &assets, &stopped);
+    assert!(matches!(result, Err(folio_export::ExportError::Cancelled)));
+
+    let cache = PictureCache::default();
+    let options = PdfOptions {
+        target: PdfTarget::Sharing,
+        ..PdfOptions::default()
+    };
+    let policy = ImagePolicy::standard();
+    let first =
+        export_pdf_with(&book, &styles, &fonts, &assets, &options, &policy, &cache).unwrap();
+    let kept = cache.bytes();
+    assert!(kept > 0, "the prepared picture is kept");
+    let second =
+        export_pdf_with(&book, &styles, &fonts, &assets, &options, &policy, &cache).unwrap();
+    assert_eq!(cache.bytes(), kept, "nothing was made again");
+    assert_eq!(first.len(), second.len());
+}

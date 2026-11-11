@@ -194,7 +194,27 @@ impl Prepared {
 /// What was made of each picture, kept so a second export, or an estimate that is then exported,
 /// does not make them again. Cheap to clone: the clones share one store.
 #[derive(Clone, Default)]
-pub struct PictureCache(Arc<Mutex<HashMap<CacheKey, Option<Prepared>>>>);
+pub struct PictureCache(Arc<Mutex<Store>>);
+
+#[derive(Default)]
+struct Store {
+    made: HashMap<CacheKey, Option<Prepared>>,
+    bytes: usize,
+}
+
+/// The most a book's pictures may take in the cache, in bytes. A cache over it starts again, since
+/// a picture is made in a fraction of a second and the estimate is only a convenience.
+pub const CACHE_LIMIT: usize = 256 * 1024 * 1024;
+
+impl Prepared {
+    /// About how many bytes the picture holds.
+    fn size(&self) -> usize {
+        match self {
+            Self::PassThrough(bytes, _) | Self::Jpeg(bytes) => bytes.len(),
+            Self::Raw(raw) => raw.colour.len() + raw.alpha.as_ref().map_or(0, |a| a.len()),
+        }
+    }
+}
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 struct CacheKey {
@@ -464,6 +484,11 @@ pub fn prepare(
 }
 
 impl PictureCache {
+    /// How many bytes of pictures are kept.
+    pub fn bytes(&self) -> usize {
+        self.0.lock().map_or(0, |store| store.bytes)
+    }
+
     /// The picture at `path` prepared for the widest place it is drawn, made once.
     pub fn get(
         &self,
@@ -483,11 +508,18 @@ impl PictureCache {
             policy: policy.key(),
             ink: ink.map_or(0, |i| i.key),
         };
-        if let Some(found) = self.0.lock().ok()?.get(&key) {
+        if let Some(found) = self.0.lock().ok()?.made.get(&key) {
             return found.clone();
         }
         let made = prepare(bytes, width, policy, ink);
-        self.0.lock().ok()?.insert(key, made.clone());
+        let mut store = self.0.lock().ok()?;
+        let size = made.as_ref().map_or(0, Prepared::size);
+        if store.bytes + size > CACHE_LIMIT {
+            store.made.clear();
+            store.bytes = 0;
+        }
+        store.bytes += size;
+        store.made.insert(key, made.clone());
         made
     }
 }

@@ -449,6 +449,21 @@ pub struct ExportReport {
     pub notes: Vec<String>,
 }
 
+/// How big the PDFs of a request would be, from making them in memory.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct SizeEstimate {
+    /// The bytes of every PDF in the request together.
+    #[ts(type = "number")]
+    pub bytes: u64,
+    /// How many pictures the book has.
+    pub pictures: u32,
+    /// Set when a newer estimate was asked for before this one was done, so `bytes` is not whole.
+    #[serde(default)]
+    pub cancelled: bool,
+}
+
 /// What to export and with which choices.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

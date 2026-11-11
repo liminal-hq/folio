@@ -30,7 +30,7 @@ use crate::wire::{
     ExportRequest, ExportTarget, ExportedFile, FindReport, FindRequest, FontChoice, FontLicence,
     FontOrigin, FontSkip, FontUse, KeepFontsReport, Misspelling, MisspeltWord, PastedHtml,
     PatchEvent, PreviewChapter, PreviewImage, ProofColour, ProofPage, ProofSpread, ReaderPreview,
-    Recoverable, ReplaceReport, ReplaceRequest, SkippedFont, SmartNote, SpellCheck,
+    Recoverable, ReplaceReport, ReplaceRequest, SizeEstimate, SkippedFont, SmartNote, SpellCheck,
     SpreadLayoutResult, StoryChapter, TemplateCard, TemplateGallery,
 };
 use crate::Host;
@@ -187,6 +187,9 @@ struct OpenBook {
     paragraphs: Option<(Vec<BookFont>, Arc<ParagraphCache>)>,
     /// Keeps other programs from opening the book's file while it is open here.
     lock: Option<BookLock>,
+    /// The pictures as an export makes them, kept so the estimate in the Export dialog and the
+    /// export itself make each picture once (up to a limit).
+    pictures: folio_export::picture::PictureCache,
 }
 
 impl OpenBook {
@@ -381,6 +384,8 @@ pub struct Books {
     pub recovery: Recovery,
     /// Set to stop the export in progress before its next file.
     cancel_export: AtomicBool,
+    /// Counts the estimates asked for; one made for an older count stops when a newer is asked.
+    estimates: Arc<std::sync::atomic::AtomicU64>,
 }
 
 impl Books {
@@ -395,6 +400,7 @@ impl Books {
             spelling: Spelling::default(),
             recovery: Recovery::default(),
             cancel_export: AtomicBool::new(false),
+            estimates: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         }
     }
 
@@ -621,6 +627,7 @@ impl Books {
             flow_cache: None,
             paragraphs: None,
             lock,
+            pictures: Default::default(),
         };
         let snapshot = book.snapshot();
         inner.books.push(book);
@@ -2013,6 +2020,41 @@ impl Books {
     /// says: built-in, then the person's defaults (`user`), then this export's `prefs`; each target
     /// puts right what its destination does not allow and the report says what it changed.
     pub fn export_with(&self, id: &str, request: &ExportRequest) -> Result<ExportReport, Error> {
+        self.make_files(id, request, None).map(|(report, _)| report)
+    }
+
+    /// How big the PDFs `request` asks for would be, made in memory exactly as an export makes them,
+    /// with the pictures kept for the export that follows. Another estimate asked for while this one
+    /// works stops it, and the answer says `cancelled`. EPUBs and the cover picture are not counted.
+    pub fn estimate_export(
+        &self,
+        id: &str,
+        request: &ExportRequest,
+    ) -> Result<SizeEstimate, Error> {
+        let mine = self.estimates.fetch_add(1, Ordering::SeqCst) + 1;
+        let (report, pictures) = self.make_files(id, request, Some(mine))?;
+        let pdfs = report
+            .files
+            .iter()
+            .filter(|f| f.target != ExportTarget::EbookCover)
+            .map(|f| u64::from(f.bytes))
+            .sum();
+        Ok(SizeEstimate {
+            bytes: pdfs,
+            pictures,
+            cancelled: report.cancelled,
+        })
+    }
+
+    /// Makes the files of `request`: written to the folder for an export, or (with `estimate` the
+    /// count this estimate was asked at) only measured. Answers with the report and how many
+    /// pictures the book has.
+    fn make_files(
+        &self,
+        id: &str,
+        request: &ExportRequest,
+        estimate: Option<u64>,
+    ) -> Result<(ExportReport, u32), Error> {
         let targets = &request.targets;
         for layer in [&request.prefs, &request.user].into_iter().flatten() {
             layer.check().map_err(Error::Export)?;
@@ -2055,9 +2097,8 @@ impl Books {
         } else {
             Vec::new()
         };
-        let pictures = folio_export::picture::PictureCache::default();
         let base = self.fonts.get_or_init(FontBook::with_system_fonts);
-        let (book, styles, assets, layered, folder, paper) = {
+        let (book, styles, assets, layered, folder, paper, pictures) = {
             let mut inner = locked(&self.inner);
             let open = inner
                 .books
@@ -2083,7 +2124,15 @@ impl Books {
             };
             let styles = style_sheet(&book.styles);
             let layered = open.font_book(base);
-            (book, styles, assets, layered, folder, paper)
+            (
+                book,
+                styles,
+                assets,
+                layered,
+                folder,
+                paper,
+                open.pictures.clone(),
+            )
         };
         let fonts = layered.as_deref().unwrap_or(base);
         let mut notes: Vec<String> = Vec::new();
@@ -2096,8 +2145,12 @@ impl Books {
                 }
                 folder.join("exports")
             });
-        std::fs::create_dir_all(&folder)
-            .map_err(|e| Error::Export(format!("{}: {e}", folder.display())))?;
+        // An estimate writes nothing, so it makes no folder.
+        if estimate.is_none() {
+            std::fs::create_dir_all(&folder)
+                .map_err(|e| Error::Export(format!("{}: {e}", folder.display())))?;
+        }
+        let picture_count = assets.len() as u32;
         let source = MemoryAssets(assets);
         let mut report = ExportReport {
             folder: folder.to_string_lossy().into_owned(),
@@ -2105,18 +2158,41 @@ impl Books {
             cancelled: false,
             notes,
         };
-        self.cancel_export.store(false, Ordering::SeqCst);
+        if estimate.is_none() {
+            self.cancel_export.store(false, Ordering::SeqCst);
+        }
+        let superseded = |mine: u64, latest: &Arc<std::sync::atomic::AtomicU64>| {
+            latest.load(Ordering::SeqCst) != mine
+        };
         for (done, &target) in targets.iter().enumerate() {
-            let progress = ExportProgress {
-                id: id.to_owned(),
-                target,
-                done: done as u32,
-                total: targets.len() as u32,
-            };
-            self.host.export_progress(&progress);
-            if self.cancel_export.swap(false, Ordering::SeqCst) {
-                report.cancelled = true;
-                break;
+            if let Some(mine) = estimate {
+                // A newer estimate has been asked for: this one is not worth finishing.
+                if superseded(mine, &self.estimates) {
+                    report.cancelled = true;
+                    break;
+                }
+                // Only PDFs are counted.
+                if !matches!(
+                    target,
+                    ExportTarget::SharingPdf
+                        | ExportTarget::KdpInterior
+                        | ExportTarget::KdpCover
+                        | ExportTarget::PrintShopPdf
+                ) {
+                    continue;
+                }
+            } else {
+                let progress = ExportProgress {
+                    id: id.to_owned(),
+                    target,
+                    done: done as u32,
+                    total: targets.len() as u32,
+                };
+                self.host.export_progress(&progress);
+                if self.cancel_export.swap(false, Ordering::SeqCst) {
+                    report.cancelled = true;
+                    break;
+                }
             }
             let kind = match target {
                 ExportTarget::SharingPdf => Some(folio_export::prefs::PdfKind::Sharing),
@@ -2135,6 +2211,12 @@ impl Books {
                         list.clone_from(&chapters);
                     }
                     resolved.extras.cache = pictures.clone();
+                    if let Some(mine) = estimate {
+                        let latest = self.estimates.clone();
+                        resolved.extras.cancel = folio_export::cancel::Cancel::when(move || {
+                            latest.load(Ordering::SeqCst) != mine
+                        });
+                    }
                     for note in &resolved.notes {
                         if !report.notes.contains(note) {
                             report.notes.push(note.clone());
@@ -2181,8 +2263,25 @@ impl Books {
                 ink.as_ref(),
                 &extras,
             )
-            .map_err(|e| Error::Export(e.to_string()))?;
+            .map_err(|e| Error::Export(e.to_string()));
+            let made = match made {
+                Ok(made) => made,
+                // A newer estimate stopped this one part-way.
+                Err(_) if estimate.is_some_and(|mine| superseded(mine, &self.estimates)) => {
+                    report.cancelled = true;
+                    break;
+                }
+                Err(e) => return Err(e),
+            };
             for file in made {
+                if estimate.is_some() {
+                    report.files.push(ExportedFile {
+                        target,
+                        path: String::new(),
+                        bytes: file.bytes.len().try_into().unwrap_or(u32::MAX),
+                    });
+                    continue;
+                }
                 let path = folder.join(&file.file_name);
                 let partial = folder.join(format!(".{}.partial", file.file_name));
                 std::fs::write(&partial, &file.bytes)
@@ -2195,7 +2294,7 @@ impl Books {
                 });
             }
         }
-        Ok(report)
+        Ok((report, picture_count))
     }
 
     /// Every family the book can draw in, bundled first, then the book's own, then the computer's,
@@ -2717,5 +2816,50 @@ fn template_metrics(book: &folio_model::Book) -> folio_presets::templates::Metri
         h: book.trim.h.to_in(),
         m: book.margins.outside.to_in().max(0.25),
         b: book.bleed.to_in(),
+    }
+}
+
+#[cfg(test)]
+mod estimate_tests {
+    use super::*;
+
+    struct Quiet;
+    impl crate::Host for Quiet {
+        fn books_changed(&self, _: &crate::BooksChanged) {}
+        fn patched(&self, _: &crate::PatchEvent) {}
+        fn export_progress(&self, _: &ExportProgress) {}
+        fn home_dir(&self) -> Option<PathBuf> {
+            None
+        }
+        fn document_dir(&self) -> Option<PathBuf> {
+            None
+        }
+        fn version(&self) -> String {
+            "test".into()
+        }
+    }
+
+    #[test]
+    fn a_newer_estimate_stops_an_older_one() {
+        let books = Books::new(Arc::new(Quiet));
+        let id = books
+            .new_book(&NewBookSpec::default())
+            .unwrap()
+            .summary
+            .id
+            .clone();
+        let request = ExportRequest {
+            targets: vec![ExportTarget::SharingPdf],
+            ..ExportRequest::default()
+        };
+        // An estimate asked at count 1 finds, when it starts, that count 2 has been asked for.
+        books.estimates.store(2, Ordering::SeqCst);
+        let (report, _) = books.make_files(&id, &request, Some(1)).unwrap();
+        assert!(report.cancelled);
+        assert!(report.files.is_empty());
+        // The newest one runs to its end.
+        let (report, _) = books.make_files(&id, &request, Some(2)).unwrap();
+        assert!(!report.cancelled);
+        assert_eq!(report.files.len(), 1);
     }
 }

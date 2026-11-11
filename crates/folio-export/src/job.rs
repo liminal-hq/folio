@@ -103,6 +103,8 @@ pub struct PdfExtras {
     /// How pictures are treated; `None` is what each target usually does.
     pub pictures: Option<ImagePolicy>,
     pub cache: PictureCache,
+    /// Stops the PDFs when a newer request has made them not worth finishing.
+    pub cancel: crate::cancel::Cancel,
 }
 
 /// Makes the files for `target`.
@@ -167,6 +169,7 @@ pub fn export_target_with(
                     ink: if shop { ink } else { None },
                     ..extras.shop.clone()
                 },
+                cancel: extras.cancel.clone(),
             },
             &pictures(kind),
             &extras.cache,
@@ -201,6 +204,7 @@ pub fn export_target_with(
                     // chosen press profile when there is one, by a plain separation when not.
                     ink: Some(ink.cloned().unwrap_or_default()),
                     crop_marks: false,
+                    cancel: extras.cancel.clone(),
                     ..PdfOptions::default()
                 },
                 &pictures(PdfTarget::Cover),

@@ -537,3 +537,39 @@ fn a_books_own_export_choices_apply_and_its_folder_is_relative_and_falls_back_wh
         .iter()
         .any(|n| n.contains("not on this computer")));
 }
+
+#[test]
+fn an_estimate_is_the_size_of_the_export_and_leaves_no_files() {
+    use folio_model::{ExportPrefs, PdfPrefs, PicturePreset};
+    let books = Books::new(Arc::new(Recorder::default()));
+    let id = books
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id
+        .clone();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("Otter").join("Otter.folio");
+    books.save(&id, Some(file.as_path())).unwrap();
+    let request = ExportRequest {
+        targets: vec![ExportTarget::SharingPdf, ExportTarget::KdpInterior],
+        prefs: Some(ExportPrefs {
+            pdf: folio_model::PdfPrefsByTarget {
+                sharing: PdfPrefs {
+                    preset: Some(PicturePreset::Small),
+                    ..PdfPrefs::default()
+                },
+                ..Default::default()
+            },
+            ..ExportPrefs::default()
+        }),
+        ..ExportRequest::default()
+    };
+    let estimate = books.estimate_export(&id, &request).unwrap();
+    assert!(!estimate.cancelled);
+    assert!(!dir.path().join("Otter").join("exports").exists());
+    let report = books.export_with(&id, &request).unwrap();
+    let real: u64 = report.files.iter().map(|f| u64::from(f.bytes)).sum();
+    let off = estimate.bytes.abs_diff(real) as f64 / real as f64;
+    assert!(off < 0.01, "estimate {} against {real}", estimate.bytes);
+}
