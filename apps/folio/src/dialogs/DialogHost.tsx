@@ -8,6 +8,7 @@ import { BarcodeDialogWindow } from '../app/BarcodeDialogWindow';
 import { BookDetailsDialogWindow } from '../app/BookDetailsDialogWindow';
 import { BookSizeDialogWindow } from '../app/BookSizeDialogWindow';
 import { CheckBookDialogWindow } from '../app/CheckBookDialogWindow';
+import { PageBackgroundDialogWindow } from '../app/PageBackgroundDialogWindow';
 import { CoverSheetDialogWindow } from '../app/CoverSheetDialogWindow';
 import { ImportReportDialogWindow } from '../app/ImportReportDialogWindow';
 import { SoftProofDialogWindow } from '../app/SoftProofDialogWindow';
@@ -114,6 +115,13 @@ function body(kind: OpenableKind, payload: unknown, session: DialogSession) {
 			);
 		case 'CheckBook':
 			return <CheckBookDialogWindow session={session} />;
+		case 'PageBackground':
+			return (
+				<PageBackgroundDialogWindow
+					payload={payload as DialogPayloads['PageBackground']}
+					session={session}
+				/>
+			);
 		case 'SoftProof':
 			return (
 				<SoftProofDialogWindow payload={payload as DialogPayloads['SoftProof']} session={session} />

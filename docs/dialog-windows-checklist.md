@@ -18,6 +18,7 @@ For each platform check that:
 - [ ] The window opens quickly: its content is painted within about 300 ms (the log line `first paint … ms after opening` says how long).
 
 - [ ] Check book (the one dialog that does not block): the main window stays usable beside it, and "Show me" moves the main window to the issue without closing the list.
+- [ ] Page background: the main window is not dimmed behind it and shows each colour tried; Cancel puts the page back.
 
 ## Windows 11
 

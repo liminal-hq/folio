@@ -12,6 +12,7 @@ import { BarcodeDialogWindow } from '../app/BarcodeDialogWindow';
 import { BookDetailsDialogWindow } from '../app/BookDetailsDialogWindow';
 import { BookSizeDialogWindow } from '../app/BookSizeDialogWindow';
 import { MarginsDialogWindow } from '../app/MarginsDialogWindow';
+import { PageBackgroundDialogWindow } from '../app/PageBackgroundDialogWindow';
 import { BooksProvider } from '../books/BooksProvider';
 import { createFakeBooksClient } from '../books/fakeBooksClient';
 import { createFakeSettingsClient } from '../settings/fakeSettingsClient';
@@ -70,5 +71,31 @@ describe('the book dialogs in their own windows', () => {
 		screen.getByRole('button', { name: 'Cancel' }).focus();
 		await userEvent.keyboard('{Escape}');
 		await waitFor(() => expect(close).toHaveBeenCalled());
+	});
+
+	it('rewinds the book and closes when the page background is cancelled', async () => {
+		const fake = createFakeBooksClient();
+		const made = await fake.client.newBook({ title: 'Pip' });
+		const spread = made.book.spreads[0]!.id;
+		const close = vi.fn();
+		const session = { close, finish: vi.fn(), client: {} } as unknown as DialogSession;
+		render(
+			<SettingsProvider client={createFakeSettingsClient()}>
+				<WindowChromeProvider controls={controls}>
+					<DialogWindowProvider>
+						<BooksProvider client={fake.client} dialogs={{} as never} pin={made.summary.id}>
+							<PageBackgroundDialogWindow
+								payload={{ bookId: made.summary.id, spread, page: null, scope: null }}
+								session={session}
+							/>
+						</BooksProvider>
+					</DialogWindowProvider>
+				</WindowChromeProvider>
+			</SettingsProvider>,
+		);
+		expect(await screen.findByRole('dialog', { name: 'Page background' })).toBeInTheDocument();
+		await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(close).toHaveBeenCalled());
+		expect(fake.calls.some((c) => c.startsWith('historyMark'))).toBe(true);
 	});
 });

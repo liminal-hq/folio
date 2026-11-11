@@ -6,3 +6,8 @@
 	background: var(--folio-scrim);
 	cursor: default;
 }
+
+/* Still takes the pointer, but does not dim the page. */
+.clear {
+	background: transparent;
+}

@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { useEffect, useState } from 'react';
+import { LIVE_PREVIEW_LABELS } from './dialogKinds';
 import { tauriDialogsClient, type DialogsClient } from './dialogsClient';
 import styles from './ModalBlocker.module.css';
 
@@ -14,11 +15,17 @@ import styles from './ModalBlocker.module.css';
  */
 export function ModalBlocker({ client = tauriDialogsClient }: { client?: DialogsClient }) {
 	const [blocked, setBlocked] = useState(false);
+	// A dialog whose changes show on the page behind it leaves the page undimmed, so colours read true.
+	const [clear, setClear] = useState(false);
 	useEffect(() => {
 		let live = true;
 		let stop: (() => void) | undefined;
 		client
-			.onModal((state) => live && setBlocked(state.open))
+			.onModal((state) => {
+				if (!live) return;
+				setBlocked(state.open);
+				setClear(LIVE_PREVIEW_LABELS.includes(state.label));
+			})
 			.then((off) => (live ? (stop = off) : off()))
 			.catch(() => {});
 		return () => {
@@ -29,7 +36,7 @@ export function ModalBlocker({ client = tauriDialogsClient }: { client?: Dialogs
 	if (!blocked) return null;
 	return (
 		<div
-			className={styles.blocker}
+			className={clear ? `${styles.blocker} ${styles.clear}` : styles.blocker}
 			data-testid="modal-blocker"
 			onPointerDown={(event) => {
 				event.preventDefault();

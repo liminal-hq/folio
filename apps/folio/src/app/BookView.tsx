@@ -651,6 +651,9 @@ export function BookView({
 		return () => clearTimeout(timer);
 	}, [notice]);
 	const [detailsOpen, setDetailsOpen] = useState(false);
+	const [background, setBackground] = useState<{ page: number | null; scope?: string } | null>(
+		null,
+	);
 	// The Export dialog; `quick` makes the Sharing PDF the moment it opens.
 	const [exporting, setExporting] = useState<{ quick: boolean } | null>(null);
 	useEffect(() => {
@@ -751,6 +754,18 @@ export function BookView({
 			stop?.();
 		};
 	}, [dialogWindows]);
+	const showBackground = useWindowedDialog(
+		'PageBackground',
+		background !== null,
+		dialogWindows,
+		{
+			bookId: id,
+			spread: spread?.id ?? '',
+			page: background?.page ?? null,
+			scope: background?.scope ?? null,
+		},
+		() => setBackground(null),
+	);
 	const showSheet = useWindowedDialog('CoverSheet', sheetOpen, dialogWindows, bookDialog, () =>
 		setSheetOpen(false),
 	);
@@ -808,9 +823,6 @@ export function BookView({
 		}
 	});
 	// The page background dialog: which page it was asked about, and the palette it offers.
-	const [background, setBackground] = useState<{ page: number | null; scope?: string } | null>(
-		null,
-	);
 
 	// The page background dialog applies each try at once. Cancelling rewinds the book to how many steps
 	// it could undo when the dialog opened.
@@ -1619,7 +1631,7 @@ export function BookView({
 				onShow={showIssue}
 			/>
 			<PageBackgroundDialog
-				open={background !== null}
+				open={showBackground}
 				onClose={() => setBackground(null)}
 				onCancel={cancelBackground}
 				book={book}

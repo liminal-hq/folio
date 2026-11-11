@@ -23,6 +23,15 @@ export interface DialogPayloads {
 	CoverSheet: { bookId: string };
 	SoftProof: { bookId: string; spread: string };
 	CheckBook: { bookId: string };
+	PageBackground: {
+		bookId: string;
+		/** The spread whose pages are being set. */
+		spread: string;
+		/** The page asked about, or null for the whole spread. */
+		page: number | null;
+		/** The place to start on when it is not one of the pages. */
+		scope: string | null;
+	};
 }
 
 /** What a dialog window of each kind hands back when it ends with a result (not when it is closed). */
@@ -40,6 +49,7 @@ export interface DialogResults {
 	CoverSheet: never;
 	SoftProof: never;
 	CheckBook: never;
+	PageBackground: never;
 }
 
 /** What a dialog window that stays open posts to the window that opened it. */
@@ -63,6 +73,7 @@ const LABELS: Record<OpenableKind, string> = {
 	CoverSheet: 'dialog-cover-sheet',
 	SoftProof: 'dialog-soft-proof',
 	CheckBook: 'dialog-check-book',
+	PageBackground: 'dialog-page-background',
 };
 
 /** The kind a webview label denotes, or null when it is not a dialog window. */
@@ -76,6 +87,9 @@ export function dialogLabel(kind: OpenableKind): string {
 	return LABELS[kind];
 }
 
+/** Dialogs whose changes show on the book behind them, so the opener is not dimmed while they are open. */
+export const LIVE_PREVIEW_LABELS: readonly string[] = ['dialog-page-background'];
+
 /** The kinds whose window watches and changes the book its payload names (through a pinned books store). */
 const BOOK_DIALOGS: readonly OpenableKind[] = [
 	'BookDetails',
@@ -84,6 +98,7 @@ const BOOK_DIALOGS: readonly OpenableKind[] = [
 	'Margins',
 	'CoverSheet',
 	'CheckBook',
+	'PageBackground',
 ];
 
 export function isBookDialog(kind: OpenableKind): boolean {

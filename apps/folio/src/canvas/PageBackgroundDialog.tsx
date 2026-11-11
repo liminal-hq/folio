@@ -3,7 +3,6 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
 import type { Background } from '@liminal-hq/folio-protocol/generated/Background';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
@@ -13,6 +12,7 @@ import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import { useEffect, useId, useState } from 'react';
 import { Segmented } from '../app/Segmented';
 import { pickerSwatches } from '../books/bookSwatches';
+import { DialogSurface } from '../dialogs/DialogSurface';
 import { t } from '../i18n/messages';
 import { ColourField } from '../colour/ColourField';
 import { FocusPicker } from './FocusPicker';
@@ -106,7 +106,7 @@ export function PageBackgroundDialog({
 		onApply({ type: 'SetBackground', target: scope.target, bg });
 
 	return (
-		<Dialog
+		<DialogSurface
 			open={open}
 			title={t('background.title')}
 			size="medium"
@@ -254,6 +254,6 @@ export function PageBackgroundDialog({
 					</div>
 				)}
 			</div>
-		</Dialog>
+		</DialogSurface>
 	);
 }
