@@ -19,8 +19,9 @@ pub mod pdfx;
 pub mod picture;
 pub mod proof;
 pub mod raster;
+pub mod shop;
 mod texture;
 mod time;
 
 pub use error::ExportError;
-pub use job::{export_target, slug, Exported, Target};
+pub use job::{export_target, export_target_with, slug, Exported, PdfExtras, Target};

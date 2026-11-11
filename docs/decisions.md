@@ -347,3 +347,7 @@ CMYK sliders were left out of Custom: ink is part of a named swatch (`SetSwatch`
 ## D-71 · Folio prepares the pictures of a PDF itself
 
 The PDF writer used to pass every picture of the book to the library untouched, so a 2400 px painting in a 6 inch frame sat in the file at 400 ppi and a 58 MB book made a 61 MB Sharing PDF. Folio now prepares each picture: it works out the largest place the picture is drawn on any page (backgrounds too), reduces it to the target's pixels per inch for that place when it has more than one and a half times as many, writes photographs as JPEG, keeps flat art, anything with transparency and anything the person asked to keep lossless as pixels, writes grey pictures in grey, brings a picture in another RGB profile into sRGB, and passes a JPEG that is already small enough through byte for byte. A picture used twice is one object in the file, sized for its larger place. The Sharing PDF's usual is 150 ppi at JPEG quality 80; every file for a press keeps 300 ppi at quality 90 and reduces only a picture above 450 ppi. The book's own copy of each picture is never changed.
+
+## D-72 · Fonts stay subset and transparency stays live in every PDF
+
+Full font embedding and transparency flattening are not offered for any PDF. The PDF writer (`krilla`) only embeds subsets of the glyphs a book uses, KDP accepts embedded subsets, and PDF/X-4 allows live transparency; flattening belongs with PDF/X-1a (D-42). The paperback row of `spec/05-export.md` is corrected to say so, with a ⚠ to check against KDP's help pages before a release.

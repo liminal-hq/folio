@@ -256,6 +256,13 @@ impl Separator {
 }
 
 impl Profile {
+    /// The name the profile gives itself, such as `U.S. Web Coated (SWOP) v2`.
+    pub fn description(&self) -> Option<String> {
+        self.inner
+            .info(lcms2::InfoType::Description, lcms2::Locale::none())
+            .filter(|name| !name.trim().is_empty())
+    }
+
     /// Whether this is an sRGB profile, by the name it gives itself: a picture in sRGB needs no
     /// conversion, and most pictures are.
     pub fn is_srgb(&self) -> bool {

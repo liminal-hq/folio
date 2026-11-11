@@ -29,6 +29,7 @@ use crate::error::ExportError;
 use crate::outline::{Navigation, Origin};
 use crate::pages::{CoverPages, PageChoice};
 use crate::picture::{ImagePolicy, PictureCache};
+use crate::shop::ShopOptions;
 
 /// Where the bytes of a picture come from: the book's package, in the app.
 pub trait Assets {
@@ -74,6 +75,8 @@ pub struct PdfOptions {
     pub navigation: Navigation,
     /// Which pages the file has and how they sit on its sheets.
     pub pages: PageChoice,
+    /// What only a print shop's file has: its bleed, the room for crop marks and press ink.
+    pub shop: ShopOptions,
 }
 
 /// Print colour for a file.
@@ -136,7 +139,16 @@ pub fn export_pdf_with(
         ..SerializeSettings::default()
     };
     let mut document = krilla::Document::new_with(settings);
-    let separator = match &options.ink {
+    // A print shop's file is in ink only when it has a press profile to name the output condition.
+    let ink = match options.target {
+        PdfTarget::PrintShop => options
+            .shop
+            .ink
+            .as_ref()
+            .filter(|ink| ink.profile.is_some()),
+        _ => options.ink.as_ref(),
+    };
+    let separator = match ink {
         None => None,
         Some(ink) => Some(match &ink.profile {
             Some(bytes) => {
@@ -151,7 +163,7 @@ pub fn export_pdf_with(
     let mut drawing = Drawing::new(fonts, assets, separator, book.styles.swatches.clone());
     drawing.policy = *pictures;
     drawing.cache = cache.clone();
-    drawing.ink_key = match options.ink.as_ref().and_then(|ink| ink.profile.as_ref()) {
+    drawing.ink_key = match ink.and_then(|ink| ink.profile.as_ref()) {
         Some(bytes) => {
             use std::hash::{Hash, Hasher};
             let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -211,7 +223,9 @@ pub fn export_pdf_with(
     let sheet = options.target == PdfTarget::Cover;
     // Bleed is for a print file. A print shop wants it all round whenever the book has one; KDP
     // wants it only when something bleeds, and then on the outer edge of each page.
-    let bleed = if (print && scenes.iter().any(spills)) || shop || sheet {
+    let bleed = if shop {
+        options.shop.bleed_in_points(book.bleed.0)
+    } else if (print && scenes.iter().any(spills)) || sheet {
         book.bleed.0.max(0.0)
     } else {
         0.0
@@ -219,7 +233,7 @@ pub fn export_pdf_with(
     // Room outside the bleed for crop marks.
     drawing.demand = crate::picture::demand(&scenes, assets, bleed);
     let slug = if shop && options.crop_marks {
-        SLUG
+        options.shop.slug_in_points()
     } else {
         0.0
     };
@@ -356,13 +370,24 @@ pub fn export_pdf_with(
         // The colours are sRGB, so that is the condition the file declares; a press profile
         // changes it when the book is made for ink.
         let srgb = folio_colour::Profile::srgb();
+        let press = ink.and_then(|ink| ink.profile.as_deref());
+        let name = press
+            .and_then(|bytes| folio_colour::Profile::from_icc(bytes).ok())
+            .and_then(|profile| profile.description());
         return crate::pdfx::make_pdf_x4(
             &bytes,
             &book.title,
-            &crate::pdfx::OutputCondition {
-                identifier: "sRGB IEC61966-2.1",
-                profile: srgb.icc(),
-                components: 3,
+            &match press {
+                Some(profile) => crate::pdfx::OutputCondition {
+                    identifier: name.as_deref().unwrap_or("Press profile"),
+                    profile,
+                    components: 4,
+                },
+                None => crate::pdfx::OutputCondition {
+                    identifier: "sRGB IEC61966-2.1",
+                    profile: srgb.icc(),
+                    components: 3,
+                },
             },
         );
     }
@@ -504,9 +529,6 @@ fn spills(page: &folio_layout::scene::PageScene) -> bool {
 
 /// The share of a radius a cubic curve's handles take to draw a quarter circle.
 const KAPPA: f32 = 0.552_284_8;
-
-/// The room round the bleed for crop marks, in points.
-const SLUG: f64 = 24.0;
 
 const INK: &str = "#1c1b20";
 
