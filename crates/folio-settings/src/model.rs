@@ -307,14 +307,25 @@ pub const DIALOG_DIMENSION_MAX: u32 = 10_000;
 pub const DIALOG_SIZES_MAX: usize = 64;
 
 /// How dialogs are shown (D-77): in windows of their own, and the sizes of the ones that can be resized.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct DialogSettings {
-    /// Whether dialogs with a form or long content open as native windows instead of in the page.
+    /// Whether dialogs with a form or long content open as native windows instead of in the page. On,
+    /// since a window can be larger than the page and moved aside; off for a desktop whose windowing
+    /// does not treat the dialog as a child of its opener.
     pub own_windows: bool,
     /// The size each resizable dialog window was left at, by the dialog's window label.
     pub sizes: BTreeMap<String, DialogSize>,
+}
+
+impl Default for DialogSettings {
+    fn default() -> Self {
+        Self {
+            own_windows: true,
+            sizes: BTreeMap::new(),
+        }
+    }
 }
 
 /// The application settings: one document every window reads.
@@ -874,9 +885,9 @@ mod tests {
         assert_eq!(stored.clamped().marks.baseline.colour, 3);
     }
     #[test]
-    fn dialogs_open_in_the_page_until_asked_and_remember_no_sizes() {
+    fn dialogs_open_in_their_own_windows_and_remember_no_sizes() {
         let dialogs = Settings::default().dialogs;
-        assert!(!dialogs.own_windows);
+        assert!(dialogs.own_windows);
         assert!(dialogs.sizes.is_empty());
     }
 

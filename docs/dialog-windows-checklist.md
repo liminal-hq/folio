@@ -1,6 +1,6 @@
 # Dialog windows: manual checklist
 
-The mock runtime cannot parent or block a window, so the platform behaviour of the dialog windows (D-77) is checked by hand. Turn on **Preferences → Experimental → Open dialogs in their own windows**, open a book, and use **File → Export…** (or any dialog that has moved to a window) on each platform below.
+The mock runtime cannot parent or block a window, so the platform behaviour of the dialog windows (D-77) is checked by hand. Make sure **Preferences → Interface → Open dialogs in their own windows** is on (it is by default), open a book, and use **File → Export…** (or any dialog that has moved to a window) on each platform below.
 
 For each platform check that:
 

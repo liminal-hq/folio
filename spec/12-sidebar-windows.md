@@ -59,7 +59,8 @@ The **menu bar** stays hidden by default in every layout except "Menu bar + comp
 - **Results.** The opener opens a dialog with a payload and waits for its result. Choosing a button ends the dialog with a result; closing the window (the ✕, Esc, or the window manager) is a cancellation, reported once. Focus goes back to the control that opened the dialog.
 - **Look.** The window is frameless and shadowed like the others, with a close-only title bar, a scrolling body and a button row; Esc cancels and Enter in a field presses the default button.
 - **Where it lands.** Windows are centred over their opener on Windows and X11; on Wayland the compositor places them. A dialog that can be resized remembers its size (`dialogs.sizes` in the settings); a position is never remembered.
-- **Experimental switch.** While the dialogs move over one at a time, **Preferences → Experimental → Open dialogs in their own windows** chooses between the window and the in-page dialog. Once every dialog has moved the switch goes and windows are the only way.
+- **A switch for desktops that cope badly.** Dialog windows are on by default. **Preferences → Interface → Open dialogs in their own windows** turns them off, which shows the same dialogs over the page instead, for a desktop whose windowing does not treat a dialog as a child of its opener.
+- **The link dialog stays in the page.** It is a small form over the editor and its selection and focus belong to the editor's layers (still open), so it moves only once those have landed and focus has been checked.
 
 ### Tear-off panels
 

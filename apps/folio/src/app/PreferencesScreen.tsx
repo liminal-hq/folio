@@ -21,15 +21,7 @@ import { useDictionaries } from './useDictionaries';
 import styles from './PreferencesScreen.module.css';
 
 type SectionId =
-	| 'interface'
-	| 'appearance'
-	| 'units'
-	| 'editing'
-	| 'spelling'
-	| 'saving'
-	| 'export'
-	| 'help'
-	| 'experimental';
+	'interface' | 'appearance' | 'units' | 'editing' | 'spelling' | 'saving' | 'export' | 'help';
 
 function InterfacePage() {
 	const settings = useSettings();
@@ -64,6 +56,12 @@ function InterfacePage() {
 						{ value: 'classic', label: t('preferences.toolbar.classic') },
 					]}
 					onChange={(toolbar) => void update({ interface: { toolbar } })}
+				/>
+				<ToggleRow
+					label={t('preferences.dialogWindows')}
+					description={t('preferences.dialogWindows.description')}
+					checked={settings.dialogs.ownWindows}
+					onChange={(ownWindows) => void update({ dialogs: { ownWindows } })}
 				/>
 				<ToggleRow
 					label={t('preferences.largerControls')}
@@ -345,23 +343,6 @@ function UpdatesPage() {
 	);
 }
 
-function ExperimentalPage() {
-	const settings = useSettings();
-	const update = useUpdateSettings();
-	return (
-		<SettingsSection>
-			<SettingsGroup>
-				<ToggleRow
-					label={t('preferences.dialogWindows')}
-					description={t('preferences.dialogWindows.description')}
-					checked={settings.dialogs.ownWindows}
-					onChange={(ownWindows) => void update({ dialogs: { ownWindows } })}
-				/>
-			</SettingsGroup>
-		</SettingsSection>
-	);
-}
-
 function sections(): SettingsSectionDef[] {
 	return [
 		{ id: 'interface', label: t('preferences.section.interface'), render: () => <InterfacePage /> },
@@ -381,11 +362,6 @@ function sections(): SettingsSectionDef[] {
 		{ id: 'export', label: t('preferences.section.export'), render: () => <ExportPage /> },
 		{ id: 'updates', label: t('preferences.section.updates'), render: () => <UpdatesPage /> },
 		{ id: 'help', label: t('preferences.section.help'), render: () => <HelpPage /> },
-		{
-			id: 'experimental',
-			label: t('preferences.section.experimental'),
-			render: () => <ExperimentalPage />,
-		},
 	];
 }
 

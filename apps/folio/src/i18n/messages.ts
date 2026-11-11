@@ -780,10 +780,9 @@ export const messages = {
 	'update.chip.downloading.percent': 'Downloading {percent}%',
 	'update.chip.ready': 'Restart to update',
 	'preferences.section.updates': 'Updates',
-	'preferences.section.experimental': 'Experimental',
 	'preferences.dialogWindows': 'Open dialogs in their own windows',
 	'preferences.dialogWindows.description':
-		'Dialogs with a form or a lot to read open as windows of their own, which block the window that opened them. Turn this off to show them over the page.',
+		'Dialogs with a form or a lot to read open as windows of their own, which block the window that opened them. Turn this off to show them over the page instead.',
 	'preferences.updates': 'Look for updates when Folio starts',
 	'preferences.updates.description':
 		'Asks github.com once a day for a newer version, and sends it your computer’s address. Help → Check for updates always works.',

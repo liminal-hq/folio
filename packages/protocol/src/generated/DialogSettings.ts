@@ -6,7 +6,9 @@ import type { DialogSize } from "./DialogSize";
  */
 export type DialogSettings = { 
 /**
- * Whether dialogs with a form or long content open as native windows instead of in the page.
+ * Whether dialogs with a form or long content open as native windows instead of in the page. On,
+ * since a window can be larger than the page and moved aside; off for a desktop whose windowing
+ * does not treat the dialog as a child of its opener.
  */
 ownWindows: boolean, 
 /**
