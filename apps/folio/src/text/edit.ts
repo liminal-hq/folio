@@ -69,6 +69,11 @@ export function samePos(a: TextPos, b: TextPos): boolean {
 	return a.para === b.para && a.offset === b.offset;
 }
 
+/** Whether two sets of paragraphs hold the same words. */
+export function sameWords(a: readonly string[], b: readonly string[]): boolean {
+	return a.length === b.length && a.every((text, i) => text === b[i]);
+}
+
 /** The place after the last word. */
 export function endOf(texts: readonly string[]): TextPos {
 	const para = Math.max(0, texts.length - 1);

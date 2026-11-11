@@ -44,7 +44,16 @@ import {
 	type Misspelt,
 } from './caretGeometry';
 import { linkActions } from './linkActions';
-import { clampPos, endOf, flatOffset, ordered, replaceInTexts, samePos, textBetween } from './edit';
+import {
+	clampPos,
+	endOf,
+	flatOffset,
+	ordered,
+	replaceInTexts,
+	samePos,
+	sameWords,
+	textBetween,
+} from './edit';
 import { flowGeometry, type FlowFrame } from './flowGeometry';
 import { moveGrapheme, moveLineEdge, moveVertical, moveWord, wordAt } from './navigate';
 import { cpLength, cpSlice, snapToGrapheme } from './units';
@@ -182,14 +191,23 @@ export function TextSurface({
 		setBlink((n) => n + 1);
 	}, []);
 
-	// The book changed under the editor (an undo, an agent): the words are the book's, and the
-	// selection is kept inside them.
+	/**
+	 * The words after each answered edit the window has not drawn yet, oldest first: the editor
+	 * works on the newest, and the words the window draws catch up with them one by one.
+	 */
+	const ahead = useRef<string[][]>([]);
+	// The book changed under the editor (an edit drawn, an undo, an agent): the words are the
+	// book's, and the selection is kept inside them. Words the editor is still ahead of are an edit
+	// of its own being drawn late, and the editor keeps the words it has gone on to.
 	const wordsKey = texts.join('\u0000');
 	useEffect(() => {
-		textsRef.current = [...texts];
+		const caught = ahead.current.findIndex((words) => sameWords(words, texts));
+		ahead.current = caught < 0 ? [] : ahead.current.slice(caught + 1);
+		textsRef.current = ahead.current.at(-1) ?? [...texts];
+		const words = textsRef.current;
 		const clamp = {
-			anchor: clampPos(texts, selRef.current.anchor),
-			focus: clampPos(texts, selRef.current.focus),
+			anchor: clampPos(words, selRef.current.anchor),
+			focus: clampPos(words, selRef.current.focus),
 		};
 		if (
 			!samePos(clamp.anchor, selRef.current.anchor) ||
@@ -306,14 +324,23 @@ export function TextSurface({
 					...(change.look ? { look: change.look } : {}),
 					...(change.smart ? { smart: true } : {}),
 				};
+				// The words the change was made on. The book's patch comes before its answer, and the window
+				// may already have drawn it, handing the editor the words with the change made: those are
+				// the book's, and the change must not be made on them a second time. Only while the words
+				// are still the ones it was made on does the editor make the change itself.
+				const base = textsRef.current;
 				try {
 					const answer = await edit.current(request);
 					// Smart punctuation may have set other words than were typed, from a place before them.
 					const set = answer.smart;
 					lastSmart.current = set ?? null;
-					textsRef.current = set
-						? replaceInTexts(textsRef.current, set.from, change.to, set.text)
-						: replaceInTexts(textsRef.current, change.from, change.to, change.text);
+					if (sameWords(textsRef.current, base)) {
+						const after = set
+							? replaceInTexts(base, set.from, change.to, set.text)
+							: replaceInTexts(base, change.from, change.to, change.text);
+						if (!sameWords(after, base)) ahead.current.push(after);
+						textsRef.current = after;
+					}
 					const caret = clampPos(textsRef.current, answer.caret);
 					setSelection({ anchor: caret, focus: caret });
 				} catch (reason) {
