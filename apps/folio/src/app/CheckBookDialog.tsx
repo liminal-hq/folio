@@ -3,13 +3,13 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
 import type { Severity } from '@liminal-hq/folio-protocol/generated/Severity';
 import { useEffect, useState } from 'react';
 import type { BooksClient } from '../books/booksClient';
+import { DialogSurface } from '../dialogs/DialogSurface';
 import { t, type MessageKey } from '../i18n/messages';
 import styles from './CheckBookDialog.module.css';
 import { describe, rowsOf } from './preflightMessages';
@@ -26,6 +26,10 @@ interface CheckBookDialogProps {
 	onShow(spread: number, frame: string | null): void;
 	/** Sets the issues to leave alone, each by its key. */
 	onIgnore(keys: string[]): void;
+	/** Keeps the dialog open after "Show me", for a window that sits beside the book. */
+	keepOpenOnShow?: boolean;
+	/** Changes when the book does, so the list is made again (a window stays open while the book is edited). */
+	revision?: number;
 }
 
 const GROUPS: ReadonlyArray<{ severity: Severity; heading: MessageKey }> = [
@@ -43,6 +47,8 @@ export function CheckBookDialog({
 	labels,
 	onShow,
 	onIgnore,
+	keepOpenOnShow = false,
+	revision = 0,
 }: CheckBookDialogProps) {
 	const [items, setItems] = useState<PreflightItem[] | null>(null);
 	const [failed, setFailed] = useState(false);
@@ -59,7 +65,7 @@ export function CheckBookDialog({
 		return () => {
 			live = false;
 		};
-	}, [open, client, id, round]);
+	}, [open, client, id, round, revision]);
 
 	const left = book.preflightIgnore ?? [];
 	const ignore = (row: { items: PreflightItem[] }) => {
@@ -82,7 +88,7 @@ export function CheckBookDialog({
 	};
 
 	return (
-		<Dialog
+		<DialogSurface
 			open={open}
 			title={t('preflight.title')}
 			size="medium"
@@ -144,7 +150,7 @@ export function CheckBookDialog({
 													className={styles.show}
 													onClick={() => {
 														onShow(place.at, item.frame ?? null);
-														onClose();
+														if (!keepOpenOnShow) onClose();
 													}}
 												>
 													{t('preflight.show')}
@@ -181,6 +187,6 @@ export function CheckBookDialog({
 					</ul>
 				</section>
 			)}
-		</Dialog>
+		</DialogSurface>
 	);
 }

@@ -54,6 +54,11 @@ pub fn spec_for(kind: DialogKind) -> DialogSpec {
         DialogKind::ImportReport => resizable("Import report", 700.0, 640.0, 480.0, 360.0),
         DialogKind::CoverSheet => resizable("Cover sheet", 1000.0, 760.0, 640.0, 480.0),
         DialogKind::SoftProof => resizable("Soft proof", 900.0, 760.0, 560.0, 420.0),
+        // The book stays usable while the list is open: "Show me" moves its canvas.
+        DialogKind::CheckBook => DialogSpec {
+            modal: false,
+            ..resizable("Check book", 620.0, 700.0, 440.0, 360.0)
+        },
     }
 }
 
@@ -166,10 +171,11 @@ mod tests {
     }
 
     #[test]
-    fn every_kind_has_a_modal_spec_with_a_title() {
+    fn every_kind_has_a_title_and_only_check_book_leaves_the_opener_usable() {
         for kind in DialogKind::ALL {
             let spec = spec_for(kind);
-            assert!(spec.modal && !spec.title.is_empty());
+            assert!(!spec.title.is_empty());
+            assert_eq!(spec.modal, kind != DialogKind::CheckBook, "{kind:?}");
         }
     }
 }

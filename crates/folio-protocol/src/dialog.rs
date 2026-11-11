@@ -23,11 +23,12 @@ pub enum DialogKind {
     ImportReport,
     CoverSheet,
     SoftProof,
+    CheckBook,
 }
 
 impl DialogKind {
     /// Every kind, for tests and for building capability lists.
-    pub const ALL: [DialogKind; 9] = [
+    pub const ALL: [DialogKind; 10] = [
         DialogKind::Export,
         DialogKind::BookDetails,
         DialogKind::Barcode,
@@ -37,6 +38,7 @@ impl DialogKind {
         DialogKind::ImportReport,
         DialogKind::CoverSheet,
         DialogKind::SoftProof,
+        DialogKind::CheckBook,
     ];
 
     /// The webview label of the window for this kind.
@@ -51,6 +53,7 @@ impl DialogKind {
             Self::ImportReport => "dialog-import-report",
             Self::CoverSheet => "dialog-cover-sheet",
             Self::SoftProof => "dialog-soft-proof",
+            Self::CheckBook => "dialog-check-book",
         }
     }
 

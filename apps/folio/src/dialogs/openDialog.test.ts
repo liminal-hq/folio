@@ -18,6 +18,7 @@ function fakeClient(open: DialogsClient['open'] = async () => {}) {
 			return stop;
 		},
 		onModal: async () => () => {},
+		onMessage: async () => () => {},
 		request: async () => ({ requestId: 1, label: 'dialog-export', payload: null, modal: true }),
 		shown: async () => 0,
 		finish: async () => {},

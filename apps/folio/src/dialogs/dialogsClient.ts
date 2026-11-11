@@ -11,11 +11,13 @@ import {
 	finishDialog,
 	focusDialog,
 	onFinished,
+	onMessage,
 	onModal,
 	postToOpener,
 	type DialogRequest,
 	type Finished,
 	type ModalState,
+	type Posted,
 } from '@liminal-hq/plugin-window-dialogs';
 import type { DialogKind } from '@liminal-hq/folio-protocol/generated/DialogKind';
 
@@ -27,6 +29,8 @@ export interface DialogsClient {
 	onFinished(listener: (finished: Finished) => void): Promise<() => void>;
 	/** Hears when a modal dialog blocks this window or lets it go. */
 	onModal(listener: (state: ModalState) => void): Promise<() => void>;
+	/** Hears messages the dialogs this window opened post to it. */
+	onMessage(listener: (posted: Posted) => void): Promise<() => void>;
 	/** In a dialog: what it was opened with. */
 	request(): Promise<DialogRequest>;
 	/** In a dialog: says it has painted. */
@@ -46,6 +50,7 @@ export const tauriDialogsClient: DialogsClient = {
 	open: (kind, payload) => invoke<void>('open_dialog', { kind, payload }),
 	onFinished: (listener) => onFinished(listener),
 	onModal: (listener) => onModal(listener),
+	onMessage: (listener) => onMessage(listener),
 	request: () => dialogRequest(),
 	shown: () => dialogShown(),
 	finish: (result) => finishDialog(result),

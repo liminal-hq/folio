@@ -35,6 +35,8 @@ import { guideIntents } from '../canvas/guides';
 import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../canvas/marksModel';
 import { keepWords } from '../canvas/editCheckpoint';
 import { CheckBookDialog } from './CheckBookDialog';
+import { dialogLabel, type DialogMessages } from '../dialogs/dialogKinds';
+import { tauriDialogsClient } from '../dialogs/dialogsClient';
 import { openDialog } from '../dialogs/openDialog';
 import { putDescriptionIntent } from './coverSheetIntents';
 import { useWindowedDialog } from '../dialogs/useWindowedDialog';
@@ -727,6 +729,28 @@ export function BookView({
 		{ bookId: id, spread: spread?.id ?? '' },
 		() => setProofOpen(false),
 	);
+	// Check book is a window beside the book that stays open; "Show me" in it posts here.
+	const showCheck = useWindowedDialog('CheckBook', checking, dialogWindows, bookDialog, () =>
+		setChecking(false),
+	);
+	const showIssueRef = useRef<(at: number, frame: string | null) => void>(() => {});
+	useEffect(() => {
+		if (!dialogWindows) return;
+		let live = true;
+		let stop: (() => void) | undefined;
+		tauriDialogsClient
+			.onMessage((posted) => {
+				if (posted.label !== dialogLabel('CheckBook')) return;
+				const message = posted.message as DialogMessages['CheckBook'];
+				if (message.type === 'show') showIssueRef.current(message.spread, message.frame);
+			})
+			.then((off) => (live ? (stop = off) : off()))
+			.catch(() => {});
+		return () => {
+			live = false;
+			stop?.();
+		};
+	}, [dialogWindows]);
 	const showSheet = useWindowedDialog('CoverSheet', sheetOpen, dialogWindows, bookDialog, () =>
 		setSheetOpen(false),
 	);
@@ -757,6 +781,14 @@ export function BookView({
 				void bringIn(importedPath.current, answer.mapping);
 		},
 	);
+	/** Goes to a spread and, when the issue is about a frame, selects it. */
+	const showIssue = (at: number, frame: string | null) => {
+		if (master !== null) setEditing(null);
+		setSpreadIndex(at);
+		const target = book.spreads[at];
+		if (frame && target) setReveal({ spread: target.id, frame });
+	};
+	showIssueRef.current = showIssue;
 	/** Adds a template after the spread on show, or after the first page when the cover is. */
 	const addTemplate = async (template: string, name: string) => {
 		const index = spread?.kind === 'cover' ? 1 : shown;
@@ -1577,19 +1609,14 @@ export function BookView({
 				spread={spread.id}
 			/>
 			<CheckBookDialog
-				open={checking}
+				open={showCheck}
 				onClose={() => setChecking(false)}
 				client={client}
 				id={id}
 				book={book}
 				labels={labels}
 				onIgnore={(keys) => void store.apply({ type: 'SetPreflightIgnore', keys })}
-				onShow={(at, frame) => {
-					if (master !== null) setEditing(null);
-					setSpreadIndex(at);
-					const target = book.spreads[at];
-					if (frame && target) setReveal({ spread: target.id, frame });
-				}}
+				onShow={showIssue}
 			/>
 			<PageBackgroundDialog
 				open={background !== null}

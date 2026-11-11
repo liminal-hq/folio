@@ -17,6 +17,8 @@ For each platform check that:
 - [ ] A file picker or message box started from inside the dialog belongs to the dialog, not the main window.
 - [ ] The window opens quickly: its content is painted within about 300 ms (the log line `first paint … ms after opening` says how long).
 
+- [ ] Check book (the one dialog that does not block): the main window stays usable beside it, and "Show me" moves the main window to the issue without closing the list.
+
 ## Windows 11
 
 - [ ] The opener is enabled and focused before the dialog goes away: no other application's window comes forward when the dialog closes.
