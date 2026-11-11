@@ -8,6 +8,8 @@ import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/Dia
 import type { Recoverable } from '@liminal-hq/folio-plugin-books';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import type { RecoveredChoice } from '../books/bookActions';
+import { systemQuestions, type Questions } from '../dialogs/questions';
+import { useSettings } from '../settings/useSettings';
 import { t } from '../i18n/messages';
 import { keptWhen } from '../welcome/recovered';
 
@@ -15,20 +17,32 @@ import { keptWhen } from '../welcome/recovered';
  * A question to put to the person, and the dialog that asks it. `ask` resolves with what they
  * chose; Esc, a click outside and Cancel all mean cancel.
  */
-export function useRecoveryQuestion(): {
+export function useRecoveryQuestion(questions: Questions = systemQuestions): {
 	ask: (found: Recoverable) => Promise<RecoveredChoice>;
 	dialog: ReactNode;
 } {
 	const [asking, setAsking] = useState<Recoverable | null>(null);
 	const answer = useRef<((choice: RecoveredChoice) => void) | null>(null);
+	// With dialogs in their own windows the question is the system's message dialog.
+	const native = useSettings().dialogs.ownWindows;
 
 	const ask = useCallback(
 		(found: Recoverable) =>
-			new Promise<RecoveredChoice>((resolve) => {
-				answer.current = resolve;
-				setAsking(found);
-			}),
-		[],
+			native
+				? questions.ask<RecoveredChoice>({
+						title: t('recovery.title', { title: found.title }),
+						text: t('recovery.message', { when: keptWhen(found.savedAt) }),
+						answers: [
+							{ value: 'restore', label: t('recovery.restoreIt') },
+							{ value: 'file', label: t('recovery.file') },
+							{ value: 'cancel', label: t('recovery.cancel') },
+						],
+					})
+				: new Promise<RecoveredChoice>((resolve) => {
+						answer.current = resolve;
+						setAsking(found);
+					}),
+		[native, questions],
 	);
 
 	const settle = (choice: RecoveredChoice) => {
@@ -39,7 +53,7 @@ export function useRecoveryQuestion(): {
 
 	const dialog = (
 		<Dialog
-			open={asking !== null}
+			open={!native && asking !== null}
 			title={t('recovery.title', { title: asking?.title ?? '' })}
 			description={t('recovery.message', { when: asking ? keptWhen(asking.savedAt) : '' })}
 			size="small"
