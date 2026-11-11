@@ -36,6 +36,7 @@ import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../can
 import { keepWords } from '../canvas/editCheckpoint';
 import { CheckBookDialog } from './CheckBookDialog';
 import { openDialog } from '../dialogs/openDialog';
+import { useWindowedDialog } from '../dialogs/useWindowedDialog';
 import { ExportDialog } from './ExportDialog';
 import {
 	getPendingLook,
@@ -705,6 +706,19 @@ export function BookView({
 				// Another modal dialog is open already, or the window could not be made.
 			});
 	}, [dialogWindows, exporting, id]);
+	const bookDialog = { bookId: id };
+	const showDetails = useWindowedDialog('BookDetails', detailsOpen, dialogWindows, bookDialog, () =>
+		setDetailsOpen(false),
+	);
+	const showBarcode = useWindowedDialog('Barcode', barcodeOpen, dialogWindows, bookDialog, () =>
+		setBarcodeOpen(false),
+	);
+	const showBookSize = useWindowedDialog('BookSize', bookSizeOpen, dialogWindows, bookDialog, () =>
+		setBookSizeOpen(false),
+	);
+	const showMargins = useWindowedDialog('Margins', marginsOpen, dialogWindows, bookDialog, () =>
+		setMarginsOpen(false),
+	);
 	const [reveal, setReveal] = useState<{ spread: string; frame: string } | null>(null);
 	useEffect(() => {
 		if (reveal && spread?.id === reveal.spread) {
@@ -1441,7 +1455,7 @@ export function BookView({
 				apply={apply}
 			/>
 			<BookDetailsDialog
-				open={detailsOpen}
+				open={showDetails}
 				onClose={() => setDetailsOpen(false)}
 				book={book}
 				onSave={(details) => apply({ type: 'SetDetails', details })}
@@ -1481,20 +1495,20 @@ export function BookView({
 				}}
 			/>
 			<BarcodeDialog
-				open={barcodeOpen}
+				open={showBarcode}
 				onClose={() => setBarcodeOpen(false)}
 				book={book}
 				apply={apply}
 			/>
 			<BookSizeDialog
-				open={bookSizeOpen}
+				open={showBookSize}
 				onClose={() => setBookSizeOpen(false)}
 				book={book}
 				units={settings.units}
 				apply={apply}
 			/>
 			<MarginsDialog
-				open={marginsOpen}
+				open={showMargins}
 				onClose={() => setMarginsOpen(false)}
 				book={book}
 				units={settings.units}

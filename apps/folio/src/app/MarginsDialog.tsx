@@ -3,11 +3,11 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import { useEffect, useState } from 'react';
+import { DialogSurface } from '../dialogs/DialogSurface';
 import { t } from '../i18n/messages';
 import { LengthField } from '../inspector/LengthField';
 import { unitLabel, type Units } from '../inspector/units';
@@ -43,7 +43,7 @@ export function MarginsDialog({ open, onClose, book, units, apply }: MarginsDial
 	};
 
 	return (
-		<Dialog
+		<DialogSurface
 			open={open}
 			title={t('margins.title')}
 			size="small"
@@ -82,6 +82,6 @@ export function MarginsDialog({ open, onClose, book, units, apply }: MarginsDial
 				</p>
 			)}
 			<p className={styles.hint}>{t('margins.hint')}</p>
-		</Dialog>
+		</DialogSurface>
 	);
 }

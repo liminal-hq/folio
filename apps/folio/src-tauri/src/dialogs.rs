@@ -17,20 +17,34 @@ use tauri::{AppHandle, Manager, Runtime, WebviewWindow};
 use tauri_plugin_folio_settings::SettingsStore;
 use tauri_plugin_window_dialogs::{models::DialogSpec, OnResized, Options};
 
+/// A modal dialog that cannot be resized.
+fn fixed(title: &str, width: f64, height: f64) -> DialogSpec {
+    DialogSpec {
+        title: title.into(),
+        width,
+        height,
+        min_width: None,
+        min_height: None,
+        resizable: false,
+        modal: true,
+        chromeless: true,
+        url: None,
+    }
+}
+
 /// How a kind of dialog is made, in logical pixels.
 pub fn spec_for(kind: DialogKind) -> DialogSpec {
     match kind {
         DialogKind::Export => DialogSpec {
-            title: "Export book".into(),
-            width: 640.0,
-            height: 720.0,
+            resizable: true,
             min_width: Some(480.0),
             min_height: Some(420.0),
-            resizable: true,
-            modal: true,
-            chromeless: true,
-            url: None,
+            ..fixed("Export book", 640.0, 720.0)
         },
+        DialogKind::BookDetails => fixed("Book details", 600.0, 760.0),
+        DialogKind::Barcode => fixed("Barcode", 560.0, 680.0),
+        DialogKind::BookSize => fixed("Book size", 460.0, 380.0),
+        DialogKind::Margins => fixed("Margins", 460.0, 440.0),
     }
 }
 

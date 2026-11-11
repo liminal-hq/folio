@@ -4,9 +4,16 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { useEffect, useState } from 'react';
+import { BarcodeDialogWindow } from '../app/BarcodeDialogWindow';
+import { BookDetailsDialogWindow } from '../app/BookDetailsDialogWindow';
+import { BookSizeDialogWindow } from '../app/BookSizeDialogWindow';
 import { ExportDialogWindow } from '../app/ExportDialogWindow';
+import { MarginsDialogWindow } from '../app/MarginsDialogWindow';
+import { BooksProvider } from '../books/BooksProvider';
+import { tauriBooksClient } from '../books/booksClient';
+import { tauriFileDialogs } from '../books/dialogs';
 import { DialogWindowProvider } from './DialogSurface';
-import type { DialogPayloads, OpenableKind } from './dialogKinds';
+import { isBookDialog, type DialogPayloads, type OpenableKind } from './dialogKinds';
 import { tauriDialogsClient, type DialogsClient } from './dialogsClient';
 
 /**
@@ -54,12 +61,35 @@ export function DialogHost({
 		finish: (result) => void client.finish(result).catch(() => {}),
 		close: () => void client.close().catch(() => {}),
 	};
-	return <DialogWindowProvider>{body(kind, payload, session)}</DialogWindowProvider>;
+	return (
+		<DialogWindowProvider>
+			{isBookDialog(kind) ? (
+				// The book the dialog was opened for, whichever book the main window shows now.
+				<BooksProvider
+					client={tauriBooksClient}
+					dialogs={tauriFileDialogs}
+					pin={(payload as { bookId: string }).bookId}
+				>
+					{body(kind, payload, session)}
+				</BooksProvider>
+			) : (
+				body(kind, payload, session)
+			)}
+		</DialogWindowProvider>
+	);
 }
 
 function body(kind: OpenableKind, payload: unknown, session: DialogSession) {
 	switch (kind) {
 		case 'Export':
 			return <ExportDialogWindow payload={payload as DialogPayloads['Export']} session={session} />;
+		case 'BookDetails':
+			return <BookDetailsDialogWindow session={session} />;
+		case 'Barcode':
+			return <BarcodeDialogWindow session={session} />;
+		case 'BookSize':
+			return <BookSizeDialogWindow session={session} />;
+		case 'Margins':
+			return <MarginsDialogWindow session={session} />;
 	}
 }

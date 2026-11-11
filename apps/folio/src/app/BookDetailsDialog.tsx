@@ -3,12 +3,12 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Paper } from '@liminal-hq/folio-protocol/generated/Paper';
 import type { Details } from '@liminal-hq/folio-protocol/generated/Details';
 import { useEffect, useState } from 'react';
+import { DialogSurface } from '../dialogs/DialogSurface';
 import { t } from '../i18n/messages';
 import styles from './BookDetailsDialog.module.css';
 import { isValidIsbn13 } from './isbn';
@@ -83,7 +83,7 @@ export function BookDetailsDialog({
 	};
 
 	return (
-		<Dialog
+		<DialogSurface
 			open={open}
 			title={t('details.title')}
 			size="medium"
@@ -157,6 +157,6 @@ export function BookDetailsDialog({
 					</label>
 				))}
 			</div>
-		</Dialog>
+		</DialogSurface>
 	);
 }

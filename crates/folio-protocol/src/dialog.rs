@@ -15,16 +15,30 @@ pub const DIALOG_LABEL_PREFIX: &str = "dialog-";
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub enum DialogKind {
     Export,
+    BookDetails,
+    Barcode,
+    BookSize,
+    Margins,
 }
 
 impl DialogKind {
     /// Every kind, for tests and for building capability lists.
-    pub const ALL: [DialogKind; 1] = [DialogKind::Export];
+    pub const ALL: [DialogKind; 5] = [
+        DialogKind::Export,
+        DialogKind::BookDetails,
+        DialogKind::Barcode,
+        DialogKind::BookSize,
+        DialogKind::Margins,
+    ];
 
     /// The webview label of the window for this kind.
     pub fn label(self) -> &'static str {
         match self {
             Self::Export => "dialog-export",
+            Self::BookDetails => "dialog-book-details",
+            Self::Barcode => "dialog-barcode",
+            Self::BookSize => "dialog-book-size",
+            Self::Margins => "dialog-margins",
         }
     }
 
