@@ -581,6 +581,21 @@ export const messages = {
 		'Straight quotes become curly (or « » in French, „ “ in German), -- becomes a dash and ... an ellipsis as you type or paste. Backspace straight afterwards puts back what you typed.',
 	'preferences.section.spelling': 'Spelling',
 	'preferences.section.saving': 'Saving',
+	'preferences.section.export': 'Export',
+	'preferences.export.sharing': 'Sharing PDF pictures',
+	'preferences.export.sharing.description':
+		'How much of each picture a PDF made to read on a screen keeps. A book can choose differently.',
+	'preferences.export.press': 'Paperback and print-shop pictures',
+	'preferences.export.press.description':
+		'Print files keep at least 300 pixels an inch whichever you choose.',
+	'preferences.export.preset.small': 'Small',
+	'preferences.export.preset.standard': 'Standard',
+	'preferences.export.preset.high': 'High',
+	'preferences.export.preset.original': 'Original',
+	'preferences.export.folder': 'Put exports in',
+	'preferences.export.folder.description':
+		'A folder for every book that does not choose its own. Left empty, files go in an exports folder beside the book.',
+	'preferences.export.folder.placeholder': 'beside the book',
 	'preferences.autosave': 'Keep a recovery copy while I work',
 	'preferences.autosave.description':
 		'If Folio stops or the power goes out, it offers your work back the next time it starts. Your book’s own file only changes when you save.',

@@ -35,8 +35,15 @@ export interface SettingsCommandError {
 }
 
 /** A change to the settings: only the fields that change, nested like `Settings`. */
+/** A change to any part of a value, however deeply nested; what is not named stays as it was. */
+type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
+
 export type SettingsPatch = {
-	[K in keyof Settings]?: Settings[K] extends object ? Partial<Settings[K]> : Settings[K];
+	[K in keyof Settings]?: K extends 'export'
+		? DeepPartial<Settings[K]>
+		: Settings[K] extends object
+			? Partial<Settings[K]>
+			: Settings[K];
 };
 
 function cmd<T>(name: string, args?: Record<string, unknown>): Promise<T> {

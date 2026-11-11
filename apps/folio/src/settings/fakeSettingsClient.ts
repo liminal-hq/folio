@@ -34,6 +34,7 @@ export const DEFAULT_SETTINGS: Settings = {
 	editing: { newEditor: true, smartPunctuation: true },
 	autosave: { enabled: true, intervalSecs: 30 },
 	updates: { automatic: false, asked: false },
+	export: { pdf: { sharing: {}, kdp: {}, printShop: {} } },
 	recentBooks: [],
 	recentColours: [],
 };

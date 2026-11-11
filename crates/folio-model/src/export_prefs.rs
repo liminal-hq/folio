@@ -314,3 +314,10 @@ impl ExportPrefs {
         Ok(())
     }
 }
+
+// The only floats are a bleed and a room for marks, which `check` keeps to plain numbers, so equality
+// is whole.
+impl Eq for BleedChoice {}
+impl Eq for PdfPrefs {}
+impl Eq for PdfPrefsByTarget {}
+impl Eq for ExportPrefs {}

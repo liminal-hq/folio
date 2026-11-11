@@ -1617,6 +1617,7 @@ dependencies = [
 name = "folio-settings"
 version = "0.1.0"
 dependencies = [
+ "folio-model",
  "log",
  "serde",
  "serde_json",

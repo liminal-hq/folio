@@ -57,7 +57,7 @@ The **menu bar** stays hidden by default in every layout except "Menu bar + comp
 
 ## Persistence
 
-`settings.json` (app-wide, not per book): `toolbarLayout`, `sidebarLayout`, `sidebarWidth`, `sidebarCollapsed`, `tornPanels: { group: { monitor, x, y, w, h } }`, `menuBar`, `mode`, `theme`, `units`.
+`settings.json` (app-wide, not per book; its `export` section holds the person's default export choices, which a book's own and a single export's are laid over, D-73): `toolbarLayout`, `sidebarLayout`, `sidebarWidth`, `sidebarCollapsed`, `tornPanels: { group: { monitor, x, y, w, h } }`, `menuBar`, `mode`, `theme`, `units`.
 
 ## Accessibility
 
