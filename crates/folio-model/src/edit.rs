@@ -324,13 +324,20 @@ pub fn replace_range(
     let last = to.para as usize;
     let head = split(&paragraphs[first].inline, from.offset as usize).0;
     let tail = split(&paragraphs[last].inline, to.offset as usize).1;
-    let style = paragraphs[first].style.clone();
     // A paragraph made by a line break is set as the one it was typed in, and a join keeps the
-    // look of the first.
-    let own_look = paragraphs[first].look.clone();
+    // style and look of the first paragraph, unless the first has no words at all: then it was a
+    // blank line being taken away, and the paragraph after it keeps its own (D-69).
+    let blank_first = last > first && chars_in(&paragraphs[first].inline) == 0;
+    let kept = if blank_first { last } else { first };
+    let style = paragraphs[kept].style.clone();
+    let own_look = paragraphs[kept].look.clone();
 
     // The new words, a list of runs for each paragraph they make.
-    let mut inherited = look_at(&paragraphs[first].inline, from.offset as usize);
+    let mut inherited = if blank_first {
+        look_at(&tail, 0)
+    } else {
+        look_at(&paragraphs[first].inline, from.offset as usize)
+    };
     // Words typed at the end of a link do not go on linking; words typed inside it do.
     if inherited.href.is_some()
         && !tail
