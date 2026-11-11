@@ -202,6 +202,8 @@ struct CacheKey {
     /// The width the picture was reduced to, or 0 for as it was.
     width: u32,
     policy: u64,
+    /// The separation, or 0 for a file in sRGB.
+    ink: u64,
 }
 
 /// The widest each picture is drawn, in points, over the whole book: what to size it for. The width
@@ -315,6 +317,35 @@ fn is_flat(rgb: &image::RgbImage) -> bool {
     true
 }
 
+/// How a file in ink separates its pictures, and a number that is the same for the same separation.
+pub struct Ink<'a> {
+    pub separator: &'a folio_colour::Separator,
+    pub key: u64,
+}
+
+/// How many colour components a JPEG has (1, 3 or 4), read from its frame header.
+fn jpeg_components(bytes: &[u8]) -> Option<u8> {
+    let mut at = 2;
+    while at + 4 <= bytes.len() {
+        if bytes[at] != 0xFF {
+            at += 1;
+            continue;
+        }
+        let marker = bytes[at + 1];
+        if marker == 0xFF || marker == 0x00 || (0xD0..=0xD9).contains(&marker) {
+            at += if marker == 0xFF { 1 } else { 2 };
+            continue;
+        }
+        let length = usize::from(u16::from_be_bytes([bytes[at + 2], bytes[at + 3]]));
+        // A start-of-frame marker, other than the table and arithmetic-coding ones.
+        if (0xC0..=0xCF).contains(&marker) && ![0xC4, 0xC8, 0xCC].contains(&marker) {
+            return bytes.get(at + 9).copied();
+        }
+        at += 2 + length;
+    }
+    None
+}
+
 fn hash_bytes(bytes: &[u8]) -> u64 {
     let mut h = std::collections::hash_map::DefaultHasher::new();
     bytes.hash(&mut h);
@@ -324,7 +355,12 @@ fn hash_bytes(bytes: &[u8]) -> u64 {
 /// Makes what goes in the file for the picture `bytes`, drawn at most `width` points across, or
 /// `None` for a file that is not a picture.
 #[allow(clippy::chunks_exact_to_as_chunks)]
-pub fn prepare(bytes: Arc<Vec<u8>>, width: f64, policy: &ImagePolicy) -> Option<Prepared> {
+pub fn prepare(
+    bytes: Arc<Vec<u8>>,
+    width: f64,
+    policy: &ImagePolicy,
+    ink: Option<&Ink>,
+) -> Option<Prepared> {
     let format = image::guess_format(&bytes).ok()?;
     let (nw, nh) = dimensions(&bytes)?;
     if nw == 0 || nh == 0 {
@@ -332,10 +368,13 @@ pub fn prepare(bytes: Arc<Vec<u8>>, width: f64, policy: &ImagePolicy) -> Option<
     }
     let target = reduced_width(nw, width, policy);
     let jpeg = format == ImageFormat::Jpeg;
-    if jpeg && (policy.keep_jpeg || target.is_none()) {
+    // A file in ink holds ink: only a JPEG that already is CMYK may go in as it is, and a picture
+    // of any other kind is separated.
+    let fits = ink.is_none() || (jpeg && jpeg_components(&bytes) == Some(4));
+    if jpeg && fits && (policy.keep_jpeg || target.is_none()) {
         return Some(Prepared::PassThrough(bytes, format));
     }
-    if target.is_none() && policy.compression == Compression::Lossless {
+    if fits && target.is_none() && policy.compression == Compression::Lossless {
         return Some(Prepared::PassThrough(bytes, format));
     }
 
@@ -381,6 +420,16 @@ pub fn prepare(bytes: Arc<Vec<u8>>, width: f64, policy: &ImagePolicy) -> Option<
                     .is_some_and(|img| !is_flat(&img))
         }
     };
+    if let Some(ink) = ink {
+        let cmyk = ink.separator.pixels(&rgb);
+        return Some(Prepared::Raw(RawPicture {
+            id: hash_bytes(&cmyk) ^ alpha.as_deref().map_or(0, hash_bytes),
+            colour: Arc::new(cmyk),
+            alpha: alpha.map(Arc::new),
+            size,
+            space: ImageColorspace::Cmyk,
+        }));
+    }
     if lossy {
         let mut out = Vec::new();
         let mut encoder =
@@ -422,6 +471,7 @@ impl PictureCache {
         assets: &dyn Assets,
         width: f64,
         policy: &ImagePolicy,
+        ink: Option<&Ink>,
     ) -> Option<Prepared> {
         let bytes = Arc::new(assets.bytes(path)?);
         // Two widths that reduce a picture to the same pixels are one entry.
@@ -431,11 +481,12 @@ impl PictureCache {
                 .and_then(|(nw, _)| reduced_width(nw, width, policy))
                 .unwrap_or(0),
             policy: policy.key(),
+            ink: ink.map_or(0, |i| i.key),
         };
         if let Some(found) = self.0.lock().ok()?.get(&key) {
             return found.clone();
         }
-        let made = prepare(bytes, width, policy);
+        let made = prepare(bytes, width, policy, ink);
         self.0.lock().ok()?.insert(key, made.clone());
         made
     }

@@ -145,6 +145,15 @@ pub fn export_pdf_with(
     let mut drawing = Drawing::new(fonts, assets, separator, book.styles.swatches.clone());
     drawing.policy = *pictures;
     drawing.cache = cache.clone();
+    drawing.ink_key = match options.ink.as_ref().and_then(|ink| ink.profile.as_ref()) {
+        Some(bytes) => {
+            use std::hash::{Hash, Hasher};
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            bytes.hash(&mut h);
+            h.finish() | 2
+        }
+        None => 1,
+    };
 
     let mut scenes = Vec::new();
     // The page each spread of the book begins on (the spreads left out have none), for the links
@@ -387,6 +396,8 @@ struct Drawing<'a> {
     demand: crate::picture::Demand,
     policy: ImagePolicy,
     cache: PictureCache,
+    /// Tells one separation from another, so the cache keeps each apart.
+    ink_key: u64,
     /// Texture tiles made so far, by texture and tint, with each tile's side in points.
     textures: HashMap<String, Option<(Image, f64)>>,
 }
@@ -439,6 +450,7 @@ impl<'a> Drawing<'a> {
             demand: HashMap::new(),
             policy: ImagePolicy::standard(),
             cache: PictureCache::default(),
+            ink_key: 0,
             textures: HashMap::new(),
         }
     }
@@ -774,7 +786,19 @@ impl<'a> Drawing<'a> {
         let width = self.demand.get(path).copied().unwrap_or(0.0);
         let made = self
             .cache
-            .get(path, self.assets, width, &self.policy)
+            .get(
+                path,
+                self.assets,
+                width,
+                &self.policy,
+                self.separator
+                    .as_ref()
+                    .map(|separator| crate::picture::Ink {
+                        separator,
+                        key: self.ink_key,
+                    })
+                    .as_ref(),
+            )
             .and_then(|prepared| prepared.image());
         self.images.insert(path.to_string(), made.clone());
         made

@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use folio_export::pdf::{export_pdf, export_pdf_with, Assets, PdfOptions, PdfTarget};
+use folio_export::pdf::{export_pdf, export_pdf_with, Assets, InkOptions, PdfOptions, PdfTarget};
 use folio_export::picture::{ImagePolicy, PictureCache};
 use folio_layout::{FontBook, StyleSheet};
 use folio_model::{Book, BookKind, Frame};
@@ -289,4 +289,44 @@ fn a_print_file_keeps_three_hundred_pixels_an_inch() {
     // Both are of the same picture in the same place: the print file has twice the pixels across.
     let ratio = print[0].width as f64 / sharing[0].width as f64;
     assert!((1.8..2.2).contains(&ratio), "{ratio}");
+}
+
+#[test]
+fn pictures_in_a_file_in_ink_are_cmyk_whatever_they_were() {
+    let flat = RgbImage::from_fn(1500, 1500, |x, _| {
+        if x < 750 {
+            Rgb([200, 30, 30])
+        } else {
+            Rgb([30, 30, 200])
+        }
+    });
+    let see_through = RgbaImage::from_fn(900, 900, |x, y| {
+        let n = noise(1, 1, x * 31 + y).get_pixel(0, 0).0;
+        Rgba([n[0], n[1], n[2], (x * 255 / 900) as u8])
+    });
+    let assets = Memory(HashMap::from([
+        ("photo.png".to_string(), png(&noise(2400, 2400, 21).into())),
+        ("flat.png".to_string(), png(&flat.into())),
+        ("alpha.png".to_string(), png(&see_through.into())),
+        ("small.jpg".to_string(), jpeg(&noise(300, 300, 4))),
+    ]));
+    let (book, styles) = book_showing(&["photo.png", "flat.png", "alpha.png", "small.jpg"]);
+    let bytes = export_pdf(
+        &book,
+        &styles,
+        &FontBook::bundled(),
+        &assets,
+        &PdfOptions {
+            target: PdfTarget::Print,
+            ink: Some(InkOptions::default()),
+            crop_marks: false,
+        },
+    )
+    .unwrap();
+    let made = pictures(&bytes);
+    assert!(!made.is_empty());
+    for picture in &made {
+        assert_eq!(picture.space, "DeviceCMYK", "{}", picture.filter);
+    }
+    assert!(made.iter().any(|p| p.has_mask), "transparency is kept");
 }
