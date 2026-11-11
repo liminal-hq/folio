@@ -6,15 +6,19 @@
 import {
 	Fragment,
 	useEffect,
+	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
+	type CSSProperties,
 	type FocusEvent,
 	type KeyboardEvent,
 	type ReactNode,
 } from 'react';
 import { defaultRibbonLabels, type RibbonLabels } from './labels';
 import styles from './Ribbon.module.css';
+import { Glyph } from './RibbonControls';
+import { WHOLE, narrower, type GroupLevel, type RibbonFit } from './ribbonFit';
 import { RibbonModeSwitch } from './RibbonModeSwitch';
 import type {
 	RibbonCommand,
@@ -65,6 +69,18 @@ function columns(items: RibbonItem[], perColumn: number): RibbonItem[][] {
 	flush();
 	return out;
 }
+
+/** Three dots: the More button's glyph. */
+const MORE_GLYPH = 'M3.5 8h.01M8 8h.01M12.5 8h.01';
+
+/** Every item of a group, in order, whichever way it is laid out. */
+const itemsOf = (group: RibbonGroup): RibbonItem[] => group.items ?? (group.rows ?? []).flat(2);
+
+/** A group drawn with its buttons as icons only: small, with no words beside them. */
+const compacted = (group: RibbonGroup): RibbonGroup =>
+	group.items
+		? { ...group, items: group.items.map((item) => ({ ...item, size: 'small' as const })) }
+		: group;
 
 function focusables(root: HTMLElement | null): HTMLElement[] {
 	if (!root) return [];
@@ -191,11 +207,152 @@ export function Ribbon(props: RibbonProps) {
 		else controls.openFile(anchor, model.file.label, items);
 	};
 
+	// The panel never scrolls: when the groups are wider than it, they give way from the right (to
+	// icons only, then folded into one button each, then under More) until they fit. The fit is worked
+	// out again from the whole groups whenever the panel's width or what it shows changes.
+	const [width, setWidth] = useState(0);
+	const groups = active?.groups ?? [];
+	const fitKey = [
+		active?.id,
+		mode,
+		density,
+		variant,
+		labelled,
+		width,
+		...groups.map((g) => g.id),
+	].join('|');
+	const [fitted, setFitted] = useState<{ key: string; fit: RibbonFit }>({ key: '', fit: WHOLE });
+	const fit = fitted.key === fitKey ? fitted.fit : WHOLE;
+	const fitGroups = useMemo(
+		() =>
+			groups.map((g) => ({
+				id: g.id,
+				compactable: !!g.items && (labelled || g.items.some((i) => i.size === 'large')),
+			})),
+		[groups, labelled],
+	);
+	useLayoutEffect(() => {
+		const panel = panelRef.current;
+		if (!panel || simplified || panel.scrollWidth <= panel.clientWidth) return;
+		const next = narrower(fit, fitGroups);
+		if (next) setFitted({ key: fitKey, fit: next });
+	});
+	useEffect(() => {
+		const panel = panelRef.current;
+		if (!panel || simplified || typeof ResizeObserver === 'undefined') return;
+		const observer = new ResizeObserver(([entry]) => {
+			if (entry) setWidth(Math.round(entry.contentRect.width));
+		});
+		observer.observe(panel);
+		return () => observer.disconnect();
+	}, [panelShown, simplified, active?.id]);
+
+	/** The groups dropped down under a folded group's button or More, and where. */
+	const [popup, setPopup] = useState<{
+		key: string;
+		ids: string[];
+		label: string;
+		x: number;
+		y: number;
+	} | null>(null);
+	const popupRef = useRef<HTMLDivElement>(null);
+	const openPopup = (key: string, ids: string[], label: string, anchor: HTMLElement) => {
+		if (popup?.key === key) {
+			setPopup(null);
+			return;
+		}
+		const rect = anchor.getBoundingClientRect();
+		setPopup({ key, ids, label, x: rect.left, y: rect.bottom });
+	};
+	// What the panel shows changed under it: the groups it dropped down may be whole again.
+	useEffect(() => setPopup(null), [fitKey]);
+	useEffect(() => {
+		if (!popup) return;
+		const away = (event: Event) => {
+			const target = event.target;
+			if (!(target instanceof Element)) return;
+			if (popupRef.current?.contains(target) || target.closest('[data-folio-menu-root]')) return;
+			if (target.closest(`[data-ribbon-popup-key="${popup.key}"]`)) return;
+			setPopup(null);
+		};
+		// Escape closes the drop-down first, wherever the focus is (the words being edited keep it).
+		const escape = (event: globalThis.KeyboardEvent) => {
+			if (event.key !== 'Escape') return;
+			event.preventDefault();
+			event.stopPropagation();
+			setPopup(null);
+		};
+		document.addEventListener('pointerdown', away, true);
+		window.addEventListener('keydown', escape, true);
+		return () => {
+			document.removeEventListener('pointerdown', away, true);
+			window.removeEventListener('keydown', escape, true);
+		};
+	}, [popup]);
+	// A drop-down kept inside the window.
+	useLayoutEffect(() => {
+		const el = popupRef.current;
+		if (!el || !popup) return;
+		const room = window.innerWidth - el.offsetWidth - 8;
+		if (popup.x > room) el.style.left = `${Math.max(8, room)}px`;
+	}, [popup]);
+
 	const perColumn = density === 'compact' ? 2 : 3;
-	const renderGroup = (group: RibbonGroup) => {
+	/** The button a group is folded into, or More: the group's name, which drops it down. */
+	const dropButton = (key: string, label: string, d: string, ids: string[], disabled: boolean) => (
+		<button
+			type="button"
+			className={`${styles.button} ${styles.large} ${styles.fold}`}
+			aria-haspopup="true"
+			aria-expanded={popup?.key === key}
+			data-ribbon-popup-key={key}
+			disabled={disabled}
+			// The words being edited keep the focus, as with every other button of the ribbon.
+			onMouseDown={(e) => e.preventDefault()}
+			onClick={(e) => openPopup(key, ids, label, e.currentTarget)}
+		>
+			<Glyph d={d} px={22} />
+			<span className={styles.label}>
+				{label}
+				<span className={styles.caret} aria-hidden="true">
+					{' '}
+					▾
+				</span>
+			</span>
+		</button>
+	);
+	const renderGroup = (whole: RibbonGroup, level: GroupLevel = 'full') => {
+		if (level === 'folded') {
+			const items = itemsOf(whole);
+			return (
+				<div
+					key={whole.id}
+					role="group"
+					aria-label={whole.label}
+					className={styles.group}
+					data-level="folded"
+				>
+					{dropButton(
+						`group:${whole.id}`,
+						whole.label,
+						items[0]?.d ?? MORE_GLYPH,
+						[whole.id],
+						items.every((i) => i.disabled),
+					)}
+				</div>
+			);
+		}
+		const group = level === 'compact' ? compacted(whole) : whole;
+		const showLabels = labelled && level === 'full';
 		const scope = `${active?.id ?? ''}/${group.id}`;
 		return (
-			<div key={group.id} role="group" aria-label={group.label} className={styles.group}>
+			<div
+				key={group.id}
+				role="group"
+				aria-label={group.label}
+				className={styles.group}
+				data-level={level === 'full' ? undefined : level}
+			>
 				<div className={styles.groupBody}>
 					{group.rows ? (
 						<div className={styles.rows}>
@@ -212,7 +369,7 @@ export function Ribbon(props: RibbonProps) {
 					) : (
 						columns(group.items ?? [], perColumn).map((col, i) => (
 							<div key={i} className={styles.column}>
-								{col.map((item) => controls.control(item, labelled, scope))}
+								{col.map((item) => controls.control(item, showLabels, scope))}
 							</div>
 						))
 					)}
@@ -223,6 +380,9 @@ export function Ribbon(props: RibbonProps) {
 			</div>
 		);
 	};
+
+	const shownGroups = groups.slice(0, groups.length - fit.more);
+	const underMore = groups.slice(groups.length - fit.more);
 
 	return (
 		<div
@@ -314,8 +474,35 @@ export function Ribbon(props: RibbonProps) {
 					onFocus={onPanelFocus}
 				>
 					<div role="toolbar" aria-label={labels.toolbar} className={styles.toolbar}>
-						{active.groups.map(renderGroup)}
+						{shownGroups.map((group) => renderGroup(group, fit.levels[group.id]))}
+						{underMore.length > 0 && (
+							<div role="group" aria-label={labels.more} className={styles.group} data-level="more">
+								{dropButton(
+									'more',
+									labels.more,
+									MORE_GLYPH,
+									underMore.map((g) => g.id),
+									false,
+								)}
+							</div>
+						)}
 					</div>
+				</div>
+			)}
+			{popup && (
+				<div
+					ref={popupRef}
+					role="group"
+					aria-label={popup.label}
+					className={styles.popup}
+					style={
+						{
+							'--folio-ribbon-popup-x': `${popup.x}px`,
+							'--folio-ribbon-popup-y': `${popup.y}px`,
+						} as CSSProperties
+					}
+				>
+					{groups.filter((g) => popup.ids.includes(g.id)).map((g) => renderGroup(g))}
 				</div>
 			)}
 			{controls.overlays}

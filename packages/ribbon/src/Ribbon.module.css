@@ -112,12 +112,36 @@
 	box-sizing: border-box;
 	padding: 4px 8px;
 	background: var(--folio-bg-chrome);
-	overflow-x: auto;
-	overflow-y: hidden;
+	/* The groups give way to fit (see `ribbonFit.ts`); the panel itself never scrolls. */
+	overflow: hidden;
 }
 .toolbar {
 	display: flex;
+	flex: none;
 	align-items: stretch;
+}
+/* A folded group's button, or More: the group's name under its first glyph, with a caret. */
+.fold {
+	white-space: nowrap;
+}
+/* The groups a folded button or More drops down, under the button, over the page. */
+.popup {
+	position: fixed;
+	left: var(--folio-ribbon-popup-x);
+	top: var(--folio-ribbon-popup-y);
+	z-index: var(--folio-z-menu);
+	display: flex;
+	flex-wrap: wrap;
+	align-items: stretch;
+	max-width: calc(100vw - 16px);
+	box-sizing: border-box;
+	padding: 4px 8px;
+	border-radius: 8px;
+	background: var(--folio-bg-chrome);
+	box-shadow: var(--folio-shadow-menu);
+}
+.popup .group {
+	min-height: calc(var(--folio-ribbon-panel-height) - 8px);
 }
 .panel[data-overlay] {
 	position: absolute;
@@ -137,6 +161,7 @@
 
 .group {
 	display: flex;
+	flex: none;
 	flex-direction: column;
 	justify-content: space-between;
 	padding: 0 10px;

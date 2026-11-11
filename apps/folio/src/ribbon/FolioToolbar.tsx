@@ -59,6 +59,7 @@ export function FolioToolbar({
 			unpin: t('ribbon.unpin'),
 			decrease: t('ribbon.decrease'),
 			increase: t('ribbon.increase'),
+			more: t('ribbon.more'),
 		}),
 		[],
 	);

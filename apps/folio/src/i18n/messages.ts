@@ -1145,6 +1145,7 @@ export const messages = {
 	'ribbon.item.toolSpelling': 'Spelling',
 	'ribbon.item.toolFind': 'Find & replace',
 	'ribbon.increase': 'Increase',
+	'ribbon.more': 'More',
 	'ribbon.item.addPage': 'Add pages',
 	'ribbon.item.alignBotE': 'Bottoms',
 	'ribbon.item.alignC': 'Centre',
