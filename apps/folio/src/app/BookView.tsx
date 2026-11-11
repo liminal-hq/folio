@@ -39,6 +39,7 @@ import { dialogLabel, type DialogMessages } from '../dialogs/dialogKinds';
 import { tauriDialogsClient } from '../dialogs/dialogsClient';
 import { openDialog } from '../dialogs/openDialog';
 import { putDescriptionIntent } from './coverSheetIntents';
+import { useSpeller } from './useSpeller';
 import { useWindowedDialog } from '../dialogs/useWindowedDialog';
 import { ExportDialog } from './ExportDialog';
 import {
@@ -88,7 +89,6 @@ import { useFind } from '../find/useFind';
 import { ReaderView } from './ReaderView';
 import { PageBackgroundDialog } from '../canvas/PageBackgroundDialog';
 import { Stage, type ZoomApi } from '../canvas/Stage';
-import type { Speller } from '../canvas/TextEditor';
 import { useSelection } from '../canvas/useSelection';
 import { useAssetUrls } from '../canvas/useAssetUrls';
 import { useCoverSheet } from '../canvas/useCoverSheet';
@@ -243,25 +243,8 @@ export function BookView({
 	// A cell belongs to the table it was edited in, so choosing something else forgets it.
 	useEffect(() => setEditingCell(null), [selection.join('|')]);
 	// Spelling is checked in Rust, in the book's own language and against its ignore list.
-	const spelling = settings.spelling.enabled;
 	const personal = settings.spelling.personal;
-	const speller = useMemo<Speller | undefined>(
-		() =>
-			spelling
-				? {
-						check: (text) =>
-							client.spellCheck(id, text, personal).then((found) => found.misspellings),
-						suggest: (word) => client.spellSuggest(id, word),
-						ignore: (word) => void store.apply({ type: 'IgnoreWord', word }),
-						addToDictionary: (word) =>
-							void update({
-								spelling: { personal: [...new Set([...personal, word])].sort() },
-							} as SettingsPatch),
-					}
-				: undefined,
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[spelling, client, id, personal],
-	);
+	const speller = useSpeller(client, id, store.apply);
 	const [dictionaryTick, setDictionaryTick] = useState(0);
 	// The dictionaries there are, for the language list: read once and again after a download.
 	const [dictionaries, setDictionaries] = useState<DictionaryStatus[]>([]);
@@ -765,6 +748,13 @@ export function BookView({
 			scope: background?.scope ?? null,
 		},
 		() => setBackground(null),
+	);
+	const showStory = useWindowedDialog(
+		'StoryEditor',
+		storyFlow !== null,
+		dialogWindows,
+		{ bookId: id, flow: storyFlow ?? '', paragraph: storyPara },
+		() => setStoryFlow(null),
 	);
 	const showSheet = useWindowedDialog('CoverSheet', sheetOpen, dialogWindows, bookDialog, () =>
 		setSheetOpen(false),
@@ -1538,7 +1528,7 @@ export function BookView({
 				}}
 			/>
 			<StoryEditorDialog
-				open={storyFlow !== null}
+				open={showStory}
 				onClose={() => setStoryFlow(null)}
 				book={book}
 				flow={storyFlow}

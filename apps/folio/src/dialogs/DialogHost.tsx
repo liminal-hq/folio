@@ -9,6 +9,7 @@ import { BookDetailsDialogWindow } from '../app/BookDetailsDialogWindow';
 import { BookSizeDialogWindow } from '../app/BookSizeDialogWindow';
 import { CheckBookDialogWindow } from '../app/CheckBookDialogWindow';
 import { PageBackgroundDialogWindow } from '../app/PageBackgroundDialogWindow';
+import { StoryEditorDialogWindow } from '../app/StoryEditorDialogWindow';
 import { CoverSheetDialogWindow } from '../app/CoverSheetDialogWindow';
 import { ImportReportDialogWindow } from '../app/ImportReportDialogWindow';
 import { SoftProofDialogWindow } from '../app/SoftProofDialogWindow';
@@ -119,6 +120,13 @@ function body(kind: OpenableKind, payload: unknown, session: DialogSession) {
 			return (
 				<PageBackgroundDialogWindow
 					payload={payload as DialogPayloads['PageBackground']}
+					session={session}
+				/>
+			);
+		case 'StoryEditor':
+			return (
+				<StoryEditorDialogWindow
+					payload={payload as DialogPayloads['StoryEditor']}
 					session={session}
 				/>
 			);

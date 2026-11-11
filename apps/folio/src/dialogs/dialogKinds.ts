@@ -23,6 +23,13 @@ export interface DialogPayloads {
 	CoverSheet: { bookId: string };
 	SoftProof: { bookId: string; spread: string };
 	CheckBook: { bookId: string };
+	StoryEditor: {
+		bookId: string;
+		/** The flow being edited. */
+		flow: string;
+		/** The paragraph to put the caret in when the editor opens. */
+		paragraph: number | null;
+	};
 	PageBackground: {
 		bookId: string;
 		/** The spread whose pages are being set. */
@@ -50,6 +57,7 @@ export interface DialogResults {
 	SoftProof: never;
 	CheckBook: never;
 	PageBackground: never;
+	StoryEditor: never;
 }
 
 /** What a dialog window that stays open posts to the window that opened it. */
@@ -74,6 +82,7 @@ const LABELS: Record<OpenableKind, string> = {
 	SoftProof: 'dialog-soft-proof',
 	CheckBook: 'dialog-check-book',
 	PageBackground: 'dialog-page-background',
+	StoryEditor: 'dialog-story-editor',
 };
 
 /** The kind a webview label denotes, or null when it is not a dialog window. */
@@ -99,6 +108,7 @@ const BOOK_DIALOGS: readonly OpenableKind[] = [
 	'CoverSheet',
 	'CheckBook',
 	'PageBackground',
+	'StoryEditor',
 ];
 
 export function isBookDialog(kind: OpenableKind): boolean {

@@ -15,6 +15,8 @@ export interface DialogBook {
 	book: Book;
 	/** Changes when the book does. */
 	revision: number;
+	/** The book's styles, as Rust sent them. */
+	styles: unknown;
 	client: BooksClient;
 	/** Changes the book through Rust, so the main window shows it at once (one undo step of the book). */
 	apply(intent: Intent): void;
@@ -41,6 +43,7 @@ export function useDialogBook(session: DialogSession): DialogBook | null {
 		id: active.summary.id,
 		book: active.copy.book,
 		revision: active.copy.revision,
+		styles: active.copy.styles,
 		client,
 		apply,
 		close,

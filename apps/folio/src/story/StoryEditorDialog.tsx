@@ -3,13 +3,13 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import { useEffect, useRef, useState } from 'react';
 import type { Speller } from '../canvas/TextEditor';
 import { charsBefore } from '../canvas/textSelection';
+import { DialogSurface } from '../dialogs/DialogSurface';
 import { t } from '../i18n/messages';
 import type { StyleChoice } from '../inspector/styleChoices';
 import styles from './StoryEditorDialog.module.css';
@@ -214,7 +214,7 @@ export function StoryEditorDialog({
 	}, [open, focusParagraph]);
 
 	return (
-		<Dialog
+		<DialogSurface
 			open={open && story !== undefined}
 			title={t('story.title')}
 			size="large"
@@ -277,6 +277,6 @@ export function StoryEditorDialog({
 					/>
 				))}
 			</div>
-		</Dialog>
+		</DialogSurface>
 	);
 }
