@@ -1,0 +1,40 @@
+[package]
+name = "tauri-plugin-window-dialogs"
+version = "0.1.0"
+description = "Tauri plugin for dialogs that are windows of their own: opens a child window with a payload, blocks its opener while it is open (where the platform allows), and returns its result or a cancellation to the opener"
+authors = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+build = "build.rs"
+links = "tauri-plugin-window-dialogs"
+keywords = ["tauri", "plugin", "dialog", "modal", "window"]
+categories = ["api-bindings", "gui"]
+
+[package.metadata.platforms.support]
+windows = { level = "partial", notes = "The dialog is owned by its opener (`parent`) and the opener is disabled with `EnableWindow` while the dialog is open, then enabled and focused before the dialog is destroyed so Windows does not activate another application; run on Windows 11 to verify" }
+linux = { level = "partial", notes = "The dialog is a transient of its opener and a GTK modal (`gtk_window_set_modal`), so GTK blocks input to the opener; GNOME attaches it, KWin and wlroots treat it as an ordinary transient (GTK 3 has no `xdg_dialog_v1`), and the page shows its own blocker as a fallback. Wayland compositors place the dialog themselves" }
+macos = { level = "none", notes = "Opens the window as a child but does not block the opener; the page's blocker is the fallback" }
+android = { level = "none", notes = "Desktop windows only" }
+ios = { level = "none", notes = "Desktop windows only" }
+
+[lib]
+name = "tauri_plugin_window_dialogs"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+tauri = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+tauri = { workspace = true, features = ["test"] }

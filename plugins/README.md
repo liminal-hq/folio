@@ -15,6 +15,7 @@ Tauri plugins used by Folio. Each is a Rust crate plus a `guest-js` package, and
 | ---------------- | -------- | -------------------- | ------------------------------------------- |
 | `window-tearoff` | reusable | Copied from Waypoint | Built; registered when document tabs arrive |
 | `window-effects` | reusable | Copied from Waypoint | Built; registered in the app shell          |
+| `window-dialogs` | reusable | Folio                | Dialogs as windows; registered in the app   |
 | `folio-settings` | domain   | Folio                | Typed, versioned app settings (D-11)        |
 
 ## Rules

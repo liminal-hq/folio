@@ -5791,6 +5791,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-window-dialogs"
+version = "0.1.0"
+dependencies = [
+ "gtk",
+ "log",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "tauri-plugin-window-effects"
 version = "0.1.0"
 dependencies = [
