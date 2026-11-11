@@ -15,6 +15,7 @@ import {
 	type ParagraphInput,
 } from '../ribbon/paragraphCommands';
 import styles from './Inspector.module.css';
+import { openEditor } from '../text/openEditor';
 import { LengthField } from './LengthField';
 import type { Units } from './units';
 
@@ -37,6 +38,9 @@ export function ParagraphSection(props: ParagraphSectionProps) {
 	if (scopes.length === 0) return null;
 	const look: ParaLook = scopes[0]!.looks[0] ?? {};
 	const across = scopes.some((s) => s.to > s.from);
+	// Once a length is confirmed or a spacing chosen, the words being edited get the focus back, with
+	// their caret or selection, so typing goes on where it was.
+	const back = () => openEditor()?.focus();
 	const send = (change: ParaChange) =>
 		scopes.forEach((s) =>
 			apply({ type: 'SetParagraphLook', target: s.target, from: s.from, to: s.to, change }),
@@ -53,10 +57,12 @@ export function ParagraphSection(props: ParagraphSectionProps) {
 			onCommit={(points) =>
 				points >= 0 && points <= MAX_INDENT && send({ set: { [field]: points }, clear: [] })
 			}
+			onDone={back}
 		/>
 	);
 	return (
-		<fieldset className={styles.lengths} aria-label={t('inspector.para')}>
+		// The fields act on the paragraphs of the open editor, which stays open while they have the focus.
+		<fieldset className={styles.lengths} aria-label={t('inspector.para')} data-keeps-editor="">
 			<legend>{t('inspector.para')}</legend>
 			{length('spaceBefore', t('inspector.para.before'))}
 			{length('spaceAfter', t('inspector.para.after'))}
@@ -68,13 +74,14 @@ export function ParagraphSection(props: ParagraphSectionProps) {
 					className={styles.select}
 					value={look.lineHeight === undefined ? FROM_STYLE : String(look.lineHeight)}
 					disabled={disabled}
-					onChange={(event) =>
+					onChange={(event) => {
 						send(
 							event.target.value === FROM_STYLE
 								? { set: {}, clear: ['lineHeight'] }
 								: { set: { lineHeight: Number(event.target.value) }, clear: [] },
-						)
-					}
+						);
+						back();
+					}}
 				>
 					<option value={FROM_STYLE}>{t('ribbon.para.fromStyle')}</option>
 					{look.lineHeight !== undefined && !LINE_SPACINGS.some((n) => n === look.lineHeight) && (

@@ -59,6 +59,14 @@ import { moveGrapheme, moveLineEdge, moveVertical, moveWord, wordAt } from './na
 import { cpLength, cpSlice, snapToGrapheme } from './units';
 import styles from './TextSurface.module.css';
 
+/**
+ * What may take the focus without ending the editing: the ribbon and the lists and menus it opens,
+ * the find bar, and the controls that act on the words being edited (`data-keeps-editor`, such as
+ * the Properties panel's Paragraph fields).
+ */
+const KEEPS_EDITOR =
+	'[data-ribbon], [data-find-bar], [role="menu"], [data-folio-menu-root], [data-keeps-editor]';
+
 /** The two ends of a selection: where it began and where the caret is. */
 export interface Selection {
 	anchor: TextPos;
@@ -812,15 +820,32 @@ export function TextSurface({
 		const key = () => {
 			pressedOn.current = null;
 		};
+		// While a control that keeps the editor open has the focus (a ribbon list, a paragraph field of
+		// the Properties panel), the editing ends as it would from the words: on a press, or the focus
+		// going, anywhere else.
+		const away = (event: Event) => {
+			const target = event.target;
+			if (!(target instanceof Node) || document.activeElement === sink.current) return;
+			if (target === sink.current || surface.current?.contains(target)) return;
+			if (target instanceof Element && target.closest(KEEPS_EDITOR)) return;
+			if (menuUp.current || linkMenuUp.current) return;
+			closeRef.current();
+		};
 		window.addEventListener('pointerdown', press, true);
 		window.addEventListener('mousedown', press, true);
 		window.addEventListener('keydown', key, true);
+		window.addEventListener('pointerdown', away, true);
+		window.addEventListener('focusin', away, true);
 		return () => {
 			window.removeEventListener('pointerdown', press, true);
 			window.removeEventListener('mousedown', press, true);
 			window.removeEventListener('keydown', key, true);
+			window.removeEventListener('pointerdown', away, true);
+			window.removeEventListener('focusin', away, true);
 		};
 	}, []);
+	const closeRef = useRef(onClose);
+	closeRef.current = onClose;
 
 	// Composition: the sink shows what is being composed, and the finished words are one edit.
 	const compositionEnd = (event: React.CompositionEvent<HTMLTextAreaElement>) => {
@@ -1009,10 +1034,9 @@ export function TextSurface({
 					// A list in the ribbon takes the focus to open, and so does the menu it opens (which sits
 					// outside the ribbon); the words stay selected for either to style.
 					// When the blur does not say where the focus went, the press that took it says.
-					const keep = '[data-ribbon], [data-find-bar], [role="menu"], [data-folio-menu-root]';
 					const to = event.relatedTarget ?? pressedOn.current;
 					pressedOn.current = null;
-					if (to instanceof Element && to.closest(keep)) return;
+					if (to instanceof Element && to.closest(KEEPS_EDITOR)) return;
 					// The window lost the focus (another program, the system's own list of a select): the
 					// editor is still where the person left it.
 					if (event.relatedTarget === null && !document.hasFocus()) return;

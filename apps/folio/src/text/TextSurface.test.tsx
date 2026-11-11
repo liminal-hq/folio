@@ -506,3 +506,28 @@ describe('a blur that does not say where the focus went', () => {
 		focused.mockRestore();
 	});
 });
+
+describe('a paragraph field of the Properties panel', () => {
+	it('takes the focus without ending the editing, which ends on a press elsewhere after it', () => {
+		const onClose = vi.fn();
+		const { sink } = mount(editor().onEdit, { onClose });
+		const panel = document.body.appendChild(document.createElement('fieldset'));
+		panel.setAttribute('data-keeps-editor', '');
+		const field = panel.appendChild(document.createElement('input'));
+		fireEvent.pointerDown(field);
+		act(() => field.focus());
+		expect(onClose).not.toHaveBeenCalled();
+		// Tab to the next field of the panel: still editing.
+		const next = panel.appendChild(document.createElement('input'));
+		act(() => next.focus());
+		expect(onClose).not.toHaveBeenCalled();
+		// The words get the focus back, with the caret where it was.
+		act(() => sink.focus());
+		expect(onClose).not.toHaveBeenCalled();
+		// From the field, a press on the page ends the editing.
+		act(() => field.focus());
+		fireEvent.pointerDown(document.body);
+		expect(onClose).toHaveBeenCalledTimes(1);
+		panel.remove();
+	});
+});
