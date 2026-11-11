@@ -9,6 +9,8 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { putDescriptionIntent } from '../app/coverSheetIntents';
 import { ImportReportDialogWindow } from '../app/ImportReportDialogWindow';
+import { UpdateDialogWindow } from '../app/UpdateDialogWindow';
+import { createFakeUpdateClient } from '../services/fakeUpdateClient';
 import { SoftProofDialogWindow } from '../app/SoftProofDialogWindow';
 import { SpreadTemplatesDialogWindow } from '../app/SpreadTemplatesDialogWindow';
 import { createFakeBooksClient } from '../books/fakeBooksClient';
@@ -95,6 +97,19 @@ describe('dialogs that hand a result back', () => {
 		screen.getAllByRole('button', { name: 'Close' }).at(-1)!.focus();
 		await userEvent.keyboard('{Escape}');
 		expect(s.close).toHaveBeenCalled();
+	});
+});
+
+describe('the Update dialog as a window', () => {
+	it('ends with "install" for the main window to act on, and installs nothing itself', async () => {
+		const fake = createFakeUpdateClient({ kind: 'ready', version: '0.2.0' });
+		const s = session();
+		inWindow(
+			<UpdateDialogWindow payload={{ checkOnOpen: false }} session={s} client={fake.client} />,
+		);
+		await userEvent.click(await screen.findByRole('button', { name: 'Restart and install' }));
+		expect(s.finish).toHaveBeenCalledWith({ install: true });
+		expect(fake.calls).not.toContain('install()');
 	});
 });
 

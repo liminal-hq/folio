@@ -23,6 +23,11 @@ export interface DialogPayloads {
 	CoverSheet: { bookId: string };
 	SoftProof: { bookId: string; spread: string };
 	CheckBook: { bookId: string };
+	Update: {
+		/** Looks for a newer version as soon as the window opens. */
+		checkOnOpen: boolean;
+	};
+	ConnectAgent: Record<string, never>;
 	StoryEditor: {
 		bookId: string;
 		/** The flow being edited. */
@@ -58,6 +63,9 @@ export interface DialogResults {
 	CheckBook: never;
 	PageBackground: never;
 	StoryEditor: never;
+	/** Install the update: the main window asks about unsaved books first, then restarts. */
+	Update: { install: true };
+	ConnectAgent: never;
 }
 
 /** What a dialog window that stays open posts to the window that opened it. */
@@ -83,6 +91,8 @@ const LABELS: Record<OpenableKind, string> = {
 	CheckBook: 'dialog-check-book',
 	PageBackground: 'dialog-page-background',
 	StoryEditor: 'dialog-story-editor',
+	Update: 'dialog-update',
+	ConnectAgent: 'dialog-connect-agent',
 };
 
 /** The kind a webview label denotes, or null when it is not a dialog window. */

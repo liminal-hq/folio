@@ -54,6 +54,8 @@ pub fn spec_for(kind: DialogKind) -> DialogSpec {
         DialogKind::ImportReport => resizable("Import report", 700.0, 640.0, 480.0, 360.0),
         DialogKind::CoverSheet => resizable("Cover sheet", 1000.0, 760.0, 640.0, 480.0),
         DialogKind::SoftProof => resizable("Soft proof", 900.0, 760.0, 560.0, 420.0),
+        DialogKind::Update => fixed("Update Folio", 580.0, 560.0),
+        DialogKind::ConnectAgent => fixed("Connect an agent", 620.0, 600.0),
         DialogKind::StoryEditor => resizable("Story", 920.0, 760.0, 640.0, 480.0),
         // The page behind shows each try at once, so the window is kept small enough to move aside.
         DialogKind::PageBackground => fixed("Page background", 540.0, 560.0),

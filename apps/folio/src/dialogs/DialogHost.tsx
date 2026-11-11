@@ -10,6 +10,8 @@ import { BookSizeDialogWindow } from '../app/BookSizeDialogWindow';
 import { CheckBookDialogWindow } from '../app/CheckBookDialogWindow';
 import { PageBackgroundDialogWindow } from '../app/PageBackgroundDialogWindow';
 import { StoryEditorDialogWindow } from '../app/StoryEditorDialogWindow';
+import { ConnectAgentDialogWindow } from '../app/ConnectAgentDialogWindow';
+import { UpdateDialogWindow } from '../app/UpdateDialogWindow';
 import { CoverSheetDialogWindow } from '../app/CoverSheetDialogWindow';
 import { ImportReportDialogWindow } from '../app/ImportReportDialogWindow';
 import { SoftProofDialogWindow } from '../app/SoftProofDialogWindow';
@@ -130,6 +132,10 @@ function body(kind: OpenableKind, payload: unknown, session: DialogSession) {
 					session={session}
 				/>
 			);
+		case 'Update':
+			return <UpdateDialogWindow payload={payload as DialogPayloads['Update']} session={session} />;
+		case 'ConnectAgent':
+			return <ConnectAgentDialogWindow session={session} />;
 		case 'SoftProof':
 			return (
 				<SoftProofDialogWindow payload={payload as DialogPayloads['SoftProof']} session={session} />

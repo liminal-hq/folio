@@ -26,11 +26,13 @@ pub enum DialogKind {
     CheckBook,
     PageBackground,
     StoryEditor,
+    Update,
+    ConnectAgent,
 }
 
 impl DialogKind {
     /// Every kind, for tests and for building capability lists.
-    pub const ALL: [DialogKind; 12] = [
+    pub const ALL: [DialogKind; 14] = [
         DialogKind::Export,
         DialogKind::BookDetails,
         DialogKind::Barcode,
@@ -43,6 +45,8 @@ impl DialogKind {
         DialogKind::CheckBook,
         DialogKind::PageBackground,
         DialogKind::StoryEditor,
+        DialogKind::Update,
+        DialogKind::ConnectAgent,
     ];
 
     /// The webview label of the window for this kind.
@@ -60,6 +64,8 @@ impl DialogKind {
             Self::CheckBook => "dialog-check-book",
             Self::PageBackground => "dialog-page-background",
             Self::StoryEditor => "dialog-story-editor",
+            Self::Update => "dialog-update",
+            Self::ConnectAgent => "dialog-connect-agent",
         }
     }
 
