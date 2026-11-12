@@ -2211,6 +2211,13 @@ impl Books {
                         list.clone_from(&chapters);
                     }
                     resolved.extras.cache = pictures.clone();
+                    if let Some(names) = &request.names {
+                        resolved.extras.navigation.cover_names =
+                            folio_export::outline::CoverNames {
+                                front: names.front_cover.clone(),
+                                back: names.back_cover.clone(),
+                            };
+                    }
                     // A Sharing or print-shop file says it was made by this version of Folio.
                     resolved.extras.application = Some(folio_export::outline::Application::folio(
                         &self.host.version(),

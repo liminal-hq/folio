@@ -239,6 +239,7 @@ pub fn resolve(kind: PdfKind, layers: &[&ExportPrefs], book: &Book) -> Resolved 
         },
         page_labels: prefs.page_labels.unwrap_or(false),
         links: prefs.links.unwrap_or(false),
+        cover_names: Default::default(),
         viewer_layout: match prefs.viewer_layout {
             Some(ViewerLayoutChoice::Spreads) => ViewerLayout::Spreads,
             _ => ViewerLayout::Single,

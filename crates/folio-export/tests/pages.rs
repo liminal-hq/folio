@@ -66,7 +66,8 @@ fn a_range_keeps_only_those_pages() {
         },
     );
     assert!(all.len() > 4);
-    assert_eq!(some.len(), 3);
+    // The range counts interior pages; the cover is added outside it.
+    assert_eq!(some.len(), 1 + 3);
 }
 
 #[test]

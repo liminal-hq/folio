@@ -595,6 +595,7 @@ impl FolioServer {
                         colour: Some(colour),
                         prefs,
                         user: None,
+                        names: None,
                     },
                 )
             })

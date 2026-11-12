@@ -482,6 +482,20 @@ pub struct ExportRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub user: Option<folio_model::ExportPrefs>,
+    /// Words the file carries that are the person's language, not the book's: the engine knows
+    /// only English, so the window passes these in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub names: Option<ExportNames>,
+}
+
+/// What the covers are called in a PDF's bookmarks and page numbers.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ExportNames {
+    pub front_cover: String,
+    pub back_cover: String,
 }
 
 /// A chapter of the book as a reader shows it.

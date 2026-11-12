@@ -124,10 +124,12 @@ fn chapters_become_bookmarks_that_lead_to_their_pages() {
         },
     );
     let found = bookmarks(&doc);
-    assert_eq!(found.len(), 2);
-    assert_eq!(found[0].0, "The reeds");
-    assert_eq!(found[1].0, "The moon");
-    assert!(found[0].1 < found[1].1, "{found:?}");
+    // The front cover leads the chapters.
+    assert_eq!(found.len(), 3);
+    assert_eq!(found[0].0, "Front cover");
+    assert_eq!(found[1].0, "The reeds");
+    assert_eq!(found[2].0, "The moon");
+    assert!(found[1].1 < found[2].1, "{found:?}");
 }
 
 #[test]
@@ -222,6 +224,7 @@ fn a_paperback_file_has_none_of_it_whatever_was_asked() {
         page_labels: true,
         links: true,
         viewer_layout: ViewerLayout::Spreads,
+        cover_names: Default::default(),
     };
     let doc = export(&book, &styles, PdfTarget::Print, asked);
     let catalog = doc.catalog().unwrap();
