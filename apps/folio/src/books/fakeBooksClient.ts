@@ -285,6 +285,8 @@ export function createFakeBooksClient(): FakeBooks {
 									ppi: frame.image.asset ? 250 : null,
 									fit: frame.image.fit,
 									description: frame.description ?? null,
+									decorative: frame.decorative ?? false,
+									automatic: false,
 									status: frame.image.asset ? ('low' as const) : ('empty' as const),
 								},
 							]

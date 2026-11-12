@@ -223,6 +223,7 @@ fn a_paperback_file_has_none_of_it_whatever_was_asked() {
         },
         page_labels: true,
         links: true,
+        tagged: true,
         viewer_layout: ViewerLayout::Spreads,
         names: Default::default(),
     };

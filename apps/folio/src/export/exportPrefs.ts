@@ -96,6 +96,7 @@ export function builtinPdf(kind: PdfKind): PdfPrefs {
 		bookmarks: kind === 'sharing' ? 'auto' : 'none',
 		pageLabels: kind === 'sharing',
 		links: kind === 'sharing',
+		tagged: kind === 'sharing',
 		viewerLayout: 'single',
 		sheets: 'pages',
 		cover: kind === 'sharing' ? 'frontAndBackEnds' : 'front',
@@ -133,6 +134,7 @@ export type LockReason =
 	| 'export.locked.pages'
 	| 'export.locked.marks'
 	| 'export.locked.links'
+	| 'export.locked.tagged'
 	| 'export.locked.kdpInk'
 	| 'export.locked.flatten';
 
@@ -141,6 +143,7 @@ export function lockedBecause(kind: PdfKind, field: LockedField): LockReason | n
 	// A press file has no see-through picture in it, whichever destination it is for.
 	if (kind !== 'sharing' && field === 'flatten') return 'export.locked.flatten';
 	if (kind === 'kdp') {
+		if (field === 'tagged') return 'export.locked.tagged';
 		if (NO_EXTRAS.includes(field)) return 'export.locked.kdp.info';
 		if (WHOLE_BOOK.includes(field)) return 'export.locked.pages';
 		if (NO_MARKS.includes(field)) return 'export.locked.marks';

@@ -48,6 +48,8 @@ pub struct Layouter<'a> {
     flow_cache: Option<(&'a FlowCache, u64)>,
     /// Paragraphs already shaped, kept between layouts of the book.
     paragraphs: Option<&'a ParagraphCache>,
+    /// The decoration in the book, found when first needed.
+    decorations: std::sync::OnceLock<crate::decoration::Decorations>,
 }
 
 /// The flows laid out for one state of a book. The owner makes a new one whenever the book changes.
@@ -75,6 +77,7 @@ impl<'a> Layouter<'a> {
             proofing: None,
             flow_cache: None,
             paragraphs: None,
+            decorations: std::sync::OnceLock::new(),
         }
     }
 
@@ -161,7 +164,10 @@ impl<'a> Layouter<'a> {
 
     fn spread(&self, spread: &Spread) -> Result<SpreadLayout, LayoutError> {
         let mut frames = Vec::new();
-        let mut preflight = geometry_checks(self.book, spread);
+        let decorations = self
+            .decorations
+            .get_or_init(|| crate::decoration::Decorations::of_book(self.book));
+        let mut preflight = geometry_checks(self.book, spread, decorations);
         preflight.extend(self.font_checks(spread));
         preflight.extend(crate::preflight::swatch_checks(self.book, spread));
         preflight.extend(crate::preflight::rich_black_checks(self.book, spread));

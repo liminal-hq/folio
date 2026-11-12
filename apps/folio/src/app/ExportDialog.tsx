@@ -55,6 +55,8 @@ export function ExportDialog({
 	const [chosen, setChosen] = useState<ExportTarget[]>(['sharingPdf']);
 	const [stage, setStage] = useState<Stage>({ kind: 'choose' });
 	const [waiting, setWaiting] = useState<number | null>(null);
+	// How many pictures have no description, which a tagged PDF would give a screen reader to read as "figure".
+	const [undescribed, setUndescribed] = useState(0);
 	const started = useRef(false);
 
 	const [reached, setReached] = useState<ExportProgress | null>(null);
@@ -137,12 +139,14 @@ export function ExportDialog({
 		}
 		let live = true;
 		setWaiting(null);
+		setUndescribed(0);
 		client
 			.preflightBook(id)
-			.then(
-				(items) =>
-					live && setWaiting(items.filter((i) => i.severity === 'error' && !i.ignored).length),
-			)
+			.then((items) => {
+				if (!live) return;
+				setWaiting(items.filter((i) => i.severity === 'error' && !i.ignored).length);
+				setUndescribed(items.filter((i) => i.kind === 'altMissing' && !i.ignored).length);
+			})
 			.catch(() => undefined);
 		if (autoStart && !started.current) {
 			started.current = true;
@@ -190,6 +194,16 @@ export function ExportDialog({
 					{waiting === 1 ? t('export.waiting.one') : t('export.waiting', { count: waiting })}{' '}
 					<button type="button" className={styles.link} onClick={onCheck}>
 						{t('export.checkFirst')}
+					</button>
+				</p>
+			)}
+			{stage.kind !== 'done' && exportChoices.tagged && undescribed > 0 && (
+				<p role="status" className={styles.warning}>
+					{undescribed === 1
+						? t('export.undescribed.one')
+						: t('export.undescribed', { count: undescribed })}{' '}
+					<button type="button" className={styles.link} onClick={onCheck}>
+						{t('export.undescribed.show')}
 					</button>
 				</p>
 			)}

@@ -110,6 +110,7 @@ fn text_frame(
             locked: false,
             from_master: None,
             description: None,
+            decorative: false,
         },
         style: StyleId(style.to_owned()),
         content: Some(InlineContent {

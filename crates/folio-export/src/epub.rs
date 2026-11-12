@@ -19,6 +19,7 @@ use zip::{CompressionMethod, ZipWriter};
 
 use crate::error::ExportError;
 use crate::pdf::Assets;
+use crate::roles::{role_of, Role};
 
 /// Which reader the file is made for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -36,34 +37,6 @@ pub struct EpubOptions {
     pub flavour: EpubFlavour,
     /// Put the fonts the book uses inside the file, when their licences allow it.
     pub embed_fonts: bool,
-}
-
-/// What a style is in the book's structure.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Role {
-    /// A title that opens a chapter or the book.
-    Title,
-    Subheading,
-    Paragraph,
-    Caption,
-    Epigraph,
-    Poem,
-    Note,
-    /// Only meaningful on a printed page: page numbers, running heads, the spine.
-    Skip,
-}
-
-fn role_of(style: &str) -> Role {
-    match style {
-        "display" | "title" | "h1big" | "h1" => Role::Title,
-        "numeral" | "h2" => Role::Subheading,
-        "caption" => Role::Caption,
-        "epigraph" => Role::Epigraph,
-        "poem" => Role::Poem,
-        "callout" | "footnote" => Role::Note,
-        "folio" | "rh" | "spine" | "ornament" | "bubble" | "label" => Role::Skip,
-        _ => Role::Paragraph,
-    }
 }
 
 /// One thing in the story, in reading order.
@@ -192,7 +165,7 @@ fn flow_pieces(flow: &folio_model::Flow, frame_style: &str) -> Vec<Piece> {
             continue;
         }
         match role_of(style) {
-            Role::Skip => {}
+            Role::Skip | Role::Speech => {}
             Role::Title => out.push(Piece::Title(
                 paras.into_iter().flat_map(|(runs, _)| runs).collect(),
             )),
@@ -257,7 +230,7 @@ fn story(book: &Book) -> Vec<Piece> {
                     }
                     let role = role_of(&t.style.0);
                     match role {
-                        Role::Skip => {}
+                        Role::Skip | Role::Speech => {}
                         Role::Title => out.push(Piece::Title(
                             paras.into_iter().flat_map(|(runs, _)| runs).collect(),
                         )),

@@ -219,8 +219,20 @@ describe('with a text frame selected', () => {
 		expect(screen.getByRole('textbox', { name: 'Words' })).toHaveValue('Bold');
 	});
 
+	it('marks the words as decoration, such as a page number, and takes the mark away', async () => {
+		const { apply } = setup([text()]);
+		await userEvent.click(screen.getByRole('checkbox', { name: 'Mark as decorative' }));
+		expect(apply).toHaveBeenCalledWith({
+			type: 'SetFrameDecorative',
+			on: { spread: 'sp' },
+			frame: 't',
+			decorative: true,
+		});
+	});
+
 	it('changes nothing about a locked frame', () => {
 		setup([text({ locked: true })]);
+		expect(screen.getByRole('checkbox', { name: 'Mark as decorative' })).toBeDisabled();
 		expect(screen.getByRole('textbox', { name: 'Words' })).toBeDisabled();
 		expect(screen.getByRole('button', { name: 'Bigger' })).toBeDisabled();
 		expect(screen.getByText(/is locked/)).toBeInTheDocument();

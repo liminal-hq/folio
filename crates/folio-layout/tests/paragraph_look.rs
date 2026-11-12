@@ -35,6 +35,7 @@ fn lay(text: &str, looks: Vec<ParaLook>) -> FrameLayout {
             locked: false,
             from_master: None,
             description: None,
+            decorative: false,
         },
         style: StyleId("body".into()),
         content: Some(InlineContent {
@@ -205,6 +206,7 @@ fn a_flows_paragraphs_take_their_own_looks() {
             locked: false,
             from_master: None,
             description: None,
+            decorative: false,
         },
         style: StyleId("body".into()),
         content: None,

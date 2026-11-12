@@ -54,6 +54,7 @@ pub fn make_pdf_x4(
     title: &str,
     application: Option<&Application>,
     condition: &OutputCondition<'_>,
+    tagged: bool,
 ) -> Result<Vec<u8>, ExportError> {
     let fail = |e: lopdf::Error| ExportError::Pdf(e.to_string());
     let mut doc = Document::load_mem(bytes).map_err(fail)?;
@@ -117,6 +118,10 @@ pub fn make_pdf_x4(
             .map_err(fail)?;
         root.set("OutputIntents", vec![Object::Reference(intent_id)]);
         root.set("Metadata", Object::Reference(meta_id));
+    }
+    // A tagged file keeps its structure tree through this step, and asks to show its title.
+    if tagged {
+        crate::post::display_doc_title(&mut doc)?;
     }
 
     // The information dictionary.

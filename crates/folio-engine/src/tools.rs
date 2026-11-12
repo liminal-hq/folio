@@ -288,6 +288,10 @@ pub struct PictureRow {
     pub fit: Fit,
     /// What the picture says it shows, for a reader who cannot see it.
     pub description: Option<String>,
+    /// The person marked it as decoration, which a reader who cannot see the page skips.
+    pub decorative: bool,
+    /// Folio treats it as decoration without being told (the backdrop of a page number).
+    pub automatic: bool,
     pub status: PictureStatus,
 }
 
@@ -742,6 +746,7 @@ fn royalty(
 
 fn pictures(book: &Book, facts: &AssetFacts) -> Vec<PictureRow> {
     let mut rows = Vec::new();
+    let decorations = folio_layout::decoration::Decorations::of_book(book);
     for spread in &book.spreads {
         for frame in &spread.frames {
             let Frame::Image(image) = frame else {
@@ -757,6 +762,9 @@ fn pictures(book: &Book, facts: &AssetFacts) -> Vec<PictureRow> {
                 ppi: None,
                 fit: image.image.fit,
                 description: image.base.description.clone(),
+                decorative: image.base.decorative,
+                automatic: !image.base.decorative
+                    && decorations.of(&spread.id, &image.base.id).is_some(),
                 status: PictureStatus::Empty,
             };
             if let Some(asset) = &image.image.asset {
@@ -828,6 +836,7 @@ mod tests {
                 locked: false,
                 from_master: None,
                 description: alt.map(str::to_owned),
+                decorative: false,
             },
             image: ImageRef {
                 asset: asset.map(str::to_owned),

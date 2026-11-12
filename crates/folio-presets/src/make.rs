@@ -264,6 +264,7 @@ impl Builder<'_> {
             locked: false,
             from_master: None,
             description: None,
+            decorative: false,
         }
     }
 

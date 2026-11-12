@@ -7,4 +7,11 @@ export type FrameBase = { id: FrameId, box: Rect, rotation: number, locked: bool
 /**
  * Alt text for pictures; accessible name for others.
  */
-description?: string | null, };
+description?: string | null, 
+/**
+ * Decoration: a picture or the words of a frame that add nothing for a reader who cannot see
+ * the page (a pumpkin behind a page number, a page number itself). A tagged PDF marks it as an
+ * artifact, so a screen reader skips it, and preflight does not ask for a description of it.
+ * An empty description does not mean decorative; this does.
+ */
+decorative?: boolean, };

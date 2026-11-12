@@ -21,4 +21,12 @@ ppi: number | null, fit: Fit,
 /**
  * What the picture says it shows, for a reader who cannot see it.
  */
-description: string | null, status: PictureStatus, };
+description: string | null, 
+/**
+ * The person marked it as decoration, which a reader who cannot see the page skips.
+ */
+decorative: boolean, 
+/**
+ * Folio treats it as decoration without being told (the backdrop of a page number).
+ */
+automatic: boolean, status: PictureStatus, };

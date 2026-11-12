@@ -77,7 +77,11 @@ fn safe_area(book: &Book, page: &PageRect) -> (f64, f64, f64, f64) {
 
 /// Frames whose rectangles break a print rule: text outside the safe margin and pictures that
 /// touch the trim but stop short of the bleed. Covers are left alone (their layout is the wrap's).
-pub fn geometry_checks(book: &Book, spread: &Spread) -> Vec<PreflightItem> {
+pub fn geometry_checks(
+    book: &Book,
+    spread: &Spread,
+    decorations: &crate::decoration::Decorations,
+) -> Vec<PreflightItem> {
     let mut out = Vec::new();
     if spread.kind == SpreadKind::Cover {
         return out;
@@ -119,6 +123,9 @@ pub fn geometry_checks(book: &Book, spread: &Spread) -> Vec<PreflightItem> {
                     .description
                     .as_deref()
                     .is_none_or(|d| d.trim().is_empty())
+                    // Decoration needs no description: a picture marked so, or the backdrop of a
+                    // page number.
+                    && !decorations.is_decoration(spread, &base.id)
                 {
                     out.push(item(PreflightKind::AltMissing, spread, frame));
                 }

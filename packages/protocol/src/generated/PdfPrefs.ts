@@ -36,7 +36,13 @@ flatten?: boolean, bookmarks?: BookmarkChoice, pageLabels?: boolean,
 /**
  * Words that link are links in the file. Only a Sharing PDF has them.
  */
-links?: boolean, viewerLayout?: ViewerLayoutChoice, 
+links?: boolean, 
+/**
+ * The file is tagged: it carries a structure tree, so a screen reader can read it in order
+ * and describe its pictures. Only a Sharing or print-shop PDF can be; a paperback for KDP is
+ * not.
+ */
+tagged?: boolean, viewerLayout?: ViewerLayoutChoice, 
 /**
  * The file's title, when not the book's.
  */

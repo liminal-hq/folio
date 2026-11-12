@@ -42,6 +42,7 @@ fn text_at(id: &str, x: f64, text: &str, href: Option<&str>) -> Frame {
             locked: false,
             from_master: None,
             description: None,
+            decorative: false,
         },
         style: StyleId("body".into()),
         content: Some(words(text, href)),

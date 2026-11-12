@@ -235,8 +235,13 @@ export const messages = {
 		'An estimate made {date}, not KDP’s own figures, which change: check KDP’s calculator before you set a price.',
 	'tools.alt.title': 'Alt text',
 	'tools.alt.desc': 'Say in words what each picture shows, for a reader who cannot see it.',
-	'tools.alt.summary': '{described} of {count} pictures say what they show.',
+	'tools.alt.summary': '{described} of {count} pictures say what they show or are decoration.',
 	'tools.alt.label': 'What the picture on {where} shows',
+	'tools.alt.decorative': 'Decorative: a screen reader skips this picture',
+	'tools.alt.automatic':
+		'Folio treats this picture as decoration because it sits behind a page number.',
+	'tools.alt.markedDecorative': 'Marked the picture as decoration.',
+	'tools.alt.unmarkedDecorative': 'The picture is not decoration any more.',
 	'tools.alt.kept': 'Kept what the picture shows.',
 	'tools.alt.cleared': 'Took away what the picture said it shows.',
 	'tools.about': '{title} · {pages} pages',
@@ -359,6 +364,11 @@ export const messages = {
 		'A reflowable book for Kobo Writing Life, and the Kobo flavour with faster page turns.',
 	'export.waiting': '{count} things are waiting on you.',
 	'export.waiting.one': 'One thing is waiting on you.',
+	'export.undescribed':
+		'{count} pictures have no description, so a screen reader will only say “figure”. Describe them, or mark them decorative.',
+	'export.undescribed.one':
+		'One picture has no description, so a screen reader will only say “figure”. Describe it, or mark it decorative.',
+	'export.undescribed.show': 'Show me',
 	'export.checkFirst': 'Check the book first',
 	'export.colour': 'Print colour',
 	'export.colour.cmyk': 'Make the paperback interior in ink (CMYK)',
@@ -404,6 +414,7 @@ export const messages = {
 	'export.expert.bookmarks.pages': 'One for each page',
 	'export.expert.pageLabels': 'Page numbers as the book shows them',
 	'export.expert.links': 'Links',
+	'export.expert.tagged': 'Make the PDF readable by screen readers',
 	'export.expert.viewer': 'When it opens',
 	'export.expert.viewer.single': 'One page at a time',
 	'export.expert.viewer.spreads': 'Two pages side by side',
@@ -434,6 +445,7 @@ export const messages = {
 	'export.expert.ink': 'Make it in ink through a press profile',
 	'export.expert.profile': 'The press’s CMYK profile',
 	'export.locked.kdp.info': 'A paperback file carries only the title and author.',
+	'export.locked.tagged': 'A KDP file is not tagged for screen readers.',
 	'export.locked.pages': 'This file is always the whole book as single pages.',
 	'export.locked.marks': 'Only the print shop file has these; KDP wants none.',
 	'export.locked.links': 'Print files have no links.',
@@ -1131,6 +1143,9 @@ export const messages = {
 	'inspector.picture.fill': 'Fill frame',
 	'inspector.picture.inside': 'Fit inside',
 	'inspector.picture.stretch': 'Stretch to the bleed line',
+	'inspector.decorative': 'Mark as decorative',
+	'inspector.decorative.hint':
+		'A screen reader skips decoration, such as a page number or a flourish. Words that tell the story are not decoration.',
 	'inspector.picture.none': 'No picture yet. You can choose one once pictures can be brought in.',
 	'inspector.master':
 		'This belongs to the master page, so it is the same on every page that uses it.',

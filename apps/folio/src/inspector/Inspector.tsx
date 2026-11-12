@@ -383,6 +383,37 @@ function WordsBox({
 	);
 }
 
+/** The tick that says a frame is decoration, which a screen reader skips (a page number, a flourish). */
+function DecorativeToggle({
+	frame,
+	props,
+}: {
+	frame: Pick<Frame, 'id' | 'locked' | 'fromMaster' | 'decorative'>;
+	props: InspectorProps;
+}) {
+	return (
+		<>
+			<label className={styles.check}>
+				<input
+					type="checkbox"
+					checked={frame.decorative === true}
+					disabled={frame.locked || frame.fromMaster != null}
+					onChange={(event) =>
+						props.apply({
+							type: 'SetFrameDecorative',
+							on: surfaceOf(props.spread),
+							frame: frame.id,
+							decorative: event.target.checked,
+						})
+					}
+				/>
+				{t('inspector.decorative')}
+			</label>
+			<p className={styles.note}>{t('inspector.decorative.hint')}</p>
+		</>
+	);
+}
+
 const ALIGNS = ['left', 'center', 'right', 'justify'] as const;
 const VALIGNS = ['top', 'middle', 'bottom'] as const;
 
@@ -428,6 +459,7 @@ function TextSection({ frame, props }: { frame: TextFrame; props: InspectorProps
 				/>
 			</label>
 			{frame.flow != null && <p className={styles.note}>{t('inspector.words.flow')}</p>}
+			{frame.flow == null && <DecorativeToggle frame={frame} props={props} />}
 			{frame.flow != null && props.onEditStory && (
 				<div className={styles.field}>
 					<button
@@ -708,6 +740,7 @@ function PictureSection({ frame, props }: { frame: Frame; props: InspectorProps 
 			>
 				{t('inspector.picture.choose')}
 			</button>
+			<DecorativeToggle frame={frame} props={props} />
 			{hasPicture && (
 				<div className={styles.field}>
 					<span>{t('inspector.picture.fit')}</span>

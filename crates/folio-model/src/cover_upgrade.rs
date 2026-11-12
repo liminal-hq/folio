@@ -25,6 +25,7 @@ fn base(id: &str, rect: Rect, rotation: f64) -> FrameBase {
         locked: false,
         from_master: None,
         description: None,
+        decorative: false,
     }
 }
 

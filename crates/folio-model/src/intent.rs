@@ -160,6 +160,13 @@ pub enum Intent {
         frame: FrameId,
         description: Option<String>,
     },
+    /// Marks a frame as decoration (a picture or words that a reader who cannot see the page does
+    /// not need), or takes the mark away. One undo step.
+    SetFrameDecorative {
+        on: Surface,
+        frame: FrameId,
+        decorative: bool,
+    },
     /// Puts a picture in a picture frame (an asset path from the package) and says how it sits in
     /// the frame, including which point of it stays in view when it is cropped (as 0–1 across and
     /// down). A part left out stays as it was, and a drag of the focus point is one undo step.
