@@ -2287,6 +2287,12 @@ impl Books {
                 Err(e) => return Err(e),
             };
             for file in made {
+                // What a flattened PDF left see-through, and why.
+                for note in &file.notes {
+                    if !report.notes.contains(note) {
+                        report.notes.push(note.clone());
+                    }
+                }
                 if estimate.is_some() {
                     report.files.push(ExportedFile {
                         target,

@@ -619,3 +619,135 @@ fn a_sharing_and_a_print_shop_pdf_name_the_app_and_a_paperback_does_not() {
     }
     assert_eq!(info(2), (None, None));
 }
+
+/// A book whose first picture frame inside shows a feathered PNG on a pink page.
+fn book_with_a_feathered_picture(books: &Books) -> (String, tempfile::TempDir) {
+    use folio_model::{Background, BackgroundTarget, Colour, Frame, Intent, SpreadKind};
+    use image::{ImageEncoder, Rgba, RgbaImage};
+    let id = books
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id
+        .clone();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("Otter").join("Otter.folio");
+    books.save(&id, Some(file.as_path())).unwrap();
+
+    let disc = RgbaImage::from_fn(1500, 1500, |x, y| {
+        let (dx, dy) = (f64::from(x) - 750.0, f64::from(y) - 750.0);
+        let a = ((700.0 - (dx * dx + dy * dy).sqrt()) / 120.0).clamp(0.0, 1.0);
+        Rgba([200, 30, 30, (a * 255.0) as u8])
+    });
+    let mut png = Vec::new();
+    image::codecs::png::PngEncoder::new(&mut png)
+        .write_image(disc.as_raw(), 1500, 1500, image::ExtendedColorType::Rgba8)
+        .unwrap();
+    let asset = books.import_image_bytes(&id, png, "png").unwrap();
+
+    let book = books.snapshot(&id).unwrap().book;
+    let spread = book
+        .spreads
+        .iter()
+        .find(|s| {
+            s.kind != SpreadKind::Cover && s.frames.iter().any(|f| matches!(f, Frame::Image(_)))
+        })
+        .expect("a picture frame inside");
+    let frame = spread
+        .frames
+        .iter()
+        .find_map(|f| match f {
+            Frame::Image(i) => Some(i.base.id.clone()),
+            _ => None,
+        })
+        .unwrap();
+    let intents = [
+        Intent::SetImage {
+            frame,
+            asset: Some(asset),
+            fit: None,
+            focus: None,
+        },
+        Intent::SetBackground {
+            target: BackgroundTarget::Page {
+                spread: spread.id.clone(),
+                page: spread.pages[0].id.clone(),
+            },
+            bg: Some(Background::Colour {
+                colour: Colour("#ffc0cb".into()),
+            }),
+        },
+    ];
+    for intent in intents {
+        books.apply(&id, intent).unwrap();
+    }
+    (id, dir)
+}
+
+fn soft_masks(path: &str) -> usize {
+    let doc = lopdf::Document::load(path).unwrap();
+    doc.objects
+        .values()
+        .filter_map(|o| o.as_stream().ok())
+        .filter(|s| s.dict.has(b"SMask"))
+        .count()
+}
+
+#[test]
+fn a_flattened_estimate_is_the_size_of_the_export_and_press_files_hold_no_soft_masks() {
+    let books = Books::new(Arc::new(Recorder::default()));
+    let (id, _dir) = book_with_a_feathered_picture(&books);
+    let request = ExportRequest {
+        targets: vec![
+            ExportTarget::SharingPdf,
+            ExportTarget::KdpInterior,
+            ExportTarget::PrintShopPdf,
+        ],
+        ..ExportRequest::default()
+    };
+    let estimate = books.estimate_export(&id, &request).unwrap();
+    let report = books.export_with(&id, &request).unwrap();
+    let real: u64 = report.files.iter().map(|f| u64::from(f.bytes)).sum();
+    let off = estimate.bytes.abs_diff(real) as f64 / real as f64;
+    assert!(off < 0.01, "estimate {} against {real}", estimate.bytes);
+    // The Sharing PDF keeps its transparency live, and the press files hold none.
+    let masks: Vec<usize> = report.files.iter().map(|f| soft_masks(&f.path)).collect();
+    assert!(masks[0] > 0, "{masks:?}");
+    assert_eq!(&masks[1..], &[0, 0], "{masks:?}");
+}
+
+#[test]
+fn asking_a_sharing_pdf_to_flatten_changes_its_size_estimate_and_the_file_the_same_way() {
+    use folio_model::{ExportPrefs, PdfPrefs};
+    let books = Books::new(Arc::new(Recorder::default()));
+    let (id, _dir) = book_with_a_feathered_picture(&books);
+    let sized = |flatten: bool| {
+        let request = ExportRequest {
+            targets: vec![ExportTarget::SharingPdf],
+            prefs: Some(ExportPrefs {
+                pdf: folio_model::PdfPrefsByTarget {
+                    sharing: PdfPrefs {
+                        flatten: Some(flatten),
+                        ..PdfPrefs::default()
+                    },
+                    ..Default::default()
+                },
+                ..ExportPrefs::default()
+            }),
+            ..ExportRequest::default()
+        };
+        let estimate = books.estimate_export(&id, &request).unwrap();
+        let report = books.export_with(&id, &request).unwrap();
+        let real = u64::from(report.files[0].bytes);
+        assert!(
+            estimate.bytes.abs_diff(real) as f64 / (real as f64) < 0.01,
+            "estimate {} against {real}",
+            estimate.bytes
+        );
+        (soft_masks(&report.files[0].path), real)
+    };
+    let (live, live_bytes) = sized(false);
+    let (flat, flat_bytes) = sized(true);
+    assert!(live > 0 && flat == 0);
+    assert_ne!(live_bytes, flat_bytes);
+}

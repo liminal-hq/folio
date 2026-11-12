@@ -1466,6 +1466,7 @@ dependencies = [
  "folio-protocol",
  "folio-session",
  "folio-spell",
+ "image",
  "log",
  "lopdf",
  "regex",
