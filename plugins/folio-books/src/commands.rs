@@ -546,6 +546,8 @@ pub async fn preview_cover_sheet<R: Runtime>(
 }
 
 /// Makes the files for `targets` and writes them into the book's `exports` folder.
+// A command's arguments are what the window sends by name.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn export_book<R: Runtime>(
     app: AppHandle<R>,
@@ -576,6 +578,8 @@ pub async fn export_book<R: Runtime>(
 
 /// How big the PDFs `targets` would be, made in memory with the same choices as `export_book`.
 /// Another estimate asked for while this one works stops it.
+// A command's arguments are what the window sends by name.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn estimate_export<R: Runtime>(
     app: AppHandle<R>,

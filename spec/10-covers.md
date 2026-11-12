@@ -22,7 +22,7 @@ The cover spread is one page as wide as the printed sheet inside its bleed: the 
 
 **The description on the back cover:** the **Description** in Book details fills a text frame of the back cover (`blurb`) when the description is first typed, and keeps it in step while the frame still holds the last description Folio put there. Once the person has changed the words in the frame they are theirs, and a new description leaves them alone. Title and author on the front are plain frames, as on any page. Books saved before schema 3 are brought across when they are opened (`upgrade_cover`): the front's frames move along past the back and the spine, the description becomes a `blurb` frame and each back-cover note (`Book.backNotes`, which was words, a picture or a shape) becomes a frame of the cover.
 
-Everything that wants one front cover (the eBook cover, the sharing PDF, the fixed-layout EPUB and the new-book preview) takes `front_cover_view`: the cover cut down to a page of the trim size with the front on it.
+Everything that wants one front cover (the eBook cover, the sharing PDF, the fixed-layout EPUB and the new-book preview) takes `front_cover_view`: the cover cut down to a page of the trim size with the front on it. The Sharing PDF also takes `back_cover_view`, the same cut at the back panel (`x` from 0 to the trim width), for its last page (D-80); the generated barcode is drawn on it when the book has a good paperback ISBN.
 
 ## Live spine
 
