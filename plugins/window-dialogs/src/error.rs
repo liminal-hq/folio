@@ -7,9 +7,6 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    /// The opener already has a modal dialog open, and only one is allowed at a time.
-    #[error("the window already has a modal dialog open: {0}")]
-    ModalOpen(String),
     /// The window that asked is not a dialog this plugin opened.
     #[error("the window is not a dialog")]
     NotADialog,

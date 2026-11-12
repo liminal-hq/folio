@@ -11,6 +11,9 @@ import { AppTitleBar } from '../app/AppTitleBar';
 /** Set by a dialog window's host: the dialogs below it fill the window instead of floating. */
 const DialogWindowContext = createContext<{ onDefaultAction?: () => void } | null>(null);
 
+/** Something a dialog window wants said above its form, such as that the book changed under it. */
+export const DialogNoticeContext = createContext<ReactNode>(null);
+
 export function DialogWindowProvider({ children }: { children: ReactNode }) {
 	return <DialogWindowContext.Provider value={{}}>{children}</DialogWindowContext.Provider>;
 }
@@ -26,6 +29,7 @@ export interface DialogSurfaceProps extends DialogProps {
  */
 export function DialogSurface({ onDefaultAction, ...props }: DialogSurfaceProps) {
 	const inWindow = useContext(DialogWindowContext) !== null;
+	const notice = useContext(DialogNoticeContext);
 	if (!inWindow) return <Dialog {...props} />;
 	if (!props.open) return null;
 	const title = typeof props.title === 'string' ? props.title : '';
@@ -34,6 +38,7 @@ export function DialogSurface({ onDefaultAction, ...props }: DialogSurfaceProps)
 			title={title}
 			titleBar={<AppTitleBar title={title} closeOnly />}
 			description={props.description}
+			notice={notice}
 			footer={props.footer}
 			onClose={props.onClose}
 			onDefaultAction={onDefaultAction}

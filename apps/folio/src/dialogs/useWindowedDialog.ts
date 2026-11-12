@@ -28,7 +28,7 @@ export function useWindowedDialog<K extends OpenableKind>(
 		inFlight.current = true;
 		openDialog(kind, latest.current.payload)
 			.then((result) => latest.current.onEnded(result))
-			// Another modal dialog is open already, or the window could not be made.
+			// The window could not be made.
 			.catch(() => latest.current.onEnded(null))
 			.finally(() => {
 				inFlight.current = false;

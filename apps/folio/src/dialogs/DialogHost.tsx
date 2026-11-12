@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { BarcodeDialogWindow } from '../app/BarcodeDialogWindow';
 import { BookDetailsDialogWindow } from '../app/BookDetailsDialogWindow';
 import { BookSizeDialogWindow } from '../app/BookSizeDialogWindow';
@@ -21,8 +21,10 @@ import { MarginsDialogWindow } from '../app/MarginsDialogWindow';
 import { BooksProvider } from '../books/BooksProvider';
 import { tauriBooksClient } from '../books/booksClient';
 import { tauriFileDialogs } from '../books/dialogs';
-import { DialogWindowProvider } from './DialogSurface';
-import { isBookDialog, type DialogPayloads, type OpenableKind } from './dialogKinds';
+import { useActiveBook } from '../books/useBooks';
+import { t } from '../i18n/messages';
+import { DialogNoticeContext, DialogWindowProvider } from './DialogSurface';
+import { DRAFT_DIALOGS, isBookDialog, type DialogPayloads, type OpenableKind } from './dialogKinds';
 import { tauriDialogsClient, type DialogsClient } from './dialogsClient';
 
 /**
@@ -79,12 +81,49 @@ export function DialogHost({
 					dialogs={tauriFileDialogs}
 					pin={(payload as { bookId: string }).bookId}
 				>
-					{body(kind, payload, session)}
+					<BookWatch kind={kind} session={session}>
+						{body(kind, payload, session)}
+					</BookWatch>
 				</BooksProvider>
 			) : (
 				body(kind, payload, session)
 			)}
 		</DialogWindowProvider>
+	);
+}
+
+/**
+ * A dialog window stays open while the main window goes on editing, so it watches its book. The
+ * book is read from Rust (D-02), so what a dialog shows follows it; a form that keeps a draft of
+ * its fields says so when the book changed under it, and a dialog whose book was closed closes.
+ */
+export function BookWatch({
+	kind,
+	session,
+	children,
+}: {
+	kind: OpenableKind;
+	session: DialogSession;
+	children: ReactNode;
+}) {
+	const active = useActiveBook();
+	const opened = useRef<number | null>(null);
+	const seen = useRef(false);
+	if (active && opened.current === null) opened.current = active.copy.revision;
+	if (active) seen.current = true;
+	const gone = seen.current && !active;
+	useEffect(() => {
+		if (gone) session.close();
+	}, [gone, session]);
+	const changed =
+		DRAFT_DIALOGS.includes(kind) &&
+		active !== null &&
+		opened.current !== null &&
+		active.copy.revision !== opened.current;
+	return (
+		<DialogNoticeContext.Provider value={changed ? t('dialog.bookChanged') : null}>
+			{children}
+		</DialogNoticeContext.Provider>
 	);
 }
 

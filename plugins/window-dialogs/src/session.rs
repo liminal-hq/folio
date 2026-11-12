@@ -1,4 +1,4 @@
-// Opens dialog windows, blocks their openers and reports how each one ended
+// Opens dialog windows as transient children of their openers and reports how each one ended
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -11,9 +11,7 @@ use tauri::{
 };
 
 use crate::error::Error;
-use crate::models::{
-    DialogSpec, Finished, ModalState, Opened, Posted, FINISHED_EVENT, MESSAGE_EVENT, MODAL_EVENT,
-};
+use crate::models::{DialogSpec, Finished, Opened, Posted, FINISHED_EVENT, MESSAGE_EVENT};
 use crate::platform;
 use crate::registry::{Opening, Registry};
 
@@ -61,9 +59,8 @@ pub fn open<R: Runtime>(
     let opener_label = opener.map(|w| w.label().to_owned());
     let opening = state
         .registry()
-        .begin(label, opener_label.as_deref(), spec.modal, payload);
+        .begin(label, opener_label.as_deref(), payload);
     let request_id = match opening {
-        Opening::Refused { modal } => return Err(Error::ModalOpen(modal)),
         Opening::Existing { request_id } => {
             if let Some(window) = app.get_webview_window(label) {
                 let _ = window.unminimize();
@@ -91,8 +88,8 @@ pub fn open<R: Runtime>(
     let app_for_events = app.clone();
     let label_for_events = label.to_owned();
     window.on_window_event(move |event| match event {
-        // Before the window is destroyed, so an owner that was disabled is enabled and focused
-        // while the dialog still exists.
+        // Before the window is destroyed, so the opener is focused while the dialog still exists and
+        // no other application's window is activated.
         WindowEvent::CloseRequested { .. } | WindowEvent::Destroyed => {
             ended(&app_for_events, &label_for_events, None);
         }
@@ -109,18 +106,6 @@ pub fn open<R: Runtime>(
         _ => {}
     });
 
-    if let (true, Some(opener)) = (spec.modal, opener) {
-        let native = platform::block(&window, opener);
-        let _ = app.emit_to(
-            opener.label(),
-            MODAL_EVENT,
-            ModalState {
-                open: true,
-                label: label.to_owned(),
-                native,
-            },
-        );
-    }
     log::debug!("dialog {label}: opened (request {request_id})");
     Ok(Opened {
         request_id,
@@ -189,18 +174,6 @@ pub fn ended<R: Runtime>(app: &AppHandle<R>, label: &str, result: Option<Value>)
     };
     if let Some(name) = closing.opener.as_deref() {
         if let Some(opener) = app.get_webview_window(name) {
-            if closing.modal {
-                platform::unblock(&opener);
-                let _ = app.emit_to(
-                    name,
-                    MODAL_EVENT,
-                    ModalState {
-                        open: false,
-                        label: label.to_owned(),
-                        native: true,
-                    },
-                );
-            }
             // Focus goes back to the page that asked, window and webview both.
             let _ = opener.show();
             let _ = opener.set_focus();

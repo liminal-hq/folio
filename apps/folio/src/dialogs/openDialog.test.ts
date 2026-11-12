@@ -17,14 +17,12 @@ function fakeClient(open: DialogsClient['open'] = async () => {}) {
 			listener = next;
 			return stop;
 		},
-		onModal: async () => () => {},
 		onMessage: async () => () => {},
-		request: async () => ({ requestId: 1, label: 'dialog-export', payload: null, modal: true }),
+		request: async () => ({ requestId: 1, label: 'dialog-export', payload: null }),
 		shown: async () => 0,
 		finish: async () => {},
 		close: async () => {},
 		post: async () => {},
-		focus: async () => {},
 	};
 	return { client, stop, finish: (finished: Finished) => listener(finished) };
 }
@@ -85,9 +83,11 @@ describe('openDialog', () => {
 
 	it('rejects, and stops listening, when the dialog could not open', async () => {
 		const { client, stop } = fakeClient(async () => {
-			throw new Error('a modal dialog is open');
+			throw new Error('the window could not be made');
 		});
-		await expect(openDialog('Export', PAYLOAD, client)).rejects.toThrow('a modal dialog is open');
+		await expect(openDialog('Export', PAYLOAD, client)).rejects.toThrow(
+			'the window could not be made',
+		);
 		expect(stop).toHaveBeenCalled();
 	});
 });

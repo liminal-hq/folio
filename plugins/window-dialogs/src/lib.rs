@@ -1,4 +1,4 @@
-// Registers the window-dialogs plugin: dialogs that are windows of their own, blocking their opener
+// Registers the window-dialogs plugin: dialogs that are modeless windows of their own, transient children of their opener
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -51,7 +51,6 @@ pub fn init_with<R: Runtime>(
             commands::dialog_shown,
             commands::finish_dialog,
             commands::post_to_opener,
-            commands::focus_dialog,
         ])
         .setup(move |app, _api| {
             let options = options(app);

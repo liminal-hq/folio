@@ -75,24 +75,3 @@ pub async fn post_to_opener<R: Runtime>(
 ) -> Result<(), Error> {
     session::post(&app, window.label(), message)
 }
-
-/// Brings the dialog forward and focuses it. The opener's blocker calls this when it is clicked.
-#[tauri::command]
-pub async fn focus_dialog<R: Runtime>(
-    app: AppHandle<R>,
-    window: WebviewWindow<R>,
-    state: State<'_, Dialogs>,
-) -> Result<(), Error> {
-    let label = state
-        .registry
-        .lock()
-        .expect("the registry is not poisoned")
-        .modal_of(window.label())
-        .map(str::to_owned);
-    if let Some(dialog) = label.and_then(|l| tauri::Manager::get_webview_window(&app, &l)) {
-        let _ = dialog.unminimize();
-        let _ = dialog.show();
-        let _ = dialog.set_focus();
-    }
-    Ok(())
-}

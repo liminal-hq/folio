@@ -5795,7 +5795,6 @@ dependencies = [
 name = "tauri-plugin-window-dialogs"
 version = "0.1.0"
 dependencies = [
- "gtk",
  "log",
  "serde",
  "serde_json",

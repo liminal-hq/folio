@@ -28,6 +28,8 @@ export interface DialogWindowFrameProps {
 	titleBar: ReactNode;
 	/** Supporting text, wired up as the accessible description. */
 	description?: ReactNode;
+	/** Something the person should know that changed under them, shown above the body. */
+	notice?: ReactNode;
 	children?: ReactNode;
 	/** Buttons row; `DialogActions` is the usual content. */
 	footer?: ReactNode;
@@ -67,6 +69,7 @@ export function DialogWindowFrame({
 	title,
 	titleBar,
 	description,
+	notice,
 	children,
 	footer,
 	onClose,
@@ -158,6 +161,13 @@ export function DialogWindowFrame({
 							<div className={styles.descriptionBar}>
 								<p id={descriptionId} className={`${styles.description} ${styles.column}`}>
 									{description}
+								</p>
+							</div>
+						) : null}
+						{notice ? (
+							<div className={styles.descriptionBar} role="status">
+								<p className={`${styles.notice} ${styles.column}`} data-dialog-notice>
+									{notice}
 								</p>
 							</div>
 						) : null}

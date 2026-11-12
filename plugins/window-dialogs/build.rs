@@ -9,7 +9,6 @@ const COMMANDS: &[&str] = &[
     "dialog_shown",
     "finish_dialog",
     "post_to_opener",
-    "focus_dialog",
 ];
 
 fn main() {

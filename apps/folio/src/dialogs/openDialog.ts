@@ -14,7 +14,7 @@ import { tauriDialogsClient, type DialogsClient } from './dialogsClient';
 /**
  * Opens the dialog window of `kind` and resolves with what it handed back, or `null` when it was
  * closed without a result. Focus goes back to the element that had it when the dialog ends. Rejects
- * when the dialog could not open (this window has another modal dialog open already).
+ * when the dialog could not open.
  */
 export async function openDialog<K extends OpenableKind>(
 	kind: K,

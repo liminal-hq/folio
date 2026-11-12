@@ -6,5 +6,4 @@ permissions = [
   "allow-dialog-shown",
   "allow-finish-dialog",
   "allow-post-to-opener",
-  "allow-focus-dialog",
 ]

@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
 // The plugin knows nothing of Folio's dialogs. This module is where a `DialogKind` becomes a
-// window: its title, its size (the one it was last left at, for the ones that can be resized) and
-// whether it blocks the window that opened it.
+// window: its title and its size (the one it was last left at, for the ones that can be resized).
+// Every dialog is a modeless transient child of the window that opened it: it blocks nothing.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -17,7 +17,7 @@ use tauri::{AppHandle, Manager, Runtime, WebviewWindow};
 use tauri_plugin_folio_settings::SettingsStore;
 use tauri_plugin_window_dialogs::{models::DialogSpec, OnResized, Options};
 
-/// A modal dialog that cannot be resized.
+/// A dialog that cannot be resized.
 fn fixed(title: &str, width: f64, height: f64) -> DialogSpec {
     DialogSpec {
         title: title.into(),
@@ -26,13 +26,12 @@ fn fixed(title: &str, width: f64, height: f64) -> DialogSpec {
         min_width: None,
         min_height: None,
         resizable: false,
-        modal: true,
         chromeless: true,
         url: None,
     }
 }
 
-/// A modal dialog that can be resized, down to a minimum, and remembers its size.
+/// A dialog that can be resized, down to a minimum, and remembers its size.
 fn resizable(title: &str, width: f64, height: f64, min_width: f64, min_height: f64) -> DialogSpec {
     DialogSpec {
         resizable: true,
@@ -59,11 +58,8 @@ pub fn spec_for(kind: DialogKind) -> DialogSpec {
         DialogKind::StoryEditor => resizable("Story", 920.0, 760.0, 640.0, 480.0),
         // The page behind shows each try at once, so the window is kept small enough to move aside.
         DialogKind::PageBackground => fixed("Page background", 540.0, 560.0),
-        // The book stays usable while the list is open: "Show me" moves its canvas.
-        DialogKind::CheckBook => DialogSpec {
-            modal: false,
-            ..resizable("Check book", 620.0, 700.0, 440.0, 360.0)
-        },
+        // "Show me" moves the main window's canvas while the list stays open.
+        DialogKind::CheckBook => resizable("Check book", 620.0, 700.0, 440.0, 360.0),
     }
 }
 
@@ -193,11 +189,10 @@ mod tests {
     }
 
     #[test]
-    fn every_kind_has_a_title_and_only_check_book_leaves_the_opener_usable() {
+    fn every_kind_has_a_title() {
         for kind in DialogKind::ALL {
             let spec = spec_for(kind);
             assert!(!spec.title.is_empty());
-            assert_eq!(spec.modal, kind != DialogKind::CheckBook, "{kind:?}");
         }
     }
 }

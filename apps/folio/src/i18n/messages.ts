@@ -322,6 +322,10 @@ export const messages = {
 		'Readers can zoom a fixed-layout book but cannot reflow it, so the pages are shown as they are.',
 
 	// Export
+	'dialog.bookChanged':
+		'The book has changed since this window opened. Close it and open it again to start from the book as it is now.',
+	'export.edited':
+		'The book was edited after this export started. The files show it as it was when the export began.',
 	'export.title': 'Export book',
 	'export.which': 'What would you like to make?',
 	'export.target.sharingPdf': 'Sharing PDF',

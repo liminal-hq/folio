@@ -17,7 +17,6 @@ import { tauriBooksClient } from './books/booksClient';
 import { tauriFileDialogs } from './books/dialogs';
 import { DialogHost } from './dialogs/DialogHost';
 import { dialogKindFromLabel } from './dialogs/dialogKinds';
-import { ModalBlocker } from './dialogs/ModalBlocker';
 import { PreferencesScreen } from './app/PreferencesScreen';
 import { windowKindFromLabel } from './app/windowKind';
 import { SettingsProvider } from './settings/SettingsProvider';
@@ -35,7 +34,6 @@ function screenFor(kind: WindowKind | null) {
 			return (
 				<BooksProvider client={tauriBooksClient} dialogs={tauriFileDialogs}>
 					<MainScreen />
-					<ModalBlocker />
 				</BooksProvider>
 			);
 		case 'About':
@@ -46,7 +44,6 @@ function screenFor(kind: WindowKind | null) {
 			return (
 				<BooksProvider client={tauriBooksClient} dialogs={tauriFileDialogs} follow>
 					<BookToolsScreen />
-					<ModalBlocker />
 				</BooksProvider>
 			);
 		case 'WizardNew':

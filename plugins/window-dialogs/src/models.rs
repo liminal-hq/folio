@@ -8,12 +8,11 @@ use serde_json::Value;
 
 /// Sent to the opener when a dialog is done, with a `Finished`: its result, or a cancellation.
 pub const FINISHED_EVENT: &str = "window-dialogs://finished";
-/// Sent to the opener when it is blocked or released by a dialog, with a `ModalState`.
-pub const MODAL_EVENT: &str = "window-dialogs://modal";
 /// Sent to the opener when a dialog posts a message to it, with a `Posted`.
 pub const MESSAGE_EVENT: &str = "window-dialogs://message";
 
-/// How a dialog window is made, in logical pixels.
+/// How a dialog window is made, in logical pixels. Every dialog is a modeless transient child of
+/// the window that opened it: it stays above it and goes with it, and blocks nothing.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DialogSpec {
@@ -27,10 +26,6 @@ pub struct DialogSpec {
     /// Whether the person can resize the window. A dialog is never maximisable or minimisable.
     #[serde(default)]
     pub resizable: bool,
-    /// Blocks the opener while the dialog is open. When false the dialog is a modeless transient
-    /// child: parented to the opener but blocking nothing.
-    #[serde(default = "yes")]
-    pub modal: bool,
     /// Frameless, transparent and shadowed, for pages that draw their own title bar and frame.
     #[serde(default = "yes")]
     pub chromeless: bool,
@@ -59,7 +54,6 @@ pub struct DialogRequest {
     pub request_id: u64,
     pub label: String,
     pub payload: Value,
-    pub modal: bool,
 }
 
 /// How a dialog ended. `result` is `None` when it was cancelled (its window was closed).
@@ -70,15 +64,6 @@ pub struct Finished {
     pub label: String,
     pub cancelled: bool,
     pub result: Option<Value>,
-}
-
-/// Whether the opener is blocked, and whether the platform blocks it (`native`) or the page has to.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ModalState {
-    pub open: bool,
-    pub label: String,
-    pub native: bool,
 }
 
 /// A message a dialog posted to its opener while it stays open.

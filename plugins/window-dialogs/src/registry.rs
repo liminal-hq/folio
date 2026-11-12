@@ -14,7 +14,6 @@ use crate::models::DialogRequest;
 struct Entry {
     request_id: u64,
     opener: Option<String>,
-    modal: bool,
     payload: Value,
     opened: Instant,
 }
@@ -26,8 +25,6 @@ pub enum Opening {
     New { request_id: u64 },
     /// The dialog is already open: bring its window forward.
     Existing { request_id: u64 },
-    /// The opener already has a modal dialog (the label) open, so another may not open.
-    Refused { modal: String },
 }
 
 /// A dialog taken out of the registry because it ended.
@@ -35,7 +32,6 @@ pub enum Opening {
 pub struct Closing {
     pub request_id: u64,
     pub opener: Option<String>,
-    pub modal: bool,
 }
 
 #[derive(Debug, Default)]
@@ -46,26 +42,11 @@ pub struct Registry {
 
 impl Registry {
     /// Records a dialog about to open, or says why it may not.
-    pub fn begin(
-        &mut self,
-        label: &str,
-        opener: Option<&str>,
-        modal: bool,
-        payload: Value,
-    ) -> Opening {
+    pub fn begin(&mut self, label: &str, opener: Option<&str>, payload: Value) -> Opening {
         if let Some(entry) = self.open.get(label) {
             return Opening::Existing {
                 request_id: entry.request_id,
             };
-        }
-        if modal {
-            if let Some(opener) = opener {
-                if let Some(other) = self.modal_of(opener) {
-                    return Opening::Refused {
-                        modal: other.to_owned(),
-                    };
-                }
-            }
         }
         self.next += 1;
         let request_id = self.next;
@@ -74,20 +55,11 @@ impl Registry {
             Entry {
                 request_id,
                 opener: opener.map(str::to_owned),
-                modal,
                 payload,
                 opened: Instant::now(),
             },
         );
         Opening::New { request_id }
-    }
-
-    /// The label of the modal dialog blocking `opener`, if there is one.
-    pub fn modal_of(&self, opener: &str) -> Option<&str> {
-        self.open
-            .iter()
-            .find(|(_, e)| e.modal && e.opener.as_deref() == Some(opener))
-            .map(|(label, _)| label.as_str())
     }
 
     /// What the dialog `label` was asked, for the dialog itself.
@@ -96,7 +68,6 @@ impl Registry {
             request_id: e.request_id,
             label: label.to_owned(),
             payload: e.payload.clone(),
-            modal: e.modal,
         })
     }
 
@@ -118,7 +89,6 @@ impl Registry {
         self.open.remove(label).map(|e| Closing {
             request_id: e.request_id,
             opener: e.opener,
-            modal: e.modal,
         })
     }
 
@@ -136,8 +106,8 @@ mod tests {
     #[test]
     fn each_dialog_gets_its_own_request_id() {
         let mut registry = Registry::default();
-        let a = registry.begin("dialog-a", Some("main"), false, json!(1));
-        let b = registry.begin("dialog-b", Some("main"), false, json!(2));
+        let a = registry.begin("dialog-a", Some("main"), json!(1));
+        let b = registry.begin("dialog-b", Some("main"), json!(2));
         assert_eq!(a, Opening::New { request_id: 1 });
         assert_eq!(b, Opening::New { request_id: 2 });
     }
@@ -145,9 +115,9 @@ mod tests {
     #[test]
     fn opening_an_open_dialog_again_brings_it_forward() {
         let mut registry = Registry::default();
-        registry.begin("dialog-a", Some("main"), true, json!(1));
+        registry.begin("dialog-a", Some("main"), json!(1));
         assert_eq!(
-            registry.begin("dialog-a", Some("main"), true, json!(2)),
+            registry.begin("dialog-a", Some("main"), json!(2)),
             Opening::Existing { request_id: 1 }
         );
         // The first payload stays.
@@ -155,67 +125,34 @@ mod tests {
     }
 
     #[test]
-    fn a_window_has_one_modal_dialog_at_a_time() {
+    fn a_window_can_have_several_dialogs_open_at_once() {
         let mut registry = Registry::default();
-        registry.begin("dialog-a", Some("main"), true, json!(null));
-        assert_eq!(
-            registry.begin("dialog-b", Some("main"), true, json!(null)),
-            Opening::Refused {
-                modal: "dialog-a".into()
-            }
-        );
-        // Another window, or a dialog that does not block, is fine.
-        assert!(matches!(
-            registry.begin("dialog-b", Some("other"), true, json!(null)),
-            Opening::New { .. }
-        ));
-        assert!(matches!(
-            registry.begin("dialog-c", Some("main"), false, json!(null)),
-            Opening::New { .. }
-        ));
-    }
-
-    #[test]
-    fn a_modeless_dialog_never_blocks_its_opener() {
-        let mut registry = Registry::default();
-        registry.begin("dialog-a", Some("main"), false, json!(null));
-        assert_eq!(registry.modal_of("main"), None);
-        assert!(!registry.request("dialog-a").unwrap().modal);
-        // A modal dialog can still open beside it, and then blocks only itself.
-        registry.begin("dialog-b", Some("main"), true, json!(null));
-        assert_eq!(registry.modal_of("main"), Some("dialog-b"));
-        // Several modeless dialogs can be open at once.
-        assert!(matches!(
-            registry.begin("dialog-c", Some("main"), false, json!(null)),
-            Opening::New { .. }
-        ));
-        assert_eq!(
-            registry.take("dialog-a"),
-            Some(Closing {
-                request_id: 1,
-                opener: Some("main".into()),
-                modal: false
-            })
-        );
+        for (n, label) in ["dialog-a", "dialog-b", "dialog-c"].into_iter().enumerate() {
+            assert_eq!(
+                registry.begin(label, Some("main"), json!(null)),
+                Opening::New {
+                    request_id: n as u64 + 1
+                }
+            );
+        }
     }
 
     #[test]
     fn a_dialog_ends_once() {
         let mut registry = Registry::default();
-        registry.begin("dialog-a", Some("main"), true, json!(null));
+        registry.begin("dialog-a", Some("main"), json!(null));
         assert_eq!(
             registry.take("dialog-a"),
             Some(Closing {
                 request_id: 1,
                 opener: Some("main".into()),
-                modal: true
             })
         );
         assert_eq!(registry.take("dialog-a"), None);
         assert!(registry.is_empty());
-        // The slot is free again.
+        // The label is free again.
         assert!(matches!(
-            registry.begin("dialog-b", Some("main"), true, json!(null)),
+            registry.begin("dialog-a", Some("main"), json!(null)),
             Opening::New { request_id: 2 }
         ));
     }
@@ -223,7 +160,7 @@ mod tests {
     #[test]
     fn a_dialog_can_be_asked_what_it_was_for() {
         let mut registry = Registry::default();
-        registry.begin("dialog-a", None, true, json!({"book": "x"}));
+        registry.begin("dialog-a", None, json!({"book": "x"}));
         let request = registry.request("dialog-a").unwrap();
         assert_eq!(request.request_id, 1);
         assert_eq!(request.payload, json!({"book": "x"}));

@@ -61,6 +61,10 @@ export function ExportDialog({
 	const [cmyk, setCmyk] = useState(false);
 	const [profile, setProfile] = useState('');
 	const [showWhere, setShowWhere] = useState(false);
+	// The export works from a copy of the book taken when it starts; the window stays open beside
+	// the book, so the book can be edited meanwhile. Say so, as the files then show it as it was.
+	const [edited, setEdited] = useState(false);
+	const exporting = useRef(false);
 
 	const colour =
 		cmyk || profile.trim() ? { cmyk, profile: profile.trim() || undefined } : undefined;
@@ -71,6 +75,8 @@ export function ExportDialog({
 		setStage({ kind: 'working' });
 		setReached(null);
 		void exportChoices.remember(targets).catch(() => undefined);
+		setEdited(false);
+		exporting.current = true;
 		client
 			.exportBook(id, targets, colour, exportChoices.choices)
 			.then((report) => setStage({ kind: 'done', report }))
@@ -84,6 +90,27 @@ export function ExportDialog({
 				}),
 			);
 	};
+
+	useEffect(() => {
+		if (!open) return;
+		let off: (() => void) | undefined;
+		let live = true;
+		void client
+			.subscribe({
+				onPatch: (event) => {
+					if (event.id === id && exporting.current) setEdited(true);
+				},
+				onChanged: () => {},
+			})
+			.then((unlisten) => {
+				if (live) off = unlisten;
+				else unlisten();
+			});
+		return () => {
+			live = false;
+			off?.();
+		};
+	}, [open, client, id]);
 
 	// Which file the export has reached, while it works.
 	useEffect(() => {
@@ -164,6 +191,11 @@ export function ExportDialog({
 					<button type="button" className={styles.link} onClick={onCheck}>
 						{t('export.checkFirst')}
 					</button>
+				</p>
+			)}
+			{edited && (stage.kind === 'working' || stage.kind === 'done') && (
+				<p role="status" className={styles.warning}>
+					{t('export.edited')}
 				</p>
 			)}
 			{stage.kind === 'working' && (

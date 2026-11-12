@@ -65,6 +65,16 @@
 	overflow-wrap: anywhere;
 }
 
+.notice {
+	margin: 0;
+	padding: 8px 12px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-control-bg);
+	line-height: 1.45;
+	overflow-wrap: anywhere;
+}
+
 .body {
 	flex: 1;
 	min-block-size: 0;

@@ -9,26 +9,21 @@ import {
 	dialogRequest,
 	dialogShown,
 	finishDialog,
-	focusDialog,
 	onFinished,
 	onMessage,
-	onModal,
 	postToOpener,
 	type DialogRequest,
 	type Finished,
-	type ModalState,
 	type Posted,
 } from '@liminal-hq/plugin-window-dialogs';
 import type { DialogKind } from '@liminal-hq/folio-protocol/generated/DialogKind';
 
 /** What the page needs of the dialog windows, behind an interface so tests can stand in. */
 export interface DialogsClient {
-	/** Opens the dialog window of a kind for this window. Refused while this window has a modal one open. */
+	/** Opens the dialog window of a kind for this window. */
 	open(kind: DialogKind, payload: unknown): Promise<void>;
 	/** Hears how the dialogs this window opened ended. */
 	onFinished(listener: (finished: Finished) => void): Promise<() => void>;
-	/** Hears when a modal dialog blocks this window or lets it go. */
-	onModal(listener: (state: ModalState) => void): Promise<() => void>;
 	/** Hears messages the dialogs this window opened post to it. */
 	onMessage(listener: (posted: Posted) => void): Promise<() => void>;
 	/** In a dialog: what it was opened with. */
@@ -41,20 +36,16 @@ export interface DialogsClient {
 	close(): Promise<void>;
 	/** In a dialog: a message to the window that opened it, while the dialog stays open. */
 	post(message: unknown): Promise<void>;
-	/** Brings the modal dialog forward. */
-	focus(): Promise<void>;
 }
 
 /** The app's own `open_dialog` command and the window-dialogs plugin. */
 export const tauriDialogsClient: DialogsClient = {
 	open: (kind, payload) => invoke<void>('open_dialog', { kind, payload }),
 	onFinished: (listener) => onFinished(listener),
-	onModal: (listener) => onModal(listener),
 	onMessage: (listener) => onMessage(listener),
 	request: () => dialogRequest(),
 	shown: () => dialogShown(),
 	finish: (result) => finishDialog(result),
 	close: () => getCurrentWebviewWindow().close(),
 	post: (message) => postToOpener(message),
-	focus: () => focusDialog(),
 };

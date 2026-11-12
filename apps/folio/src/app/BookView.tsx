@@ -692,7 +692,7 @@ export function BookView({
 				if (answer?.next === 'check') setChecking(true);
 			})
 			.catch(() => {
-				// Another modal dialog is open already, or the window could not be made.
+				// The window could not be made.
 			});
 	}, [dialogWindows, exporting, id]);
 	const bookDialog = { bookId: id };

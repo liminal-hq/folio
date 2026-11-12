@@ -106,9 +106,6 @@ export function dialogLabel(kind: OpenableKind): string {
 	return LABELS[kind];
 }
 
-/** Dialogs whose changes show on the book behind them, so the opener is not dimmed while they are open. */
-export const LIVE_PREVIEW_LABELS: readonly string[] = ['dialog-page-background'];
-
 /** The kinds whose window watches and changes the book its payload names (through a pinned books store). */
 const BOOK_DIALOGS: readonly OpenableKind[] = [
 	'BookDetails',
@@ -119,6 +116,17 @@ const BOOK_DIALOGS: readonly OpenableKind[] = [
 	'CheckBook',
 	'PageBackground',
 	'StoryEditor',
+];
+
+/**
+ * The book dialogs that edit a draft of the book's fields and commit it once, when the person
+ * presses the button. The others read the book live, or change it as they go.
+ */
+export const DRAFT_DIALOGS: readonly OpenableKind[] = [
+	'BookDetails',
+	'Barcode',
+	'BookSize',
+	'Margins',
 ];
 
 export function isBookDialog(kind: OpenableKind): boolean {
