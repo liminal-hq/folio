@@ -54,6 +54,22 @@
 	--folio-shadow-menu: 0 8px 24px rgb(0 0 0 / 35%);
 	--folio-z-menu: 1000;
 	--folio-menu-viewport-margin: 4px;
+	/* The colour picker is this wide in every state; nothing in it sizes to its content. */
+	--folio-colour-picker-width: 340px;
+	/* The picker draws colours as they are, so these do not follow the theme. */
+	--folio-picker-white: #ffffff;
+	--folio-picker-black: #000000;
+	--folio-picker-edge: rgb(128 128 128 / 50%);
+	--folio-picker-hue-ramp: linear-gradient(
+		to right,
+		#ff0000,
+		#ffff00,
+		#00ff00,
+		#00ffff,
+		#0000ff,
+		#ff00ff,
+		#ff0000
+	);
 	--folio-font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
 	/* Dialogs: the scrim and shadow, the stacking layer, and sizes. The opacity is the transparency hook. */
