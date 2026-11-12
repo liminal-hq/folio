@@ -22,7 +22,9 @@ pub mod picture;
 pub mod prefs;
 pub mod proof;
 pub mod raster;
+pub mod roles;
 pub mod shop;
+pub mod structure;
 mod texture;
 mod time;
 
