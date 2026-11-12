@@ -58,6 +58,7 @@
 		"./WindowFrame": "./src/WindowFrame/WindowFrame.tsx",
 		"./WindowMenu": "./src/WindowMenu/WindowMenu.tsx",
 		"./WindowMenu/windowMenuModel": "./src/WindowMenu/windowMenuModel.ts",
+		"./ColourPicker/colourMaths": "./src/ColourPicker/colourMaths.ts",
 		"./icons/icons": "./src/icons/icons.tsx",
 		"./labels": "./src/labels.ts",
 		"./package.json": "./package.json",
