@@ -3,7 +3,16 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { useCallback, useEffect, useState, type MouseEvent, type ReactNode } from 'react';
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+	type MouseEvent,
+	type ReactNode,
+	type RefObject,
+} from 'react';
 import { CloseIcon, MaximiseIcon, MinimiseIcon, PinIcon, RestoreIcon } from '../icons/icons';
 import { defaultChromeLabels, type ChromeLabels } from '../labels';
 import type { MenuPosition } from '../ContextMenu/types';
@@ -24,6 +33,7 @@ import {
 	type TitlebarActions,
 } from './buttonLayout';
 import { isInteractiveTarget } from './interactive';
+import { QuickActions, type QuickAction } from './QuickActions';
 import '../tokens.css';
 import styles from './TitleBar.module.css';
 import type { ControlsStyle, WindowControls } from './windowControls';
@@ -33,6 +43,14 @@ export type TitleAlign = 'center' | 'start';
 export interface TitleBarProps {
 	/** Left-hand slot: app mark and menu button. Sits after any start-side window buttons. */
 	start?: ReactNode;
+	/**
+	 * Shortcut buttons right after the `start` slot (the app menu): Save, New and the like. They
+	 * collapse first when the start group runs out of room, so the app menu should carry the same
+	 * commands.
+	 */
+	quickActions?: readonly QuickAction[];
+	/** Accessible name of the quick actions toolbar; defaults to the chrome label. */
+	quickActionsLabel?: string;
 	/** Flexible middle slot: title and app content. */
 	center?: ReactNode;
 	/** App actions, next to the end-side window buttons. */
@@ -67,6 +85,8 @@ function resolveSides(layout: ButtonLayout, showAlwaysOnTop: boolean) {
 
 export function TitleBar({
 	start,
+	quickActions,
+	quickActionsLabel,
 	center,
 	end,
 	controlsStyle = 'gnome',
@@ -84,6 +104,10 @@ export function TitleBar({
 	const focused = useWindowFocused();
 	const expectMaximised = useExpectMaximised();
 	const [alwaysOnTop, setAlwaysOnTop] = useState(false);
+	const startGroup = useRef<HTMLDivElement>(null);
+	const [quickCollapsed, setQuickCollapsed] = useState(false);
+	const quickCount = quickActions?.length ?? 0;
+	useQuickActionsFit(startGroup, quickCount > 0, quickCollapsed, setQuickCollapsed);
 	const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
 
 	useEffect(() => {
@@ -237,12 +261,24 @@ export function TitleBar({
 				onDoubleClick={onDoubleClick}
 				onAuxClick={onAuxClick}
 			>
-				<div className={styles.startGroup} data-tauri-drag-region="" data-group="start">
+				<div
+					ref={startGroup}
+					className={styles.startGroup}
+					data-tauri-drag-region=""
+					data-group="start"
+				>
 					{renderControls('start')}
 					{start ? (
 						<div className={styles.start} data-tauri-drag-region="">
 							{start}
 						</div>
+					) : null}
+					{quickCount > 0 ? (
+						<QuickActions
+							actions={quickActions ?? []}
+							label={quickActionsLabel ?? labels.quickActions}
+							collapsed={quickCollapsed}
+						/>
 					) : null}
 				</div>
 				<div className={styles.center} data-tauri-drag-region="" data-group="centre">
@@ -269,6 +305,41 @@ export function TitleBar({
 			) : null}
 		</>
 	);
+}
+
+/**
+ * Collapses the quick actions when the start group is too narrow to hold them. The width the group
+ * needs with the strip showing is remembered while it is hidden, so it comes back, without
+ * flicker, once the group is wide enough again.
+ */
+function useQuickActionsFit(
+	group: RefObject<HTMLDivElement | null>,
+	present: boolean,
+	collapsed: boolean,
+	setCollapsed: (value: boolean) => void,
+) {
+	const fullWidth = useRef(0);
+	useLayoutEffect(() => {
+		const element = group.current;
+		if (!present || !element) {
+			setCollapsed(false);
+			return;
+		}
+		const measure = () => {
+			const available = element.clientWidth;
+			if (!collapsed) {
+				fullWidth.current = element.scrollWidth;
+				setCollapsed(element.scrollWidth > available);
+			} else if (available >= fullWidth.current) {
+				setCollapsed(false);
+			}
+		};
+		measure();
+		if (typeof ResizeObserver === 'undefined') return;
+		const observer = new ResizeObserver(measure);
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, [group, present, collapsed, setCollapsed]);
 }
 
 interface WindowButtonsProps {

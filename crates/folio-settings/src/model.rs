@@ -200,6 +200,8 @@ pub enum SidebarLayout {
 pub struct InterfaceSettings {
     /// Whether the menu bar is shown. Alt or F10 still reveals it while it is hidden.
     pub menu_bar: bool,
+    /// Whether the main window's title bar shows its quick actions (Save, New and the like).
+    pub quick_actions: bool,
     pub toolbar: ToolbarLayout,
     pub sidebar_layout: SidebarLayout,
     /// The sidebar's width in logical pixels, between `SIDEBAR_WIDTH_MIN` and `SIDEBAR_WIDTH_MAX`.
@@ -214,6 +216,7 @@ impl Default for InterfaceSettings {
     fn default() -> Self {
         Self {
             menu_bar: false,
+            quick_actions: true,
             toolbar: ToolbarLayout::default(),
             sidebar_layout: SidebarLayout::default(),
             sidebar_width: 292,
@@ -608,6 +611,7 @@ mod tests {
         assert_eq!(s.units, Units::Inches);
         assert_eq!(s.jax, JaxHelp::Tips);
         assert!(!s.interface.menu_bar);
+        assert!(s.interface.quick_actions);
         assert_eq!(s.interface.toolbar, ToolbarLayout::Ribbon);
         assert_eq!(s.interface.sidebar_width, 292);
         assert!(s.validate().is_ok());
@@ -672,6 +676,19 @@ mod tests {
         let s: Settings = serde_json::from_value(json!({ "mode": "expert" })).unwrap();
         assert_eq!(s.mode, Mode::Expert);
         assert_eq!(s.interface, InterfaceSettings::default());
+    }
+
+    #[test]
+    fn quick_actions_are_on_unless_turned_off_and_an_older_file_reads_as_on() {
+        let older: Settings =
+            serde_json::from_value(json!({ "interface": { "menuBar": true } })).unwrap();
+        assert!(older.interface.menu_bar);
+        assert!(older.interface.quick_actions);
+        let off = older
+            .patched(&json!({ "interface": { "quickActions": false } }))
+            .unwrap();
+        assert!(!off.interface.quick_actions);
+        assert!(off.interface.menu_bar);
     }
 
     #[test]

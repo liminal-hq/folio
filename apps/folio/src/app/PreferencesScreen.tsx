@@ -48,6 +48,12 @@ function InterfacePage() {
 					checked={settings.interface.menuBar}
 					onChange={(menuBar) => void update({ interface: { menuBar } })}
 				/>
+				<ToggleRow
+					label={t('preferences.quickActions')}
+					description={t('preferences.quickActions.description')}
+					checked={settings.interface.quickActions}
+					onChange={(quickActions) => void update({ interface: { quickActions } })}
+				/>
 				<SegmentedRow
 					label={t('preferences.toolbar')}
 					value={settings.interface.toolbar}

@@ -977,3 +977,92 @@ describe('the ribbon acting on words selected in the on-page editor', () => {
 		}
 	});
 });
+
+describe('the title bar quick actions', () => {
+	const strip = () => screen.getByRole('toolbar', { name: 'Quick actions' });
+
+	it('sits right after the app menu, with Save dimmed and New and Open ready when no book is open', async () => {
+		setup();
+		await screen.findByRole('heading', { name: 'What are you making?' });
+		const menu = screen.getByRole('button', { name: 'Folio' });
+		expect(menu.parentElement?.nextElementSibling).toBe(strip());
+		expect(within(strip()).getByRole('button', { name: 'Save (Ctrl+S)' })).toHaveAttribute(
+			'aria-disabled',
+			'true',
+		);
+		expect(within(strip()).getByRole('button', { name: 'New book (Ctrl+N)' })).not.toHaveAttribute(
+			'aria-disabled',
+		);
+		expect(within(strip()).getByRole('button', { name: 'Open (Ctrl+O)' })).not.toHaveAttribute(
+			'aria-disabled',
+		);
+	});
+
+	it('opens the New book wizard, as File → New does', async () => {
+		const { windows } = setup();
+		await userEvent.click(await screen.findByRole('button', { name: 'New book (Ctrl+N)' }));
+		expect(windows.open).toHaveBeenCalledWith('WizardNew');
+	});
+
+	it('does nothing from a disabled Save', async () => {
+		const { books } = setup({ save: '/books/Pip/Pip' });
+		await screen.findByRole('heading', { name: 'What are you making?' });
+		await userEvent.click(screen.getByRole('button', { name: 'Save (Ctrl+S)' }));
+		expect(await books.client.list()).toHaveLength(0);
+	});
+
+	it('enables Save with a dot on a new book, and saves asking where, like File → Save', async () => {
+		setup({ save: '/books/Pip/Pip' });
+		await startBook();
+		const save = within(strip()).getByRole('button', { name: 'Save, unsaved changes (Ctrl+S)' });
+		expect(save).not.toHaveAttribute('aria-disabled');
+		expect(save.querySelector('[class*="badge"]')).not.toBeNull();
+		await userEvent.click(save);
+		await waitFor(() =>
+			expect(screen.getByRole('contentinfo', { name: 'Status' })).toHaveTextContent(
+				'Saved · Pip.folio',
+			),
+		);
+		const saved = within(strip()).getByRole('button', { name: 'Save (Ctrl+S)' });
+		expect(saved.querySelector('[class*="badge"]')).toBeNull();
+	});
+
+	it('shows the dot again when a saved book changes', async () => {
+		const { books } = setup({ save: '/books/Pip/Pip' });
+		await startBook();
+		await userEvent.click(within(strip()).getByRole('button', { name: /^Save/ }));
+		await screen.findByText('Saved · Pip.folio');
+		const id = (await books.client.list())[0]!.id;
+		await act(async () => {
+			await books.client.apply(id, { type: 'MoveFrame' } as never);
+		});
+		expect(
+			await within(strip()).findByRole('button', { name: 'Save, unsaved changes (Ctrl+S)' }),
+		).toBeInTheDocument();
+	});
+
+	it('goes away at once when the setting is turned off, and comes back when it is turned on', async () => {
+		const { settings } = setup();
+		await screen.findByRole('toolbar', { name: 'Quick actions' });
+		await act(async () => {
+			await settings.update({ interface: { quickActions: false } });
+		});
+		await waitFor(() =>
+			expect(screen.queryByRole('toolbar', { name: 'Quick actions' })).not.toBeInTheDocument(),
+		);
+		expect(screen.getByRole('button', { name: 'Folio' })).toBeInTheDocument();
+		await act(async () => {
+			await settings.update({ interface: { quickActions: true } });
+		});
+		expect(await screen.findByRole('toolbar', { name: 'Quick actions' })).toBeInTheDocument();
+	});
+
+	it('is reached from the app menu button with Tab', async () => {
+		setup();
+		await screen.findByRole('heading', { name: 'What are you making?' });
+		screen.getByRole('button', { name: 'Folio' }).focus();
+		await userEvent.tab();
+		// Save is dimmed but stays in the tab order, so the strip's one tab stop is its first button.
+		expect(screen.getByRole('button', { name: 'Save (Ctrl+S)' })).toHaveFocus();
+	});
+});

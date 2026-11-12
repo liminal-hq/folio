@@ -50,6 +50,7 @@
 		"./MenuBar/MenuBar": "./src/MenuBar/MenuBar.tsx",
 		"./TitleBar": "./src/TitleBar/TitleBar.tsx",
 		"./TitleBar/AppMenuButton": "./src/TitleBar/AppMenuButton.tsx",
+		"./TitleBar/QuickActions": "./src/TitleBar/QuickActions.tsx",
 		"./TitleBar/subscription": "./src/TitleBar/subscription.ts",
 		"./TitleBar/tauriWindowControls": "./src/TitleBar/tauriWindowControls.ts",
 		"./TitleBar/TitleBarTitle": "./src/TitleBar/TitleBarTitle.tsx",

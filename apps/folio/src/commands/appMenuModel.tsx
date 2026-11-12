@@ -87,6 +87,9 @@ export const APP_MENU_MNEMONICS = {
 	h: 'menu:help',
 };
 
+/** The keys of commands that also appear elsewhere (the title bar's quick actions), so they are said once. */
+export const FILE_SHORTCUTS = { new: 'Ctrl+N', open: 'Ctrl+O', save: 'Ctrl+S' } as const;
+
 /** The commands that do something today; the others are listed but unavailable. */
 export interface CommandAvailability {
 	/** Commands with behaviour wired up. */
@@ -159,8 +162,8 @@ function recentBooks(settings: Settings): MenuItem[] {
 /** The File menu's rows, shared by the app menu and the menu bar. */
 function fileItems(settings: Settings, available: CommandAvailability): MenuItem[] {
 	return [
-		action('file.new', t('command.new'), <NewBookIcon />, available, 'Ctrl+N'),
-		action('file.open', t('command.open'), <OpenIcon />, available, 'Ctrl+O'),
+		action('file.new', t('command.new'), <NewBookIcon />, available, FILE_SHORTCUTS.new),
+		action('file.open', t('command.open'), <OpenIcon />, available, FILE_SHORTCUTS.open),
 		{
 			type: 'submenu',
 			id: 'file.openRecent',
@@ -172,7 +175,7 @@ function fileItems(settings: Settings, available: CommandAvailability): MenuItem
 		action('file.importText', t('command.importText'), <ImportIcon />, available),
 		action('file.importLayout', t('command.importLayout'), <ImportIcon />, available),
 		{ type: 'separator' },
-		action('file.save', t('command.save'), <SaveIcon />, available, 'Ctrl+S'),
+		action('file.save', t('command.save'), <SaveIcon />, available, FILE_SHORTCUTS.save),
 		action('file.saveAs', t('command.saveAs'), <SaveIcon />, available, 'Ctrl+Shift+S'),
 		action('file.export', t('command.export'), <ExportIcon />, available, 'Ctrl+E'),
 		{ type: 'separator' },

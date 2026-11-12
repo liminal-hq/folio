@@ -99,6 +99,20 @@ describe('PreferencesScreen', () => {
 		await waitFor(async () => expect((await settings.get()).settings.mode).toBe('expert'));
 	});
 
+	it('turns the title bar quick actions off and on', async () => {
+		const settings = mount(<PreferencesScreen />);
+		const row = await screen.findByRole('switch', { name: 'Show quick actions in the title bar' });
+		expect(row).toBeChecked();
+		await userEvent.click(row);
+		await waitFor(async () =>
+			expect((await settings.get()).settings.interface.quickActions).toBe(false),
+		);
+		await userEvent.click(row);
+		await waitFor(async () =>
+			expect((await settings.get()).settings.interface.quickActions).toBe(true),
+		);
+	});
+
 	it('moves between its pages', async () => {
 		const settings = mount(<PreferencesScreen />);
 		await userEvent.click(await screen.findByRole('button', { name: 'Appearance' }));
@@ -173,5 +187,18 @@ describe('BookToolsScreen', () => {
 		// An area alone leaves each area on the tool last shown in it.
 		act(() => ask({ area: 'pictures', tool: null }));
 		expect(await screen.findByRole('heading', { name: 'Alt text' })).toBeInTheDocument();
+	});
+});
+
+describe('windows without a book', () => {
+	it('have no quick actions in their title bars', () => {
+		mount(<AboutScreen client={info} />);
+		expect(screen.queryByRole('toolbar', { name: 'Quick actions' })).not.toBeInTheDocument();
+	});
+
+	it('have none in Preferences either', async () => {
+		mount(<PreferencesScreen />);
+		await screen.findByRole('switch', { name: 'Show the menu bar' });
+		expect(screen.queryByRole('toolbar', { name: 'Quick actions' })).not.toBeInTheDocument();
 	});
 });

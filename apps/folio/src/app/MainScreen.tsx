@@ -34,6 +34,7 @@ import styles from './MainScreen.module.css';
 import { useAppMenu } from './useAppMenu';
 import { useAutosave } from './useAutosave';
 import { useBookKeys } from './useBookKeys';
+import { useQuickActions } from './quickActions';
 
 /** The app's version, or `null` until it is known (and for good outside Tauri). */
 function useAppVersion(client: AppInfoClient): string | null {
@@ -137,6 +138,17 @@ export function MainScreen({
 	useBookKeys(menu.run);
 	const version = useAppVersion(client);
 	const active = useActiveBook();
+	const quickActions = useQuickActions(
+		menu.run,
+		menu.available,
+		active === null
+			? null
+			: active.summary.dirty
+				? 'changes'
+				: active.summary.path === null
+					? 'never'
+					: null,
+	);
 	const kinds = useBooksSelector((s) => s.kinds);
 	const menuBar = settings.interface.menuBar;
 	const kindLabel = active
@@ -152,6 +164,7 @@ export function MainScreen({
 				<AppTitleBar
 					title={title}
 					start={<AppMenu items={menu.items} onSelect={menu.onSelect} menuBar={menuBar} />}
+					quickActions={settings.interface.quickActions ? quickActions : undefined}
 				/>
 				{menuBar && (
 					<MenuBar

@@ -6,38 +6,39 @@ Shared Liminal HQ window chrome: a unified title bar, the window menu and a cont
 
 Every export maps to the file that defines it.
 
-| Import                                                               | Provides                                                                                           |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `@liminal-hq/folio-chrome/TitleBar`                                  | `TitleBar` and its props: `start`, `center`, `end` slots plus built-in window buttons              |
-| `@liminal-hq/folio-chrome/TitleBar/TitleBarTitle`                    | `TitleBarTitle`: draggable, truncating title text for the `center` slot                            |
-| `@liminal-hq/folio-chrome/TitleBar/buttonLayout`                     | `ButtonLayout`, `TitlebarActions` types and their `DEFAULT_*` values                               |
-| `@liminal-hq/folio-chrome/WindowChromeProvider/WindowChromeProvider` | `WindowChromeProvider`, `useWindowControls`, `useWindowMaximised`, `useWindowFocused`              |
-| `@liminal-hq/folio-chrome/TitleBar/AppMenuButton`                    | App mark and menu button, opened by click, `F10` or a lone `Alt` press                             |
-| `@liminal-hq/folio-chrome/WindowFrame`                               | `WindowFrame`: rounded, clipped, shadowed surface for a frameless window                           |
-| `@liminal-hq/folio-chrome/TitleBar/windowControls`                   | `WindowControls` and `ControlsStyle` types                                                         |
-| `@liminal-hq/folio-chrome/TitleBar/tauriWindowControls`              | `createTauriWindowControls()` and a shared `tauriWindowControls` built on `@tauri-apps/api/window` |
-| `@liminal-hq/folio-chrome/ContextMenu`                               | Controlled `ContextMenu`                                                                           |
-| `@liminal-hq/folio-chrome/ContextMenu/types`                         | `MenuItem` and related types                                                                       |
-| `@liminal-hq/folio-chrome/Dialog/Dialog`                             | `Dialog`: controlled modal over the native `<dialog>`                                              |
-| `@liminal-hq/folio-chrome/Dialog/DialogActions`                      | `DialogActions` and `DialogButton` for the footer                                                  |
-| `@liminal-hq/folio-chrome/Dialog/ConfirmDialog`                      | `ConfirmDialog`: title, message, confirm and cancel                                                |
-| `@liminal-hq/folio-chrome/Dialog/dialogContext`                      | `DialogCloseReason` type                                                                           |
-| `@liminal-hq/folio-chrome/SettingsShell/SettingsShell`               | `SettingsShell` and `SETTINGS_COLLAPSE_WIDTH`: side nav and page, collapsing to a select           |
-| `@liminal-hq/folio-chrome/SettingsShell/types`                       | `SettingsSectionDef`                                                                               |
-| `@liminal-hq/folio-chrome/SettingsShell/SettingsSection`             | `SettingsSection`                                                                                  |
-| `@liminal-hq/folio-chrome/SettingsShell/SettingsGroup`               | `SettingsGroup`                                                                                    |
-| `@liminal-hq/folio-chrome/SettingsShell/SettingsRow`                 | `SettingsRow` and `useSettingsRowControl`                                                          |
-| `@liminal-hq/folio-chrome/SettingsShell/ToggleRow`                   | `ToggleRow`                                                                                        |
-| `@liminal-hq/folio-chrome/SettingsShell/SelectRow`                   | `SelectRow`                                                                                        |
-| `@liminal-hq/folio-chrome/SettingsShell/NumberRow`                   | `NumberRow`                                                                                        |
-| `@liminal-hq/folio-chrome/SettingsShell/SegmentedRow`                | `SegmentedRow`                                                                                     |
-| `@liminal-hq/folio-chrome/SettingsShell/ButtonRow`                   | `ButtonRow`                                                                                        |
-| `@liminal-hq/folio-chrome/SettingsShell/LinkRow`                     | `LinkRow`                                                                                          |
-| `@liminal-hq/folio-chrome/SettingsShell/labels`                      | `SettingsLabels` and defaults                                                                      |
-| `@liminal-hq/folio-chrome/WindowMenu`                                | `WindowMenu`, the window menu bound to the provider's controls                                     |
-| `@liminal-hq/folio-chrome/WindowMenu/windowMenuModel`                | `buildWindowMenuModel()`, the pure menu model                                                      |
-| `@liminal-hq/folio-chrome/labels`                                    | `ChromeLabels` and `defaultChromeLabels`                                                           |
-| `@liminal-hq/folio-chrome/icons/icons`                               | Inline SVG icons used by the chrome                                                                |
+| Import                                                               | Provides                                                                                               |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `@liminal-hq/folio-chrome/TitleBar`                                  | `TitleBar` and its props: `start`, `center`, `end` slots plus built-in window buttons                  |
+| `@liminal-hq/folio-chrome/TitleBar/TitleBarTitle`                    | `TitleBarTitle`: draggable, truncating title text for the `center` slot                                |
+| `@liminal-hq/folio-chrome/TitleBar/buttonLayout`                     | `ButtonLayout`, `TitlebarActions` types and their `DEFAULT_*` values                                   |
+| `@liminal-hq/folio-chrome/WindowChromeProvider/WindowChromeProvider` | `WindowChromeProvider`, `useWindowControls`, `useWindowMaximised`, `useWindowFocused`                  |
+| `@liminal-hq/folio-chrome/TitleBar/QuickActions`                     | `QuickAction` type and the `QuickActions` toolbar that `TitleBar` renders from its `quickActions` prop |
+| `@liminal-hq/folio-chrome/TitleBar/AppMenuButton`                    | App mark and menu button, opened by click, `F10` or a lone `Alt` press                                 |
+| `@liminal-hq/folio-chrome/WindowFrame`                               | `WindowFrame`: rounded, clipped, shadowed surface for a frameless window                               |
+| `@liminal-hq/folio-chrome/TitleBar/windowControls`                   | `WindowControls` and `ControlsStyle` types                                                             |
+| `@liminal-hq/folio-chrome/TitleBar/tauriWindowControls`              | `createTauriWindowControls()` and a shared `tauriWindowControls` built on `@tauri-apps/api/window`     |
+| `@liminal-hq/folio-chrome/ContextMenu`                               | Controlled `ContextMenu`                                                                               |
+| `@liminal-hq/folio-chrome/ContextMenu/types`                         | `MenuItem` and related types                                                                           |
+| `@liminal-hq/folio-chrome/Dialog/Dialog`                             | `Dialog`: controlled modal over the native `<dialog>`                                                  |
+| `@liminal-hq/folio-chrome/Dialog/DialogActions`                      | `DialogActions` and `DialogButton` for the footer                                                      |
+| `@liminal-hq/folio-chrome/Dialog/ConfirmDialog`                      | `ConfirmDialog`: title, message, confirm and cancel                                                    |
+| `@liminal-hq/folio-chrome/Dialog/dialogContext`                      | `DialogCloseReason` type                                                                               |
+| `@liminal-hq/folio-chrome/SettingsShell/SettingsShell`               | `SettingsShell` and `SETTINGS_COLLAPSE_WIDTH`: side nav and page, collapsing to a select               |
+| `@liminal-hq/folio-chrome/SettingsShell/types`                       | `SettingsSectionDef`                                                                                   |
+| `@liminal-hq/folio-chrome/SettingsShell/SettingsSection`             | `SettingsSection`                                                                                      |
+| `@liminal-hq/folio-chrome/SettingsShell/SettingsGroup`               | `SettingsGroup`                                                                                        |
+| `@liminal-hq/folio-chrome/SettingsShell/SettingsRow`                 | `SettingsRow` and `useSettingsRowControl`                                                              |
+| `@liminal-hq/folio-chrome/SettingsShell/ToggleRow`                   | `ToggleRow`                                                                                            |
+| `@liminal-hq/folio-chrome/SettingsShell/SelectRow`                   | `SelectRow`                                                                                            |
+| `@liminal-hq/folio-chrome/SettingsShell/NumberRow`                   | `NumberRow`                                                                                            |
+| `@liminal-hq/folio-chrome/SettingsShell/SegmentedRow`                | `SegmentedRow`                                                                                         |
+| `@liminal-hq/folio-chrome/SettingsShell/ButtonRow`                   | `ButtonRow`                                                                                            |
+| `@liminal-hq/folio-chrome/SettingsShell/LinkRow`                     | `LinkRow`                                                                                              |
+| `@liminal-hq/folio-chrome/SettingsShell/labels`                      | `SettingsLabels` and defaults                                                                          |
+| `@liminal-hq/folio-chrome/WindowMenu`                                | `WindowMenu`, the window menu bound to the provider's controls                                         |
+| `@liminal-hq/folio-chrome/WindowMenu/windowMenuModel`                | `buildWindowMenuModel()`, the pure menu model                                                          |
+| `@liminal-hq/folio-chrome/labels`                                    | `ChromeLabels` and `defaultChromeLabels`                                                               |
+| `@liminal-hq/folio-chrome/icons/icons`                               | Inline SVG icons used by the chrome                                                                    |
 
 ## The `WindowControls` adapter
 
@@ -109,6 +110,34 @@ The bar is a three-column CSS grid, `minmax(0, 1fr) auto minmax(0, 1fr)`, holdin
 - End group (`data-group="end"`): the `end` slot, then the end-side window buttons, flush right.
 
 `titleAlign="start"` (`data-title-align="start"`) switches the grid to `auto minmax(0, 1fr) auto` and left-aligns the centre content directly after the start group, the Windows convention. The default, `center`, keeps the exact centring.
+
+### Quick actions
+
+`quickActions` is a list of `QuickAction` (`{ id, label, icon, shortcut?, disabled?, pressed?, badge?, badgeLabel?, onSelect }`) drawn as a strip of icon buttons in the start group, immediately after the `start` slot (so right after the app menu button, and after any start-side window buttons). The package knows nothing about what an action does; the host owns the list and its state, so the same pattern serves any app.
+
+```tsx
+<TitleBar
+	start={<AppMenuButton label="App" items={menu} onSelect={run} />}
+	quickActions={[
+		{
+			id: 'save',
+			label: 'Save',
+			icon: <SaveIcon />,
+			shortcut: 'Ctrl+S',
+			badge: dirty,
+			onSelect: save,
+		},
+		{ id: 'new', label: 'New', icon: <NewIcon />, shortcut: 'Ctrl+N', onSelect: create },
+	]}
+	quickActionsLabel="Quick actions"
+/>
+```
+
+- The strip is an ARIA `toolbar` with a single tab stop: Tab from the app menu button lands on it, Left and Right (or Up and Down) move between buttons, Home and End jump to the ends, and Escape returns focus to where it came from.
+- Each button's tooltip and accessible name is `label`, then `badgeLabel` when `badge` is set, then `(shortcut)`. A `disabled` action is dimmed, reports `aria-disabled` and does nothing, but stays focusable.
+- Buttons are interactive targets, so pressing or double-clicking one never drags or maximises the window. The gaps between buttons carry `data-tauri-drag-region` and still drag, and right-click there still opens the window menu.
+- When the start group is too narrow to hold the strip (a `ResizeObserver` compares its width with the width it needs), the strip is hidden (`hidden`, `data-collapsed`) before anything else moves, so it never overlaps the centred title. Keep the same commands in the app menu.
+- It works with the window controls on either side, since it only follows the `start` slot.
 
 ### Button layout
 
