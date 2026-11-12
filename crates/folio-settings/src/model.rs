@@ -14,6 +14,8 @@ pub const SIDEBAR_WIDTH_MIN: u32 = 240;
 pub const SIDEBAR_WIDTH_MAX: u32 = 560;
 /// How many recently opened books are remembered.
 pub const RECENT_BOOKS_MAX: usize = 20;
+/// How many recently used colours the colour picker remembers.
+pub const RECENT_COLOURS_MAX: usize = 8;
 
 /// How the person likes to work (D-01): remembered per user, never per book, and never removes data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
@@ -306,6 +308,9 @@ pub struct Settings {
     pub updates: UpdateSettings,
     /// The paths of recently opened books, newest first.
     pub recent_books: Vec<String>,
+    /// The colours last chosen in the colour picker as `#rrggbb`, newest first, kept per user and
+    /// not per book (D-76).
+    pub recent_colours: Vec<String>,
 }
 
 /// A value the settings refuse.
@@ -376,6 +381,18 @@ impl Settings {
                 max: RECENT_BOOKS_MAX as u32,
             });
         }
+        if self.recent_colours.len() > RECENT_COLOURS_MAX {
+            return Err(SettingsError::OutOfRange {
+                field: "recentColours",
+                min: 0,
+                max: RECENT_COLOURS_MAX as u32,
+            });
+        }
+        if !self.recent_colours.iter().all(|c| is_hex_colour(c)) {
+            return Err(SettingsError::Malformed(
+                "a recent colour is written #rrggbb".into(),
+            ));
+        }
         Ok(())
     }
 
@@ -390,6 +407,8 @@ impl Settings {
             mark.colour = mark.colour.min(MARK_COLOURS - 1);
         }
         self.recent_books.truncate(RECENT_BOOKS_MAX);
+        self.recent_colours.retain(|c| is_hex_colour(c));
+        self.recent_colours.truncate(RECENT_COLOURS_MAX);
         self.autosave.interval_secs = self
             .autosave
             .interval_secs
@@ -425,6 +444,15 @@ pub fn push_recent(recent: &[String], path: &str) -> Vec<String> {
     list.extend(recent.iter().filter(|p| p.as_str() != path).cloned());
     list.truncate(RECENT_BOOKS_MAX);
     list
+}
+
+/// Whether `text` is a colour as the model stores it: `#` and six lower-case hex digits.
+fn is_hex_colour(text: &str) -> bool {
+    text.len() == 7
+        && text.starts_with('#')
+        && text[1..]
+            .chars()
+            .all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c))
 }
 
 /// RFC 7386 merge.
@@ -464,6 +492,46 @@ pub struct SettingsSnapshot {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn recent_colours_start_empty_and_keep_to_eight_hex_colours() {
+        assert!(Settings::default().recent_colours.is_empty());
+        let eight: Vec<String> = (0..8).map(|n| format!("#00000{n}")).collect();
+        let ok = Settings::default()
+            .patched(&json!({ "recentColours": eight }))
+            .unwrap();
+        assert_eq!(ok.recent_colours, eight);
+        let nine: Vec<String> = (0..9).map(|n| format!("#00000{n}")).collect();
+        assert!(Settings::default()
+            .patched(&json!({ "recentColours": nine }))
+            .is_err());
+        for bad in ["#FFF", "ffffff", "#GGGGGG", "swatch:ink", "#FFFFFF"] {
+            assert!(
+                Settings::default()
+                    .patched(&json!({ "recentColours": [bad] }))
+                    .is_err(),
+                "{bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_stored_list_of_recent_colours_is_cleaned_not_refused() {
+        let stored = Settings {
+            recent_colours: ["#112233", "nonsense", "#445566", "#778899"]
+                .into_iter()
+                .chain([
+                    "#000001", "#000002", "#000003", "#000004", "#000005", "#000006",
+                ])
+                .map(String::from)
+                .collect(),
+            ..Settings::default()
+        };
+        let clean = stored.clamped();
+        assert_eq!(clean.recent_colours.len(), RECENT_COLOURS_MAX);
+        assert!(!clean.recent_colours.iter().any(|c| c == "nonsense"));
+        assert!(clean.validate().is_ok());
+    }
 
     #[test]
     fn the_defaults_are_the_documented_ones() {

@@ -35,6 +35,7 @@ export const DEFAULT_SETTINGS: Settings = {
 	autosave: { enabled: true, intervalSecs: 30 },
 	updates: { automatic: false, asked: false },
 	recentBooks: [],
+	recentColours: [],
 };
 
 /** Lays a patch over settings the way Rust does: nested objects merge, anything else replaces. */

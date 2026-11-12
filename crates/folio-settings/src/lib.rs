@@ -14,7 +14,7 @@ mod storage;
 pub use model::{
     push_recent, ColourMode, InterfaceSettings, JaxHelp, MarkSetting, MarksSettings, Mode,
     Settings, SettingsError, SettingsSnapshot, SidebarLayout, ToolbarLayout, Units, MARK_COLOURS,
-    RECENT_BOOKS_MAX, SIDEBAR_WIDTH_MAX, SIDEBAR_WIDTH_MIN,
+    RECENT_BOOKS_MAX, RECENT_COLOURS_MAX, SIDEBAR_WIDTH_MAX, SIDEBAR_WIDTH_MIN,
 };
 pub use storage::{
     KeyValue, MemoryStorage, Persistence, SettingsDocument, SettingsStorage, StorageError,
