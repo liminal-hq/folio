@@ -139,7 +139,8 @@ fn build<R: Runtime>(
         .title(&spec.title)
         .inner_size(spec.width, spec.height)
         .resizable(spec.resizable)
-        .maximizable(spec.resizable)
+        // A dialog is never maximised or minimised, resizable or not; it is a child of its opener.
+        .maximizable(false)
         .minimizable(false)
         .skip_taskbar(true);
     if let (Some(width), Some(height)) = (spec.min_width, spec.min_height) {

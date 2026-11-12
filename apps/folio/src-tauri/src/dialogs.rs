@@ -176,6 +176,23 @@ mod tests {
     }
 
     #[test]
+    fn every_dialog_has_a_default_that_fits_its_minimum() {
+        for kind in DialogKind::ALL {
+            let spec = spec_for(kind);
+            if spec.resizable {
+                let (min_w, min_h) = (spec.min_width.unwrap(), spec.min_height.unwrap());
+                assert!(min_w <= spec.width && min_h <= spec.height, "{kind:?}");
+            } else {
+                assert!(
+                    spec.min_width.is_none() && spec.min_height.is_none(),
+                    "{kind:?}"
+                );
+            }
+            assert!(spec.chromeless, "{kind:?}");
+        }
+    }
+
+    #[test]
     fn every_kind_has_a_title_and_only_check_book_leaves_the_opener_usable() {
         for kind in DialogKind::ALL {
             let spec = spec_for(kind);

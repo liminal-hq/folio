@@ -80,6 +80,7 @@
 	--folio-dialog-width-small: 380px;
 	--folio-dialog-width-medium: 520px;
 	--folio-dialog-width-large: 720px;
+	--folio-dialog-column: 720px;
 	--folio-dialog-viewport-margin: 16px;
 	--folio-dialog-motion: 140ms;
 

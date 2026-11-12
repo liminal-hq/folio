@@ -11,6 +11,7 @@ import {
 	useMemo,
 	useRef,
 	type KeyboardEvent as ReactKeyboardEvent,
+	type MouseEvent as ReactMouseEvent,
 	type ReactNode,
 	type RefObject,
 } from 'react';
@@ -44,7 +45,22 @@ export interface DialogWindowFrameProps {
 const ENTER_FIELDS = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"])';
 
 /**
- * Lays out a dialog window. It uses a `dialog` element held open (not modal: the window is the
+ * A form dialog is not maximised: Tauri's drag script maximises on the second press of a double
+ * click, and the title bar's own handler does the same on `dblclick`. Both are stopped here, so
+ * whichever title bar the app draws, double-clicking it does nothing.
+ */
+function stopDoubleClick(event: ReactMouseEvent<HTMLElement>) {
+	if (event.detail < 2) return;
+	event.preventDefault();
+	event.stopPropagation();
+}
+
+/**
+ * Lays out a dialog window. The description, body and buttons share one bounded, centred column
+ * (`--folio-dialog-column`), so in a window made larger than its content the content stays
+ * together in the middle and the buttons sit at the bottom of that column, not in a far corner.
+ * The body scrolls and the buttons stay pinned at the bottom of the window.
+ * It uses a `dialog` element held open (not modal: the window is the
  * modal) so the focus rules and the footer buttons behave exactly as they do in the page.
  */
 export function DialogWindowFrame({
@@ -126,22 +142,39 @@ export function DialogWindowFrame({
 					aria-describedby={description ? descriptionId : undefined}
 					onKeyDown={onKeyDown}
 				>
-					{titleBar}
+					<div
+						className={styles.titleBar}
+						onMouseDownCapture={stopDoubleClick}
+						onMouseUpCapture={stopDoubleClick}
+						onDoubleClickCapture={stopDoubleClick}
+					>
+						{titleBar}
+					</div>
 					<div ref={surfaceRef} className={styles.surface} tabIndex={-1}>
 						<h1 id={titleId} className={styles.visuallyHidden}>
 							{title}
 						</h1>
 						{description ? (
-							<p id={descriptionId} className={styles.description}>
-								{description}
-							</p>
+							<div className={styles.descriptionBar}>
+								<p id={descriptionId} className={`${styles.description} ${styles.column}`}>
+									{description}
+								</p>
+							</div>
 						) : null}
 						{children ? (
 							<div className={styles.body} data-dialog-body>
-								{children}
+								<div className={styles.column} data-dialog-column>
+									{children}
+								</div>
 							</div>
+						) : (
+							<div className={styles.spacer} />
+						)}
+						{footer ? (
+							<footer className={styles.footerBar} data-dialog-footer>
+								<div className={styles.column}>{footer}</div>
+							</footer>
 						) : null}
-						{footer ? <footer className={styles.footer}>{footer}</footer> : null}
 					</div>
 				</dialog>
 			</DialogContext.Provider>

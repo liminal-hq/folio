@@ -37,9 +37,29 @@
 	white-space: nowrap;
 }
 
+/* Content, description and buttons share one bounded, centred column. */
+.column {
+	box-sizing: border-box;
+	inline-size: 100%;
+	max-inline-size: var(--folio-dialog-column);
+	margin-inline: auto;
+}
+
+.titleBar {
+	flex: none;
+}
+
+.spacer {
+	flex: 1;
+}
+
+.descriptionBar {
+	flex: none;
+	padding: 12px 20px 0;
+}
+
 .description {
 	margin: 0;
-	padding: 12px 20px 0;
 	color: var(--folio-text-secondary);
 	line-height: 1.45;
 	overflow-wrap: anywhere;
@@ -52,6 +72,8 @@
 	overflow: auto;
 }
 
-.footer {
+/* Pinned to the bottom of the window; the body above it scrolls. */
+.footerBar {
+	flex: none;
 	padding: 16px 20px;
 }

@@ -9,6 +9,8 @@ For each platform check that:
 - [ ] The main window dims while a modal dialog is open (inside its visible edge, not in the shadow margin) and clears when it closes.
 - [ ] Dragging a dialog's title bar moves the dialog only, never the main window.
 - [ ] Opening the same dialog again (the ribbon button, the shortcut) focuses it rather than making a second.
+- [ ] Double-clicking the dialog's title bar does nothing: it is not maximised, and it has no minimise or maximise button.
+- [ ] Making a resizable dialog large keeps its content in a centred column with the buttons at the bottom of that column, and no inner card or second shadow is drawn inside the window.
 - [ ] Esc closes the dialog, and so does its ✕ and the window manager's close; the opener hears a cancellation.
 - [ ] Enter in a field presses the default button; Enter in a multi-line field adds a line.
 - [ ] Tab stays inside the dialog.

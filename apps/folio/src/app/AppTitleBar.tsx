@@ -33,7 +33,12 @@ export function AppTitleBar({ title, start, closeOnly = false }: AppTitleBarProp
 			center={<TitleBarTitle>{title}</TitleBarTitle>}
 			controlsStyle={config.controlsStyle}
 			buttonLayout={closeOnly ? CLOSE_ONLY : config.buttonLayout}
-			titlebarActions={config.titlebarActions}
+			// A window with only a close button is not maximised or minimised, so double-clicking it does nothing.
+			titlebarActions={
+				closeOnly
+					? { ...config.titlebarActions, doubleClick: 'none', middleClick: 'none' }
+					: config.titlebarActions
+			}
 			titleAlign={config.titleAlign}
 			labels={chromeLabels()}
 			// Wayland has no protocol for staying on top, so the pin would do nothing there; the

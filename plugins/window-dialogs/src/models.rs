@@ -24,9 +24,11 @@ pub struct DialogSpec {
     pub min_width: Option<f64>,
     #[serde(default)]
     pub min_height: Option<f64>,
+    /// Whether the person can resize the window. A dialog is never maximisable or minimisable.
     #[serde(default)]
     pub resizable: bool,
-    /// Blocks the opener while the dialog is open.
+    /// Blocks the opener while the dialog is open. When false the dialog is a modeless transient
+    /// child: parented to the opener but blocking nothing.
     #[serde(default = "yes")]
     pub modal: bool,
     /// Frameless, transparent and shadowed, for pages that draw their own title bar and frame.

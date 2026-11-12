@@ -90,4 +90,48 @@ describe('the dialog window frame', () => {
 		await userEvent.tab();
 		expect(screen.getByRole('textbox', { name: 'Name' })).toHaveFocus();
 	});
+
+	it('keeps the body in a bounded column and the buttons in a footer pinned below it', () => {
+		setup();
+		const body = document.querySelector('[data-dialog-body]') as HTMLElement;
+		const column = document.querySelector('[data-dialog-column]') as HTMLElement;
+		const footer = document.querySelector('[data-dialog-footer]') as HTMLElement;
+		expect(body).toContainElement(column);
+		expect(column).toContainElement(screen.getByRole('textbox', { name: 'Name' }));
+		// The footer is a sibling after the scrolling body, not inside it, and its buttons share a column.
+		expect(footer).not.toBeNull();
+		expect(body.contains(footer)).toBe(false);
+		expect(body.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(footer).toContainElement(screen.getByRole('button', { name: 'Save' }));
+		expect(footer.firstElementChild?.className).toBe(column.className);
+	});
+
+	it('does nothing when its title bar is double-clicked, so the window is not maximised', async () => {
+		const reached = vi.fn();
+		render(
+			<WindowChromeProvider controls={controls}>
+				<DialogWindowFrame
+					title="Details"
+					titleBar={
+						<div
+							data-testid="bar"
+							onMouseDown={reached}
+							onMouseUp={reached}
+							onDoubleClick={reached}
+						>
+							bar
+						</div>
+					}
+					onClose={() => {}}
+				>
+					body
+				</DialogWindowFrame>
+			</WindowChromeProvider>,
+		);
+		await userEvent.dblClick(screen.getByTestId('bar'));
+		// The first press of each click gets through (it starts a drag); the second, and the
+		// `dblclick` that follows it, do not.
+		expect(reached.mock.calls.map(([event]) => event.type)).toEqual(['mousedown', 'mouseup']);
+		expect(controls.toggleMaximize).not.toHaveBeenCalled();
+	});
 });
