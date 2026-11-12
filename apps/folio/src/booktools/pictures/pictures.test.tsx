@@ -80,4 +80,15 @@ describe('AltTextTool', () => {
 			description: 'An otter on a log',
 		});
 	});
+
+	it('marks a picture as decoration in one change', async () => {
+		const { apply } = await mount(AltTextTool);
+		const tick = (await screen.findAllByRole('checkbox', { name: /Decorative/ }))[0]!;
+		await userEvent.click(tick);
+		expect(apply).toHaveBeenCalledTimes(1);
+		expect(apply.mock.calls[0]![0]).toMatchObject({
+			type: 'SetFrameDecorative',
+			decorative: true,
+		});
+	});
 });

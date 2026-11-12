@@ -235,8 +235,13 @@ export const messages = {
 		'An estimate made {date}, not KDP’s own figures, which change: check KDP’s calculator before you set a price.',
 	'tools.alt.title': 'Alt text',
 	'tools.alt.desc': 'Say in words what each picture shows, for a reader who cannot see it.',
-	'tools.alt.summary': '{described} of {count} pictures say what they show.',
+	'tools.alt.summary': '{described} of {count} pictures say what they show or are decoration.',
 	'tools.alt.label': 'What the picture on {where} shows',
+	'tools.alt.decorative': 'Decorative: a screen reader skips this picture',
+	'tools.alt.automatic':
+		'Folio treats this picture as decoration because it sits behind a page number.',
+	'tools.alt.markedDecorative': 'Marked the picture as decoration.',
+	'tools.alt.unmarkedDecorative': 'The picture is not decoration any more.',
 	'tools.alt.kept': 'Kept what the picture shows.',
 	'tools.alt.cleared': 'Took away what the picture said it shows.',
 	'tools.about': '{title} · {pages} pages',
@@ -1131,6 +1136,9 @@ export const messages = {
 	'inspector.picture.fill': 'Fill frame',
 	'inspector.picture.inside': 'Fit inside',
 	'inspector.picture.stretch': 'Stretch to the bleed line',
+	'inspector.decorative': 'Mark as decorative',
+	'inspector.decorative.hint':
+		'A screen reader skips decoration, such as a page number or a flourish. Words that tell the story are not decoration.',
 	'inspector.picture.none': 'No picture yet. You can choose one once pictures can be brought in.',
 	'inspector.master':
 		'This belongs to the master page, so it is the same on every page that uses it.',

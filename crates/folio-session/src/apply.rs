@@ -328,6 +328,7 @@ fn group_frames(list: &mut Vec<Frame>, named: &[FrameId], id: FrameId) {
             locked: false,
             from_master: None,
             description: None,
+            decorative: false,
         },
         children,
     };
@@ -1638,7 +1639,9 @@ fn plan_one(book: &Book, intent: &Intent, ids: &mut IdSource) -> Result<Plan, Se
             ensure_free(found)?;
             Ok(by(on, None))
         }
-        Intent::DuplicateFrame { on, frame } | Intent::LockFrame { on, frame, .. } => {
+        Intent::DuplicateFrame { on, frame }
+        | Intent::LockFrame { on, frame, .. }
+        | Intent::SetFrameDecorative { on, frame, .. } => {
             let frames = frames_on(book, on)?;
             if !frames.iter().any(|f| &f.base().id == frame) {
                 return Err(SessionError::NotOnSpread(frame.0.clone(), named(on)));
@@ -2357,6 +2360,15 @@ fn run_one(book: &mut Book, intent: Intent, plan: &Plan, ids: &mut IdSource) {
         } => {
             if let Some(f) = frames_on_mut(book, &on).and_then(|frames| find_mut(frames, &frame)) {
                 f.base_mut().description = description.filter(|d| !d.trim().is_empty());
+            }
+        }
+        Intent::SetFrameDecorative {
+            on,
+            frame,
+            decorative,
+        } => {
+            if let Some(f) = frames_on_mut(book, &on).and_then(|frames| find_mut(frames, &frame)) {
+                f.base_mut().decorative = decorative;
             }
         }
         Intent::LockFrame { on, frame, locked } => {

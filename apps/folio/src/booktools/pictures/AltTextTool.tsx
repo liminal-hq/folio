@@ -18,11 +18,13 @@ function Described({
 	url,
 	where,
 	onKeep,
+	onDecorative,
 }: {
 	row: PictureRow;
 	url: string | undefined;
 	where: string;
 	onKeep(text: string): void;
+	onDecorative(decorative: boolean): void;
 }) {
 	const [draft, setDraft] = useState(row.description ?? '');
 	useEffect(() => setDraft(row.description ?? ''), [row.description]);
@@ -33,16 +35,27 @@ function Described({
 			) : (
 				<span className={styles.blank} aria-hidden="true" />
 			)}
-			<label className={styles.altField}>
-				<span>{t('tools.alt.label', { where })}</span>
-				<textarea
-					rows={2}
-					value={draft}
-					maxLength={500}
-					onChange={(event) => setDraft(event.target.value)}
-					onBlur={() => draft.trim() !== (row.description ?? '').trim() && onKeep(draft.trim())}
-				/>
-			</label>
+			<div className={styles.altField}>
+				<label className={styles.altLabel}>
+					<span>{t('tools.alt.label', { where })}</span>
+					<textarea
+						rows={2}
+						value={draft}
+						maxLength={500}
+						onChange={(event) => setDraft(event.target.value)}
+						onBlur={() => draft.trim() !== (row.description ?? '').trim() && onKeep(draft.trim())}
+					/>
+				</label>
+				<label className={styles.altDecorative}>
+					<input
+						type="checkbox"
+						checked={row.decorative}
+						onChange={(event) => onDecorative(event.target.checked)}
+					/>
+					{t('tools.alt.decorative')}
+				</label>
+				{row.automatic && <span className={styles.note}>{t('tools.alt.automatic')}</span>}
+			</div>
 		</li>
 	);
 }
@@ -58,7 +71,9 @@ export function AltTextTool({ client, id, book, revision, apply, say }: ToolProp
 	const labels = shelfLabels(book);
 	if (report === null) return <p className={styles.note}>{t('tools.working')}</p>;
 	if (rows.length === 0) return <p className={styles.note}>{t('tools.pictures.none')}</p>;
-	const described = rows.filter((row) => (row.description ?? '').trim() !== '').length;
+	const described = rows.filter(
+		(row) => (row.description ?? '').trim() !== '' || row.decorative || row.automatic,
+	).length;
 	return (
 		<div>
 			<p className={styles.summary}>{t('tools.alt.summary', { described, count: rows.length })}</p>
@@ -69,6 +84,15 @@ export function AltTextTool({ client, id, book, revision, apply, say }: ToolProp
 						row={row}
 						url={row.asset ? urls[row.asset] : undefined}
 						where={labels[book.spreads.findIndex((s) => s.id === row.spread)] ?? ''}
+						onDecorative={(decorative) => {
+							void apply({
+								type: 'SetFrameDecorative',
+								on: { spread: row.spread },
+								frame: row.frame,
+								decorative,
+							});
+							say(decorative ? t('tools.alt.markedDecorative') : t('tools.alt.unmarkedDecorative'));
+						}}
 						onKeep={(text) => {
 							void apply({
 								type: 'SetFrameDescription',

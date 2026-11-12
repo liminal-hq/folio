@@ -9,6 +9,7 @@
 
 pub mod assets;
 pub mod breaker;
+pub mod decoration;
 pub mod error;
 pub mod fallback;
 pub mod families;

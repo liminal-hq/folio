@@ -134,6 +134,7 @@ fn a_frame_that_crosses_the_gutter_is_on_both_pages_and_cut_to_each() {
             locked: false,
             from_master: None,
             description: None,
+            decorative: false,
         },
         shape: Shape::Rect,
         fill: None,

@@ -54,6 +54,7 @@ fn text_frame(id: &str, style: &str, x: f64, y: f64, w: f64, h: f64, text: &str)
             locked: false,
             from_master: None,
             description: None,
+            decorative: false,
         },
         style: StyleId(style.into()),
         content: Some(InlineContent {
@@ -454,6 +455,7 @@ fn a_picture_at_the_fold_of_an_opener_needs_no_bleed_there() {
             locked: false,
             from_master: None,
             description: None,
+            decorative: false,
         },
         image: ImageRef {
             asset: None,
@@ -614,6 +616,7 @@ fn shape_frame(id: &str, shape: folio_model::Shape, w: f64, h: f64, text: Option
             locked: false,
             from_master: None,
             description: None,
+            decorative: false,
         },
         shape,
         fill: None,
@@ -914,6 +917,7 @@ fn table_frame(id: &str, w: f64, h: f64, words: &[&[&str]]) -> Frame {
             locked: false,
             from_master: None,
             description: None,
+            decorative: false,
         },
         words.len(),
         words[0].len(),
@@ -1047,6 +1051,7 @@ fn picture_frame(id: &str, asset: &str, w: f64, h: f64, fit: Fit) -> Frame {
             locked: false,
             from_master: None,
             description: None,
+            decorative: false,
         },
         image: ImageRef {
             asset: Some(asset.into()),
@@ -1935,6 +1940,7 @@ fn frames_in_a_group_are_laid_out_where_they_are_as_if_they_were_not_grouped() {
             locked: false,
             from_master: None,
             description: None,
+            decorative: false,
         },
         children,
     };

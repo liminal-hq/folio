@@ -36,6 +36,7 @@ fn lay_proofed(style: &str, width: f64, text: &str, proofer: Option<&Proofer>) -
             locked: false,
             from_master: None,
             description: None,
+            decorative: false,
         },
         style: StyleId(style.into()),
         content: Some(InlineContent {

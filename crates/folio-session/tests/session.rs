@@ -3956,6 +3956,7 @@ fn the_front_of_the_cover_slides_with_the_spine_as_pages_come_in_one_step() {
                     locked: false,
                     from_master: None,
                     description: None,
+                    decorative: false,
                 },
                 shape: folio_model::Shape::Rect,
                 fill: None,
@@ -4018,6 +4019,7 @@ fn a_spread_with_frames_is_one_undo_step_that_adds_two_pages_and_slides_the_cove
                 locked: false,
                 from_master: None,
                 description: None,
+                decorative: false,
             },
             shape: folio_model::Shape::Rect,
             fill: None,
@@ -4105,6 +4107,40 @@ fn a_frames_description_is_one_undo_step_and_an_empty_one_takes_it_away() {
             on,
             frame: frame("fr_none"),
             description: None,
+        })
+        .is_err());
+}
+
+#[test]
+fn marking_a_frame_decorative_is_one_undo_step_and_a_frame_that_is_not_there_is_refused() {
+    let mut s = session();
+    let on = folio_model::Surface::Spread(s.book().spreads[1].id.clone());
+    let decorative = |s: &Session| {
+        s.book().spreads[1]
+            .frames
+            .iter()
+            .find(|f| f.base().id == frame("fr_text"))
+            .unwrap()
+            .base()
+            .decorative
+    };
+    assert!(!decorative(&s));
+    s.apply(Intent::SetFrameDecorative {
+        on: on.clone(),
+        frame: frame("fr_text"),
+        decorative: true,
+    })
+    .unwrap();
+    assert!(decorative(&s));
+    s.undo().unwrap();
+    assert!(!decorative(&s));
+    s.redo().unwrap();
+    assert!(decorative(&s));
+    assert!(s
+        .apply(Intent::SetFrameDecorative {
+            on,
+            frame: frame("fr_none"),
+            decorative: true,
         })
         .is_err());
 }

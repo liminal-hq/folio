@@ -872,6 +872,7 @@ fn base(
         locked: false,
         from_master: None,
         description: None,
+        decorative: false,
     }
 }
 

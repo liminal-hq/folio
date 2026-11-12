@@ -80,6 +80,7 @@ fn frame(id: &str, asset: &str, x: f64, y: f64, side: f64, rotation: f64) -> Fra
             locked: false,
             from_master: None,
             description: None,
+            decorative: false,
         },
         image: ImageRef {
             asset: Some(asset.into()),

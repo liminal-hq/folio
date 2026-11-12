@@ -109,6 +109,17 @@
 	font-size: 13px;
 }
 
+.altLabel {
+	display: grid;
+	gap: 4px;
+}
+
+.altDecorative {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
 .altField textarea {
 	inline-size: 100%;
 	padding: 6px 8px;

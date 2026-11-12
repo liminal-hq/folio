@@ -186,6 +186,7 @@ fn the_tool_sets_table_cells_in_the_language_of_the_book() {
             locked: false,
             from_master: None,
             description: None,
+            decorative: false,
         },
         1,
         2,
