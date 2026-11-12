@@ -28,7 +28,7 @@ keepJpeg?: boolean,
  */
 cropToFrame?: boolean, bookmarks?: BookmarkChoice, pageLabels?: boolean, 
 /**
- * Links in the file; the exporter does not write any yet.
+ * Words that link are links in the file. Only a Sharing PDF has them.
  */
 links?: boolean, viewerLayout?: ViewerLayoutChoice, 
 /**

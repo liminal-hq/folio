@@ -220,6 +220,7 @@ fn a_paperback_file_has_none_of_it_whatever_was_asked() {
             ..PdfInfo::default()
         },
         page_labels: true,
+        links: true,
         viewer_layout: ViewerLayout::Spreads,
     };
     let doc = export(&book, &styles, PdfTarget::Print, asked);

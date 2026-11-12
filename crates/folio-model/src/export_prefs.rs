@@ -133,7 +133,7 @@ pub struct PdfPrefs {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub page_labels: Option<bool>,
-    /// Links in the file; the exporter does not write any yet.
+    /// Words that link are links in the file. Only a Sharing PDF has them.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub links: Option<bool>,

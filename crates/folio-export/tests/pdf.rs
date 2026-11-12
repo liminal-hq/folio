@@ -585,3 +585,35 @@ fn a_link_follows_its_spread_into_a_page_range_and_is_left_out_when_the_spread_i
     let head = make(Some((1, 1)));
     assert!(links(&head).is_empty());
 }
+
+#[test]
+fn a_sharing_pdf_asked_for_no_links_has_none() {
+    let (mut book, styles) = sample(BookKind::Picture);
+    let fonts = FontBook::bundled();
+    for frame in book.spreads.iter_mut().flat_map(|s| s.frames.iter_mut()) {
+        if let folio_model::Frame::Text(t) = frame {
+            for run in t.content.iter_mut().flat_map(|c| c.inline.iter_mut()) {
+                run.href = Some("https://example.org/".to_string());
+            }
+        }
+    }
+    let make = |links| {
+        export_pdf(
+            &book,
+            &styles,
+            &fonts,
+            &NoAssets,
+            &PdfOptions {
+                target: PdfTarget::Sharing,
+                navigation: folio_export::outline::Navigation {
+                    links,
+                    ..Default::default()
+                },
+                ..PdfOptions::default()
+            },
+        )
+        .unwrap()
+    };
+    assert!(!links(&make(true)).is_empty());
+    assert!(links(&make(false)).is_empty());
+}

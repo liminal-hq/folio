@@ -341,7 +341,7 @@ pub fn export_pdf_with(
         }
         surface.finish();
         // Links are for a file that is read on a screen; a file for print carries none.
-        if options.target == PdfTarget::Sharing {
+        if options.target == PdfTarget::Sharing && navigation.links {
             let mut across = 0.0;
             for page in &members {
                 for link in link_annotations(

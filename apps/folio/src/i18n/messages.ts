@@ -424,7 +424,6 @@ export const messages = {
 	'export.locked.marks': 'Only the print shop file has these; KDP wants none.',
 	'export.locked.links': 'Print files have no links.',
 	'export.locked.kdpInk': 'Choose the paperback’s ink under Print colour.',
-	'export.locked.linksSoon': 'Links are not written to PDFs yet.',
 	'export.folder': 'Put the files in',
 	'export.folder.usual': 'an exports folder beside the book',
 	'export.folder.choose': 'Choose a folder…',

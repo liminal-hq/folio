@@ -64,13 +64,28 @@ pub struct PdfInfo {
 }
 
 /// The ways round a PDF.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Navigation {
     pub bookmarks: Bookmarks,
     pub info: PdfInfo,
     /// Pages are labelled with the numbers the book shows, in its sections' styles.
     pub page_labels: bool,
     pub viewer_layout: ViewerLayout,
+    /// Words that link are links in the file. Only a Sharing PDF has them whatever is asked here,
+    /// and it has always had them, so they are on unless turned off.
+    pub links: bool,
+}
+
+impl Default for Navigation {
+    fn default() -> Self {
+        Navigation {
+            bookmarks: Bookmarks::default(),
+            info: PdfInfo::default(),
+            page_labels: false,
+            viewer_layout: ViewerLayout::default(),
+            links: true,
+        }
+    }
 }
 
 impl Navigation {

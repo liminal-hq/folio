@@ -176,15 +176,15 @@ export function ExpertPdfOptions({ kinds, user, book, edits, onChange }: ExpertP
 						/>
 					)}
 				</Row>
-				<Row label={t('export.expert.links')} reason={lock('links') ?? 'export.locked.linksSoon'}>
+				<Row label={t('export.expert.links')} reason={lock('links')}>
 					{({ id, disabled, describedBy }) => (
 						<input
 							id={id}
 							type="checkbox"
 							disabled={disabled}
 							aria-describedby={describedBy}
-							checked={false}
-							readOnly
+							checked={!disabled && eff.links === true}
+							onChange={(e) => set({ links: e.target.checked })}
 						/>
 					)}
 				</Row>

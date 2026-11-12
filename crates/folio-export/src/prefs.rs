@@ -70,6 +70,7 @@ pub fn builtin(kind: PdfKind) -> PdfPrefs {
             preset: Some(PicturePreset::Standard),
             bookmarks: Some(BookmarkChoice::Chapters),
             page_labels: Some(true),
+            links: Some(true),
             ..base
         },
         PdfKind::Kdp => PdfPrefs {
@@ -234,6 +235,7 @@ pub fn resolve(kind: PdfKind, layers: &[&ExportPrefs], book: &Book) -> Resolved 
             language: prefs.language.clone(),
         },
         page_labels: prefs.page_labels.unwrap_or(false),
+        links: prefs.links.unwrap_or(false),
         viewer_layout: match prefs.viewer_layout {
             Some(ViewerLayoutChoice::Spreads) => ViewerLayout::Spreads,
             _ => ViewerLayout::Single,
@@ -381,6 +383,27 @@ mod tests {
         assert_eq!(r.extras.pages, PageChoice::default());
         assert_eq!(r.extras.crop_marks, Some(false));
         assert!(r.notes.len() >= 3);
+    }
+
+    #[test]
+    fn the_sharing_pdf_has_links_unless_turned_off_and_a_press_file_never_does() {
+        assert!(
+            resolve(PdfKind::Sharing, &[], &book())
+                .extras
+                .navigation
+                .links
+        );
+        let mut off = ExportPrefs::default();
+        off.pdf.sharing.links = Some(false);
+        assert!(
+            !resolve(PdfKind::Sharing, &[&off], &book())
+                .extras
+                .navigation
+                .links
+        );
+        for kind in [PdfKind::Kdp, PdfKind::PrintShop] {
+            assert!(!resolve(kind, &[], &book()).extras.navigation.links);
+        }
     }
 
     #[test]

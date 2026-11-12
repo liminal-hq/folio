@@ -70,6 +70,18 @@ describe('the Expert panels', () => {
 		expect(call).toContain('"jpegQuality":70');
 	});
 
+	it('has links on for a Sharing PDF and lets them be turned off', async () => {
+		const fake = await setup();
+		await userEvent.click(await screen.findByText('More choices'));
+		const links = screen.getByLabelText('Links');
+		expect(links).toBeChecked();
+		await userEvent.click(links);
+		await userEvent.click(screen.getByRole('button', { name: 'Make files' }));
+		await screen.findByText('Your files are ready.');
+		const call = fake.calls.find((c) => c.startsWith('exportBook('))!;
+		expect(call).toContain('"links":false');
+	});
+
 	it('grey out what a paperback is fixed at and say why', async () => {
 		await setup();
 		await userEvent.click(screen.getByRole('checkbox', { name: /Paperback interior/ }));
