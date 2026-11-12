@@ -1,0 +1,78 @@
+.strip {
+	display: flex;
+	align-items: center;
+	flex: none;
+	gap: 2px;
+	height: 100%;
+	/* A hairline between the app menu and the strip. */
+	padding-inline-start: 6px;
+	margin-inline-start: 2px;
+	border-inline-start: 1px solid var(--folio-border-subtle);
+}
+
+.button {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: default;
+}
+
+.button:hover {
+	background: var(--folio-control-bg-hover);
+}
+
+.button:focus-visible {
+	outline: 2px solid var(--folio-focus-ring);
+	outline-offset: -2px;
+}
+
+.button[aria-pressed='true'] {
+	color: var(--folio-accent);
+}
+
+.button[aria-disabled='true'] {
+	color: var(--folio-text-muted);
+	opacity: 0.5;
+}
+
+.button[aria-disabled='true']:hover {
+	background: transparent;
+}
+
+.icon {
+	display: inline-flex;
+	width: 16px;
+	height: 16px;
+}
+
+.icon > svg {
+	width: 16px;
+	height: 16px;
+}
+
+/* A small dot at the icon's top end corner. */
+.badge {
+	position: absolute;
+	top: 4px;
+	inset-inline-end: 4px;
+	width: 7px;
+	height: 7px;
+	box-sizing: border-box;
+	border-radius: 50%;
+	background: var(--folio-accent);
+	border: 1.5px solid var(--folio-bg-chrome);
+}
+
+/* Collapsed by the title bar when the start group has no room for it: the actions stay in the app menu. */
+.strip[hidden] {
+	display: none;
+}

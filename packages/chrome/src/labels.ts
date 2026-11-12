@@ -17,6 +17,8 @@ export interface ChromeLabels {
 	windowMenu: string;
 	/** Accessible name of the group of window buttons. */
 	windowControls: string;
+	/** Accessible name of the quick actions toolbar. */
+	quickActions: string;
 }
 
 export const defaultChromeLabels: ChromeLabels = {
@@ -29,4 +31,5 @@ export const defaultChromeLabels: ChromeLabels = {
 	close: 'Close',
 	windowMenu: 'Window menu',
 	windowControls: 'Window controls',
+	quickActions: 'Quick actions',
 };
