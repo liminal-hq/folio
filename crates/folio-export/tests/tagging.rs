@@ -499,9 +499,9 @@ fn tagging_changes_no_pixel() {
 
 /// What a reader gets from a page: the words with their spacing made plain, a word cut at the end
 /// of a line put back together.
-fn extracted(pdf: &Path, page: usize) -> String {
+fn extracted(pdf: &Path, page: usize, mode: &str) -> String {
     let out = Command::new("pdftotext")
-        .args(["-f", &page.to_string(), "-l", &page.to_string(), "-raw"])
+        .args(["-f", &page.to_string(), "-l", &page.to_string(), mode])
         .arg(pdf)
         .arg("-")
         .output()
@@ -542,7 +542,13 @@ fn the_text_a_reader_gets_is_the_text_of_the_book_with_its_spaces() {
         std::fs::write(&pdf, bytes).unwrap();
         // The cover, then the first spread (two pages), then this spread's two.
         let page = 1 + 2 + 2;
-        assert_eq!(extracted(&pdf, page), want, "tagged: {tagged}");
+        for mode in ["-raw", "-layout"] {
+            assert_eq!(
+                extracted(&pdf, page, mode),
+                want,
+                "tagged: {tagged}, {mode}"
+            );
+        }
     }
     let _ = std::fs::remove_dir_all(dir);
 }
