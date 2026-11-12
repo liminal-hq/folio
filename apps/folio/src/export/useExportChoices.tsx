@@ -17,7 +17,16 @@ import { DEFAULT_SETTINGS } from '../settings/fakeSettingsClient';
 import { BooksContext } from '../books/useBooks';
 import { SettingsContext } from '../settings/useSettings';
 import { settingsOf, type SettingsState } from '../settings/settingsStore';
-import { emptyPrefs, isBlank, kindOf, overlay, withPdf, type PdfKind } from './exportPrefs';
+import {
+	builtinPdf,
+	effectivePdf,
+	emptyPrefs,
+	isBlank,
+	kindOf,
+	overlay,
+	withPdf,
+	type PdfKind,
+} from './exportPrefs';
 import { ExpertPdfOptions } from './ExpertPdfOptions';
 import { DestinationFolder } from './DestinationFolder';
 import { absoluteFor, relativeToBook } from './folder';
@@ -33,6 +42,8 @@ export interface ExportChoicesState {
 	panel: ReactNode;
 	/** To hand to `exportBook`: this export's choices and the person's defaults. */
 	choices: ExportChoices;
+	/** Whether a PDF that is chosen will be tagged for screen readers, which asks for descriptions. */
+	tagged: boolean;
 	/** Keeps this export's choices in the book, as Export does when it starts. */
 	remember(targets: ExportTarget[]): Promise<void>;
 }
@@ -131,6 +142,11 @@ export function useExportChoices(
 		[edits, user],
 	);
 	const kinds = [...new Set(targets.map(kindOf).filter((k): k is PdfKind => k !== null))];
+	// A paperback is never tagged; the others are as the layers of choices say.
+	const tagged = kinds.some(
+		(k) =>
+			k !== 'kdp' && { ...builtinPdf(k), ...effectivePdf(k, user, book, edits) }.tagged === true,
+	);
 	const usual = folder === undefined || folder === 'exports';
 	const panel = (
 		<>
@@ -176,5 +192,5 @@ export function useExportChoices(
 			)}
 		</>
 	);
-	return { panel, choices, remember };
+	return { panel, choices, tagged, remember };
 }

@@ -364,6 +364,11 @@ export const messages = {
 		'A reflowable book for Kobo Writing Life, and the Kobo flavour with faster page turns.',
 	'export.waiting': '{count} things are waiting on you.',
 	'export.waiting.one': 'One thing is waiting on you.',
+	'export.undescribed':
+		'{count} pictures have no description, so a screen reader will only say “figure”. Describe them, or mark them decorative.',
+	'export.undescribed.one':
+		'One picture has no description, so a screen reader will only say “figure”. Describe it, or mark it decorative.',
+	'export.undescribed.show': 'Show me',
 	'export.checkFirst': 'Check the book first',
 	'export.colour': 'Print colour',
 	'export.colour.cmyk': 'Make the paperback interior in ink (CMYK)',

@@ -166,6 +166,31 @@ describe('the Export dialog', () => {
 		await userEvent.click(screen.getByRole('button', { name: 'Check the book first' }));
 		expect(onCheck).toHaveBeenCalled();
 	});
+
+	it('warns that a tagged PDF has pictures with no description, and not for a paperback only', async () => {
+		const fake = createFakeBooksClient();
+		fake.preflightItems.push(
+			{ kind: 'altMissing', severity: 'note', spread: 's', frame: 'a' },
+			{ kind: 'altMissing', severity: 'note', spread: 's', frame: 'b' },
+		);
+		const made = await fake.client.newBook({});
+		render(
+			<ExportDialog
+				open
+				onClose={vi.fn()}
+				client={fake.client}
+				id={made.summary.id}
+				onCheck={vi.fn()}
+			/>,
+		);
+		expect(
+			await screen.findByText(/2 pictures have no description.*mark them decorative/),
+		).toBeInTheDocument();
+		// A paperback alone is not tagged, so there is nothing to describe for a screen reader.
+		await userEvent.click(screen.getByRole('checkbox', { name: /Paperback interior/ }));
+		await userEvent.click(screen.getByRole('checkbox', { name: /Sharing PDF/ }));
+		expect(screen.queryByText(/have no description/)).not.toBeInTheDocument();
+	});
 });
 
 describe('print colour', () => {
