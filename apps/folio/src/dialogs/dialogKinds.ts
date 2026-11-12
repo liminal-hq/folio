@@ -106,8 +106,12 @@ export function dialogLabel(kind: OpenableKind): string {
 	return LABELS[kind];
 }
 
-/** The kinds whose window watches and changes the book its payload names (through a pinned books store). */
+/**
+ * The kinds whose window is given the book its payload names, through a pinned books store. The
+ * Export window needs it for the file dialogs that choose a folder (`BooksContext.dialogs`).
+ */
 const BOOK_DIALOGS: readonly OpenableKind[] = [
+	'Export',
 	'BookDetails',
 	'Barcode',
 	'BookSize',
