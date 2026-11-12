@@ -525,8 +525,34 @@ describe('the text colour list', () => {
 	it('offers colours once words are selected', () => {
 		const state = editorState(input([frame]));
 		expect(state.available.has('colour')).toBe(true);
-		expect(state.options.colour?.[0]?.[0]).toBe('#1c1b20');
 		expect(editorState(input([])).available.has('colour')).toBe(false);
+	});
+
+	it('shows the colour the words are set in, and falls back to the style, then the book ink', () => {
+		const plain = editorState(input([frame]));
+		expect(plain.texts.colour).toBe('');
+		expect(plain.colour.fromStyle).toBe('#1c1b20');
+		const inked = {
+			...frame,
+			content: { inline: [{ text: 'Hello', bold: false, italic: false, colour: '#a23b2a' }] },
+		} as unknown as Frame;
+		expect(editorState(input([inked])).texts.colour).toBe('#a23b2a');
+		const styled = editorState({
+			...input([frame]),
+			choices: [{ id: 'body', name: 'Body', size: 12, colour: '#4a4a4a' }],
+		});
+		expect(styled.colour.fromStyle).toBe('#4a4a4a');
+	});
+
+	it('hands the pickers the swatches and the page colour', () => {
+		const state = editorState({
+			...input([frame]),
+			swatches: [{ id: 'orange', name: 'Orange', display: '#ff4d0d' }],
+			pageColour: '#fdf6e3',
+		});
+		expect(state.colour.swatches).toEqual([{ id: 'orange', name: 'Orange', display: '#ff4d0d' }]);
+		expect(state.colour.page).toBe('#fdf6e3');
+		expect(editorState(input([frame])).colour.page).toBe('#ffffff');
 	});
 
 	it('colours the selected words, or all of them when none are selected', () => {

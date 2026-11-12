@@ -14,7 +14,7 @@ import { useEffect, useId, useState } from 'react';
 import { Segmented } from '../app/Segmented';
 import { pickerSwatches } from '../books/bookSwatches';
 import { t } from '../i18n/messages';
-import { ColourPicker } from '../inspector/ColourPicker';
+import { ColourField } from '../colour/ColourField';
 import { FocusPicker } from './FocusPicker';
 import { TexturePattern } from './textures';
 import { backgroundTargets, currentBackground, type BackgroundScope } from './backgroundScopes';
@@ -145,7 +145,7 @@ export function PageBackgroundDialog({
 					onChange={setKind}
 				/>
 				{kind === 'colour' ? (
-					<ColourPicker
+					<ColourField
 						label={t('background.colour')}
 						value={now?.type === 'colour' ? now.colour : null}
 						swatches={pickerSwatches(book, presets)}
@@ -217,7 +217,7 @@ export function PageBackgroundDialog({
 							))}
 						</div>
 						{now?.type === 'texture' && (
-							<ColourPicker
+							<ColourField
 								label={t('background.tint')}
 								value={now.tint ?? null}
 								swatches={pickerSwatches(book, presets)}

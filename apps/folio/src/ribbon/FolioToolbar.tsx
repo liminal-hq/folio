@@ -8,6 +8,7 @@ import { Ribbon } from '@liminal-hq/folio-ribbon/Ribbon';
 import { useMemo } from 'react';
 import type { RibbonCommand } from '@liminal-hq/folio-ribbon/types';
 import type { CommandId } from '../commands/appMenuModel';
+import { useRecentColours } from '../colour/recentColours';
 import { t } from '../i18n/messages';
 import { useSettings, useUpdateSettings } from '../settings/useSettings';
 import { UpdateChip } from '../app/UpdateChip';
@@ -44,7 +45,11 @@ export function FolioToolbar({
 }: FolioToolbarProps) {
 	const settings = useSettings();
 	const update = useUpdateSettings();
-	const context = useMemo(() => ({ settings, available, editor }), [settings, available, editor]);
+	const recentColours = useRecentColours();
+	const context = useMemo(
+		() => ({ settings, available, editor, recentColours }),
+		[settings, available, editor, recentColours],
+	);
 	const ribbon = useMemo(() => buildRibbonModel(context), [context]);
 	const toolbar = useMemo(() => buildToolbarModel(context), [context]);
 	const labels = useMemo(

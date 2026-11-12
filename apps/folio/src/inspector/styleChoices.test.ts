@@ -9,11 +9,14 @@ import { defaultTextStyle, styleChoices } from './styleChoices';
 describe('styleChoices', () => {
 	it('lists the styles with their names and sizes, in file order', () => {
 		const out = styleChoices({
-			styles: { story: { name: 'Story text', sizePt: 13 }, caption: { sizePt: 9 } },
+			styles: {
+				story: { name: 'Story text', sizePt: 13 },
+				caption: { sizePt: 9, colour: '#4a4a4a' },
+			},
 		});
 		expect(out).toEqual([
-			{ id: 'story', name: 'Story text', size: 13 },
-			{ id: 'caption', name: 'caption', size: 9 },
+			{ id: 'story', name: 'Story text', size: 13, colour: null },
+			{ id: 'caption', name: 'caption', size: 9, colour: '#4a4a4a' },
 		]);
 	});
 	it('is empty for a book with no style file', () => {

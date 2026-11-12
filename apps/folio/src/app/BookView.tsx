@@ -21,6 +21,7 @@ import { shelfLabels } from '../books/shelfLabels';
 import type { OpenBookCopy } from '../books/booksStore';
 import { useBooks } from '../books/useBooks';
 import { backgroundAssets } from '../canvas/backgrounds';
+import { pageColourOf } from '../colour/pageColour';
 import { CLIPBOARD_COMMANDS, GROUP_COMMANDS, frameIntents } from '../canvas/frameMenu';
 import { canGroup, canUngroup, childIds, groupIntent, ungroupIntent } from '../canvas/grouping';
 import { boxAt, newFrame, type NewFrameKind } from '../canvas/newFrames';
@@ -298,7 +299,8 @@ export function BookView({
 				jax: settings.jax !== 'off',
 				master: master !== null,
 				cell: editingCell,
-				swatches: (book.styles?.swatches ?? []).map((s) => ({ id: s.id, name: s.name })),
+				swatches: book.styles?.swatches ?? [],
+				pageColour: pageColourOf(spread, book),
 				paragraphs: textParagraphs,
 				// Copy and Cut take the words selected in the open editor, not the frame.
 				words:

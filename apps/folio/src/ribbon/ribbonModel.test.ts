@@ -249,6 +249,55 @@ describe('the Font list', () => {
 	});
 });
 
+describe('the Text colour control', () => {
+	const colourItem = (mode: 'easy' | 'expert', swatches: never[] | object[] = []) => {
+		const editor = editorState({
+			spread: { id: 'sp', kind: 'spread', pages: [], frames: [], guides: [] } as never,
+			spreadIndex: 1,
+			spreadCount: 3,
+			selected: [],
+			layout: null,
+			choices: [],
+			marks: DEFAULT_MARKS,
+			snap: true,
+			rulers: false,
+			swatches: swatches as never,
+			pageColour: '#fdf6e3',
+		});
+		const record = () => undefined;
+		return allItems(
+			buildRibbonModel({
+				settings: { ...DEFAULT_SETTINGS, mode },
+				available: none,
+				editor,
+				recentColours: { recents: ['#e07a5f'], record },
+			}),
+		).find((i) => i.id === 'colour');
+	};
+
+	it('is a colour control that carries the picker its data', () => {
+		const item = colourItem('expert', [
+			{ id: 'orange', name: 'Orange', display: '#ff4d0d', ink: { c: 0, m: 70, y: 95, k: 0 } },
+		]);
+		expect(item?.kind).toBe('colour');
+		expect(item?.colour?.pinned.map((c) => c.value)).toEqual(['#000000', '#ffffff']);
+		expect(item?.colour?.theme.map((c) => c.value)).toContain('#1c1b20');
+		expect(item?.colour?.theme).toHaveLength(14);
+		expect(item?.colour?.swatches).toEqual([
+			{ value: 'swatch:orange', name: 'Orange', shown: '#ff4d0d', ink: [0, 70, 95, 0] },
+		]);
+		expect(item?.colour?.recents).toEqual(['#e07a5f']);
+		expect(item?.colour?.pageColour).toBe('#fdf6e3');
+		expect(item?.colour?.mode).toBe('expert');
+		expect(item?.colour?.inherited?.value).toBe('#1c1b20');
+		expect(item?.colour?.contrast).toBe('text');
+	});
+
+	it('follows the mode of the app', () => {
+		expect(colourItem('easy')?.colour?.mode).toBe('easy');
+	});
+});
+
 describe('the Tools tab', () => {
 	const tools = RIBBON_LAYOUT.find((tab) => tab.id === 'tools')!;
 	const items = tools.groups.flatMap((g) => g.items ?? []);

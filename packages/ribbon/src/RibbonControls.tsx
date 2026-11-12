@@ -8,6 +8,7 @@ import type { RibbonLabels } from './labels';
 import styles from './Ribbon.module.css';
 import type { RibbonTooltip } from './useRibbonTooltip';
 import type { RibbonItem, RibbonValue } from './types';
+import { ColourControl } from './ColourControl';
 
 export function Glyph({ d, px, swatch }: { d: string; px: number; swatch?: string }) {
 	return (
@@ -114,6 +115,8 @@ export function RibbonControl(props: ControlProps) {
 			</span>
 		);
 	}
+
+	if (kind === 'colour') return <ColourControl {...props} />;
 
 	if (kind === 'stepper') {
 		const current = typeof value === 'number' ? value : Number(item.min ?? 0);

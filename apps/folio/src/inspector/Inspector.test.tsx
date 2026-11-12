@@ -11,6 +11,14 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_MARKS } from '../canvas/marksModel';
 import { Inspector, type InspectorProps } from './Inspector';
+import { createFakeSettingsClient } from '../settings/fakeSettingsClient';
+import { SettingsProvider } from '../settings/SettingsProvider';
+import type { ReactElement } from 'react';
+const settingsClient = createFakeSettingsClient();
+/** The colour fields read the mode and the recent colours from the settings. */
+const withSettings = (ui: ReactElement) => (
+	<SettingsProvider client={settingsClient}>{ui}</SettingsProvider>
+);
 
 const book = {
 	trim: { w: 612, h: 612 },
@@ -53,20 +61,22 @@ function setup(selected: Frame[], extra: Partial<InspectorProps> = {}) {
 	const apply = vi.fn();
 	const onMarks = vi.fn();
 	render(
-		<Inspector
-			book={book}
-			styleFile={styleFile}
-			kindLabel="Picture book"
-			units="inches"
-			mode="easy"
-			spread={spread}
-			layout={null}
-			selected={selected}
-			marks={DEFAULT_MARKS}
-			onMarks={onMarks}
-			apply={apply}
-			{...extra}
-		/>,
+		withSettings(
+			<Inspector
+				book={book}
+				styleFile={styleFile}
+				kindLabel="Picture book"
+				units="inches"
+				mode="easy"
+				spread={spread}
+				layout={null}
+				selected={selected}
+				marks={DEFAULT_MARKS}
+				onMarks={onMarks}
+				apply={apply}
+				{...extra}
+			/>,
+		),
 	);
 	return { apply, onMarks };
 }
@@ -575,14 +585,15 @@ describe('with a shape selected', () => {
 
 	it('changes the fill with a swatch, and clears it', async () => {
 		const { apply } = setup([shape()], { paints });
-		const fill = within(screen.getByRole('group', { name: 'Fill' }));
-		await userEvent.click(fill.getByRole('button', { name: 'Slate' }));
+		await userEvent.click(screen.getByRole('button', { name: 'Fill' }));
+		await userEvent.click(screen.getByRole('button', { name: 'Slate, #1f3a5f' }));
 		expect(apply).toHaveBeenLastCalledWith({
 			type: 'SetShape',
 			frame: 's1',
 			fill: { type: 'colour', colour: '#1f3a5f' },
 		});
-		await userEvent.click(fill.getByRole('button', { name: 'None' }));
+		await userEvent.click(screen.getByRole('button', { name: 'Fill' }));
+		await userEvent.click(screen.getByRole('button', { name: 'None, None' }));
 		expect(apply).toHaveBeenLastCalledWith({
 			type: 'SetShape',
 			frame: 's1',
@@ -607,9 +618,9 @@ describe('with a shape selected', () => {
 
 	it('offers a line no fill, no way to clear its outline and a way to flip it', async () => {
 		const { apply } = setup([shape({ shape: 'line', fill: null, stroke: '#14110f' })], { paints });
-		expect(screen.queryByRole('group', { name: 'Fill' })).toBeNull();
-		const outline = within(screen.getByRole('group', { name: 'Outline' }));
-		expect(outline.queryByRole('button', { name: 'None' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Fill' })).toBeNull();
+		await userEvent.click(screen.getByRole('button', { name: 'Outline' }));
+		expect(screen.queryByRole('button', { name: 'None, None' })).toBeNull();
 		expect(screen.queryByRole('textbox', { name: 'Corner roundness (in)' })).toBeNull();
 		await userEvent.click(screen.getByRole('checkbox', { name: 'Run the other way' }));
 		expect(apply).toHaveBeenLastCalledWith({ type: 'SetShape', frame: 's1', flip: true });
@@ -618,9 +629,7 @@ describe('with a shape selected', () => {
 	it('leaves a locked shape as it is', async () => {
 		const { apply } = setup([shape({ locked: true })], { paints });
 		expect(screen.getByRole('combobox', { name: 'Shape' })).toBeDisabled();
-		const fill = within(screen.getByRole('group', { name: 'Fill' }));
-		expect(fill.getByRole('button', { name: 'Slate' })).toBeDisabled();
-		expect(fill.getByRole('textbox')).toBeDisabled();
+		expect(screen.getByRole('button', { name: 'Fill' })).toBeDisabled();
 		expect(screen.getByRole('textbox', { name: 'Outline width (in)' })).toBeDisabled();
 		expect(apply).not.toHaveBeenCalled();
 	});

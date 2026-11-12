@@ -18,4 +18,9 @@ export type Settings = { mode: Mode, colourMode: ColourMode, units: Units, jax: 
 /**
  * The paths of recently opened books, newest first.
  */
-recentBooks: Array<string>, };
+recentBooks: Array<string>, 
+/**
+ * The colours last chosen in the colour picker as `#rrggbb`, newest first, kept per user and
+ * not per book (D-76).
+ */
+recentColours: Array<string>, };

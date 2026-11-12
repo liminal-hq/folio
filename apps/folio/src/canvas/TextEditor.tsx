@@ -353,7 +353,7 @@ export function TextEditor({
 					// A list in the ribbon (the font, the colour) takes focus to open, and the words
 					// selected stay selected for it to style: that is not the end of the editing.
 					const to = event.relatedTarget;
-					if (to instanceof Element && to.closest('[data-ribbon]')) return;
+					if (to instanceof Element && to.closest('[data-ribbon], [data-keeps-editor]')) return;
 					if (!menuUp.current) finish();
 				}}
 				onContextMenu={(event) => {
