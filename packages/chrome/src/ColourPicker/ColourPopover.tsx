@@ -90,6 +90,7 @@ export function ColourPopover({ anchor, label, onClose, children }: ColourPopove
 		>
 			{children}
 		</div>,
-		document.body,
+		// Inside a modal dialog it must be in the dialog, or the page's top layer hides it and makes it inert.
+		anchor.closest('dialog') ?? document.body,
 	);
 }

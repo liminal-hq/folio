@@ -11,6 +11,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { FAKE_PAINTS } from '../books/fakeBooksClient';
 import { backgroundTargets, currentBackground } from './backgroundScopes';
 import { PageBackgroundDialog } from './PageBackgroundDialog';
+import { createFakeSettingsClient } from '../settings/fakeSettingsClient';
+import { SettingsProvider } from '../settings/SettingsProvider';
+import type { ReactElement } from 'react';
+const settingsClient = createFakeSettingsClient();
+/** The colour fields read the mode and the recent colours from the settings. */
+const withSettings = (ui: ReactElement) => (
+	<SettingsProvider client={settingsClient}>{ui}</SettingsProvider>
+);
 
 const book = { masterPages: [] } as unknown as Book;
 const pair = {
@@ -34,18 +42,20 @@ const setup = (
 	const onApply = vi.fn();
 	const onPick = vi.fn(async () => picked);
 	render(
-		<PageBackgroundDialog
-			open
-			onClose={() => undefined}
-			book={book}
-			spread={spread}
-			page={page}
-			scope={scope}
-			presets={FAKE_PAINTS}
-			images={images}
-			onPickPicture={onPick}
-			onApply={onApply}
-		/>,
+		withSettings(
+			<PageBackgroundDialog
+				open
+				onClose={() => undefined}
+				book={book}
+				spread={spread}
+				page={page}
+				scope={scope}
+				presets={FAKE_PAINTS}
+				images={images}
+				onPickPicture={onPick}
+				onApply={onApply}
+			/>,
+		),
 	);
 	return onApply;
 };
@@ -80,7 +90,8 @@ describe('PageBackgroundDialog', () => {
 			'aria-checked',
 			'true',
 		);
-		await userEvent.click(screen.getByRole('button', { name: 'Slate' }));
+		await userEvent.click(screen.getByRole('button', { name: 'Background colour' }));
+		await userEvent.click(screen.getByRole('button', { name: 'Slate, #1f3a5f' }));
 		expect(onApply).toHaveBeenCalledWith({
 			type: 'SetBackground',
 			target: { type: 'span', spread: 's1' },
@@ -94,7 +105,7 @@ describe('PageBackgroundDialog', () => {
 			'aria-checked',
 			'true',
 		);
-		expect(screen.getByRole('button', { name: 'Cream' })).toHaveAttribute('aria-pressed', 'true');
+		expect(screen.getByRole('button', { name: 'Background colour' })).toHaveTextContent('Cream');
 	});
 
 	it('applies a gradient to the scope chosen, expanded to its stops', async () => {
@@ -248,10 +259,10 @@ describe('PageBackgroundDialog', () => {
 			onPickPicture: async () => null,
 			onApply: () => undefined,
 		};
-		const { rerender } = render(<PageBackgroundDialog {...props} />);
+		const { rerender } = render(withSettings(<PageBackgroundDialog {...props} />));
 		expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
 
-		rerender(<PageBackgroundDialog {...props} onCancel={onCancel} />);
+		rerender(withSettings(<PageBackgroundDialog {...props} onCancel={onCancel} />));
 		await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 		expect(onCancel).toHaveBeenCalledTimes(1);
 		expect(onClose).not.toHaveBeenCalled();

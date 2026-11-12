@@ -26,7 +26,8 @@ import { FocusPicker } from '../canvas/FocusPicker';
 import { pickerSwatches } from '../books/bookSwatches';
 import { t } from '../i18n/messages';
 import styles from './Inspector.module.css';
-import { ColourPicker } from './ColourPicker';
+import { pageColourOf } from '../colour/pageColour';
+import { ColourField } from '../colour/ColourField';
 import { LengthField } from './LengthField';
 import { unitLabel } from './units';
 import { styleChoices } from './styleChoices';
@@ -565,10 +566,11 @@ function ShapeSection({ frame, props }: { frame: ShapeFrame; props: InspectorPro
 			{!isLine && (
 				<div className={styles.field}>
 					<span>{t('inspector.shape.fill')}</span>
-					<ColourPicker
+					<ColourField
 						label={t('inspector.shape.fill')}
 						value={frame.fill ?? null}
 						swatches={swatches}
+						pageColour={pageColourOf(props.spread, props.book)}
 						allowNone
 						disabled={frame.locked}
 						onPick={(colour) => set({ fill: paint(colour) })}
@@ -577,10 +579,11 @@ function ShapeSection({ frame, props }: { frame: ShapeFrame; props: InspectorPro
 			)}
 			<div className={styles.field}>
 				<span>{t('inspector.shape.outline')}</span>
-				<ColourPicker
+				<ColourField
 					label={t('inspector.shape.outline')}
 					value={frame.stroke ?? null}
 					swatches={swatches}
+					pageColour={pageColourOf(props.spread, props.book)}
 					allowNone={!isLine}
 					disabled={frame.locked}
 					onPick={(colour) => set({ stroke: paint(colour) })}
