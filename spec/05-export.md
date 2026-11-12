@@ -60,7 +60,7 @@ KEPUB is EPUB plus `<span class="koboSpan" id="kobo.N.M">` around sentences, plu
 - **PDF/X-1a:2001**: flattened transparency and CMYK-only. Offered for printers that ask for it. Future work (D-42): it needs a CMYK output profile that may be bundled, and is not part of the current plan.
 - TrimBox, BleedBox and MediaBox are set correctly. Crop marks and slug are only drawn when asked for (KDP must have **no** marks).
 - Interior: single pages (not spreads) for KDP, page 1 on a recto, blank versos inserted where a chapter must open on the right.
-- Validated in CI by Folio's own structural checks (boxes, output intent, embedded fonts) and, for EPUB, EPUBCheck. veraPDF covers PDF/A and PDF/UA but not PDF/X, so PDF/X gets a manual preflight before each release.
+- Validated in CI by Folio's own structural checks (boxes, output intent, embedded fonts) and, for EPUB, EPUBCheck. veraPDF covers PDF/A and PDF/UA but not PDF/X, so PDF/X gets a manual preflight before each release. The tagged Sharing PDF is also run through `scripts/check-pdf-ua.sh` (`qpdf --check`, `pdfinfo` for `Tagged: yes` and `-struct-text` for the tree, and veraPDF's `ua1` profile, from the `verapdf` command or the `verapdf/cli` Docker image), in the optional *Tagged PDF* CI job.
 
 ## KDP cover maths
 

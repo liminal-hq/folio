@@ -668,3 +668,26 @@ fn a_book_that_qualifies_says_it_is_pdf_ua_and_one_that_does_not_says_why_and_st
     assert!(!ua(&plain));
     assert!(notes.is_empty());
 }
+
+/// Writes a tagged fixture that qualifies for PDF/UA-1 to `FOLIO_TAGGED_PDF_OUT`, for
+/// `scripts/check-pdf-ua.sh` to run veraPDF over. Does nothing when the variable is not set.
+#[test]
+fn writes_the_fixture_for_the_validators() {
+    let Ok(out) = std::env::var("FOLIO_TAGGED_PDF_OUT") else {
+        return;
+    };
+    let (mut book, styles, assets) = storybook();
+    for frame in book.spreads[0].frames.iter_mut() {
+        if matches!(frame, Frame::Image(_)) && frame.base().description.is_none() {
+            frame.base_mut().description = Some("The cover".into());
+        }
+    }
+    let (bytes, notes) = noted(
+        &book,
+        &styles,
+        &assets,
+        &with_bookmarks(options(true, PdfTarget::Sharing)),
+    );
+    assert!(notes.is_empty(), "{notes:?}");
+    std::fs::write(out, bytes).unwrap();
+}

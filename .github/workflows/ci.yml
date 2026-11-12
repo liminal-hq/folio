@@ -136,6 +136,22 @@ jobs:
           path: target/nextest/ci/junit.xml
           if-no-files-found: error
 
+  # The tagged Sharing PDF is checked with the tools that read it: poppler (pixels and text), qpdf and
+  # veraPDF for PDF/UA-1. It is not a gate, since it depends on a Docker image and on poppler's
+  # renderer, but a red run here means a screen reader or a viewer will notice.
+  pdf-tagging:
+    name: Tagged PDF
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils qpdf
+      - uses: Swatinem/rust-cache@v2
+      - name: Tagging tests (the tools are there, so none of them skips)
+        run: cargo test -p folio-export --test tagging
+      - name: PDF/UA-1 with veraPDF
+        run: bash scripts/check-pdf-ua.sh --require-verapdf
+
   # Windows 11 is a real target: the whole workspace must keep compiling and linting there.
   windows-lint:
     name: Windows lint
