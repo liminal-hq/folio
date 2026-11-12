@@ -180,6 +180,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
             colour,
             prefs: choices?.prefs ?? null,
             user: choices?.user ?? null,
+            names: choices?.names ?? null,
         });
     }
     /**
@@ -193,6 +194,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
             colour,
             prefs: choices?.prefs ?? null,
             user: choices?.user ?? null,
+            names: choices?.names ?? null,
         });
     }
     /** Brings the words of a Markdown or plain text file in as the book's story, in one undo step. */

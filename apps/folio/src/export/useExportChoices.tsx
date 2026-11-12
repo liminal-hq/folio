@@ -23,6 +23,7 @@ import { DestinationFolder } from './DestinationFolder';
 import { absoluteFor, relativeToBook } from './folder';
 import { PdfQuality } from './PdfQuality';
 import { SizeEstimate } from './SizeEstimate';
+import { t } from '../i18n/messages';
 
 /** Stands in for the settings in a window with none, so the hooks below always have a store. */
 const NO_SETTINGS = createStore<SettingsState>(() => ({ snapshot: null, error: null }));
@@ -115,7 +116,20 @@ export function useExportChoices(
 	// The usual folder is `exports` beside the book, which a choice of it sets aside any other.
 	const usualFolder = useCallback(() => setEdits((now) => ({ ...now, folder: 'exports' })), []);
 
-	const choices = useMemo<ExportChoices>(() => ({ prefs: edits, user }), [edits, user]);
+	const choices = useMemo<ExportChoices>(
+		() => ({
+			prefs: edits,
+			user,
+			// What the covers and pages are called in the file's bookmarks and page numbers.
+			names: {
+				frontCover: t('export.names.frontCover'),
+				backCover: t('export.names.backCover'),
+				page: t('export.names.page'),
+				pages: t('export.names.pages'),
+			},
+		}),
+		[edits, user],
+	);
 	const kinds = [...new Set(targets.map(kindOf).filter((k): k is PdfKind => k !== null))];
 	const usual = folder === undefined || folder === 'exports';
 	const panel = (
