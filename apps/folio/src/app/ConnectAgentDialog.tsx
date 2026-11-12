@@ -3,10 +3,10 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
 import type { AgentStatus } from '@liminal-hq/folio-protocol/generated/AgentStatus';
 import { useEffect, useState } from 'react';
+import { DialogSurface } from '../dialogs/DialogSurface';
 import { t } from '../i18n/messages';
 import type { AgentClient } from '../services/agentClient';
 import styles from './ConnectAgentDialog.module.css';
@@ -55,7 +55,7 @@ export function ConnectAgentDialog({ open, onClose, client }: ConnectAgentDialog
 	};
 
 	return (
-		<Dialog
+		<DialogSurface
 			open={open}
 			title={t('agents.title')}
 			size="medium"
@@ -117,6 +117,6 @@ export function ConnectAgentDialog({ open, onClose, client }: ConnectAgentDialog
 					)}
 				</>
 			)}
-		</Dialog>
+		</DialogSurface>
 	);
 }

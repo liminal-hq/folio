@@ -32,6 +32,7 @@ folio-mcp = { path = "../../../crates/folio-mcp", default-features = false }
 folio-settings = { path = "../../../crates/folio-settings" }
 tauri-plugin-folio-books = { path = "../../../plugins/folio-books" }
 tauri-plugin-folio-settings = { path = "../../../plugins/folio-settings" }
+tauri-plugin-window-dialogs = { path = "../../../plugins/window-dialogs" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }

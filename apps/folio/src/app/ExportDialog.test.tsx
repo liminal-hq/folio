@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeBooksClient } from '../books/fakeBooksClient';
@@ -24,7 +24,7 @@ async function setup(autoStart: ('sharingPdf' | 'kdpInterior')[] | null = null) 
 			onCheck={onCheck}
 		/>,
 	);
-	return { fake, onCheck, onClose };
+	return { fake, onCheck, onClose, made };
 }
 
 const exported = (calls: string[]) => calls.filter((c) => c.startsWith('exportBook('));
@@ -36,6 +36,20 @@ describe('the Export dialog', () => {
 		expect(
 			screen.getByRole('checkbox', { name: /Paperback interior for Amazon KDP/ }),
 		).not.toBeChecked();
+	});
+
+	it('says the files show the book as it was when the book was edited after the export began', async () => {
+		const { fake, made } = await setup();
+		expect(screen.queryByText(/edited after this export started/)).not.toBeInTheDocument();
+		await userEvent.click(screen.getByRole('button', { name: 'Make files' }));
+		await screen.findByText('Your files are ready.');
+		await act(async () => {
+			await fake.client.apply(made.summary.id, {
+				type: 'SetLanguage',
+				language: 'fr-CA',
+			} as never);
+		});
+		expect(await screen.findByText(/edited after this export started/)).toBeInTheDocument();
 	});
 
 	it('makes the chosen files and lists them with a way to show them', async () => {
@@ -151,7 +165,6 @@ describe('the Export dialog', () => {
 		expect(await screen.findByText(/One thing is waiting on you/)).toBeInTheDocument();
 		await userEvent.click(screen.getByRole('button', { name: 'Check the book first' }));
 		expect(onCheck).toHaveBeenCalled();
-		expect(onClose).toHaveBeenCalled();
 	});
 });
 

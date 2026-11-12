@@ -19,6 +19,7 @@
         "@liminal-hq/folio-protocol": "workspace:*",
         "@liminal-hq/folio-ribbon": "workspace:*",
         "@liminal-hq/plugin-system-appearance": "^0.1.0",
+        "@liminal-hq/plugin-window-dialogs": "workspace:*",
         "@liminal-hq/plugin-window-manager": "^0.1.0",
         "@tauri-apps/api": "^2.10.1",
         "@tauri-apps/plugin-dialog": "^2",
@@ -118,6 +119,19 @@
       "version": "0.0.0",
       "dependencies": {
         "@liminal-hq/folio-protocol": "workspace:*",
+        "@tauri-apps/api": "^2.10.0",
+      },
+      "devDependencies": {
+        "@rollup/plugin-typescript": "^12.1.4",
+        "rollup": "^4.59.1",
+        "tslib": "^2.8.1",
+        "typescript": "^5.9.3",
+      },
+    },
+    "plugins/window-dialogs": {
+      "name": "@liminal-hq/plugin-window-dialogs",
+      "version": "0.1.0",
+      "dependencies": {
         "@tauri-apps/api": "^2.10.0",
       },
       "devDependencies": {
@@ -392,6 +406,8 @@
     "@liminal-hq/folio-site": ["@liminal-hq/folio-site@workspace:site"],
 
     "@liminal-hq/plugin-system-appearance": ["@liminal-hq/plugin-system-appearance@0.1.0", "", { "dependencies": { "@tauri-apps/api": "^2.10.0" } }, "sha512-UHv1VBWXbtpTPCvL37G5YVt2RJHD3+xDPx8ZU0s2pcjMv0ZpAEUIyp4avWPXpdjlft0+xcHrlvT0D5/7AzvraA=="],
+
+    "@liminal-hq/plugin-window-dialogs": ["@liminal-hq/plugin-window-dialogs@workspace:plugins/window-dialogs"],
 
     "@liminal-hq/plugin-window-effects": ["@liminal-hq/plugin-window-effects@workspace:plugins/window-effects"],
 
@@ -1426,6 +1442,8 @@
     "@liminal-hq/folio-plugin-books/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@liminal-hq/folio-plugin-settings/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "@liminal-hq/plugin-window-dialogs/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@liminal-hq/plugin-window-effects/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 

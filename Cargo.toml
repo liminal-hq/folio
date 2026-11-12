@@ -19,6 +19,7 @@ members = [
   "plugins/folio-settings",
   "plugins/window-effects",
   "plugins/window-tearoff",
+  "plugins/window-dialogs",
 ]
 resolver = "2"
 

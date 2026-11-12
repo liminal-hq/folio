@@ -3,7 +3,6 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
 import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
@@ -11,6 +10,7 @@ import type { ExportTarget } from '@liminal-hq/folio-protocol/generated/ExportTa
 import { useEffect, useRef, useState } from 'react';
 import type { BooksClient } from '../books/booksClient';
 import { t, type MessageKey } from '../i18n/messages';
+import { DialogSurface } from '../dialogs/DialogSurface';
 import styles from './ExportDialog.module.css';
 import { EXPORT_TARGETS } from './exportTargets';
 import { whereItGoes } from './uploadGuide';
@@ -27,7 +27,7 @@ interface ExportDialogProps {
 	id: string;
 	/** Targets to make the moment the dialog opens, for the Quick PDF button. */
 	autoStart?: ExportTarget[] | null;
-	/** Opens the Check book dialog. */
+	/** Opens the Check book dialog, and closes this one. */
 	onCheck(): void;
 }
 
@@ -61,6 +61,10 @@ export function ExportDialog({
 	const [cmyk, setCmyk] = useState(false);
 	const [profile, setProfile] = useState('');
 	const [showWhere, setShowWhere] = useState(false);
+	// The export works from a copy of the book taken when it starts; the window stays open beside
+	// the book, so the book can be edited meanwhile. Say so, as the files then show it as it was.
+	const [edited, setEdited] = useState(false);
+	const exporting = useRef(false);
 
 	const colour =
 		cmyk || profile.trim() ? { cmyk, profile: profile.trim() || undefined } : undefined;
@@ -71,6 +75,8 @@ export function ExportDialog({
 		setStage({ kind: 'working' });
 		setReached(null);
 		void exportChoices.remember(targets).catch(() => undefined);
+		setEdited(false);
+		exporting.current = true;
 		client
 			.exportBook(id, targets, colour, exportChoices.choices)
 			.then((report) => setStage({ kind: 'done', report }))
@@ -84,6 +90,27 @@ export function ExportDialog({
 				}),
 			);
 	};
+
+	useEffect(() => {
+		if (!open) return;
+		let off: (() => void) | undefined;
+		let live = true;
+		void client
+			.subscribe({
+				onPatch: (event) => {
+					if (event.id === id && exporting.current) setEdited(true);
+				},
+				onChanged: () => {},
+			})
+			.then((unlisten) => {
+				if (live) off = unlisten;
+				else unlisten();
+			});
+		return () => {
+			live = false;
+			off?.();
+		};
+	}, [open, client, id]);
 
 	// Which file the export has reached, while it works.
 	useEffect(() => {
@@ -132,7 +159,7 @@ export function ExportDialog({
 		setChosen((now) => (now.includes(target) ? now.filter((x) => x !== target) : [...now, target]));
 
 	return (
-		<Dialog
+		<DialogSurface
 			open={open}
 			title={t('export.title')}
 			size="medium"
@@ -161,16 +188,14 @@ export function ExportDialog({
 			{stage.kind !== 'done' && waiting !== null && waiting > 0 && (
 				<p role="status" className={styles.warning}>
 					{waiting === 1 ? t('export.waiting.one') : t('export.waiting', { count: waiting })}{' '}
-					<button
-						type="button"
-						className={styles.link}
-						onClick={() => {
-							onClose();
-							onCheck();
-						}}
-					>
+					<button type="button" className={styles.link} onClick={onCheck}>
 						{t('export.checkFirst')}
 					</button>
+				</p>
+			)}
+			{edited && (stage.kind === 'working' || stage.kind === 'done') && (
+				<p role="status" className={styles.warning}>
+					{t('export.edited')}
 				</p>
 			)}
 			{stage.kind === 'working' && (
@@ -274,6 +299,6 @@ export function ExportDialog({
 					</label>
 				</fieldset>
 			)}
-		</Dialog>
+		</DialogSurface>
 	);
 }

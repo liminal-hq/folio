@@ -1,0 +1,37 @@
+[package]
+name = "tauri-plugin-window-dialogs"
+version = "0.1.0"
+description = "Tauri plugin for dialogs that are windows of their own: opens a child window with a payload, blocks its opener while it is open (where the platform allows), and returns its result or a cancellation to the opener"
+authors = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+build = "build.rs"
+links = "tauri-plugin-window-dialogs"
+keywords = ["tauri", "plugin", "dialog", "window"]
+categories = ["api-bindings", "gui"]
+
+[package.metadata.platforms.support]
+windows = { level = "partial", notes = "The dialog is owned by its opener (`parent`), so it stays above it and is minimised and closed with it; the opener stays enabled. The opener is focused before the dialog is destroyed so Windows does not activate another application; run on Windows 11 to verify" }
+linux = { level = "partial", notes = "The dialog is a transient of its opener (`gtk_window_set_transient_for`; on Wayland `xdg_toplevel.set_parent`) and is neither a GTK modal nor blocks its opener: GNOME attaches a modal dialog to its parent and moves it with the parent. Wayland compositors place the dialog themselves" }
+macos = { level = "none", notes = "Opens the window as a child but does not block the opener; the page's blocker is the fallback" }
+android = { level = "none", notes = "Desktop windows only" }
+ios = { level = "none", notes = "Desktop windows only" }
+
+[lib]
+name = "tauri_plugin_window_dialogs"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+tauri = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+tauri = { workspace = true, features = ["test"] }

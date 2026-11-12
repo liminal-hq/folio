@@ -7,12 +7,14 @@
 
 mod agent;
 mod app_info;
+mod dialog;
 mod status;
 mod update;
 mod window;
 
 pub use agent::*;
 pub use app_info::*;
+pub use dialog::*;
 pub use status::*;
 pub use update::*;
 pub use window::*;

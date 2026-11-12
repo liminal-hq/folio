@@ -1,0 +1,9 @@
+[default]
+description = "Default permissions for the window-dialogs plugin"
+permissions = [
+  "allow-open-dialog",
+  "allow-dialog-request",
+  "allow-dialog-shown",
+  "allow-finish-dialog",
+  "allow-post-to-opener",
+]

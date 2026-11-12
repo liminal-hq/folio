@@ -58,6 +58,12 @@ function InterfacePage() {
 					onChange={(toolbar) => void update({ interface: { toolbar } })}
 				/>
 				<ToggleRow
+					label={t('preferences.dialogWindows')}
+					description={t('preferences.dialogWindows.description')}
+					checked={settings.dialogs.ownWindows}
+					onChange={(ownWindows) => void update({ dialogs: { ownWindows } })}
+				/>
+				<ToggleRow
 					label={t('preferences.largerControls')}
 					description={t('preferences.largerControls.description')}
 					checked={settings.interface.largerControls}

@@ -35,6 +35,8 @@ export const DEFAULT_SETTINGS: Settings = {
 	autosave: { enabled: true, intervalSecs: 30 },
 	updates: { automatic: false, asked: false },
 	export: { pdf: { sharing: {}, kdp: {}, printShop: {} } },
+	// The page's own dialogs are what the page tests render; Rust's default is windows.
+	dialogs: { ownWindows: false, sizes: {} },
 	recentBooks: [],
 	recentColours: [],
 };

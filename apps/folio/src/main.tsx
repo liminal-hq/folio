@@ -15,6 +15,8 @@ import { NewBookWizard } from './wizard/NewBookWizard';
 import { BooksProvider } from './books/BooksProvider';
 import { tauriBooksClient } from './books/booksClient';
 import { tauriFileDialogs } from './books/dialogs';
+import { DialogHost } from './dialogs/DialogHost';
+import { dialogKindFromLabel } from './dialogs/dialogKinds';
 import { PreferencesScreen } from './app/PreferencesScreen';
 import { windowKindFromLabel } from './app/windowKind';
 import { SettingsProvider } from './settings/SettingsProvider';
@@ -52,6 +54,7 @@ function screenFor(kind: WindowKind | null) {
 }
 
 const label = getCurrentWebviewWindow().label;
+const dialogKind = dialogKindFromLabel(label);
 
 initLogger(label);
 applyPlatform();
@@ -60,7 +63,9 @@ createRoot(document.getElementById('root')!).render(
 	<StrictMode>
 		<SettingsProvider client={tauriSettingsClient}>
 			<ThemeRoot>
-				<AppWindowChrome>{screenFor(windowKindFromLabel(label))}</AppWindowChrome>
+				<AppWindowChrome>
+					{dialogKind ? <DialogHost kind={dialogKind} /> : screenFor(windowKindFromLabel(label))}
+				</AppWindowChrome>
 			</ThemeRoot>
 		</SettingsProvider>
 	</StrictMode>,

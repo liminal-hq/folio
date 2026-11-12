@@ -3,9 +3,9 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
 import { useEffect, useState } from 'react';
+import { DialogSurface } from '../dialogs/DialogSurface';
 import { t, type MessageKey } from '../i18n/messages';
 import { useSettings, useUpdateSettings } from '../settings/useSettings';
 import type { UpdateClient } from '../services/updateClient';
@@ -54,7 +54,7 @@ export function UpdateDialog({
 
 	const busy = state.kind === 'checking' || state.kind === 'downloading';
 	return (
-		<Dialog
+		<DialogSurface
 			open={open}
 			title={t('update.title')}
 			size="medium"
@@ -143,6 +143,6 @@ export function UpdateDialog({
 					</span>
 				</label>
 			)}
-		</Dialog>
+		</DialogSurface>
 	);
 }

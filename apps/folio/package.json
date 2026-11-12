@@ -24,6 +24,7 @@
 		"@liminal-hq/folio-chrome": "workspace:*",
 		"@liminal-hq/folio-plugin-books": "workspace:*",
 		"@liminal-hq/folio-plugin-settings": "workspace:*",
+		"@liminal-hq/plugin-window-dialogs": "workspace:*",
 		"@liminal-hq/folio-protocol": "workspace:*",
 		"@liminal-hq/folio-ribbon": "workspace:*",
 		"@liminal-hq/plugin-system-appearance": "^0.1.0",

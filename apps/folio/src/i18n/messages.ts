@@ -322,6 +322,10 @@ export const messages = {
 		'Readers can zoom a fixed-layout book but cannot reflow it, so the pages are shown as they are.',
 
 	// Export
+	'dialog.bookChanged':
+		'The book has changed since this window opened. Close it and open it again to start from the book as it is now.',
+	'export.edited':
+		'The book was edited after this export started. The files show it as it was when the export began.',
 	'export.title': 'Export book',
 	'export.which': 'What would you like to make?',
 	'export.target.sharingPdf': 'Sharing PDF',
@@ -780,6 +784,9 @@ export const messages = {
 	'update.chip.downloading.percent': 'Downloading {percent}%',
 	'update.chip.ready': 'Restart to update',
 	'preferences.section.updates': 'Updates',
+	'preferences.dialogWindows': 'Open dialogs in their own windows',
+	'preferences.dialogWindows.description':
+		'Dialogs with a form or a lot to read open as windows of their own, which block the window that opened them. Turn this off to show them over the page instead.',
 	'preferences.updates': 'Look for updates when Folio starts',
 	'preferences.updates.description':
 		'Asks github.com once a day for a newer version, and sends it your computer’s address. Help → Check for updates always works.',

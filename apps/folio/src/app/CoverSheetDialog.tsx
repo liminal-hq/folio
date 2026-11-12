@@ -3,13 +3,13 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
 import { useEffect, useState } from 'react';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { CoverSheetPreview } from '@liminal-hq/folio-protocol/generated/CoverSheetPreview';
 import type { Details } from '@liminal-hq/folio-protocol/generated/Details';
 import type { BooksClient } from '../books/booksClient';
+import { DialogSurface } from '../dialogs/DialogSurface';
 import { t } from '../i18n/messages';
 import styles from './CoverSheetDialog.module.css';
 
@@ -80,7 +80,7 @@ export function CoverSheetDialog({
 	}, [open, client, id, revision]);
 
 	return (
-		<Dialog
+		<DialogSurface
 			open={open}
 			title={t('coverSheet.title')}
 			size="large"
@@ -166,7 +166,7 @@ export function CoverSheetDialog({
 					</div>
 				</div>
 			)}
-		</Dialog>
+		</DialogSurface>
 	);
 }
 

@@ -1435,6 +1435,7 @@ dependencies = [
  "tauri-plugin-store",
  "tauri-plugin-system-appearance",
  "tauri-plugin-updater",
+ "tauri-plugin-window-dialogs",
  "tauri-plugin-window-manager",
  "tempfile",
  "windows",
@@ -5788,6 +5789,18 @@ dependencies = [
  "url",
  "windows-sys 0.61.2",
  "zip 4.6.1",
+]
+
+[[package]]
+name = "tauri-plugin-window-dialogs"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

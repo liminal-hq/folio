@@ -3,11 +3,11 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
 import type { TemplateGallery } from '@liminal-hq/folio-protocol/generated/TemplateGallery';
 import { useEffect, useState } from 'react';
 import type { BooksClient } from '../books/booksClient';
+import { DialogSurface } from '../dialogs/DialogSurface';
 import { t } from '../i18n/messages';
 import styles from './SpreadTemplatesDialog.module.css';
 
@@ -58,7 +58,7 @@ export function SpreadTemplatesDialog({
 	const shown = gallery?.templates.filter((card) => group === ALL || card.group === group) ?? [];
 
 	return (
-		<Dialog
+		<DialogSurface
 			open={open}
 			title={t('templates.title')}
 			description={t('templates.hint')}
@@ -122,6 +122,6 @@ export function SpreadTemplatesDialog({
 					</ul>
 				</>
 			)}
-		</Dialog>
+		</DialogSurface>
 	);
 }

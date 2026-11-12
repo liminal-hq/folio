@@ -135,4 +135,28 @@ describe('the Check book dialog', () => {
 		).toBeInTheDocument();
 		expect(screen.getByText('A link on Pages 1–2 has no words to click')).toBeInTheDocument();
 	});
+
+	it('stays open after "Show me" when it is a window beside the book', async () => {
+		const fake = createFakeBooksClient();
+		const made = await fake.client.newBook({});
+		fake.preflightItems.push(item({}));
+		const onShow = vi.fn();
+		const onClose = vi.fn();
+		render(
+			<CheckBookDialog
+				open
+				onClose={onClose}
+				client={fake.client}
+				id={made.summary.id}
+				book={book}
+				labels={labels}
+				onShow={onShow}
+				onIgnore={vi.fn()}
+				keepOpenOnShow
+			/>,
+		);
+		await userEvent.click(await screen.findByRole('button', { name: /Show me/ }));
+		expect(onShow).toHaveBeenCalledWith(1, 'fr_a');
+		expect(onClose).not.toHaveBeenCalled();
+	});
 });

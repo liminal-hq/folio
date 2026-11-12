@@ -35,6 +35,12 @@ import { guideIntents } from '../canvas/guides';
 import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../canvas/marksModel';
 import { keepWords } from '../canvas/editCheckpoint';
 import { CheckBookDialog } from './CheckBookDialog';
+import { dialogLabel, type DialogMessages } from '../dialogs/dialogKinds';
+import { tauriDialogsClient } from '../dialogs/dialogsClient';
+import { openDialog } from '../dialogs/openDialog';
+import { putDescriptionIntent } from './coverSheetIntents';
+import { useSpeller } from './useSpeller';
+import { useWindowedDialog } from '../dialogs/useWindowedDialog';
 import { ExportDialog } from './ExportDialog';
 import {
 	getPendingLook,
@@ -83,7 +89,6 @@ import { useFind } from '../find/useFind';
 import { ReaderView } from './ReaderView';
 import { PageBackgroundDialog } from '../canvas/PageBackgroundDialog';
 import { Stage, type ZoomApi } from '../canvas/Stage';
-import type { Speller } from '../canvas/TextEditor';
 import { useSelection } from '../canvas/useSelection';
 import { useAssetUrls } from '../canvas/useAssetUrls';
 import { useCoverSheet } from '../canvas/useCoverSheet';
@@ -238,25 +243,8 @@ export function BookView({
 	// A cell belongs to the table it was edited in, so choosing something else forgets it.
 	useEffect(() => setEditingCell(null), [selection.join('|')]);
 	// Spelling is checked in Rust, in the book's own language and against its ignore list.
-	const spelling = settings.spelling.enabled;
 	const personal = settings.spelling.personal;
-	const speller = useMemo<Speller | undefined>(
-		() =>
-			spelling
-				? {
-						check: (text) =>
-							client.spellCheck(id, text, personal).then((found) => found.misspellings),
-						suggest: (word) => client.spellSuggest(id, word),
-						ignore: (word) => void store.apply({ type: 'IgnoreWord', word }),
-						addToDictionary: (word) =>
-							void update({
-								spelling: { personal: [...new Set([...personal, word])].sort() },
-							} as SettingsPatch),
-					}
-				: undefined,
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[spelling, client, id, personal],
-	);
+	const speller = useSpeller(client, id, store.apply);
 	const [dictionaryTick, setDictionaryTick] = useState(0);
 	// The dictionaries there are, for the language list: read once and again after a download.
 	const [dictionaries, setDictionaries] = useState<DictionaryStatus[]>([]);
@@ -646,6 +634,9 @@ export function BookView({
 		return () => clearTimeout(timer);
 	}, [notice]);
 	const [detailsOpen, setDetailsOpen] = useState(false);
+	const [background, setBackground] = useState<{ page: number | null; scope?: string } | null>(
+		null,
+	);
 	// The Export dialog; `quick` makes the Sharing PDF the moment it opens.
 	const [exporting, setExporting] = useState<{ quick: boolean } | null>(null);
 	useEffect(() => {
@@ -689,6 +680,131 @@ export function BookView({
 	};
 	const marked =
 		find.open && spread ? find.matches.filter((m) => onShown(m, spread.id, editing)) : [];
+	// With dialogs in their own windows the Export dialog is one, and it hands back "check the book
+	// first" as its only answer.
+	const dialogWindows = settings.dialogs.ownWindows;
+	useEffect(() => {
+		if (!dialogWindows || exporting === null) return;
+		const asked = exporting;
+		setExporting(null);
+		openDialog('Export', { bookId: id, autoStart: asked.quick ? ['sharingPdf'] : null })
+			.then((answer) => {
+				if (answer?.next === 'check') setChecking(true);
+			})
+			.catch(() => {
+				// The window could not be made.
+			});
+	}, [dialogWindows, exporting, id]);
+	const bookDialog = { bookId: id };
+	const showDetails = useWindowedDialog('BookDetails', detailsOpen, dialogWindows, bookDialog, () =>
+		setDetailsOpen(false),
+	);
+	const showBarcode = useWindowedDialog('Barcode', barcodeOpen, dialogWindows, bookDialog, () =>
+		setBarcodeOpen(false),
+	);
+	const showBookSize = useWindowedDialog('BookSize', bookSizeOpen, dialogWindows, bookDialog, () =>
+		setBookSizeOpen(false),
+	);
+	const showMargins = useWindowedDialog('Margins', marginsOpen, dialogWindows, bookDialog, () =>
+		setMarginsOpen(false),
+	);
+	const showProof = useWindowedDialog(
+		'SoftProof',
+		proofOpen,
+		dialogWindows,
+		{ bookId: id, spread: spread?.id ?? '' },
+		() => setProofOpen(false),
+	);
+	// Check book is a window beside the book that stays open; "Show me" in it posts here.
+	const showCheck = useWindowedDialog('CheckBook', checking, dialogWindows, bookDialog, () =>
+		setChecking(false),
+	);
+	const showIssueRef = useRef<(at: number, frame: string | null) => void>(() => {});
+	useEffect(() => {
+		if (!dialogWindows) return;
+		let live = true;
+		let stop: (() => void) | undefined;
+		tauriDialogsClient
+			.onMessage((posted) => {
+				if (posted.label !== dialogLabel('CheckBook')) return;
+				const message = posted.message as DialogMessages['CheckBook'];
+				if (message.type === 'show') showIssueRef.current(message.spread, message.frame);
+			})
+			.then((off) => (live ? (stop = off) : off()))
+			.catch(() => {});
+		return () => {
+			live = false;
+			stop?.();
+		};
+	}, [dialogWindows]);
+	const showBackground = useWindowedDialog(
+		'PageBackground',
+		background !== null,
+		dialogWindows,
+		{
+			bookId: id,
+			spread: spread?.id ?? '',
+			page: background?.page ?? null,
+			scope: background?.scope ?? null,
+		},
+		() => setBackground(null),
+	);
+	const showStory = useWindowedDialog(
+		'StoryEditor',
+		storyFlow !== null,
+		dialogWindows,
+		{ bookId: id, flow: storyFlow ?? '', paragraph: storyPara },
+		() => setStoryFlow(null),
+	);
+	const showSheet = useWindowedDialog('CoverSheet', sheetOpen, dialogWindows, bookDialog, () =>
+		setSheetOpen(false),
+	);
+	// The spread on show decides where a template goes, so the window hands the choice back.
+	const addTemplateRef = useRef<(template: string, name: string) => Promise<void>>(async () => {});
+	const showTemplates = useWindowedDialog(
+		'SpreadTemplates',
+		templatesOpen,
+		dialogWindows,
+		bookDialog,
+		(chosen) => {
+			setTemplatesOpen(false);
+			if (chosen) {
+				addTemplateRef.current(chosen.template, chosen.name).catch(() => {
+					setNotice(t('templates.refused'));
+				});
+			}
+		},
+	);
+	useWindowedDialog(
+		'ImportReport',
+		imported !== null,
+		dialogWindows,
+		{ outcome: imported as ImportOutcome },
+		(answer) => {
+			setImported(null);
+			if (answer && importedPath.current !== null)
+				void bringIn(importedPath.current, answer.mapping);
+		},
+	);
+	/** Goes to a spread and, when the issue is about a frame, selects it. */
+	const showIssue = (at: number, frame: string | null) => {
+		if (master !== null) setEditing(null);
+		setSpreadIndex(at);
+		const target = book.spreads[at];
+		if (frame && target) setReveal({ spread: target.id, frame });
+	};
+	showIssueRef.current = showIssue;
+	/** Adds a template after the spread on show, or after the first page when the cover is. */
+	const addTemplate = async (template: string, name: string) => {
+		const index = spread?.kind === 'cover' ? 1 : shown;
+		const after = book.spreads[index];
+		if (!after) throw new Error(t('templates.refused'));
+		await client.applyTemplate(id, template, after.id);
+		setSpreadIndex(index + 1);
+		select([]);
+		setNotice(t('templates.added', { name }));
+	};
+	addTemplateRef.current = addTemplate;
 	const [reveal, setReveal] = useState<{ spread: string; frame: string } | null>(null);
 	useEffect(() => {
 		if (reveal && spread?.id === reveal.spread) {
@@ -697,9 +813,6 @@ export function BookView({
 		}
 	});
 	// The page background dialog: which page it was asked about, and the palette it offers.
-	const [background, setBackground] = useState<{ page: number | null; scope?: string } | null>(
-		null,
-	);
 
 	// The page background dialog applies each try at once. Cancelling rewinds the book to how many steps
 	// it could undo when the dialog opened.
@@ -1397,22 +1510,25 @@ export function BookView({
 				)}
 			</div>
 			<ExportDialog
-				open={exporting !== null}
+				open={exporting !== null && !dialogWindows}
 				onClose={() => setExporting(null)}
 				client={client}
 				id={id}
 				autoStart={exporting?.quick ? ['sharingPdf'] : null}
-				onCheck={() => setChecking(true)}
+				onCheck={() => {
+					setExporting(null);
+					setChecking(true);
+				}}
 			/>
 			<ImportReportDialog
-				outcome={imported}
+				outcome={dialogWindows ? null : imported}
 				onClose={() => setImported(null)}
 				onRemap={(mapping) => {
 					if (importedPath.current !== null) void bringIn(importedPath.current, mapping);
 				}}
 			/>
 			<StoryEditorDialog
-				open={storyFlow !== null}
+				open={showStory}
 				onClose={() => setStoryFlow(null)}
 				book={book}
 				flow={storyFlow}
@@ -1422,27 +1538,20 @@ export function BookView({
 				apply={apply}
 			/>
 			<BookDetailsDialog
-				open={detailsOpen}
+				open={showDetails}
 				onClose={() => setDetailsOpen(false)}
 				book={book}
 				onSave={(details) => apply({ type: 'SetDetails', details })}
 				onPaper={(paper) => apply({ type: 'SetPaper', paper })}
 			/>
 			<SpreadTemplatesDialog
-				open={templatesOpen}
+				open={showTemplates}
 				onClose={() => setTemplatesOpen(false)}
 				client={client}
 				id={id}
 				onChoose={async (template, name) => {
-					// A template goes after the spread on show, and after the first page when the cover is.
-					const index = spread?.kind === 'cover' ? 1 : shown;
-					const after = book.spreads[index];
-					if (!after) throw new Error(t('templates.refused'));
-					await client.applyTemplate(id, template, after.id);
-					setSpreadIndex(index + 1);
-					select([]);
+					await addTemplate(template, name);
 					setTemplatesOpen(false);
-					setNotice(t('templates.added', { name }));
 				}}
 			/>
 			<LinkDialog
@@ -1462,27 +1571,27 @@ export function BookView({
 				}}
 			/>
 			<BarcodeDialog
-				open={barcodeOpen}
+				open={showBarcode}
 				onClose={() => setBarcodeOpen(false)}
 				book={book}
 				apply={apply}
 			/>
 			<BookSizeDialog
-				open={bookSizeOpen}
+				open={showBookSize}
 				onClose={() => setBookSizeOpen(false)}
 				book={book}
 				units={settings.units}
 				apply={apply}
 			/>
 			<MarginsDialog
-				open={marginsOpen}
+				open={showMargins}
 				onClose={() => setMarginsOpen(false)}
 				book={book}
 				units={settings.units}
 				apply={apply}
 			/>
 			<CoverSheetDialog
-				open={sheetOpen}
+				open={showSheet}
 				onClose={() => setSheetOpen(false)}
 				client={client}
 				id={id}
@@ -1490,53 +1599,29 @@ export function BookView({
 				book={book}
 				onSave={(details) => apply({ type: 'SetDetails', details })}
 				onPutDescription={(text) => {
-					const cover = book.spreads[0];
-					if (!cover) return;
-					if (cover.frames.some((f) => f.id === 'blurb')) {
-						apply({ type: 'SetText', frame: 'blurb', text });
-						return;
-					}
-					// The back cover's own page, from its top-left: half an inch in from each edge.
-					const frame = newFrame(
-						'text',
-						{ x: 36, y: 54, w: book.trim.w - 72, h: book.trim.h - 144 },
-						'body',
-					);
-					apply({
-						type: 'AddFrame',
-						on: { spread: cover.id },
-						frame: {
-							...frame,
-							id: 'blurb',
-							content: { inline: [{ text }] },
-						} as unknown as Frame,
-					});
+					const intent = putDescriptionIntent(book, text);
+					if (intent) apply(intent);
 				}}
 			/>
 			<SoftProofDialog
-				open={proofOpen}
+				open={showProof}
 				onClose={() => setProofOpen(false)}
 				client={client}
 				id={id}
 				spread={spread.id}
 			/>
 			<CheckBookDialog
-				open={checking}
+				open={showCheck}
 				onClose={() => setChecking(false)}
 				client={client}
 				id={id}
 				book={book}
 				labels={labels}
 				onIgnore={(keys) => void store.apply({ type: 'SetPreflightIgnore', keys })}
-				onShow={(at, frame) => {
-					if (master !== null) setEditing(null);
-					setSpreadIndex(at);
-					const target = book.spreads[at];
-					if (frame && target) setReveal({ spread: target.id, frame });
-				}}
+				onShow={showIssue}
 			/>
 			<PageBackgroundDialog
-				open={background !== null}
+				open={showBackground}
 				onClose={() => setBackground(null)}
 				onCancel={cancelBackground}
 				book={book}

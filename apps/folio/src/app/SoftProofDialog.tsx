@@ -3,11 +3,11 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
 import type { ProofSpread } from '@liminal-hq/folio-protocol/generated/ProofSpread';
 import { useEffect, useState } from 'react';
 import type { BooksClient } from '../books/booksClient';
+import { DialogSurface } from '../dialogs/DialogSurface';
 import { t } from '../i18n/messages';
 import styles from './SoftProofDialog.module.css';
 
@@ -52,7 +52,7 @@ export function SoftProofDialog({ open, onClose, client, id, spread }: SoftProof
 	};
 
 	return (
-		<Dialog
+		<DialogSurface
 			open={open}
 			title={t('proof.title')}
 			size="medium"
@@ -129,6 +129,6 @@ export function SoftProofDialog({ open, onClose, client, id, spread }: SoftProof
 					)}
 				</section>
 			)}
-		</Dialog>
+		</DialogSurface>
 	);
 }

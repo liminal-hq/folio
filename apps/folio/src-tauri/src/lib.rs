@@ -6,6 +6,7 @@
 mod agent;
 mod app_info;
 mod com;
+mod dialogs;
 mod open_files;
 mod recents;
 mod settings;
@@ -73,6 +74,7 @@ pub fn run() {
         // After the store plugin it saves through.
         .plugin(tauri_plugin_folio_settings::init_with(settings::storage))
         .plugin(tauri_plugin_folio_books::init())
+        .plugin(tauri_plugin_window_dialogs::init_with(dialogs::options))
         // A release build drops the native WebView context menu, devtools and the reload
         // shortcuts, so only Folio's own menus appear; a debug build keeps them. `Shift`+`Tab`
         // stays free, since blocking it would break reverse keyboard focus navigation.
@@ -93,6 +95,7 @@ pub fn run() {
             updates::update_download,
             updates::update_install,
             open_files::take_open_files,
+            dialogs::open_dialog,
             windows::open_window,
             windows::open_book_tools,
             windows::book_tools_area

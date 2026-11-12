@@ -21,6 +21,7 @@ import { tauriUpdateClient, type UpdateClient } from '../services/updateClient';
 import { tauriAppInfoClient, type AppInfoClient } from '../services/appInfoClient';
 import { tauriCloseRequests, type CloseRequests } from '../services/closeRequests';
 import { tauriOpenFilesClient, type OpenFilesClient } from '../services/openFilesClient';
+import { useWindowedDialog } from '../dialogs/useWindowedDialog';
 import { useOpenFiles } from './useOpenFiles';
 import { useSettings } from '../settings/useSettings';
 import { WelcomeScreen } from '../welcome/WelcomeScreen';
@@ -83,6 +84,7 @@ export function MainScreen({
 	}, []);
 	const { ask, dialog } = useCloseQuestion();
 	const { actions } = useBooks();
+	const dialogWindows = settings.dialogs.ownWindows;
 	const [updates, setUpdates] = useState<{ open: boolean; check: boolean }>({
 		open: false,
 		check: false,
@@ -96,6 +98,25 @@ export function MainScreen({
 		window.addEventListener(UPDATE_EVENT, open);
 		return () => window.removeEventListener(UPDATE_EVENT, open);
 	}, []);
+	// With dialogs in their own windows, Update and Connect an agent are windows; installing is still
+	// done here, since it asks about books with changes first.
+	const showUpdate = useWindowedDialog(
+		'Update',
+		updates.open,
+		dialogWindows,
+		{ checkOnOpen: updates.check },
+		(answer) => {
+			setUpdates((u) => ({ ...u, open: false }));
+			if (answer?.install) {
+				void actions.closeAll(ask).then((closed) => {
+					if (closed === 'done') void updateClient.install().catch(() => undefined);
+				});
+			}
+		},
+	);
+	const showAgents = useWindowedDialog('ConnectAgent', agentsOpen, dialogWindows, {}, () =>
+		setAgentsOpen(false),
+	);
 	// Closing the window (the ✕, Alt+F4 or Quit) asks about every book with changes first.
 	useEffect(() => {
 		let stop: (() => void) | undefined;
@@ -191,14 +212,14 @@ export function MainScreen({
 			{dialog}
 			{recovery.dialog}
 			<UpdateDialog
-				open={updates.open}
+				open={showUpdate}
 				onClose={() => setUpdates((u) => ({ ...u, open: false }))}
 				client={updateClient}
 				checkOnOpen={updates.check}
 				beforeInstall={async () => (await actions.closeAll(ask)) === 'done'}
 			/>
 			<ConnectAgentDialog
-				open={agentsOpen}
+				open={showAgents}
 				onClose={() => setAgentsOpen(false)}
 				client={agentClient}
 			/>

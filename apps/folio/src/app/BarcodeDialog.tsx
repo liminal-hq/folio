@@ -3,12 +3,12 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { Dialog } from '@liminal-hq/folio-chrome/Dialog/Dialog';
 import { DialogActions, DialogButton } from '@liminal-hq/folio-chrome/Dialog/DialogActions';
 import type { BarcodeChoice } from '@liminal-hq/folio-protocol/generated/BarcodeChoice';
 import type { Book } from '@liminal-hq/folio-protocol/generated/Book';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import { useEffect, useState } from 'react';
+import { DialogSurface } from '../dialogs/DialogSurface';
 import { t } from '../i18n/messages';
 import styles from './BarcodeDialog.module.css';
 import { readIsbn } from './isbn';
@@ -91,7 +91,7 @@ export function BarcodeDialog({ open, onClose, book, apply }: BarcodeDialogProps
 	};
 
 	return (
-		<Dialog
+		<DialogSurface
 			open={open}
 			title={t('barcode.title')}
 			size="medium"
@@ -177,6 +177,6 @@ export function BarcodeDialog({ open, onClose, book, apply }: BarcodeDialogProps
 				</div>
 			)}
 			<p className={styles.hint}>{t('barcode.preview')}</p>
-		</Dialog>
+		</DialogSurface>
 	);
 }
