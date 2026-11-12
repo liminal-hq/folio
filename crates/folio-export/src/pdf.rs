@@ -79,6 +79,9 @@ pub struct PdfOptions {
     pub shop: ShopOptions,
     /// The program to name in the file's information, for the targets that carry it.
     pub application: Option<crate::outline::Application>,
+    /// Blend pictures with see-through parts onto what is behind them, so the file holds none;
+    /// `None` is what the target usually does (everything but a Sharing PDF).
+    pub flatten: Option<bool>,
     /// Stops the file when a newer request has made it not worth finishing.
     pub cancel: crate::cancel::Cancel,
 }

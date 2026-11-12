@@ -104,6 +104,9 @@ pub struct PdfExtras {
     pub application: Option<crate::outline::Application>,
     /// How pictures are treated; `None` is what each target usually does.
     pub pictures: Option<ImagePolicy>,
+    /// Pictures with see-through parts are blended onto what is behind them; `None` is what each
+    /// target usually does: the Sharing PDF keeps them live, the press files flatten them.
+    pub flatten: Option<bool>,
     pub cache: PictureCache,
     /// Stops the PDFs when a newer request has made them not worth finishing.
     pub cancel: crate::cancel::Cancel,
@@ -172,6 +175,7 @@ pub fn export_target_with(
                     ..extras.shop.clone()
                 },
                 application: extras.application.clone(),
+                flatten: extras.flatten,
                 cancel: extras.cancel.clone(),
             },
             &pictures(kind),
@@ -207,6 +211,7 @@ pub fn export_target_with(
                     // chosen press profile when there is one, by a plain separation when not.
                     ink: Some(ink.cloned().unwrap_or_default()),
                     crop_marks: false,
+                    flatten: extras.flatten,
                     cancel: extras.cancel.clone(),
                     ..PdfOptions::default()
                 },

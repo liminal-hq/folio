@@ -134,6 +134,12 @@ pub struct PdfPrefs {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub crop_to_frame: Option<bool>,
+    /// Pictures with see-through parts are blended onto what is behind them, so the file holds no
+    /// transparent picture. A press file always does this; a Sharing PDF keeps transparency live
+    /// unless this is on.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub flatten: Option<bool>,
     // Navigation and information.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
@@ -217,6 +223,7 @@ impl PdfPrefs {
             compression,
             keep_jpeg,
             crop_to_frame,
+            flatten,
             bookmarks,
             page_labels,
             links,

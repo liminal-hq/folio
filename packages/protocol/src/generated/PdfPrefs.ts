@@ -26,7 +26,13 @@ keepJpeg?: boolean,
 /**
  * Pixels outside a picture's frame are cut away.
  */
-cropToFrame?: boolean, bookmarks?: BookmarkChoice, pageLabels?: boolean, 
+cropToFrame?: boolean, 
+/**
+ * Pictures with see-through parts are blended onto what is behind them, so the file holds no
+ * transparent picture. A press file always does this; a Sharing PDF keeps transparency live
+ * unless this is on.
+ */
+flatten?: boolean, bookmarks?: BookmarkChoice, pageLabels?: boolean, 
 /**
  * Words that link are links in the file. Only a Sharing PDF has them.
  */

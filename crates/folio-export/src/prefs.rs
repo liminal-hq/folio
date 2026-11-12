@@ -54,6 +54,7 @@ pub fn builtin(kind: PdfKind) -> PdfPrefs {
         compression: Some(PictureCompression::Auto),
         keep_jpeg: Some(false),
         crop_to_frame: Some(false),
+        flatten: Some(false),
         bookmarks: Some(BookmarkChoice::None),
         page_labels: Some(false),
         links: Some(false),
@@ -77,11 +78,13 @@ pub fn builtin(kind: PdfKind) -> PdfPrefs {
         },
         PdfKind::Kdp => PdfPrefs {
             preset: Some(PicturePreset::High),
+            flatten: Some(true),
             ..base
         },
         PdfKind::PrintShop => PdfPrefs {
             preset: Some(PicturePreset::High),
             crop_marks: Some(true),
+            flatten: Some(true),
             ..base
         },
     }
@@ -152,6 +155,12 @@ fn lock(kind: PdfKind, prefs: &mut PdfPrefs, notes: &mut Vec<String>) {
             notes.push(format!("Changed for {name}: {what}"));
         }
     };
+    // Nothing in a press file is see-through.
+    set_back(
+        prefs.flatten == Some(false),
+        "transparent pictures flattened",
+    );
+    prefs.flatten = Some(true);
     // Links go in no press file.
     set_back(prefs.links == Some(true), "no links in the file");
     prefs.links = Some(false);
@@ -283,6 +292,7 @@ pub fn resolve(kind: PdfKind, layers: &[&ExportPrefs], book: &Book) -> Resolved 
             shop,
             application: None,
             pictures: Some(picture_policy(&prefs)),
+            flatten: Some(prefs.flatten == Some(true)),
             cache: Default::default(),
             cancel: Default::default(),
         },
@@ -378,6 +388,53 @@ mod tests {
             r.notes
         );
         assert!(r.notes.iter().all(|n| n.starts_with("Changed for KDP")));
+    }
+
+    #[test]
+    fn a_press_file_is_flattened_and_says_so_when_asked_otherwise_and_sharing_keeps_it_live() {
+        let sharing_default = resolve(PdfKind::Sharing, &[], &book());
+        assert_eq!(sharing_default.extras.flatten, Some(false));
+        let asked = sharing(PdfPrefs {
+            flatten: Some(true),
+            ..PdfPrefs::default()
+        });
+        let r = resolve(PdfKind::Sharing, &[&asked], &book());
+        assert_eq!(r.extras.flatten, Some(true));
+        assert!(r.notes.is_empty());
+        for kind in [PdfKind::Kdp, PdfKind::PrintShop] {
+            let r = resolve(kind, &[], &book());
+            assert_eq!(r.extras.flatten, Some(true), "{kind:?}");
+            assert_eq!(r.prefs.flatten, Some(true));
+            assert!(r.notes.is_empty(), "{:?}", r.notes);
+            let mut off = ExportPrefs::default();
+            match kind {
+                PdfKind::Kdp => off.pdf.kdp.flatten = Some(false),
+                _ => off.pdf.print_shop.flatten = Some(false),
+            }
+            let r = resolve(kind, &[&off], &book());
+            assert_eq!(r.extras.flatten, Some(true));
+            assert!(
+                r.notes.iter().any(|n| n.contains("flattened")),
+                "{:?}",
+                r.notes
+            );
+        }
+    }
+
+    #[test]
+    fn a_higher_layer_turns_flattening_on_for_sharing_over_a_lower_one() {
+        let user = sharing(PdfPrefs {
+            flatten: Some(true),
+            ..PdfPrefs::default()
+        });
+        let once = sharing(PdfPrefs {
+            flatten: Some(false),
+            ..PdfPrefs::default()
+        });
+        let r = resolve(PdfKind::Sharing, &[&user], &book());
+        assert_eq!(r.extras.flatten, Some(true));
+        let r = resolve(PdfKind::Sharing, &[&user, &once], &book());
+        assert_eq!(r.extras.flatten, Some(false));
     }
 
     #[test]
