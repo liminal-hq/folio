@@ -80,9 +80,14 @@ pub enum SheetsChoice {
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 #[serde(rename_all = "camelCase")]
 pub enum CoverChoice {
+    /// The front cover, as the first page.
     Front,
+    /// The whole cover sheet — back, spine and front — as one wide first page.
     FrontAndBack,
+    /// No cover.
     None,
+    /// The front cover first and the back cover last, each a page of the trim size (D-80).
+    FrontAndBackEnds,
 }
 
 /// The print shop's bleed.
@@ -317,3 +322,33 @@ impl Eq for BleedChoice {}
 impl Eq for PdfPrefs {}
 impl Eq for PdfPrefsByTarget {}
 impl Eq for ExportPrefs {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_book_saved_with_an_older_cover_choice_still_loads() {
+        for (old, want) in [
+            ("front", CoverChoice::Front),
+            ("frontAndBack", CoverChoice::FrontAndBack),
+            ("none", CoverChoice::None),
+        ] {
+            let prefs: PdfPrefs = serde_json::from_str(&format!(r#"{{"cover":"{old}"}}"#)).unwrap();
+            assert_eq!(prefs.cover, Some(want));
+        }
+        // A book that never chose has no cover choice, so it takes the target's default.
+        assert_eq!(serde_json::from_str::<PdfPrefs>("{}").unwrap().cover, None);
+    }
+
+    #[test]
+    fn the_front_and_back_choice_round_trips_under_its_own_name() {
+        let prefs = PdfPrefs {
+            cover: Some(CoverChoice::FrontAndBackEnds),
+            ..PdfPrefs::default()
+        };
+        let text = serde_json::to_string(&prefs).unwrap();
+        assert!(text.contains(r#""cover":"frontAndBackEnds""#), "{text}");
+        assert_eq!(serde_json::from_str::<PdfPrefs>(&text).unwrap(), prefs);
+    }
+}

@@ -17,8 +17,10 @@ pub enum CoverPages {
     /// The front cover, as the first page.
     #[default]
     Front,
-    /// The whole cover: back, spine and front on one wide first page.
+    /// The whole cover sheet: back, spine and front on one wide first page.
     FrontAndBack,
+    /// The front cover first and the back cover last, each a page of the trim size.
+    FrontAndBackEnds,
     /// No cover.
     None,
 }
