@@ -6,7 +6,9 @@
 import { TitleBar } from '@liminal-hq/folio-chrome/TitleBar';
 import type { ButtonLayout } from '@liminal-hq/folio-chrome/TitleBar/buttonLayout';
 import { TitleBarTitle } from '@liminal-hq/folio-chrome/TitleBar/TitleBarTitle';
+import type { QuickAction } from '@liminal-hq/folio-chrome/TitleBar/QuickActions';
 import type { ReactNode } from 'react';
+import { t } from '../i18n/messages';
 import { chromeLabels } from '../i18n/chromeLabels';
 import { useTitlebarPreferences } from '../services/titlebarPreferences';
 import { titlebarConfigFor } from './titlebarConfig';
@@ -19,17 +21,20 @@ interface AppTitleBarProps {
 	title: string;
 	/** The start slot, after any start-side window buttons: the main window puts its app menu here. */
 	start?: ReactNode;
+	/** Shortcut buttons right after the start slot; only the main window has any. */
+	quickActions?: readonly QuickAction[];
 	/** Shows only the close button, for a window that is not maximised or minimised (About). */
 	closeOnly?: boolean;
 }
 
-export function AppTitleBar({ title, start, closeOnly = false }: AppTitleBarProps) {
+export function AppTitleBar({ title, start, quickActions, closeOnly = false }: AppTitleBarProps) {
 	const preferences = useTitlebarPreferences();
 	const capabilities = useWindowCapabilities();
 	const config = titlebarConfigFor(preferences, document.documentElement.dataset.platform);
 	return (
 		<TitleBar
 			start={start}
+			{...(quickActions ? { quickActions, quickActionsLabel: t('quickActions.label') } : {})}
 			center={<TitleBarTitle>{title}</TitleBarTitle>}
 			controlsStyle={config.controlsStyle}
 			buttonLayout={closeOnly ? CLOSE_ONLY : config.buttonLayout}

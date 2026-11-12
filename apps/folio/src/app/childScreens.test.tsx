@@ -175,3 +175,16 @@ describe('BookToolsScreen', () => {
 		expect(await screen.findByRole('heading', { name: 'Alt text' })).toBeInTheDocument();
 	});
 });
+
+describe('windows without a book', () => {
+	it('have no quick actions in their title bars', () => {
+		mount(<AboutScreen client={info} />);
+		expect(screen.queryByRole('toolbar', { name: 'Quick actions' })).not.toBeInTheDocument();
+	});
+
+	it('have none in Preferences either', async () => {
+		mount(<PreferencesScreen />);
+		await screen.findByRole('switch', { name: 'Show the menu bar' });
+		expect(screen.queryByRole('toolbar', { name: 'Quick actions' })).not.toBeInTheDocument();
+	});
+});
