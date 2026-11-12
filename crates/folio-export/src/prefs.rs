@@ -58,6 +58,7 @@ pub fn builtin(kind: PdfKind) -> PdfPrefs {
         bookmarks: Some(BookmarkChoice::None),
         page_labels: Some(false),
         links: Some(false),
+        tagged: Some(false),
         viewer_layout: Some(ViewerLayoutChoice::Single),
         sheets: Some(SheetsChoice::Pages),
         cover: Some(CoverChoice::Front),
@@ -74,6 +75,7 @@ pub fn builtin(kind: PdfKind) -> PdfPrefs {
             links: Some(true),
             // A file for reading is a book: the front cover first and the back cover last.
             cover: Some(CoverChoice::FrontAndBackEnds),
+            tagged: Some(true),
             ..base
         },
         PdfKind::Kdp => PdfPrefs {
@@ -164,6 +166,11 @@ fn lock(kind: PdfKind, prefs: &mut PdfPrefs, notes: &mut Vec<String>) {
     // Links go in no press file.
     set_back(prefs.links == Some(true), "no links in the file");
     prefs.links = Some(false);
+    // A paperback is not tagged: KDP's file carries nothing beyond the title and author.
+    if kind == PdfKind::Kdp {
+        set_back(prefs.tagged == Some(true), "not tagged for screen readers");
+        prefs.tagged = Some(false);
+    }
     // The whole book, as single pages.
     let pages_asked = prefs.range.is_some()
         || prefs.sheets == Some(SheetsChoice::Spreads)
@@ -253,6 +260,7 @@ pub fn resolve(kind: PdfKind, layers: &[&ExportPrefs], book: &Book) -> Resolved 
         page_labels: prefs.page_labels.unwrap_or(false),
         links: prefs.links.unwrap_or(false),
         names: Default::default(),
+        tagged: prefs.tagged.unwrap_or(false),
         viewer_layout: match prefs.viewer_layout {
             Some(ViewerLayoutChoice::Spreads) => ViewerLayout::Spreads,
             _ => ViewerLayout::Single,
@@ -474,6 +482,47 @@ mod tests {
         for kind in [PdfKind::Kdp, PdfKind::PrintShop] {
             assert!(!resolve(kind, &[], &book()).extras.navigation.links);
         }
+    }
+
+    #[test]
+    fn the_sharing_pdf_is_tagged_unless_turned_off_and_a_paperback_never_is() {
+        assert!(
+            resolve(PdfKind::Sharing, &[], &book())
+                .extras
+                .navigation
+                .tagged
+        );
+        let mut off = ExportPrefs::default();
+        off.pdf.sharing.tagged = Some(false);
+        assert!(
+            !resolve(PdfKind::Sharing, &[&off], &book())
+                .extras
+                .navigation
+                .tagged
+        );
+        // The print shop is untagged unless asked.
+        assert!(
+            !resolve(PdfKind::PrintShop, &[], &book())
+                .extras
+                .navigation
+                .tagged
+        );
+        let mut asked = ExportPrefs::default();
+        asked.pdf.print_shop.tagged = Some(true);
+        asked.pdf.kdp.tagged = Some(true);
+        assert!(
+            resolve(PdfKind::PrintShop, &[&asked], &book())
+                .extras
+                .navigation
+                .tagged
+        );
+        let kdp = resolve(PdfKind::Kdp, &[&asked], &book());
+        assert!(!kdp.extras.navigation.tagged);
+        assert_eq!(kdp.prefs.tagged, Some(false));
+        assert!(kdp
+            .notes
+            .iter()
+            .any(|n| n == "Changed for KDP: not tagged for screen readers"));
     }
 
     #[test]

@@ -155,6 +155,9 @@ pub struct Navigation {
     pub links: bool,
     /// What the front and back cover pages are called.
     pub names: BookmarkNames,
+    /// The file carries a structure tree for screen readers. Only a Sharing or print-shop PDF
+    /// can; it is off unless asked for.
+    pub tagged: bool,
 }
 
 impl Default for Navigation {
@@ -166,6 +169,7 @@ impl Default for Navigation {
             viewer_layout: ViewerLayout::default(),
             links: true,
             names: BookmarkNames::default(),
+            tagged: false,
         }
     }
 }
@@ -408,6 +412,8 @@ pub fn metadata(
     match (&info.language, target) {
         (Some(language), _) => metadata = metadata.language(language.clone()),
         (None, PdfTarget::Sharing) => metadata = metadata.language(language.into()),
+        // A tagged file always says what language it is in, so a reader knows how to speak it.
+        (None, _) if navigation.tagged => metadata = metadata.language(language.into()),
         _ => {}
     }
     if navigation.viewer_layout == ViewerLayout::Spreads {

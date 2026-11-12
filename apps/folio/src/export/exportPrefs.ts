@@ -96,6 +96,7 @@ export function builtinPdf(kind: PdfKind): PdfPrefs {
 		bookmarks: kind === 'sharing' ? 'auto' : 'none',
 		pageLabels: kind === 'sharing',
 		links: kind === 'sharing',
+		tagged: kind === 'sharing',
 		viewerLayout: 'single',
 		sheets: 'pages',
 		cover: kind === 'sharing' ? 'frontAndBackEnds' : 'front',

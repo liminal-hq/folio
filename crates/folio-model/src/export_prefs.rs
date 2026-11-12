@@ -151,6 +151,12 @@ pub struct PdfPrefs {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub links: Option<bool>,
+    /// The file is tagged: it carries a structure tree, so a screen reader can read it in order
+    /// and describe its pictures. Only a Sharing or print-shop PDF can be; a paperback for KDP is
+    /// not.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub tagged: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub viewer_layout: Option<ViewerLayoutChoice>,
@@ -227,6 +233,7 @@ impl PdfPrefs {
             bookmarks,
             page_labels,
             links,
+            tagged,
             viewer_layout,
             title,
             authors,
