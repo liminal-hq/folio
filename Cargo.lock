@@ -1482,6 +1482,7 @@ dependencies = [
 name = "folio-export"
 version = "0.1.0"
 dependencies = [
+ "flate2",
  "folio-colour",
  "folio-layout",
  "folio-model",

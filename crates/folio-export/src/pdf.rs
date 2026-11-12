@@ -122,6 +122,20 @@ pub fn export_pdf_with(
     pictures: &ImagePolicy,
     cache: &PictureCache,
 ) -> Result<Vec<u8>, ExportError> {
+    export_pdf_noted(book, styles, fonts, assets, options, pictures, cache).map(|(bytes, _)| bytes)
+}
+
+/// Draws every page of `book` into a PDF as `export_pdf_with` does, and says what it left as it was
+/// where the file was asked to be flattened: the notes, one line each, for the person to read.
+pub fn export_pdf_noted(
+    book: &Book,
+    styles: &StyleSheet,
+    fonts: &FontBook,
+    assets: &dyn Assets,
+    options: &PdfOptions,
+    pictures: &ImagePolicy,
+    cache: &PictureCache,
+) -> Result<(Vec<u8>, Vec<String>), ExportError> {
     let choice = options.pages.for_target(options.target);
     // A print PDF is the interior only: the cover is made for the cover file.
     let skip = usize::from(
@@ -178,6 +192,9 @@ pub fn export_pdf_with(
     drawing.policy = *pictures;
     drawing.cache = cache.clone();
     drawing.cancel = options.cancel.clone();
+    drawing.flatten = options
+        .flatten
+        .unwrap_or(options.target != PdfTarget::Sharing);
     drawing.ink_key = match ink.and_then(|ink| ink.profile.as_ref()) {
         Some(bytes) => {
             use std::hash::{Hash, Hasher};
@@ -361,7 +378,19 @@ pub fn export_pdf_with(
                 w: page.width,
                 ..area
             };
-            for item in &page.items {
+            for (at, item) in page.items.iter().enumerate() {
+                drawing.plan = drawing
+                    .flatten
+                    .then(|| {
+                        crate::flatten::plan(
+                            page,
+                            at,
+                            &drawing.swatches,
+                            drawing.separator.is_some(),
+                        )
+                    })
+                    .flatten();
+                drawing.page = number + 1;
                 drawing.item(
                     &mut surface,
                     item,
@@ -419,6 +448,7 @@ pub fn export_pdf_with(
     let bytes = document
         .finish()
         .map_err(|e| ExportError::Pdf(format!("{e:?}")))?;
+    let notes = drawing.kept.notes();
     if shop {
         // The colours are sRGB, so that is the condition the file declares; a press profile
         // changes it when the book is made for ink.
@@ -427,7 +457,7 @@ pub fn export_pdf_with(
         let name = press
             .and_then(|bytes| folio_colour::Profile::from_icc(bytes).ok())
             .and_then(|profile| profile.description());
-        return crate::pdfx::make_pdf_x4(
+        let made = crate::pdfx::make_pdf_x4(
             &bytes,
             &book.title,
             options.application.as_ref(),
@@ -443,9 +473,10 @@ pub fn export_pdf_with(
                     components: 3,
                 },
             },
-        );
+        )?;
+        return Ok((made, notes));
     }
-    Ok(bytes)
+    Ok((bytes, notes))
 }
 
 /// Where on the page a piece of a link is, as a rectangle `(x, y, w, h)` before the frame's turn.
@@ -561,7 +592,18 @@ struct Drawing<'a> {
     /// The krilla fonts made so far, by file key, weight and size, since each variable instance is
     /// its own font to the PDF.
     faces: HashMap<(String, u16, u32), Option<Font>>,
-    images: HashMap<String, Option<Image>>,
+    images: HashMap<(String, Option<crate::flatten::Rgb>), Option<Image>>,
+    /// Whether the file is flattened: a picture with see-through parts is blended onto what is behind
+    /// it when that is plain enough to know.
+    flatten: bool,
+    /// What to do with the picture the item being drawn holds, when the file is flattened.
+    plan: Option<crate::flatten::Plan>,
+    /// The sheet being drawn, counted from 1, for the notes.
+    page: usize,
+    /// Pictures left see-through in a flattened file, by why and where.
+    kept: crate::flatten::Kept,
+    /// Whether each picture really has see-through parts, once looked at.
+    see_through: HashMap<String, bool>,
     /// The widest each picture is drawn, which is what it is sized for.
     demand: crate::picture::Demand,
     policy: ImagePolicy,
@@ -615,6 +657,11 @@ impl<'a> Drawing<'a> {
             assets,
             faces: HashMap::new(),
             images: HashMap::new(),
+            flatten: false,
+            plan: None,
+            page: 0,
+            kept: Default::default(),
+            see_through: HashMap::new(),
             demand: HashMap::new(),
             policy: ImagePolicy::standard(),
             cache: PictureCache::default(),
@@ -918,7 +965,17 @@ impl<'a> Drawing<'a> {
                 (rect.y + rect.h / 2.0) as f32,
             ));
         }
-        let image = asset.and_then(|path| self.image(path));
+        let backdrop = match self.plan {
+            Some(crate::flatten::Plan::Flatten(rgb)) => Some(rgb),
+            Some(crate::flatten::Plan::Live(why)) => {
+                if asset.is_some_and(|path| self.is_see_through(path)) {
+                    self.kept.add(why, self.page);
+                }
+                None
+            }
+            None => None,
+        };
+        let image = asset.and_then(|path| self.image(path, backdrop));
         match image {
             None => {
                 // A frame still waiting for its picture, or one that cannot be found: a quiet box.
@@ -948,8 +1005,22 @@ impl<'a> Drawing<'a> {
         }
     }
 
-    fn image(&mut self, path: &str) -> Option<Image> {
-        if let Some(found) = self.images.get(path) {
+    /// Whether the picture at `path` has any see-through part.
+    fn is_see_through(&mut self, path: &str) -> bool {
+        if let Some(found) = self.see_through.get(path) {
+            return *found;
+        }
+        let found = self
+            .assets
+            .bytes(path)
+            .is_some_and(|bytes| crate::picture::is_see_through(&bytes));
+        self.see_through.insert(path.to_string(), found);
+        found
+    }
+
+    fn image(&mut self, path: &str, backdrop: Option<crate::flatten::Rgb>) -> Option<Image> {
+        let id = (path.to_string(), backdrop);
+        if let Some(found) = self.images.get(&id) {
             return found.clone();
         }
         if self.cancel.is_set() {
@@ -970,9 +1041,10 @@ impl<'a> Drawing<'a> {
                         key: self.ink_key,
                     })
                     .as_ref(),
+                backdrop,
             )
             .and_then(|prepared| prepared.image());
-        self.images.insert(path.to_string(), made.clone());
+        self.images.insert(id, made.clone());
         made
     }
 

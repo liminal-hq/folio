@@ -322,6 +322,8 @@ fn pictures_in_a_file_in_ink_are_cmyk_whatever_they_were() {
             target: PdfTarget::Print,
             ink: Some(InkOptions::default()),
             crop_marks: false,
+            // Left live, so the soft mask of the picture with transparency is there to see.
+            flatten: Some(false),
             ..PdfOptions::default()
         },
     )

@@ -8,7 +8,8 @@
 //! each picture is sized for the largest place it is drawn (a picture used twice is one object in
 //! the file, sized for the bigger), photographs are written as JPEG, flat art and anything with
 //! transparency stays lossless, and a JPEG that is already small enough passes through byte for
-//! byte.
+//! byte. A picture with see-through parts is, for a file that is flattened, blended onto the colour
+//! behind it and written opaque (`flatten`), so it can be a photograph's JPEG like any other.
 
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
@@ -23,6 +24,7 @@ use image::{DynamicImage, ExtendedColorType, ImageDecoder, ImageFormat, ImageRea
 use krilla::image::{BitsPerComponent, CustomImage, Image, ImageColorspace};
 use krilla::Data;
 
+use crate::flatten::Rgb;
 use crate::pdf::Assets;
 
 /// How a picture is written when it is not passed through.
@@ -224,6 +226,9 @@ struct CacheKey {
     policy: u64,
     /// The separation, or 0 for a file in sRGB.
     ink: u64,
+    /// The colour a picture with see-through parts is blended onto; `None` leaves it see-through,
+    /// and for a picture that has none to blend it is always `None`.
+    backdrop: Option<Rgb>,
 }
 
 /// The widest each picture is drawn, in points, over the whole book: what to size it for. The width
@@ -366,6 +371,51 @@ fn jpeg_components(bytes: &[u8]) -> Option<u8> {
     None
 }
 
+/// Whether the file can have see-through parts, read from its header without decoding it.
+pub fn may_be_see_through(bytes: &[u8]) -> bool {
+    ImageReader::new(Cursor::new(bytes))
+        .with_guessed_format()
+        .ok()
+        .and_then(|r| r.into_decoder().ok())
+        .is_some_and(|d| d.color_type().has_alpha())
+}
+
+/// Whether any part of the picture really is see-through.
+pub fn is_see_through(bytes: &[u8]) -> bool {
+    may_be_see_through(bytes)
+        && ImageReader::new(Cursor::new(bytes))
+            .with_guessed_format()
+            .ok()
+            .and_then(|r| r.decode().ok())
+            .is_some_and(|picture| picture.to_rgba8().pixels().any(|p| p.0[3] != 255))
+}
+
+/// `picture` made `w` by `h` pixels with its colours weighted by their opacity, so a see-through
+/// edge does not pick up the colour hidden under transparent pixels (a dark or pale fringe).
+fn resize_with_alpha(picture: &DynamicImage, w: u32, h: u32) -> DynamicImage {
+    let mut rgba = picture.to_rgba8();
+    for p in rgba.pixels_mut() {
+        let a = u32::from(p.0[3]);
+        for c in &mut p.0[..3] {
+            *c = ((u32::from(*c) * a + 127) / 255) as u8;
+        }
+    }
+    let mut out = DynamicImage::ImageRgba8(rgba)
+        .resize_exact(w, h, FilterType::Lanczos3)
+        .to_rgba8();
+    for p in out.pixels_mut() {
+        let a = u32::from(p.0[3]);
+        if a == 0 {
+            p.0 = [0, 0, 0, 0];
+            continue;
+        }
+        for c in &mut p.0[..3] {
+            *c = ((u32::from(*c) * 255 + a / 2) / a).min(255) as u8;
+        }
+    }
+    DynamicImage::ImageRgba8(out)
+}
+
 fn hash_bytes(bytes: &[u8]) -> u64 {
     let mut h = std::collections::hash_map::DefaultHasher::new();
     bytes.hash(&mut h);
@@ -373,13 +423,15 @@ fn hash_bytes(bytes: &[u8]) -> u64 {
 }
 
 /// Makes what goes in the file for the picture `bytes`, drawn at most `width` points across, or
-/// `None` for a file that is not a picture.
+/// `None` for a file that is not a picture. With a `backdrop`, the see-through parts of a picture
+/// are blended onto that colour and the picture is written opaque.
 #[allow(clippy::chunks_exact_to_as_chunks)]
 pub fn prepare(
     bytes: Arc<Vec<u8>>,
     width: f64,
     policy: &ImagePolicy,
     ink: Option<&Ink>,
+    backdrop: Option<Rgb>,
 ) -> Option<Prepared> {
     let format = image::guess_format(&bytes).ok()?;
     let (nw, nh) = dimensions(&bytes)?;
@@ -394,7 +446,9 @@ pub fn prepare(
     if jpeg && fits && (policy.keep_jpeg || target.is_none()) {
         return Some(Prepared::PassThrough(bytes, format));
     }
-    if fits && target.is_none() && policy.compression == Compression::Lossless {
+    // A flattened file cannot take a picture that may be see-through just as it is.
+    let blends = backdrop.is_some() && !jpeg && may_be_see_through(&bytes);
+    if fits && target.is_none() && policy.compression == Compression::Lossless && !blends {
         return Some(Prepared::PassThrough(bytes, format));
     }
 
@@ -407,20 +461,24 @@ pub fn prepare(
     let mut picture = DynamicImage::from_decoder(decoder).ok()?;
     if let Some(w) = target {
         let h = ((u64::from(nh) * u64::from(w) + u64::from(nw) / 2) / u64::from(nw)).max(1) as u32;
-        picture = picture.resize_exact(w, h, FilterType::Lanczos3);
+        picture = if picture.color().has_alpha() {
+            resize_with_alpha(&picture, w, h)
+        } else {
+            picture.resize_exact(w, h, FilterType::Lanczos3)
+        };
     }
     let size = (picture.width(), picture.height());
-    let has_alpha = picture.color().has_alpha() && {
-        let alpha = picture.to_rgba8();
-        alpha.pixels().any(|p| p.0[3] != 255)
-    };
-    let alpha = has_alpha.then(|| {
-        picture
-            .to_rgba8()
-            .pixels()
-            .map(|p| p.0[3])
-            .collect::<Vec<u8>>()
-    });
+    let alpha = picture
+        .color()
+        .has_alpha()
+        .then(|| {
+            picture
+                .to_rgba8()
+                .pixels()
+                .map(|p| p.0[3])
+                .collect::<Vec<u8>>()
+        })
+        .filter(|alpha| alpha.iter().any(|&a| a != 255));
     let mut rgb = picture.to_rgb8().into_raw();
     // A picture in another profile is brought into sRGB, since the file's pictures carry none.
     if let Some(icc) = icc {
@@ -430,6 +488,16 @@ pub fn prepare(
             }
         }
     }
+    // Blended after the profile, onto a colour that is already sRGB, and then it is a picture with
+    // nothing see-through like any other.
+    let alpha = match (alpha, backdrop) {
+        (Some(alpha), Some(backdrop)) => {
+            crate::flatten::composite(&mut rgb, &alpha, backdrop);
+            None
+        }
+        (alpha, _) => alpha,
+    };
+    let has_alpha = alpha.is_some();
     let grey = rgb.chunks_exact(3).all(|p| p[0] == p[1] && p[1] == p[2]);
     let lossy = match policy.compression {
         Compression::Lossless => false,
@@ -497,6 +565,7 @@ impl PictureCache {
         width: f64,
         policy: &ImagePolicy,
         ink: Option<&Ink>,
+        backdrop: Option<Rgb>,
     ) -> Option<Prepared> {
         let bytes = Arc::new(assets.bytes(path)?);
         // Two widths that reduce a picture to the same pixels are one entry.
@@ -507,11 +576,13 @@ impl PictureCache {
                 .unwrap_or(0),
             policy: policy.key(),
             ink: ink.map_or(0, |i| i.key),
+            // Two pages with different colours behind the same picture need two pictures.
+            backdrop: backdrop.filter(|_| may_be_see_through(&bytes)),
         };
         if let Some(found) = self.0.lock().ok()?.made.get(&key) {
             return found.clone();
         }
-        let made = prepare(bytes, width, policy, ink);
+        let made = prepare(bytes, width, policy, ink, key.backdrop);
         let mut store = self.0.lock().ok()?;
         let size = made.as_ref().map_or(0, Prepared::size);
         if store.bytes + size > CACHE_LIMIT {
@@ -521,5 +592,42 @@ impl PictureCache {
         store.bytes += size;
         store.made.insert(key, made.clone());
         made
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{ImageEncoder, Rgba, RgbaImage};
+
+    #[test]
+    fn a_reduced_edge_keeps_its_colour_instead_of_the_black_hidden_under_the_clear_part() {
+        // Red on the left, and on the right nothing, whose colour (black) must not leak into the edge.
+        let source = RgbaImage::from_fn(1200, 40, |x, _| {
+            if x < 600 {
+                Rgba([200, 30, 30, 255])
+            } else {
+                Rgba([0, 0, 0, 0])
+            }
+        });
+        let mut png = Vec::new();
+        image::codecs::png::PngEncoder::new(&mut png)
+            .write_image(source.as_raw(), 1200, 40, ExtendedColorType::Rgba8)
+            .unwrap();
+        // 1200 pixels over 144 points at 150 ppi keeps 300.
+        let policy = ImagePolicy::standard();
+        let made = prepare(Arc::new(png), 144.0, &policy, None, Some([255, 255, 255])).unwrap();
+        let Prepared::Raw(raw) = made else {
+            panic!("lossless pixels")
+        };
+        assert!(raw.alpha.is_none(), "flattened");
+        assert_eq!(raw.size.0, 300);
+        for x in 0..300usize {
+            let p = &raw.colour[x * 3..x * 3 + 3];
+            // Whatever the opacity at the pixel, red over white is red at that opacity: the green
+            // and blue stay equal, and red stays at full strength between 200 and 255.
+            assert_eq!(p[1], p[2], "x={x}");
+            assert!(p[0] >= 200, "x={x} {p:?}");
+        }
     }
 }
