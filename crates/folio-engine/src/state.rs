@@ -2205,12 +2205,21 @@ impl Books {
             let (extras, ink) = match kind {
                 Some(kind) => {
                     let mut resolved = folio_export::prefs::resolve(kind, &layers, &book);
-                    if let folio_export::outline::Bookmarks::Chapters(list) =
+                    if let folio_export::outline::Bookmarks::Chapters(list)
+                    | folio_export::outline::Bookmarks::Automatic(list) =
                         &mut resolved.extras.navigation.bookmarks
                     {
                         list.clone_from(&chapters);
                     }
                     resolved.extras.cache = pictures.clone();
+                    if let Some(names) = &request.names {
+                        resolved.extras.navigation.names = folio_export::outline::BookmarkNames {
+                            front: names.front_cover.clone(),
+                            back: names.back_cover.clone(),
+                            page: names.page.clone(),
+                            pages: names.pages.clone(),
+                        };
+                    }
                     // A Sharing or print-shop file says it was made by this version of Folio.
                     resolved.extras.application = Some(folio_export::outline::Application::folio(
                         &self.host.version(),

@@ -96,7 +96,11 @@ fn small_text(name: &str, rect: Rect, text: &str) -> Frame {
 /// of a module, the ISBN above them and its digits below, all on the white of the box, and the five
 /// digit price `addon` beside them when there is one. Nothing when the ISBN is not a good one, which
 /// leaves KDP to add its own.
-fn barcode_frames(isbn: &str, addon: Option<&str>, maths: &folio_model::CoverMaths) -> Vec<Frame> {
+pub(crate) fn barcode_frames(
+    isbn: &str,
+    addon: Option<&str>,
+    maths: &folio_model::CoverMaths,
+) -> Vec<Frame> {
     let Some(modules) = crate::barcode::ean13(isbn) else {
         return Vec::new();
     };
@@ -175,6 +179,49 @@ fn barcode_frames(isbn: &str, addon: Option<&str>, maths: &folio_model::CoverMat
         ));
     }
     frames
+}
+
+/// The book with its cover cut down to the back cover alone, as a page of the trim size, for a file
+/// that reads like a book. The barcode is drawn in its box on a white ground when the book has a
+/// good paperback ISBN and does not leave the barcode to KDP; otherwise nothing stands there.
+pub fn back_cover_view(book: &Book) -> Book {
+    let mut view = folio_model::back_cover_view(book);
+    let Some(isbn) = book.metadata.isbn.paperback.as_deref() else {
+        return view;
+    };
+    let addon = match &book.barcode {
+        BarcodeChoice::Kdp => return view,
+        BarcodeChoice::Auto => None,
+        BarcodeChoice::Own { addon } => addon.as_deref(),
+    };
+    let maths = paperback_cover(book.trim, spine_pages(book), book.paper);
+    let bars = barcode_frames(isbn, addon, &maths);
+    let Some(cover) = view.spreads.first_mut().filter(|_| !bars.is_empty()) else {
+        return view;
+    };
+    cover.frames.push(Frame::Shape(ShapeFrame {
+        base: base(
+            "barcode",
+            Rect {
+                x: Pt(maths.barcode.x.0 - maths.edge.0),
+                y: Pt(maths.barcode.y.0 - maths.edge.0),
+                w: maths.barcode.w,
+                h: maths.barcode.h,
+            },
+            0.0,
+        ),
+        shape: Shape::Rect,
+        fill: Some(Colour("#ffffff".into())),
+        style: None,
+        stroke: None,
+        stroke_width: None,
+        radius: None,
+        flip: false,
+        content: None,
+        overrides: None,
+    }));
+    cover.frames.extend(bars);
+    view
 }
 
 /// Points inside the trimmed edge of a cover that text and pictures that need to stay keep to.

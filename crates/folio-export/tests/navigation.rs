@@ -124,10 +124,12 @@ fn chapters_become_bookmarks_that_lead_to_their_pages() {
         },
     );
     let found = bookmarks(&doc);
-    assert_eq!(found.len(), 2);
-    assert_eq!(found[0].0, "The reeds");
-    assert_eq!(found[1].0, "The moon");
-    assert!(found[0].1 < found[1].1, "{found:?}");
+    // The front cover leads the chapters.
+    assert_eq!(found.len(), 3);
+    assert_eq!(found[0].0, "Front cover");
+    assert_eq!(found[1].0, "The reeds");
+    assert_eq!(found[2].0, "The moon");
+    assert!(found[1].1 < found[2].1, "{found:?}");
 }
 
 #[test]
@@ -222,6 +224,7 @@ fn a_paperback_file_has_none_of_it_whatever_was_asked() {
         page_labels: true,
         links: true,
         viewer_layout: ViewerLayout::Spreads,
+        names: Default::default(),
     };
     let doc = export(&book, &styles, PdfTarget::Print, asked);
     let catalog = doc.catalog().unwrap();
@@ -308,4 +311,53 @@ fn a_kdp_interior_and_cover_name_no_program() {
         assert!(!info.has(b"CreationDate"), "{target:?}");
         assert!(info.has(b"Title"));
     }
+}
+
+#[test]
+fn the_books_description_and_keywords_are_the_files_subject_and_keywords() {
+    use folio_export::job::{export_target_with, PdfExtras, Target};
+    use folio_export::prefs::{resolve, PdfKind};
+    let (mut book, styles) = sample();
+    book.metadata.description = "An otter cannot sleep. The moon helps. Everyone dreams.".into();
+    book.metadata.keywords = ["otter", "bedtime", "moon"].map(String::from).to_vec();
+    let made = |kind, target| {
+        let resolved = resolve(kind, &[], &book);
+        let files = export_target_with(
+            target,
+            folio_model::Paper::White,
+            &book,
+            &styles,
+            &FontBook::bundled(),
+            &NoAssets,
+            None,
+            &PdfExtras {
+                navigation: resolved.extras.navigation,
+                pages: resolved.extras.pages,
+                crop_marks: resolved.extras.crop_marks,
+                shop: resolved.extras.shop,
+                ..PdfExtras::default()
+            },
+        )
+        .unwrap();
+        Document::load_mem(&files[0].bytes).unwrap()
+    };
+    for (kind, target) in [
+        (PdfKind::Sharing, Target::SharingPdf),
+        (PdfKind::PrintShop, Target::PrintShopPdf),
+    ] {
+        let doc = made(kind, target);
+        let info = info(&doc);
+        assert_eq!(
+            text(info.get(b"Subject").unwrap()),
+            "An otter cannot sleep. The moon helps. Everyone dreams.",
+            "{target:?}"
+        );
+        let keywords = text(info.get(b"Keywords").unwrap());
+        assert!(
+            keywords.contains("otter") && keywords.contains("bedtime") && keywords.contains("moon"),
+            "{keywords}"
+        );
+    }
+    let kdp = info(&made(PdfKind::Kdp, Target::KdpInterior));
+    assert!(!kdp.has(b"Subject") && !kdp.has(b"Keywords"));
 }

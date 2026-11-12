@@ -3,4 +3,4 @@
 /**
  * How much of the cover the file has.
  */
-export type CoverChoice = "front" | "frontAndBack" | "none";
+export type CoverChoice = "front" | "frontAndBack" | "none" | "frontAndBackEnds";

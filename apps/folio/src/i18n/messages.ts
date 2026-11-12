@@ -391,6 +391,7 @@ export const messages = {
 	'export.expert.navigation': 'Navigation and information',
 	'export.expert.bookmarks': 'Bookmarks',
 	'export.expert.bookmarks.none': 'None',
+	'export.expert.bookmarks.auto': 'Chapters, or spreads when there are none',
 	'export.expert.bookmarks.chapters': 'One for each chapter',
 	'export.expert.bookmarks.spreads': 'One for each spread',
 	'export.expert.bookmarks.pages': 'One for each page',
@@ -409,9 +410,10 @@ export const messages = {
 	'export.expert.sheets.pages': 'One page',
 	'export.expert.sheets.spreads': 'A spread, two pages side by side',
 	'export.expert.cover': 'Cover',
-	'export.expert.cover.front': 'The front, as the first page',
-	'export.expert.cover.both': 'Back, spine and front on one page',
-	'export.expert.cover.none': 'Left out',
+	'export.expert.cover.front': 'Front cover only',
+	'export.expert.cover.ends': 'Front and back cover',
+	'export.expert.cover.both': 'Whole cover sheet (one wide page)',
+	'export.expert.cover.none': 'No cover',
 	'export.expert.rangeFrom': 'First page',
 	'export.expert.rangeTo': 'Last page',
 	'export.expert.rangeAll': 'all pages',
@@ -569,7 +571,12 @@ export const messages = {
 	'export.where.printShop':
 		'Send this to a print shop that asks for PDF/X-4: every page with its bleed and crop marks.',
 	'export.where.sharing':
-		'To read on a screen or send to someone: it is not for a store or printer.',
+		'To read on a screen or send to someone, with the front and back covers: it is not for a store or printer.',
+	// Words a PDF carries that are the person's language; {n}, {from} and {to} are filled in by Rust.
+	'export.names.frontCover': 'Front cover',
+	'export.names.backCover': 'Back cover',
+	'export.names.page': 'Page {n}',
+	'export.names.pages': 'Pages {from}–{to}',
 
 	// New book wizard
 	'wizard.steps': 'Steps',

@@ -26,7 +26,7 @@ use krilla::{Data, SerializeSettings};
 use folio_colour::Separator;
 
 use crate::error::ExportError;
-use crate::outline::{Navigation, Origin};
+use crate::outline::{CoverSide, Navigation, Origin};
 use crate::pages::{CoverPages, PageChoice};
 use crate::picture::{ImagePolicy, PictureCache};
 use crate::shop::ShopOptions;
@@ -128,6 +128,13 @@ pub fn export_pdf_with(
                 .first()
                 .is_some_and(|s| s.kind == folio_model::SpreadKind::Cover),
     );
+    let has_cover = book
+        .spreads
+        .first()
+        .is_some_and(|s| s.kind == folio_model::SpreadKind::Cover);
+    // The back cover, as a page of its own at the end of the file.
+    let back = (has_cover && choice.cover == CoverPages::FrontAndBackEnds)
+        .then(|| crate::cover::back_cover_view(book));
     // Only the cover file wants the whole cover: everything else wants the front, as a page.
     let front;
     let book = if options.target == PdfTarget::Cover || choice.cover == CoverPages::FrontAndBack {
@@ -183,6 +190,8 @@ pub fn export_pdf_with(
     // that go to a spread.
     let mut first_page: Vec<Option<usize>> = Vec::new();
     let mut origins: Vec<Origin> = Vec::new();
+    // Whether the first page of the file is the front cover alone, a page of the trim size.
+    let front_alone = has_cover && skip == 0 && choice.cover != CoverPages::FrontAndBack;
     let labels = folio_model::page_labels(&book.spreads);
     for (at, spread) in book.spreads.iter().enumerate() {
         if at < skip {
@@ -198,20 +207,50 @@ pub fn export_pdf_with(
                     index: page.index,
                     label: label.map(|l| l.label.clone()).unwrap_or_default(),
                     section: label.map(|l| l.section.clone()).unwrap_or_default(),
+                    cover: (at == 0 && front_alone).then_some(CoverSide::Front),
                 });
             }
             scenes.extend(scene.pages);
         }
     }
     let navigation = options.navigation.for_target(options.target);
-    let kept = crate::pages::kept(scenes.len(), choice.range);
-    if kept != (0..scenes.len()) {
-        // A link to a spread that falls outside the kept pages goes nowhere.
-        for page in first_page.iter_mut() {
-            *page = page.and_then(|p| kept.contains(&p).then(|| p - kept.start));
+    // The range counts the pages of the interior; the cover pages are added outside it.
+    let lead = usize::from(has_cover && skip == 0);
+    let interior = crate::pages::kept(scenes.len() - lead.min(scenes.len()), choice.range);
+    let kept = lead + interior.start..lead + interior.end;
+    let new_index: Vec<Option<usize>> = (0..scenes.len())
+        .map(|p| {
+            if p < lead {
+                Some(p)
+            } else {
+                kept.contains(&p).then(|| p - kept.start + lead)
+            }
+        })
+        .collect();
+    let mut keep: Vec<usize> = (0..lead.min(scenes.len())).chain(kept).collect();
+    keep.dedup();
+    if keep.len() != scenes.len() {
+        origins = keep.iter().map(|&i| origins[i].clone()).collect();
+        scenes = keep.iter().map(|&i| scenes[i].clone()).collect();
+    }
+    if let Some(back) = &back {
+        if let Some(scene) = Layouter::new(back, styles, fonts)
+            .scene_spread(&back.spreads[0].id)?
+            .and_then(|s| s.pages.into_iter().next())
+        {
+            origins.push(Origin {
+                spread: format!("{}#back", back.spreads[0].id.0),
+                index: 0,
+                label: String::new(),
+                section: String::new(),
+                cover: Some(CoverSide::Back),
+            });
+            scenes.push(scene);
         }
-        origins = origins[kept.clone()].to_vec();
-        scenes = scenes[kept].to_vec();
+    }
+    // A link to a spread that falls outside the kept pages goes nowhere.
+    for page in first_page.iter_mut() {
+        *page = page.and_then(|p| new_index.get(p).copied().flatten());
     }
     let sheets = crate::pages::sheets(&origins, choice.sheets);
     // A link goes to the sheet that holds the page its spread begins on.
@@ -281,7 +320,7 @@ pub fn export_pdf_with(
         if navigation.page_labels {
             if let Some(label) = sheet_origins
                 .get(number)
-                .and_then(crate::outline::page_label)
+                .and_then(|o| crate::outline::page_label(o, &navigation.names))
             {
                 settings = settings.with_page_label(label);
             }
@@ -368,7 +407,9 @@ pub fn export_pdf_with(
         &book.language,
         options.application.as_ref(),
     );
-    if let Some(outline) = crate::outline::outline(&navigation.bookmarks, &sheet_origins) {
+    if let Some(outline) =
+        crate::outline::outline(&navigation.bookmarks, &sheet_origins, &navigation.names)
+    {
         document.set_outline(outline);
     }
     document.set_metadata(metadata);
@@ -427,6 +468,11 @@ fn link_annotations(
         else {
             continue;
         };
+        // A frame wholly off the page (the other cover's, on a cover cut from the sheet) has no
+        // link to show.
+        if at.0 >= page.width || at.0 + size.0 <= 0.0 {
+            continue;
+        }
         let mut pieces: Vec<LinkPiece> = Vec::new();
         for line in lines {
             let mut open: Option<(String, f64, f64)> = None;

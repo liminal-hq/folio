@@ -17,8 +17,10 @@ pub enum CoverPages {
     /// The front cover, as the first page.
     #[default]
     Front,
-    /// The whole cover: back, spine and front on one wide first page.
+    /// The whole cover sheet: back, spine and front on one wide first page.
     FrontAndBack,
+    /// The front cover first and the back cover last, each a page of the trim size.
+    FrontAndBackEnds,
     /// No cover.
     None,
 }
@@ -36,8 +38,9 @@ pub enum Sheets {
 /// The pages of the book a PDF has.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct PageChoice {
-    /// The first and last page wanted, counted from 1 over the pages the file would have, both
-    /// included. `None` is every page.
+    /// The first and last page wanted, counted from 1 over the pages of the interior (the cover
+    /// pages are not counted and are added outside the range, whatever it is), both included.
+    /// `None` is every page.
     pub range: Option<(usize, usize)>,
     pub cover: CoverPages,
     pub sheets: Sheets,
@@ -94,6 +97,7 @@ mod tests {
             index,
             label: String::new(),
             section: String::new(),
+            cover: None,
         }
     }
 

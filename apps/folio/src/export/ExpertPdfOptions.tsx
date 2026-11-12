@@ -158,6 +158,7 @@ export function ExpertPdfOptions({ kinds, user, book, edits, onChange }: ExpertP
 							onChange={(e) => set({ bookmarks: e.target.value as PdfPrefs['bookmarks'] })}
 						>
 							<option value="none">{t('export.expert.bookmarks.none')}</option>
+							<option value="auto">{t('export.expert.bookmarks.auto')}</option>
 							<option value="chapters">{t('export.expert.bookmarks.chapters')}</option>
 							<option value="spreads">{t('export.expert.bookmarks.spreads')}</option>
 							<option value="pages">{t('export.expert.bookmarks.pages')}</option>
@@ -263,6 +264,7 @@ export function ExpertPdfOptions({ kinds, user, book, edits, onChange }: ExpertP
 							onChange={(e) => set({ cover: e.target.value as PdfPrefs['cover'] })}
 						>
 							<option value="front">{t('export.expert.cover.front')}</option>
+							<option value="frontAndBackEnds">{t('export.expert.cover.ends')}</option>
 							<option value="frontAndBack">{t('export.expert.cover.both')}</option>
 							<option value="none">{t('export.expert.cover.none')}</option>
 						</select>

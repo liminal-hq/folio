@@ -3,4 +3,4 @@
 /**
  * What the bookmarks panel lists.
  */
-export type BookmarkChoice = "none" | "chapters" | "spreads" | "pages";
+export type BookmarkChoice = "none" | "auto" | "chapters" | "spreads" | "pages";

@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ExportDialog } from '../app/ExportDialog';
@@ -54,8 +54,10 @@ describe('the Expert panels', () => {
 		]) {
 			expect(screen.getByLabelText(name)).toBeInTheDocument();
 		}
-		// The sharing PDF has chapter bookmarks to begin with.
-		expect(screen.getByLabelText('Bookmarks')).toHaveValue('chapters');
+		// The sharing PDF has bookmarks to begin with, by chapter or else by spread, and reads like
+		// a book: the front cover first and the back cover last.
+		expect(screen.getByLabelText('Bookmarks')).toHaveValue('auto');
+		expect(screen.getByLabelText('Cover')).toHaveValue('frontAndBackEnds');
 	});
 
 	it('keeps a choice for the export', async () => {
@@ -68,6 +70,29 @@ describe('the Expert panels', () => {
 		const call = fake.calls.find((c) => c.startsWith('exportBook('))!;
 		expect(call).toContain('"bookmarks":"pages"');
 		expect(call).toContain('"jpegQuality":70');
+	});
+
+	it('offers the covers by what the file holds and passes the words the file needs', async () => {
+		const fake = await setup();
+		await userEvent.click(await screen.findByText('More choices'));
+		const cover = screen.getByLabelText('Cover');
+		expect(
+			within(cover)
+				.getAllByRole('option')
+				.map((o) => o.textContent),
+		).toEqual([
+			'Front cover only',
+			'Front and back cover',
+			'Whole cover sheet (one wide page)',
+			'No cover',
+		]);
+		await userEvent.selectOptions(cover, 'frontAndBack');
+		await userEvent.click(screen.getByRole('button', { name: 'Make files' }));
+		await screen.findByText('Your files are ready.');
+		const call = fake.calls.find((c) => c.startsWith('exportBook('))!;
+		expect(call).toContain('"cover":"frontAndBack"');
+		expect(call).toContain('"backCover":"Back cover"');
+		expect(call).toContain('"pages":"Pages {from}–{to}"');
 	});
 
 	it('has links on for a Sharing PDF and lets them be turned off', async () => {

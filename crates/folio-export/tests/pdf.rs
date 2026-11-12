@@ -576,11 +576,13 @@ fn a_link_follows_its_spread_into_a_page_range_and_is_left_out_when_the_spread_i
     let whole = make(None);
     let total = Document::load_mem(&whole).unwrap().get_pages().len();
     let last = book.spreads[spreads - 1].pages.len();
-    // Only the pages of the last spread: its links go to the first page of the file.
-    let tail = make(Some((total - last + 1, total)));
+    // Only the pages of the last spread (the range counts the interior, the cover comes before
+    // it): its links go to the first page after the cover.
+    let interior = total - 1;
+    let tail = make(Some((interior - last + 1, interior)));
     let found = links(&tail);
     assert!(!found.is_empty());
-    assert!(found.iter().all(|(_, page)| *page == Some(1)), "{found:?}");
+    assert!(found.iter().all(|(_, page)| *page == Some(2)), "{found:?}");
     // Only the first page: the last spread is not in the file, so its links are left out.
     let head = make(Some((1, 1)));
     assert!(links(&head).is_empty());

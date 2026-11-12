@@ -62,10 +62,61 @@ pub enum Bookmarks {
     None,
     /// One for each chapter, in reading order.
     Chapters(Vec<Chapter>),
+    /// The chapters when the book has any, else one for each spread.
+    Automatic(Vec<Chapter>),
     /// One for each spread.
     Spreads,
     /// One for each page.
     Pages,
+}
+
+/// Which cover a page of the file is, when it is one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CoverSide {
+    Front,
+    Back,
+}
+
+/// The words of the bookmarks and the page numbers a viewer shows that are not the book's: what
+/// the covers are called and how a page or a stretch of pages is said. The caller passes them in,
+/// in the person's language; the English ones stand in when it does not.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BookmarkNames {
+    pub front: String,
+    pub back: String,
+    /// One page, with `{n}` where its number goes.
+    pub page: String,
+    /// Several pages, with `{from}` and `{to}` where the first and last numbers go.
+    pub pages: String,
+}
+
+impl Default for BookmarkNames {
+    fn default() -> Self {
+        BookmarkNames {
+            front: "Front cover".into(),
+            back: "Back cover".into(),
+            page: "Page {n}".into(),
+            pages: "Pages {from}–{to}".into(),
+        }
+    }
+}
+
+impl BookmarkNames {
+    /// `first` for a lone page, or `first` to `last`.
+    fn span(&self, first: &str, last: &str) -> String {
+        if first == last {
+            self.page.replace("{n}", first)
+        } else {
+            self.pages.replace("{from}", first).replace("{to}", last)
+        }
+    }
+
+    fn of(&self, side: CoverSide) -> &str {
+        match side {
+            CoverSide::Front => &self.front,
+            CoverSide::Back => &self.back,
+        }
+    }
 }
 
 /// How a viewer lays the pages out when the file opens.
@@ -102,6 +153,8 @@ pub struct Navigation {
     /// Words that link are links in the file. Only a Sharing PDF has them whatever is asked here,
     /// and it has always had them, so they are on unless turned off.
     pub links: bool,
+    /// What the front and back cover pages are called.
+    pub names: BookmarkNames,
 }
 
 impl Default for Navigation {
@@ -112,6 +165,7 @@ impl Default for Navigation {
             page_labels: false,
             viewer_layout: ViewerLayout::default(),
             links: true,
+            names: BookmarkNames::default(),
         }
     }
 }
@@ -136,6 +190,8 @@ pub struct Origin {
     pub label: String,
     /// The name of the section the page is in.
     pub section: String,
+    /// Set for the page of a cover that stands alone in the file.
+    pub cover: Option<CoverSide>,
 }
 
 fn roman_value(text: &str) -> Option<u32> {
@@ -164,7 +220,11 @@ fn roman_value(text: &str) -> Option<u32> {
 
 /// The label of a page as a PDF viewer shows it. A page without a number is labelled with its
 /// section's name, so the numbers of the pages after it still count from where they should.
-pub fn page_label(origin: &Origin) -> Option<PageLabel> {
+pub fn page_label(origin: &Origin, names: &BookmarkNames) -> Option<PageLabel> {
+    if let Some(side) = origin.cover {
+        // The covers are not numbered: a viewer shows their names where it shows a number.
+        return Some(PageLabel::new(None, Some(names.of(side).to_string()), None));
+    }
     if origin.label.is_empty() {
         let prefix = if origin.section.is_empty() {
             "—".to_string()
@@ -185,16 +245,25 @@ pub fn page_label(origin: &Origin) -> Option<PageLabel> {
         .map(|n| PageLabel::new(Some(NumberingStyle::LowerRoman), None, Some(n)))
 }
 
-/// What a page is called in a list: its number, or its place in the file when it has none.
-fn page_name(origin: &Origin, at: usize) -> String {
-    if origin.label.is_empty() {
-        if origin.section.is_empty() {
-            format!("Page {}", at + 1)
-        } else {
-            origin.section.clone()
-        }
+/// How many pages stand before the page at `at` that are not the interior's (the covers).
+fn covers_before(pages: &[Origin], at: usize) -> usize {
+    pages[..at].iter().filter(|p| p.cover.is_some()).count()
+}
+
+/// What a page is called in a list: its number, its section's name, or its place in the interior
+/// when it has neither.
+fn page_name(pages: &[Origin], at: usize, names: &BookmarkNames) -> String {
+    let origin = &pages[at];
+    if let Some(side) = origin.cover {
+        return names.of(side).to_string();
+    }
+    if !origin.label.is_empty() {
+        names.span(&origin.label, &origin.label)
+    } else if !origin.section.is_empty() {
+        origin.section.clone()
     } else {
-        format!("Page {}", origin.label)
+        let n = (at + 1 - covers_before(pages, at)).to_string();
+        names.span(&n, &n)
     }
 }
 
@@ -203,51 +272,102 @@ fn node(title: String, page: usize) -> OutlineNode {
 }
 
 /// The bookmarks for `pages`, or `None` when there are none to make.
-pub fn outline(bookmarks: &Bookmarks, pages: &[Origin]) -> Option<Outline> {
+pub fn outline(bookmarks: &Bookmarks, pages: &[Origin], names: &BookmarkNames) -> Option<Outline> {
     let mut out = Outline::new();
     let mut any = false;
     match bookmarks {
         Bookmarks::None => {}
         Bookmarks::Chapters(chapters) => {
-            for chapter in chapters {
-                let at = pages
-                    .iter()
-                    .position(|p| p.spread == chapter.spread && p.index == chapter.page)
-                    .or_else(|| pages.iter().position(|p| p.spread == chapter.spread));
-                if let Some(at) = at {
-                    out.push_child(node(chapter.title.clone(), at));
-                    any = true;
-                }
-            }
+            any = by_chapter(&mut out, chapters, pages, names);
+        }
+        Bookmarks::Automatic(chapters) => {
+            any = if chapters.is_empty() {
+                by_spread(&mut out, pages, names)
+            } else {
+                by_chapter(&mut out, chapters, pages, names)
+            };
         }
         Bookmarks::Spreads => {
-            let mut at = 0;
-            while at < pages.len() {
-                let spread = &pages[at].spread;
-                let last = pages[at..]
-                    .iter()
-                    .take_while(|p| &p.spread == spread)
-                    .count()
-                    - 1;
-                let (first, end) = (&pages[at], &pages[at + last]);
-                let title = match (first.label.as_str(), end.label.as_str()) {
-                    ("", _) => page_name(first, at),
-                    (a, b) if a == b || b.is_empty() => format!("Page {a}"),
-                    (a, b) => format!("Pages {a}–{b}"),
-                };
-                out.push_child(node(title, at));
-                any = true;
-                at += last + 1;
-            }
+            any = by_spread(&mut out, pages, names);
         }
         Bookmarks::Pages => {
-            for (at, page) in pages.iter().enumerate() {
-                out.push_child(node(page_name(page, at), at));
+            for at in 0..pages.len() {
+                out.push_child(node(page_name(pages, at, names), at));
                 any = true;
             }
         }
     }
     any.then_some(out)
+}
+
+/// One bookmark for each chapter, the front cover first and the back cover last when the file has
+/// them. Whether any was made.
+fn by_chapter(
+    out: &mut Outline,
+    chapters: &[Chapter],
+    pages: &[Origin],
+    names: &BookmarkNames,
+) -> bool {
+    let mut any = false;
+    let cover_at = |side| pages.iter().position(|p| p.cover == Some(side));
+    if let Some(at) = cover_at(CoverSide::Front) {
+        out.push_child(node(names.front.clone(), at));
+        any = true;
+    }
+    for chapter in chapters {
+        let at = pages
+            .iter()
+            .position(|p| p.spread == chapter.spread && p.index == chapter.page)
+            .or_else(|| pages.iter().position(|p| p.spread == chapter.spread));
+        if let Some(at) = at {
+            // The cover has its own bookmark already.
+            if pages[at].cover.is_some() {
+                continue;
+            }
+            out.push_child(node(chapter.title.clone(), at));
+            any = true;
+        }
+    }
+    if let Some(at) = cover_at(CoverSide::Back) {
+        out.push_child(node(names.back.clone(), at));
+        any = true;
+    }
+    any
+}
+
+/// One bookmark for each spread, named by the numbers on its pages (`Pages 2–3`, or `Page 1` for
+/// a lone page); the covers have their names. Whether any was made.
+fn by_spread(out: &mut Outline, pages: &[Origin], names: &BookmarkNames) -> bool {
+    let mut any = false;
+    let mut at = 0;
+    while at < pages.len() {
+        let spread = &pages[at].spread;
+        let last = pages[at..]
+            .iter()
+            .take_while(|p| &p.spread == spread)
+            .count()
+            - 1;
+        let (first, end) = (&pages[at], &pages[at + last]);
+        let title = if first.cover.is_some() || last == 0 {
+            page_name(pages, at, names)
+        } else {
+            match (first.label.as_str(), end.label.as_str()) {
+                // Both pages are numbered: say the stretch.
+                (a, b) if !a.is_empty() && !b.is_empty() => names.span(a, b),
+                (a, _) if !a.is_empty() => names.span(a, a),
+                // Neither is: the section's name, or where the spread is in the interior.
+                _ if !first.section.is_empty() => first.section.clone(),
+                _ => {
+                    let from = at + 1 - covers_before(pages, at);
+                    names.span(&from.to_string(), &(from + last).to_string())
+                }
+            }
+        };
+        out.push_child(node(title, at));
+        any = true;
+        at += last + 1;
+    }
+    any
 }
 
 /// The file's information from what the book and the person say, for a file that is `target`.

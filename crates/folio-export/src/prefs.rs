@@ -68,9 +68,11 @@ pub fn builtin(kind: PdfKind) -> PdfPrefs {
     match kind {
         PdfKind::Sharing => PdfPrefs {
             preset: Some(PicturePreset::Standard),
-            bookmarks: Some(BookmarkChoice::Chapters),
+            bookmarks: Some(BookmarkChoice::Auto),
             page_labels: Some(true),
             links: Some(true),
+            // A file for reading is a book: the front cover first and the back cover last.
+            cover: Some(CoverChoice::FrontAndBackEnds),
             ..base
         },
         PdfKind::Kdp => PdfPrefs {
@@ -157,6 +159,7 @@ fn lock(kind: PdfKind, prefs: &mut PdfPrefs, notes: &mut Vec<String>) {
     let pages_asked = prefs.range.is_some()
         || prefs.sheets == Some(SheetsChoice::Spreads)
         || prefs.cover == Some(CoverChoice::FrontAndBack)
+        || prefs.cover == Some(CoverChoice::FrontAndBackEnds)
         || prefs.cover == Some(CoverChoice::None);
     set_back(pages_asked, "the whole book as single pages");
     prefs.range = None;
@@ -201,7 +204,11 @@ pub fn wants_chapters(kind: PdfKind, layers: &[&ExportPrefs]) -> bool {
         prefs = of_kind(layer, kind).over(&prefs);
     }
     // A paperback has no bookmarks whatever was asked.
-    kind != PdfKind::Kdp && prefs.bookmarks == Some(BookmarkChoice::Chapters)
+    kind != PdfKind::Kdp
+        && matches!(
+            prefs.bookmarks,
+            Some(BookmarkChoice::Chapters | BookmarkChoice::Auto)
+        )
 }
 
 /// The settings for `kind`, from `layers` (lowest first: your defaults, the book's, this export's)
@@ -214,10 +221,10 @@ pub fn resolve(kind: PdfKind, layers: &[&ExportPrefs], book: &Book) -> Resolved 
     let mut notes = Vec::new();
     lock(kind, &mut prefs, &mut notes);
 
-    let chapters = prefs.bookmarks == Some(BookmarkChoice::Chapters);
     let navigation = Navigation {
         bookmarks: match prefs.bookmarks.unwrap_or(BookmarkChoice::None) {
             BookmarkChoice::None => Bookmarks::None,
+            BookmarkChoice::Auto => Bookmarks::Automatic(Vec::new()),
             BookmarkChoice::Chapters => Bookmarks::Chapters(Vec::new()),
             BookmarkChoice::Spreads => Bookmarks::Spreads,
             BookmarkChoice::Pages => Bookmarks::Pages,
@@ -236,6 +243,7 @@ pub fn resolve(kind: PdfKind, layers: &[&ExportPrefs], book: &Book) -> Resolved 
         },
         page_labels: prefs.page_labels.unwrap_or(false),
         links: prefs.links.unwrap_or(false),
+        names: Default::default(),
         viewer_layout: match prefs.viewer_layout {
             Some(ViewerLayoutChoice::Spreads) => ViewerLayout::Spreads,
             _ => ViewerLayout::Single,
@@ -245,6 +253,7 @@ pub fn resolve(kind: PdfKind, layers: &[&ExportPrefs], book: &Book) -> Resolved 
         range: prefs.range.map(|(a, b)| (a as usize, b as usize)),
         cover: match prefs.cover {
             Some(CoverChoice::FrontAndBack) => CoverPages::FrontAndBack,
+            Some(CoverChoice::FrontAndBackEnds) => CoverPages::FrontAndBackEnds,
             Some(CoverChoice::None) => CoverPages::None,
             _ => CoverPages::Front,
         },
@@ -278,7 +287,10 @@ pub fn resolve(kind: PdfKind, layers: &[&ExportPrefs], book: &Book) -> Resolved 
             cancel: Default::default(),
         },
         ink,
-        wants_chapters: chapters,
+        wants_chapters: matches!(
+            prefs.bookmarks,
+            Some(BookmarkChoice::Chapters | BookmarkChoice::Auto)
+        ),
         notes,
         prefs,
     }
@@ -315,7 +327,7 @@ mod tests {
     fn nothing_chosen_is_the_built_in_settings() {
         let r = resolve(PdfKind::Sharing, &[], &book());
         assert_eq!(r.extras.pictures.unwrap().max_ppi, Some(150.0));
-        assert_eq!(r.extras.navigation.bookmarks, Bookmarks::Chapters(vec![]));
+        assert_eq!(r.extras.navigation.bookmarks, Bookmarks::Automatic(vec![]));
         assert!(r.extras.navigation.page_labels);
         assert!(r.wants_chapters && r.notes.is_empty());
         let shop = resolve(PdfKind::PrintShop, &[], &book());
@@ -446,5 +458,42 @@ mod tests {
             r.extras.navigation.info.keywords,
             Some(vec!["otter".into()])
         );
+    }
+
+    #[test]
+    fn the_sharing_pdf_reads_like_a_book_and_a_paperback_never_adds_covers() {
+        assert_eq!(
+            resolve(PdfKind::Sharing, &[], &book()).extras.pages.cover,
+            CoverPages::FrontAndBackEnds
+        );
+        // A book that chose the front alone before the back was offered keeps what it chose.
+        let old = sharing(PdfPrefs {
+            cover: Some(CoverChoice::Front),
+            ..PdfPrefs::default()
+        });
+        assert_eq!(
+            resolve(PdfKind::Sharing, &[&old], &book())
+                .extras
+                .pages
+                .cover,
+            CoverPages::Front
+        );
+        for kind in [PdfKind::Kdp, PdfKind::PrintShop] {
+            let mut asked = ExportPrefs::default();
+            let prefs = PdfPrefs {
+                cover: Some(CoverChoice::FrontAndBackEnds),
+                ..PdfPrefs::default()
+            };
+            match kind {
+                PdfKind::Kdp => asked.pdf.kdp = prefs,
+                _ => asked.pdf.print_shop = prefs,
+            }
+            let r = resolve(kind, &[&asked], &book());
+            assert_eq!(r.extras.pages, PageChoice::default());
+            assert_eq!(r.prefs.cover, Some(CoverChoice::Front));
+            assert!(!r.notes.is_empty());
+            // Nothing asked, nothing said.
+            assert!(resolve(kind, &[], &book()).notes.is_empty());
+        }
     }
 }

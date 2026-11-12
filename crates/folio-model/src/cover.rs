@@ -99,8 +99,20 @@ pub fn front_offset(book: &crate::book::Book) -> Pt {
 /// wants one cover picture: the eBook cover, the sharing PDF and the thumbnails. Frames of the back
 /// and the spine are moved off the page, where nothing draws them.
 pub fn front_cover_view(book: &crate::book::Book) -> crate::book::Book {
+    cover_panel_view(book, front_offset(book).0)
+}
+
+/// `book` with its cover cut down to the back cover alone, as a page of the trim size: the cover
+/// spread's background and the frames of the back panel (`x` from 0 to the trim width). Frames of
+/// the spine and the front fall off the right of the page, and a frame across the fold is cut at
+/// the back's edge.
+pub fn back_cover_view(book: &crate::book::Book) -> crate::book::Book {
+    cover_panel_view(book, 0.0)
+}
+
+/// The cover as a single page of the trim size whose left edge is `offset` points into the sheet.
+fn cover_panel_view(book: &crate::book::Book, offset: f64) -> crate::book::Book {
     let mut view = book.clone();
-    let offset = front_offset(book).0;
     if let Some(cover) = view
         .spreads
         .first_mut()
