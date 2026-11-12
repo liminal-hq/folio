@@ -19,7 +19,7 @@ folio/
 │  └─ folio-jax/               # help library index + ONNX runtime (ort) inference
 ├─ packages/
 │  ├─ protocol/                # ts-rs generated types (from folio-model)
-│  ├─ chrome/                  # @liminal-hq/folio-chrome (copied from Waypoint): TitleBar, AppMenuButton, MenuBar, ContextMenu, WindowMenu
+│  ├─ chrome/                  # @liminal-hq/folio-chrome (copied from Waypoint): TitleBar (with its quick actions strip), AppMenuButton, MenuBar, ContextMenu, WindowMenu
 │  └─ ribbon/                  # @liminal-hq/folio-ribbon: the data-driven ribbon toolbar (D-19)
 ├─ plugins/
 │  ├─ folio-books/             # domain plugin: a thin Tauri wrapper over folio-engine (windows, events, paths)
@@ -72,7 +72,7 @@ Events: `export://progress`, `fonts://changed`, `jax://ready`.
 Copy Waypoint's `packages/chrome` as **`@liminal-hq/folio-chrome`** (D-08), with its tokens renamed to Folio's own (D-09):
 
 - `WindowTitleBar`: exactly centred title; GNOME, KDE (Breeze), Cinnamon and Windows 11 control styles; `buttonLayout` read from the desktop (`org.gnome.desktop.wm.preferences button-layout` and KDE's `kwinrc`); transparency support.
-- `AppMenuButton` in the title bar's start slot opens **the app menu** (see 06).
+- `AppMenuButton` in the title bar's start slot opens **the app menu** (see 06), and the generic `quickActions` strip (D-83) follows it: Save, New and Open in Folio, supplied by the app and domain-free in the chrome.
 - `MenuBar` is **hidden by default**. Preferences → Interface → Show menu bar turns it on.
 - `ContextMenu` and `HostedContextMenu` in-page menus have the native-menu seam (see 06).
 - `WindowMenu` gives Alt+Space / right-click on title bar: Move, Size, Minimise, Maximise, Always on top, Close.
