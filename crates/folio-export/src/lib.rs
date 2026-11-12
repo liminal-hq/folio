@@ -12,6 +12,7 @@ pub mod cover;
 pub mod epub;
 pub mod error;
 pub mod fixed;
+pub mod flatten;
 pub mod job;
 pub mod outline;
 pub mod pages;

@@ -12,7 +12,7 @@ use crate::error::ExportError;
 use crate::fixed::export_fixed_epub;
 use crate::outline::Navigation;
 use crate::pages::PageChoice;
-use crate::pdf::{export_pdf_with, Assets, InkOptions, PdfOptions, PdfTarget};
+use crate::pdf::{export_pdf_noted, Assets, InkOptions, PdfOptions, PdfTarget};
 use crate::picture::{ImagePolicy, PictureCache};
 use crate::raster::page_to_jpeg;
 use crate::shop::ShopOptions;
@@ -44,6 +44,8 @@ pub struct Exported {
     pub target: Target,
     pub file_name: String,
     pub bytes: Vec<u8>,
+    /// What was left as it was in a flattened PDF, and why, one line each.
+    pub notes: Vec<String>,
 }
 
 /// `title` as a file name stem: lower case, letters and digits, one hyphen between words.
@@ -104,6 +106,9 @@ pub struct PdfExtras {
     pub application: Option<crate::outline::Application>,
     /// How pictures are treated; `None` is what each target usually does.
     pub pictures: Option<ImagePolicy>,
+    /// Pictures with see-through parts are blended onto what is behind them; `None` is what each
+    /// target usually does: the Sharing PDF keeps them live, the press files flatten them.
+    pub flatten: Option<bool>,
     pub cache: PictureCache,
     /// Stops the PDFs when a newer request has made them not worth finishing.
     pub cancel: crate::cancel::Cancel,
@@ -154,9 +159,10 @@ pub fn export_target_with(
             .pictures
             .unwrap_or_else(|| ImagePolicy::for_target(kind))
     };
+    let notes = std::cell::RefCell::new(Vec::<String>::new());
     let pdf = |kind, ink: Option<InkOptions>| {
         let shop = kind == PdfTarget::PrintShop;
-        export_pdf_with(
+        let (bytes, said) = export_pdf_noted(
             if ink.is_some() { book_in_ink } else { book },
             styles,
             fonts,
@@ -172,11 +178,14 @@ pub fn export_target_with(
                     ..extras.shop.clone()
                 },
                 application: extras.application.clone(),
+                flatten: extras.flatten,
                 cancel: extras.cancel.clone(),
             },
             &pictures(kind),
             &extras.cache,
-        )
+        )?;
+        notes.borrow_mut().extend(said);
+        Ok::<_, ExportError>(bytes)
     };
     let epub = |flavour| {
         export_epub(
@@ -196,7 +205,7 @@ pub fn export_target_with(
         Target::PrintShopPdf => vec![pdf(PdfTarget::PrintShop, extras.shop.ink.clone())?],
         Target::KdpCover => {
             let sheet = cover_sheet(book_in_ink, paper).ok_or(ExportError::NoPages)?;
-            vec![export_pdf_with(
+            let (bytes, said) = export_pdf_noted(
                 &sheet,
                 styles,
                 fonts,
@@ -207,12 +216,15 @@ pub fn export_target_with(
                     // chosen press profile when there is one, by a plain separation when not.
                     ink: Some(ink.cloned().unwrap_or_default()),
                     crop_marks: false,
+                    flatten: extras.flatten,
                     cancel: extras.cancel.clone(),
                     ..PdfOptions::default()
                 },
                 &pictures(PdfTarget::Cover),
                 &extras.cache,
-            )?]
+            )?;
+            notes.borrow_mut().extend(said);
+            vec![bytes]
         }
         Target::EbookCover => {
             let front = folio_model::front_cover_view(book);
@@ -238,6 +250,7 @@ pub fn export_target_with(
             target,
             file_name,
             bytes,
+            notes: notes.borrow().clone(),
         })
         .collect())
 }
