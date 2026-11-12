@@ -12,6 +12,12 @@ import type {
 import type { Settings } from '@liminal-hq/folio-plugin-settings';
 import type { CommandId } from '../commands/appMenuModel';
 import { t, type MessageKey } from '../i18n/messages';
+import {
+	colourPickerLabels,
+	pinnedColours,
+	swatchOptions,
+	themeColours,
+} from '../colour/colourPicker';
 import type { EditorState } from './editorCommands';
 import { RIBBON_ICONS } from './ribbonIcons';
 import { RIBBON_LAYOUT, type LayoutItem } from './ribbonLayout';
@@ -49,6 +55,8 @@ export interface RibbonContext {
 	available: ReadonlySet<CommandId>;
 	/** The document's controls, when a book is open: which are live and how they are set. */
 	editor?: EditorState;
+	/** The colours used last and how to record one, for the colour pickers. */
+	recentColours?: { recents: readonly string[]; record(hex: string): void };
 }
 
 /** The glyphs of classic toolbar controls that are not named after their id. */
@@ -142,6 +150,32 @@ function toRibbonItem(
 			),
 		];
 		item.width = source.id === 'font' ? 150 : 130;
+	}
+	if (kind === 'colour') {
+		const book = context.editor?.colour;
+		const fromStyle = book?.fromStyle ?? '#1c1b20';
+		const swatches = swatchOptions(book?.swatches ?? []);
+		const reference = swatches.find((s) => s.value === fromStyle);
+		const set = item.value;
+		const setShown = swatches.find((s) => s.value === set)?.shown ?? set;
+		item.swatch =
+			typeof setShown === 'string' && setShown !== '' ? setShown : (reference?.shown ?? fromStyle);
+		item.colour = {
+			inherited: {
+				value: fromStyle,
+				name: label('colour'),
+				...(reference?.shown ? { shown: reference.shown } : {}),
+			},
+			swatches,
+			pinned: pinnedColours(),
+			theme: themeColours(),
+			recents: [...(context.recentColours?.recents ?? [])],
+			pageColour: book?.page,
+			contrast: 'text',
+			mode: context.settings.mode,
+			labels: colourPickerLabels(),
+			onRecord: context.recentColours?.record,
+		};
 	}
 	if (kind === 'menu') {
 		const choices = context.editor?.options[source.id];

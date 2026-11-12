@@ -141,6 +141,8 @@ export interface ScopeLook {
 	lang: string | null;
 	/** The one typeface they share ('' when it is the style's), or `null` when they differ. */
 	font: string | null;
+	/** The one colour they share ('' when it is the style's), or `null` when they differ. */
+	colour: string | null;
 }
 
 /** The look of the selected words: bold, italic, underline and strike only when every character has them, and the font when they share one. */
@@ -160,8 +162,10 @@ export function lookOf(scope: LookScope, sizeOf: (run: Run) => number = () => 12
 			trackingMixed: false,
 			lang: '',
 			font: '',
+			colour: '',
 		};
 	const fonts = new Set(runs.map((r) => r.font ?? ''));
+	const colours = new Set(runs.map((r) => r.colour ?? ''));
 	const langs = new Set(runs.map((r) => r.lang ?? ''));
 	const sizes = new Set(runs.map(sizeOf));
 	const trackings = new Set(runs.map((r) => r.tracking ?? null));
@@ -176,6 +180,7 @@ export function lookOf(scope: LookScope, sizeOf: (run: Run) => number = () => 12
 		trackingMixed: trackings.size > 1,
 		lang: langs.size === 1 ? [...langs][0]! : null,
 		font: fonts.size === 1 ? [...fonts][0]! : null,
+		colour: colours.size === 1 ? [...colours][0]! : null,
 	};
 }
 

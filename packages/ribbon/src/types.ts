@@ -3,10 +3,28 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+import type { ColourPickerProps } from '@liminal-hq/folio-chrome/ColourPicker/ColourPicker';
+
 export type RibbonValue = string | number | boolean;
 
 /** What a control does when it is used. */
-export type RibbonItemKind = 'button' | 'toggle' | 'menu' | 'select' | 'stepper';
+export type RibbonItemKind = 'button' | 'toggle' | 'menu' | 'select' | 'stepper' | 'colour';
+
+/** What a colour control hands its picker; the item's `value` is the colour set (`''` when none is). */
+export type RibbonColour = Pick<
+	ColourPickerProps,
+	| 'inherited'
+	| 'swatches'
+	| 'pinned'
+	| 'theme'
+	| 'recents'
+	| 'pageColour'
+	| 'contrast'
+	| 'mode'
+	| 'allowNone'
+	| 'labels'
+	| 'onRecord'
+>;
 
 export interface RibbonItem {
 	id: string;
@@ -26,6 +44,8 @@ export interface RibbonItem {
 	key?: string;
 	/** The one-line description shown in the tooltip. */
 	desc?: string;
+	/** For a `colour` control: the picker's data. Choosing a colour reports its value; a reset reports `''`. */
+	colour?: RibbonColour;
 	/** A colour (any CSS colour) drawn as a bar under the glyph. */
 	swatch?: string;
 	/**

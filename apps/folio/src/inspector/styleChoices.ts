@@ -8,6 +8,8 @@ export interface StyleChoice {
 	name: string;
 	/** The size the style sets, in points, when it sets one. */
 	size: number | null;
+	/** The colour the style sets (`#rrggbb` or a swatch reference), when it sets one. */
+	colour?: string | null;
 }
 
 /** The styles in the book's style file, in the order the file lists them. */
@@ -18,6 +20,7 @@ export function styleChoices(styles: unknown): StyleChoice[] {
 		id,
 		name: typeof def.name === 'string' ? def.name : id,
 		size: typeof def.sizePt === 'number' ? def.sizePt : null,
+		colour: typeof def.colour === 'string' ? def.colour : null,
 	}));
 }
 

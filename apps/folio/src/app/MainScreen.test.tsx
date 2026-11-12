@@ -903,7 +903,7 @@ describe('the ribbon acting on words selected in the on-page editor', () => {
 		fireEvent.keyDown(sink, { key: 'a', ctrlKey: true });
 		expect(frame).toHaveAttribute('aria-selected', 'true');
 		expect(bold()).toBeEnabled();
-		expect(screen.getByRole('combobox', { name: 'Text colour' })).toBeEnabled();
+		expect(screen.getByRole('button', { name: 'Text colour' })).toBeEnabled();
 		expect(screen.getByRole('button', { name: 'Copy' })).toBeEnabled();
 		expect(screen.getByRole('button', { name: 'Cut' })).toBeEnabled();
 	});
@@ -920,12 +920,17 @@ describe('the ribbon acting on words selected in the on-page editor', () => {
 		await waitFor(() => expect(styled()).toBe(1));
 		expect(document.querySelector('[data-text-surface]')).not.toBeNull();
 
-		// A list takes the focus to open; the editor stays open and gets it back once a colour is chosen.
-		const colour = screen.getByRole('combobox', { name: 'Text colour' }) as HTMLSelectElement;
-		expect(pressOnRibbon(colour, sink)).toBe(false);
+		// The colour picker opens without taking the focus from the words, and a colour chosen in it
+		// styles the selected words with the editor still open.
+		const colour = screen.getByRole('button', { name: 'Text colour' });
+		expect(pressOnRibbon(colour, sink)).toBe(true);
+		fireEvent.click(colour);
+		const picker = screen.getByRole('dialog');
+		expect(picker).toHaveAttribute('data-keeps-editor');
 		expect(document.querySelector('[data-text-surface]')).not.toBeNull();
-		fireEvent.change(colour, { target: { value: colour.options[2]!.value } });
+		fireEvent.click(within(picker).getByRole('button', { name: 'Black, #000000' }));
 		await waitFor(() => expect(styled()).toBe(2));
+		expect(document.querySelector('[data-text-surface]')).not.toBeNull();
 
 		// A press outside the editor and the ribbon still ends the editing.
 		fireEvent.pointerDown(document.body, { button: 0 });

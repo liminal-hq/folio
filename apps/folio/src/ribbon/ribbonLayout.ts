@@ -6,7 +6,7 @@
 /** One control in the layout. Its label, glyph and behaviour are looked up by `id`. */
 export interface LayoutItem {
 	id: string;
-	kind?: 'button' | 'toggle' | 'menu' | 'select' | 'stepper';
+	kind?: 'button' | 'toggle' | 'menu' | 'select' | 'stepper' | 'colour';
 	large?: boolean;
 	expert?: boolean;
 	radio?: string;
@@ -109,7 +109,7 @@ export const RIBBON_LAYOUT: readonly LayoutTab[] = [
 						[
 							{
 								id: 'colour',
-								kind: 'select',
+								kind: 'colour',
 							},
 							{
 								id: 'highlight',

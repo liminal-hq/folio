@@ -5,6 +5,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { parseColour } from './colourMaths';
+import '../tokens.css';
 import styles from './ColourPicker.module.css';
 import { CustomTab } from './CustomTab';
 import { SwatchesTab } from './SwatchesTab';

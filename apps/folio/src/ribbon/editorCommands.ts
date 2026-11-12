@@ -28,6 +28,7 @@ import { t, type MessageKey } from '../i18n/messages';
 import type { StyleChoice } from '../inspector/styleChoices';
 import { effectiveSize, withOverrides } from '../inspector/textFacts';
 import type { TextParagraphs } from '../canvas/textSelection';
+import { DEFAULT_INK, DEFAULT_PAGE, type SwatchInput } from '../colour/colourPicker';
 import { FROM_STYLE, paragraphIntents, paragraphState } from './paragraphCommands';
 import {
 	linkTarget,
@@ -66,8 +67,10 @@ export interface EditorInput {
 	cell?: { row: number; col: number } | null;
 	/** Whether `spread` is a master page being edited, not one of the book's spreads. */
 	master?: boolean;
-	/** The swatches of the book, offered after the colours of the Text colour list. */
-	swatches?: { id: string; name: string }[];
+	/** The swatches of the book, which the colour pickers list. */
+	swatches?: SwatchInput[];
+	/** The colour of the page under the words, for the picker's contrast hint. */
+	pageColour?: string;
 	/** The words selected in the open text editor: bold, italic and the font apply to just those. */
 	selection?: TextSelection | null;
 	/** The trimmed pages of `spread`, which a lone frame aligns with. */
@@ -94,6 +97,8 @@ export interface EditorState {
 	values: Readonly<Record<string, number>>;
 	/** Controls whose value differs across the selected words, which show it as mixed. */
 	mixed?: Readonly<Record<string, boolean>>;
+	/** What the colour pickers need to know: the swatches, the page and the colour the words fall back to. */
+	colour: { swatches: SwatchInput[]; page: string; fromStyle: string };
 	/** The text a list shows as chosen, by control: the font of the selected words. */
 	texts: Readonly<Record<string, string>>;
 	/** The choices of a list, by control, as value, label and the heading to draw it under. */
@@ -172,19 +177,6 @@ const ALIGNS: Record<string, 'left' | 'center' | 'right' | 'justify'> = {
 
 const texts = (frames: Frame[]) =>
 	frames.flatMap((f) => (f.type === 'text' && !f.locked && !f.fromMaster ? [f] : []));
-/** The colours the Text colour list offers: ink first, then colours that read well on paper. */
-const TEXT_COLOURS: ReadonlyArray<readonly [hex: string, name: MessageKey]> = [
-	['#1c1b20', 'colour.ink'],
-	['#5b2a4a', 'colour.plum'],
-	['#1f4e5f', 'colour.teal'],
-	['#2f5d3a', 'colour.forest'],
-	['#a23b2a', 'colour.brick'],
-	['#c98b2b', 'colour.marigold'],
-	['#2b3a67', 'colour.navy'],
-	['#4a4a4a', 'colour.slate'],
-	['#ffffff', 'colour.white'],
-];
-
 /**
  * The Font list: the typefaces that travel with the book (kept in it, bundled with Folio, or used by
  * it) under "In this book", then the others installed on this computer under "Installed". Each keeps
@@ -312,6 +304,8 @@ export function editorState(input: EditorInput): EditorState {
 	let language: string | null = '';
 	let tracking: { own: number | undefined; mixed: boolean } = { own: undefined, mixed: false };
 	const shown: Record<string, string> = {};
+	/** The colour the words fall back to: their style's, else the book's ink. */
+	let fromStyle: string | null = null;
 	const contextual: string[] = [];
 
 	if (input.master) {
@@ -395,6 +389,9 @@ export function editorState(input: EditorInput): EditorState {
 		available.add('font');
 		available.add('colour');
 		shown.font = first.overrides?.font ?? '';
+		const colours = new Set(runs.map((r) => r.colour ?? ''));
+		shown.colour = colours.size === 1 ? [...colours][0]! : '';
+		fromStyle = choices.find((c) => c.id === first.style)?.colour ?? null;
 		if (choices.length > 0) {
 			available.add('paragraphStyle');
 			shown.paragraphStyle = first.style;
@@ -427,6 +424,10 @@ export function editorState(input: EditorInput): EditorState {
 		active.underline = typed?.underline ?? look.underline;
 		active.strike = typed?.strike ?? look.strike;
 		shown.font = typed?.font ?? look.font ?? '';
+		shown.colour = typed?.colour ?? look.colour ?? '';
+		const styleId =
+			runBeforeCaret(scope)?.style ?? (scope.frame.type === 'text' ? scope.frame.style : null);
+		fromStyle = choices.find((c) => c.id === styleId)?.colour ?? fromStyle;
 		// The words' size, or the first one's with the control marked mixed when they differ.
 		values.size = typed?.size ?? look.size;
 		mixed.size = typed?.size === undefined && look.sizeMixed;
@@ -499,10 +500,6 @@ export function editorState(input: EditorInput): EditorState {
 		available.add('rotL');
 		available.add('rotR');
 	}
-	options.colour = [
-		...TEXT_COLOURS.map(([hex, name]) => [hex, t(name)] as const),
-		...(input.swatches ?? []).map((s) => [`swatch:${s.id}`, s.name] as const),
-	];
 	options.rulerUnits = RULER_UNIT_ORDER.map((unit) => [unit, t(`ruler.unit.${unit}`)] as const);
 	options.shapeMenu = SHAPE_CHOICES.map((id) => [id, t(`ribbon.item.${id}`)] as const);
 	options.toolbarLayout = [
@@ -523,7 +520,20 @@ export function editorState(input: EditorInput): EditorState {
 	];
 	options.paragraphStyle = choices.map((c) => [c.id, c.name] as const);
 	if (input.fonts) options.font = fontOptions(input.fonts, input.fontsInUse ?? []);
-	return { available, active, values, mixed, texts: shown, options, contextual };
+	return {
+		available,
+		active,
+		values,
+		mixed,
+		colour: {
+			swatches: input.swatches ?? [],
+			page: input.pageColour ?? DEFAULT_PAGE,
+			fromStyle: fromStyle ?? DEFAULT_INK,
+		},
+		texts: shown,
+		options,
+		contextual,
+	};
 }
 
 /** The action a control asks for, or `null` when it is not one of the document's controls. */

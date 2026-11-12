@@ -5,6 +5,7 @@
 
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import '../tokens.css';
 import styles from './ColourPicker.module.css';
 
 export interface ColourPopoverProps {

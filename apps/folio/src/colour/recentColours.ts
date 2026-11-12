@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { parseColour } from '@liminal-hq/folio-chrome/ColourPicker/colourMaths';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useSettings, useUpdateSettings } from '../settings/useSettings';
 
 /** How many recent colours are kept; the twin of `RECENT_COLOURS_MAX` in `folio-settings`. */
@@ -29,5 +29,5 @@ export function useRecentColours(): { recents: string[]; record(colour: string):
 		},
 		[recents, update],
 	);
-	return { recents, record };
+	return useMemo(() => ({ recents, record }), [recents, record]);
 }
