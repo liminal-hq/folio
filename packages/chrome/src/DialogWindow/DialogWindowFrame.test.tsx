@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { render, screen } from '@testing-library/react';
+import { createPortal } from 'react-dom';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { DialogActions, DialogButton } from '../Dialog/DialogActions';
@@ -89,6 +90,35 @@ describe('the dialog window frame', () => {
 		await userEvent.tab();
 		await userEvent.tab();
 		expect(screen.getByRole('textbox', { name: 'Name' })).toHaveFocus();
+	});
+
+	it('leaves the keys of a popover portalled outside the dialog to the popover', async () => {
+		const onDefaultAction = vi.fn();
+		render(
+			<WindowChromeProvider controls={controls}>
+				<DialogWindowFrame
+					title="Details"
+					titleBar={<div>bar</div>}
+					onClose={vi.fn()}
+					onDefaultAction={onDefaultAction}
+					footer={<button>Save</button>}
+				>
+					<input aria-label="Name" />
+					{createPortal(
+						<div role="dialog" aria-label="Popover">
+							<input aria-label="First" />
+							<input aria-label="Second" />
+						</div>,
+						document.body,
+					)}
+				</DialogWindowFrame>
+			</WindowChromeProvider>,
+		);
+		screen.getByRole('textbox', { name: 'First' }).focus();
+		await userEvent.tab();
+		expect(screen.getByRole('textbox', { name: 'Second' })).toHaveFocus();
+		await userEvent.keyboard('{Enter}');
+		expect(onDefaultAction).not.toHaveBeenCalled();
 	});
 
 	it('keeps the body in a bounded column and the buttons in a footer pinned below it', () => {

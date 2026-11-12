@@ -116,6 +116,9 @@ export function DialogWindowFrame({
 		const dialog = dialogRef.current;
 		const surface = surfaceRef.current;
 		if (!dialog || !surface) return;
+		// A popover portalled to the body (the colour picker) is in this component's React tree but not
+		// in the dialog, so its keys are its own: Tab moves within it and Enter does not mean "go".
+		if (!(event.target instanceof Node) || !dialog.contains(event.target)) return;
 		if (event.key === 'Tab') {
 			event.stopPropagation();
 			trapTab(event.nativeEvent, dialog, surface);
