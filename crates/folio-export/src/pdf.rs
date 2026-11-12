@@ -20,6 +20,10 @@ use krilla::num::NormalizedF32;
 use krilla::page::PageSettings;
 use krilla::paint::{Fill, FillRule, LinearGradient, SpreadMethod, Stop, Stroke};
 use krilla::surface::Surface;
+use krilla::tagging::{
+    Artifact, ArtifactType, ContentTag, Identifier, Node as TagNode, SpanTag, TableHeaderScope,
+    Tag as PdfTag, TagGroup, TagTree,
+};
 use krilla::text::{Font, GlyphId, KrillaGlyph, Tag};
 use krilla::{Data, SerializeSettings};
 
@@ -30,6 +34,7 @@ use crate::outline::{CoverSide, Navigation, Origin};
 use crate::pages::{CoverPages, PageChoice};
 use crate::picture::{ImagePolicy, PictureCache};
 use crate::shop::ShopOptions;
+use crate::structure::{ArtifactKind, ItemAt, ItemPlan, Kind, LeafId, LinePlan, Plan};
 
 /// Where the bytes of a picture come from: the book's package, in the app.
 pub trait Assets {
@@ -253,6 +258,8 @@ pub fn export_pdf_noted(
         origins = keep.iter().map(|&i| origins[i].clone()).collect();
         scenes = keep.iter().map(|&i| scenes[i].clone()).collect();
     }
+    // The page, if any, that was laid out from the back cover's view of the book.
+    let mut back_page: Option<usize> = None;
     if let Some(back) = &back {
         if let Some(scene) = Layouter::new(back, styles, fonts)
             .scene_spread(&back.spreads[0].id)?
@@ -265,6 +272,7 @@ pub fn export_pdf_noted(
                 section: String::new(),
                 cover: Some(CoverSide::Back),
             });
+            back_page = Some(scenes.len());
             scenes.push(scene);
         }
     }
@@ -296,6 +304,35 @@ pub fn export_pdf_noted(
     };
     // Room outside the bleed for crop marks.
     drawing.demand = crate::picture::demand(&scenes, assets, bleed);
+    // A tagged file says what its marks are: the plan decides, the drawing follows it.
+    let tagged =
+        navigation.tagged && matches!(options.target, PdfTarget::Sharing | PdfTarget::PrintShop);
+    if tagged {
+        let mut books: Vec<&Book> = vec![book];
+        if let Some(back) = &back {
+            books.push(back);
+        }
+        let planned: Vec<Vec<(usize, &folio_layout::scene::PageScene)>> = sheets
+            .iter()
+            .map(|s| {
+                s.iter()
+                    .filter_map(|&i| {
+                        scenes
+                            .get(i)
+                            .map(|scene| (usize::from(back_page == Some(i)), scene))
+                    })
+                    .collect()
+            })
+            .collect();
+        let plan = crate::structure::plan_books(&books, &planned);
+        drawing.tagging = Some(Tagging {
+            links: plan.link_of_leaf(),
+            plan,
+            ids: HashMap::new(),
+            annotations: HashMap::new(),
+            at: None,
+        });
+    }
     let slug = if shop && options.crop_marks {
         options.shop.slug_in_points()
     } else {
@@ -369,7 +406,7 @@ pub fn export_pdf_noted(
         }
         // The pages of a sheet sit side by side, each drawn in its own coordinates.
         let mut across = 0.0;
-        for page in &members {
+        for (member, page) in members.iter().enumerate() {
             let shifted = across != 0.0;
             if shifted {
                 surface.push_transform(&Transform::from_translate(across as f32, 0.0));
@@ -391,6 +428,13 @@ pub fn export_pdf_noted(
                     })
                     .flatten();
                 drawing.page = number + 1;
+                if let Some(tagging) = &mut drawing.tagging {
+                    tagging.at = Some(ItemAt {
+                        sheet: number,
+                        member,
+                        item: at,
+                    });
+                }
                 drawing.item(
                     &mut surface,
                     item,
@@ -407,7 +451,15 @@ pub fn export_pdf_noted(
             across += page.width;
         }
         if slug > 0.0 {
+            if tagged {
+                surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(
+                    ArtifactType::Page,
+                )));
+            }
             drawing.crop_marks(&mut surface, width, height, bleed);
+            if tagged {
+                surface.end_tagged();
+            }
         }
         if moved {
             surface.pop();
@@ -416,14 +468,30 @@ pub fn export_pdf_noted(
         // Links are for a file that is read on a screen; a file for print carries none.
         if options.target == PdfTarget::Sharing && navigation.links {
             let mut across = 0.0;
-            for page in &members {
+            for (member, page) in members.iter().enumerate() {
                 for link in link_annotations(
                     page,
                     &first_page,
                     sheets.len(),
                     (origin_x + across, origin_y),
                 ) {
-                    pdf_page.add_annotation(link);
+                    match &mut drawing.tagging {
+                        // Each link is in the structure tree with the words it covers, and says
+                        // where it goes.
+                        Some(tagging) => {
+                            let annotation = Annotation::new_link(link.annotation, Some(link.alt));
+                            let owner =
+                                tagging.link_at(number, member, link.item, link.line, link.run);
+                            match owner {
+                                Some(owner) => {
+                                    let id = pdf_page.add_tagged_annotation(annotation);
+                                    tagging.annotations.entry(owner).or_default().push(id);
+                                }
+                                None => pdf_page.add_annotation(annotation),
+                            }
+                        }
+                        None => pdf_page.add_annotation(link.annotation.into()),
+                    }
                 }
                 across += page.width;
             }
@@ -445,9 +513,18 @@ pub fn export_pdf_noted(
         document.set_outline(outline);
     }
     document.set_metadata(metadata);
+    if let Some(tagging) = drawing.tagging.take() {
+        document.set_tag_tree(tagging.tree(&book.language));
+    }
     let bytes = document
         .finish()
         .map_err(|e| ExportError::Pdf(format!("{e:?}")))?;
+    // A tagged file asks a viewer to show its title (the print shop's does so in its own step).
+    let bytes = if tagged && !shop {
+        crate::post::with_display_doc_title(&bytes)?
+    } else {
+        bytes
+    };
     let notes = drawing.kept.notes();
     if shop {
         // The colours are sRGB, so that is the condition the file declares; a press profile
@@ -473,14 +550,27 @@ pub fn export_pdf_noted(
                     components: 3,
                 },
             },
+            tagged,
         )?;
         return Ok((made, notes));
     }
     Ok((bytes, notes))
 }
 
-/// Where on the page a piece of a link is, as a rectangle `(x, y, w, h)` before the frame's turn.
-type LinkPiece = (String, (f64, f64, f64, f64));
+/// Where on the page a piece of a link is, as a rectangle `(x, y, w, h)` before the frame's turn,
+/// and the line and run of the item it starts at.
+type LinkPiece = (String, (f64, f64, f64, f64), usize, usize);
+
+/// A link annotation, with what a tagged file needs to put it in the tree and describe it.
+struct LinkOut {
+    annotation: LinkAnnotation,
+    /// What the link does, in words, for a reader who cannot see where it is.
+    alt: String,
+    /// The item of the page, the line of it and the run of the line the link starts at.
+    item: usize,
+    line: usize,
+    run: usize,
+}
 
 /// The link annotations of a page: one for each stretch of a line whose words link to the same
 /// place, over the line's box. `shift` is how far the page's content is moved on the sheet, and
@@ -490,9 +580,9 @@ fn link_annotations(
     first_page: &[Option<usize>],
     pages: usize,
     shift: (f64, f64),
-) -> Vec<Annotation> {
+) -> Vec<LinkOut> {
     let mut out = Vec::new();
-    for item in &page.items {
+    for (item_at, item) in page.items.iter().enumerate() {
         let SceneKind::Text {
             at,
             size,
@@ -508,10 +598,11 @@ fn link_annotations(
             continue;
         }
         let mut pieces: Vec<LinkPiece> = Vec::new();
-        for line in lines {
-            let mut open: Option<(String, f64, f64)> = None;
-            let close = |open: &mut Option<(String, f64, f64)>, pieces: &mut Vec<LinkPiece>| {
-                if let Some((href, from, to)) = open.take() {
+        for (line_at, line) in lines.iter().enumerate() {
+            type Open = Option<(String, f64, f64, usize)>;
+            let mut open: Open = None;
+            let close = |open: &mut Open, pieces: &mut Vec<LinkPiece>| {
+                if let Some((href, from, to, first)) = open.take() {
                     pieces.push((
                         href,
                         (
@@ -520,26 +611,29 @@ fn link_annotations(
                             to - from,
                             line.height,
                         ),
+                        line_at,
+                        first,
                     ));
                 }
             };
-            for run in &line.runs {
+            for (run_at, run) in line.runs.iter().enumerate() {
                 let Some(href) = run.href.as_deref().filter(|_| !run.text.is_empty()) else {
                     close(&mut open, &mut pieces);
                     continue;
                 };
                 match &mut open {
                     // The next word of the same link, with only the space between.
-                    Some((was, _, to)) if was == href => *to = run.x + run.width,
+                    Some((was, _, to, _)) if was == href => *to = run.x + run.width,
                     _ => {
                         close(&mut open, &mut pieces);
-                        open = Some((href.to_string(), run.x, run.x + run.width));
+                        open = Some((href.to_string(), run.x, run.x + run.width, run_at));
                     }
                 }
             }
             close(&mut open, &mut pieces);
         }
-        for (href, (x, y, w, h)) in pieces {
+        for (href, (x, y, w, h), line_at, run_at) in pieces {
+            let mut alt = format!("Link to {href}");
             let target = match folio_model::spread_of_href(&href) {
                 Some(n) => {
                     let Some(page) = first_page
@@ -550,6 +644,7 @@ fn link_annotations(
                     else {
                         continue;
                     };
+                    alt = format!("Go to page {}", page + 1);
                     Target::Destination(XyzDestination::new(page, Point::from_xy(0.0, 0.0)).into())
                 }
                 None if href.starts_with('#') => continue,
@@ -565,8 +660,8 @@ fn link_annotations(
                     (cy + dx * sin + dy * cos + shift.1) as f32,
                 )
             };
-            out.push(
-                LinkAnnotation::new_with_quad_points(
+            out.push(LinkOut {
+                annotation: LinkAnnotation::new_with_quad_points(
                     vec![Quadrilateral([
                         corner(x, y + h),
                         corner(x + w, y + h),
@@ -574,9 +669,12 @@ fn link_annotations(
                         corner(x, y),
                     ])],
                     target,
-                )
-                .into(),
-            );
+                ),
+                alt,
+                item: item_at,
+                line: line_at,
+                run: run_at,
+            });
         }
     }
     out
@@ -613,6 +711,100 @@ struct Drawing<'a> {
     ink_key: u64,
     /// Texture tiles made so far, by texture and tint, with each tile's side in points.
     textures: HashMap<String, Option<(Image, f64)>>,
+    /// The structure of a tagged file, and the marks made for it so far.
+    tagging: Option<Tagging>,
+    /// The glyph each font uses for a space, by font key, once looked for.
+    spaces: HashMap<String, Option<u16>>,
+}
+
+/// What a tagged file draws by: the plan, and what the drawing has made of it.
+struct Tagging {
+    plan: Plan,
+    /// Each mark the page content made, to put in the tree.
+    ids: HashMap<LeafId, Identifier>,
+    /// For each mark inside a link, the link it is in.
+    links: HashMap<LeafId, LeafId>,
+    /// The annotations of each link, in the order they were made.
+    annotations: HashMap<LeafId, Vec<Identifier>>,
+    /// The item being drawn.
+    at: Option<ItemAt>,
+}
+
+impl Tagging {
+    /// The link that the words a link annotation covers are in.
+    fn link_at(
+        &self,
+        sheet: usize,
+        member: usize,
+        item: usize,
+        line: usize,
+        run: usize,
+    ) -> Option<LeafId> {
+        let at = ItemAt {
+            sheet,
+            member,
+            item,
+        };
+        let ItemPlan::Text(lines) = self.plan.items.get(&at)? else {
+            return None;
+        };
+        let LinePlan::Pieces(pieces) = lines.get(line)? else {
+            return None;
+        };
+        let piece = pieces.iter().find(|p| p.runs.contains(&run))?;
+        self.links.get(&piece.leaf).copied()
+    }
+
+    /// The structure tree: the plan with the marks the drawing made.
+    fn tree(&self, language: &str) -> TagTree {
+        fn nodes(tagging: &Tagging, from: &[crate::structure::Node]) -> Vec<TagNode> {
+            let mut out = Vec::new();
+            for node in from {
+                match node {
+                    crate::structure::Node::Leaf(leaf) => {
+                        if let Some(id) = tagging.ids.get(leaf) {
+                            out.push(TagNode::Leaf(*id));
+                        }
+                    }
+                    crate::structure::Node::Group(group) => {
+                        let mut children = nodes(tagging, &group.children);
+                        let tag: krilla::tagging::TagKind = match &group.kind {
+                            Kind::Paragraph => PdfTag::P.into(),
+                            Kind::Heading { level, title } => PdfTag::Hn(
+                                std::num::NonZeroU16::new(u16::from(*level).max(1))
+                                    .expect("at least 1"),
+                                Some(title.clone()),
+                            )
+                            .into(),
+                            Kind::BlockQuote => PdfTag::BlockQuote.into(),
+                            Kind::Caption => PdfTag::Caption.into(),
+                            Kind::Note => PdfTag::Note.into(),
+                            Kind::Figure { alt } => PdfTag::Figure(alt.clone()).into(),
+                            Kind::Link { id, .. } => {
+                                if let Some(annotations) = tagging.annotations.get(id) {
+                                    children.extend(annotations.iter().map(|a| TagNode::Leaf(*a)));
+                                }
+                                PdfTag::Link.into()
+                            }
+                            Kind::Table => PdfTag::Table.into(),
+                            Kind::TableHead => PdfTag::THead.into(),
+                            Kind::TableBody => PdfTag::TBody.into(),
+                            Kind::Row => PdfTag::TR.into(),
+                            Kind::HeaderCell => PdfTag::TH(TableHeaderScope::Column).into(),
+                            Kind::Cell => PdfTag::TD.into(),
+                        };
+                        out.push(TagNode::Group(TagGroup::with_children(tag, children)));
+                    }
+                }
+            }
+            out
+        }
+        let mut tree = TagTree::new().with_lang(Some(language.to_owned()));
+        for node in nodes(self, &self.plan.tree) {
+            tree.push(node);
+        }
+        tree
+    }
 }
 
 /// Whether something on the page runs past its trim on a side, so the file needs a bleed.
@@ -668,6 +860,8 @@ impl<'a> Drawing<'a> {
             cancel: Default::default(),
             ink_key: 0,
             textures: HashMap::new(),
+            tagging: None,
+            spaces: HashMap::new(),
         }
     }
 
@@ -710,6 +904,46 @@ impl<'a> Drawing<'a> {
                 surface.push_clip_path(&path, &FillRule::default());
             }
         }
+        // In a tagged file everything drawn is a mark of the structure or an artifact.
+        let planned = self.tagging.as_ref().map(|t| {
+            t.at.and_then(|at| t.plan.items.get(&at).cloned())
+                .unwrap_or(ItemPlan::Artifact(ArtifactKind::Layout))
+        });
+        let mut open = false;
+        match &planned {
+            Some(ItemPlan::Artifact(kind)) => {
+                surface.start_tagged(ContentTag::Artifact(artifact(*kind, area)));
+                open = true;
+            }
+            Some(ItemPlan::Figure(leaf)) => {
+                let id = surface.start_tagged(ContentTag::Other);
+                if let Some(tagging) = &mut self.tagging {
+                    tagging.ids.insert(*leaf, id);
+                }
+                open = true;
+            }
+            _ => {}
+        }
+        let lines = match &planned {
+            Some(ItemPlan::Text(lines)) => Some(lines.as_slice()),
+            _ => None,
+        };
+        self.item_body(surface, item, area, lines, planned.is_some());
+        if open {
+            surface.end_tagged();
+        }
+        surface.pop();
+    }
+
+    /// What `item` draws. In a tagged file the words are marked line by line as `lines` says.
+    fn item_body(
+        &mut self,
+        surface: &mut Surface,
+        item: &SceneItem,
+        area: &SceneRect,
+        lines_plan: Option<&[LinePlan]>,
+        tagged: bool,
+    ) {
         match &item.kind {
             SceneKind::Background { bg, across } => {
                 self.background(surface, bg, across.as_ref(), area)
@@ -759,9 +993,41 @@ impl<'a> Drawing<'a> {
                         (at.1 + size.1 / 2.0) as f32,
                     ));
                 }
-                for line in lines {
-                    for run in &line.runs {
-                        self.run(surface, at.0 + line.x, at.1 + line.baseline, run);
+                for (line_at, line) in lines.iter().enumerate() {
+                    let origin = (at.0 + line.x, at.1 + line.baseline);
+                    // Another line of the same paragraph follows, so this one ends on a space.
+                    let goes_on = tagged
+                        && lines.get(line_at + 1).is_some_and(|next| {
+                            next.paragraph.is_some() && next.paragraph == line.paragraph
+                        });
+                    match lines_plan.and_then(|plan| plan.get(line_at)) {
+                        Some(LinePlan::Artifact(kind)) => {
+                            surface.start_tagged(ContentTag::Artifact(artifact(*kind, area)));
+                            self.runs(surface, origin, line, 0..line.runs.len(), tagged, goes_on);
+                            surface.end_tagged();
+                        }
+                        Some(LinePlan::Pieces(pieces)) => {
+                            for piece in pieces {
+                                let id = surface.start_tagged(ContentTag::Span(
+                                    SpanTag::empty().with_lang(piece.lang.as_deref()),
+                                ));
+                                self.runs(
+                                    surface,
+                                    origin,
+                                    line,
+                                    piece.runs.clone(),
+                                    tagged,
+                                    goes_on,
+                                );
+                                surface.end_tagged();
+                                if let Some(tagging) = &mut self.tagging {
+                                    tagging.ids.insert(piece.leaf, id);
+                                }
+                            }
+                        }
+                        None => {
+                            self.runs(surface, origin, line, 0..line.runs.len(), tagged, goes_on)
+                        }
                     }
                 }
                 if turned {
@@ -769,7 +1035,34 @@ impl<'a> Drawing<'a> {
                 }
             }
         }
-        surface.pop();
+    }
+
+    /// The runs `range` of `line`, whose words start at `origin`. A tagged file puts the space
+    /// between words, which layout only moves over, into the text.
+    fn runs(
+        &mut self,
+        surface: &mut Surface,
+        origin: (f64, f64),
+        line: &folio_layout::wire::LayoutLine,
+        range: std::ops::Range<usize>,
+        spaced: bool,
+        goes_on: bool,
+    ) {
+        for at in range {
+            let run = &line.runs[at];
+            let space = if !spaced || run.hyphen {
+                None
+            } else {
+                match line.runs.get(at + 1) {
+                    Some(next) => {
+                        let gap = next.x - (run.x + run.width);
+                        (gap > 0.05 * run.size).then_some(gap)
+                    }
+                    None => goes_on.then_some(0.0),
+                }
+            };
+            self.run(surface, origin.0, origin.1, run, space);
+        }
     }
 
     /// Crop marks at the four corners of the trim, starting a little outside the bleed, in the
@@ -1182,7 +1475,16 @@ impl<'a> Drawing<'a> {
         }
     }
 
-    fn run(&mut self, surface: &mut Surface, line_x: f64, baseline: f64, run: &LayoutRun) {
+    /// Draws one run. `space` is how far to the next word, when that is to be written as a space in
+    /// the text (zero for a space the line ends on).
+    fn run(
+        &mut self,
+        surface: &mut Surface,
+        line_x: f64,
+        baseline: f64,
+        run: &LayoutRun,
+        space: Option<f64>,
+    ) {
         if run.glyphs.is_empty() || run.text.trim().is_empty() && !run.hyphen {
             return;
         }
@@ -1190,32 +1492,68 @@ impl<'a> Drawing<'a> {
             return;
         };
         let size = run.size as f32;
+        // A hyphen drawn at the end of a line is a soft hyphen in the text, since it is not part of
+        // the word.
+        let mut text = if run.hyphen {
+            "\u{AD}".to_owned()
+        } else {
+            run.text.clone()
+        };
+        // A glyph's cluster is where its text starts in the word it was shaped with, and a piece of
+        // a word (cut for hyphenation) holds only part of it, so its clusters do not start at 0.
+        let base = run.glyphs.iter().map(|g| g.cluster).min().unwrap_or(0) as usize;
+        let starts: Vec<usize> = run
+            .glyphs
+            .iter()
+            .map(|g| g.cluster as usize - base)
+            .collect();
+        let whole = text.len();
         // Where each glyph's text is, as the cluster to the next cluster's start.
-        let starts: Vec<usize> = run.glyphs.iter().map(|g| g.cluster as usize).collect();
-        let glyphs: Vec<KrillaGlyph> = run
+        let mut glyphs: Vec<KrillaGlyph> = run
             .glyphs
             .iter()
             .enumerate()
             .map(|(i, g)| {
-                let from = g.cluster as usize;
+                let from = starts[i];
                 let to = starts
                     .iter()
                     .skip(i + 1)
                     .copied()
                     .find(|s| *s != from)
-                    .unwrap_or(run.text.len())
+                    .unwrap_or(if run.hyphen { whole } else { run.text.len() })
                     .max(from);
+                let range = if run.hyphen {
+                    0..whole
+                } else {
+                    from.min(run.text.len())..to.min(run.text.len())
+                };
                 KrillaGlyph::new(
                     GlyphId::new(u32::from(g.id)),
                     (g.advance / run.size) as f32,
                     (g.dx / run.size) as f32,
                     (-g.dy / run.size) as f32,
                     0.0,
-                    from.min(run.text.len())..to.min(run.text.len()),
+                    range,
                     None,
                 )
             })
             .collect();
+        // The space after the word, as the font draws it, so the text reads as words.
+        if let Some(gap) = space {
+            if let Some(id) = self.space_glyph(&run.face_key) {
+                let at = text.len();
+                text.push(' ');
+                glyphs.push(KrillaGlyph::new(
+                    GlyphId::new(u32::from(id)),
+                    (gap / run.size) as f32,
+                    0.0,
+                    0.0,
+                    0.0,
+                    at..at + 1,
+                    None,
+                ));
+            }
+        }
         let ink = run
             .colour
             .clone()
@@ -1226,7 +1564,7 @@ impl<'a> Drawing<'a> {
             Point::from_xy((line_x + run.x) as f32, baseline as f32),
             &glyphs,
             font,
-            &run.text,
+            &text,
             size,
             false,
         );
@@ -1244,6 +1582,19 @@ impl<'a> Drawing<'a> {
                 self.paint_path(surface, pb, Some(self.fill_of(&ink, 1.0)), None);
             }
         }
+    }
+
+    /// The glyph a font draws for a space, if it has one.
+    fn space_glyph(&mut self, key: &str) -> Option<u16> {
+        if let Some(found) = self.spaces.get(key) {
+            return *found;
+        }
+        let found = self.fonts.font_by_key(key).and_then(|f| {
+            let face = ttf_parser::Face::parse(f.data(), f.index()).ok()?;
+            face.glyph_index(' ').map(|g| g.0)
+        });
+        self.spaces.insert(key.to_owned(), found);
+        found
     }
 
     fn font(&mut self, key: &str, weight: u16, size_pt: f64) -> Option<Font> {
@@ -1268,6 +1619,17 @@ impl<'a> Drawing<'a> {
         });
         self.faces.insert(id, made.clone());
         made
+    }
+}
+
+/// What krilla calls an artifact of this kind, over `area` (a background must say how far it goes).
+fn artifact(kind: ArtifactKind, area: &SceneRect) -> Artifact {
+    match kind {
+        ArtifactKind::PageNumber => Artifact::with_kind(ArtifactType::PageNumber),
+        ArtifactKind::Header => Artifact::with_kind(ArtifactType::Header),
+        ArtifactKind::Footer => Artifact::with_kind(ArtifactType::Footer),
+        ArtifactKind::Layout => Artifact::with_kind(ArtifactType::Layout),
+        ArtifactKind::Background => Artifact::new(ArtifactType::Background, krect(area)),
     }
 }
 

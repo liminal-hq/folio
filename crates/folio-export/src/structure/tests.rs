@@ -655,7 +655,7 @@ fn words_that_link_are_a_link_element_across_the_lines_they_run_over() {
         .map(|n| match n {
             Node::Leaf(_) => "text".to_string(),
             Node::Group(g) => match &g.kind {
-                Kind::Link { href } => format!("link {href} x{}", g.children.len()),
+                Kind::Link { href, .. } => format!("link {href} x{}", g.children.len()),
                 other => format!("{other:?}"),
             },
         })

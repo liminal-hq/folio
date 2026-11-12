@@ -19,6 +19,7 @@ pub mod pages;
 pub mod pdf;
 pub mod pdfx;
 pub mod picture;
+pub mod post;
 pub mod prefs;
 pub mod proof;
 pub mod raster;

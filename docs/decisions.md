@@ -408,6 +408,8 @@ The first draft of the rule asked for the number to sit below the bottom margin 
 
 **Reading order is a heuristic, written down.** Rows from the top, left to right inside a row, a story in the order of its frames, one element per paragraph across frames and pages, and a frame that crosses the gutter read once on the page that holds its middle with its other copy an artifact. A per-frame override can be added later; the plan is the one place it would go. Every mark is in the tree exactly once, which krilla insists on.
 
+**Text a reader can use.** Layout moves over the space between words and never draws it, so a tagged file writes the font's space glyph after each word (with the gap as its advance, so a justified line is as wide as before) and at the end of a line the paragraph goes on from, and a hyphen at the end of a line is a soft hyphen in the text. The same step fixed a bug found in a real export: a word cut into pieces for hyphenation ("Writ" and "ten") has glyph clusters that count from the start of the whole word, so the second piece's text was empty and a reader got "Zeafish" for "Zebrafish"; clusters now count from the piece's own start, for every PDF. The pixels are the same with and without tags, which a test checks.
+
 **Not claimed.** No PDF/UA claim is made: it needs alternative text on every figure, an outline, fonts whose licences allow it and more, and Folio does not know a book qualifies until then. Lists, caption-to-picture links, colour contrast and right-to-left text are not covered. `Tagged: yes` and a readable, described, ordered file are the goal; a validator's pass is a later step.
 
 ## D-83 · The title bar gains a quick actions strip beside the app menu

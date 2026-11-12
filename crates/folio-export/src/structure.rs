@@ -117,9 +117,11 @@ pub enum Kind {
     Figure {
         alt: Option<String>,
     },
-    /// Words that link to `href`.
+    /// Words that link to `href`. `id` is the first mark inside, which names the element so the
+    /// writer can add the link annotations of those words to it.
     Link {
         href: String,
+        id: LeafId,
     },
     Table,
     TableHead,
@@ -154,6 +156,27 @@ pub struct Plan {
 }
 
 impl Plan {
+    /// For each mark inside a link, the link it is in.
+    pub fn link_of_leaf(&self) -> HashMap<LeafId, LeafId> {
+        fn walk(nodes: &[Node], out: &mut HashMap<LeafId, LeafId>) {
+            for node in nodes {
+                if let Node::Group(group) = node {
+                    if let Kind::Link { id, .. } = &group.kind {
+                        for child in &group.children {
+                            if let Node::Leaf(leaf) = child {
+                                out.insert(*leaf, *id);
+                            }
+                        }
+                    }
+                    walk(&group.children, out);
+                }
+            }
+        }
+        let mut out = HashMap::new();
+        walk(&self.tree, &mut out);
+        out
+    }
+
     /// Every mark in the tree, in reading order.
     pub fn leaves_in_order(&self) -> Vec<LeafId> {
         fn walk(nodes: &[Node], out: &mut Vec<LeafId>) {
@@ -172,7 +195,18 @@ impl Plan {
 
 /// The plan for the `sheets` of a file, each the pages on it left to right, drawn from `book`.
 pub fn plan(book: &Book, sheets: &[Vec<&PageScene>]) -> Plan {
-    Planner::new(book, sheets).run()
+    let sheets: Vec<Vec<(usize, &PageScene)>> = sheets
+        .iter()
+        .map(|s| s.iter().map(|p| (0, *p)).collect())
+        .collect();
+    plan_books(&[book], &sheets)
+}
+
+/// The plan for a file whose pages come from more than one book (the back cover is a view of the
+/// book cut down to its back panel): each page is paired with the index in `books` of the book it
+/// was laid out from.
+pub fn plan_books(books: &[&Book], sheets: &[Vec<(usize, &PageScene)>]) -> Plan {
+    Planner::new(books, sheets).run()
 }
 
 /// Whether a style's words are read as a heading, and which level.
@@ -205,50 +239,77 @@ enum Class {
     Content,
 }
 
-struct Planner<'a> {
+/// What the planner looks up in one book.
+struct BookIndex<'a> {
     book: &'a Book,
-    sheets: &'a [Vec<&'a PageScene>],
     decorations: Decorations,
     /// A page's id to its spread and its place in it.
     pages: HashMap<&'a str, (usize, usize)>,
     /// For a frame, the pages of its spread it is drawn on in the file.
     drawn_on: HashMap<(usize, String), BTreeSet<usize>>,
+}
+
+struct Planner<'a> {
+    books: Vec<BookIndex<'a>>,
+    /// The book the page being planned was laid out from.
+    cur: usize,
+    sheets: &'a [Vec<(usize, &'a PageScene)>],
     plan: Plan,
 }
 
 impl<'a> Planner<'a> {
-    fn new(book: &'a Book, sheets: &'a [Vec<&'a PageScene>]) -> Self {
-        let mut pages = HashMap::new();
-        for (s, spread) in book.spreads.iter().enumerate() {
-            for (p, page) in spread.pages.iter().enumerate() {
-                pages.insert(page.id.0.as_str(), (s, p));
-            }
-        }
-        let mut drawn_on: HashMap<(usize, String), BTreeSet<usize>> = HashMap::new();
-        for page in sheets.iter().flatten() {
-            if let Some(&(s, p)) = pages.get(page.page.0.as_str()) {
-                for item in &page.items {
-                    drawn_on
-                        .entry((s, base_of(&item.frame.0).to_owned()))
-                        .or_default()
-                        .insert(p);
+    fn new(books: &[&'a Book], sheets: &'a [Vec<(usize, &'a PageScene)>]) -> Self {
+        let books = books
+            .iter()
+            .enumerate()
+            .map(|(at, &book)| {
+                let mut pages = HashMap::new();
+                for (s, spread) in book.spreads.iter().enumerate() {
+                    for (p, page) in spread.pages.iter().enumerate() {
+                        pages.insert(page.id.0.as_str(), (s, p));
+                    }
                 }
-            }
-        }
+                let mut drawn_on: HashMap<(usize, String), BTreeSet<usize>> = HashMap::new();
+                for (_, page) in sheets.iter().flatten().filter(|(b, _)| *b == at) {
+                    if let Some(&(s, p)) = pages.get(page.page.0.as_str()) {
+                        for item in &page.items {
+                            drawn_on
+                                .entry((s, base_of(&item.frame.0).to_owned()))
+                                .or_default()
+                                .insert(p);
+                        }
+                    }
+                }
+                BookIndex {
+                    book,
+                    decorations: Decorations::of_book(book),
+                    pages,
+                    drawn_on,
+                }
+            })
+            .collect();
         Planner {
-            book,
+            books,
+            cur: 0,
             sheets,
-            decorations: Decorations::of_book(book),
-            pages,
-            drawn_on,
             plan: Plan::default(),
         }
     }
 
+    fn b(&self) -> &BookIndex<'a> {
+        &self.books[self.cur]
+    }
+
+    fn book(&self) -> &'a Book {
+        self.books[self.cur].book
+    }
+
     fn run(mut self) -> Plan {
         let mut out = Emit::default();
-        for (sheet, members) in self.sheets.iter().enumerate() {
-            for (member, page) in members.iter().enumerate() {
+        let sheets = self.sheets;
+        for (sheet, members) in sheets.iter().enumerate() {
+            for (member, (book, page)) in members.iter().enumerate() {
+                self.cur = *book;
                 self.page(sheet, member, page, &mut out);
             }
         }
@@ -266,14 +327,14 @@ impl<'a> Planner<'a> {
         if base.contains('@') {
             return Class::Artifact(self.master_kind(base));
         }
-        let spread_id = &self.book.spreads[spread].id;
+        let spread_id = &self.book().spreads[spread].id;
         if let Some(frame) = frame {
             if let Frame::Text(text) = frame {
                 if let Some(printed) = printed_of(&text.style.0) {
                     return Class::Artifact(self.furniture_kind(printed, &frame.base().rect));
                 }
             }
-            if let Some(why) = self.decorations.of(spread_id, &frame.base().id) {
+            if let Some(why) = self.b().decorations.of(spread_id, &frame.base().id) {
                 use folio_layout::decoration::Decoration;
                 return Class::Artifact(match why {
                     Decoration::PageNumber => ArtifactKind::PageNumber,
@@ -284,7 +345,9 @@ impl<'a> Planner<'a> {
         }
         // A frame that crosses the gutter is drawn on both pages and is read on the one that holds
         // its middle (or on the one there is, when the other is not in the file).
-        if let (Some(frame), Some(pages)) = (frame, self.drawn_on.get(&(spread, base.to_owned()))) {
+        if let (Some(frame), Some(pages)) =
+            (frame, self.b().drawn_on.get(&(spread, base.to_owned())))
+        {
             if pages.len() > 1 && page != self.owner(spread, frame, pages) {
                 return Class::Artifact(ArtifactKind::Layout);
             }
@@ -294,7 +357,7 @@ impl<'a> Planner<'a> {
 
     /// The page, of those `pages` a frame is drawn on, that reads it.
     fn owner(&self, spread: usize, frame: &Frame, pages: &BTreeSet<usize>) -> usize {
-        let layout = page_rects(self.book, &self.book.spreads[spread]);
+        let layout = page_rects(self.book(), &self.book().spreads[spread]);
         let base = frame.base();
         let bounds = base.rect.turned_bounds(base.rotation);
         let centre = bounds.x.0 + bounds.w.0 / 2.0;
@@ -312,7 +375,7 @@ impl<'a> Planner<'a> {
             Printed::PageNumber => ArtifactKind::PageNumber,
             Printed::RunningHead => {
                 let middle = rect.y.0 + rect.h.0 / 2.0;
-                if middle < self.book.trim.h.0 / 2.0 {
+                if middle < self.book().trim.h.0 / 2.0 {
                     ArtifactKind::Header
                 } else {
                     ArtifactKind::Footer
@@ -327,16 +390,16 @@ impl<'a> Planner<'a> {
         let Some((frame_id, page_id)) = base.split_once('@') else {
             return ArtifactKind::Layout;
         };
-        let Some(&(s, p)) = self.pages.get(page_id) else {
+        let Some(&(s, p)) = self.b().pages.get(page_id) else {
             return ArtifactKind::Layout;
         };
         if frame_id == "bg" {
             return ArtifactKind::Background;
         }
-        let master = self.book.spreads[s].pages[p]
+        let master = self.book().spreads[s].pages[p]
             .master
             .as_ref()
-            .and_then(|m| self.book.master_pages.iter().find(|x| &x.id == m));
+            .and_then(|m| self.book().master_pages.iter().find(|x| &x.id == m));
         let frame = master.and_then(|m| m.frames.iter().find(|f| f.base().id.0 == frame_id));
         match frame {
             Some(Frame::Text(text)) => match printed_of(&text.style.0) {
@@ -349,7 +412,7 @@ impl<'a> Planner<'a> {
     }
 
     fn page(&mut self, sheet: usize, member: usize, page: &PageScene, out: &mut Emit) {
-        let Some(&(spread_at, page_at)) = self.pages.get(page.page.0.as_str()) else {
+        let Some(&(spread_at, page_at)) = self.b().pages.get(page.page.0.as_str()) else {
             // A page the book does not know (a made-up scene): everything on it is decoration.
             for (item, _) in page.items.iter().enumerate() {
                 self.mark_item(
@@ -364,12 +427,12 @@ impl<'a> Planner<'a> {
             }
             return;
         };
-        let spread = &self.book.spreads[spread_at];
+        let spread = &self.book().spreads[spread_at];
         let frames: HashMap<&str, &Frame> = folio_model::leaves(&spread.frames)
             .into_iter()
             .map(|f| (f.base().id.0.as_str(), f))
             .collect();
-        let rects = page_rects(self.book, spread);
+        let rects = page_rects(self.book(), spread);
         let left = rects.get(page_at).map_or(0.0, |r| r.rect.x.0);
 
         // Group the items of the page by frame.
@@ -527,7 +590,7 @@ impl<'a> Planner<'a> {
             self.table(sheet, member, page, entry, table.head as usize, out);
             return;
         }
-        let style = text_style(self.book, entry.frame);
+        let style = text_style(self.book(), entry.frame);
         let owner = entry.base.clone();
         for &item in &entry.texts {
             let SceneKind::Text { lines, .. } = &page.items[item].kind else {
@@ -705,7 +768,7 @@ impl<'a> Planner<'a> {
     ) -> String {
         if let (Some((flow, _)), Some(p)) = (flow_of(frame), paragraph) {
             if let Some(style) = self
-                .book
+                .book()
                 .flows
                 .iter()
                 .find(|f| f.id == flow)
@@ -924,13 +987,16 @@ impl Emit {
                     // Words that link are one Link element across the lines they run over.
                     Some(href) => match group.children.last_mut() {
                         Some(Node::Group(Group {
-                            kind: Kind::Link { href: last },
+                            kind: Kind::Link { href: last, .. },
                             children,
                         })) if last == href => {
                             children.push(Node::Leaf(piece.leaf));
                         }
                         _ => group.children.push(Node::Group(Group {
-                            kind: Kind::Link { href: href.clone() },
+                            kind: Kind::Link {
+                                href: href.clone(),
+                                id: piece.leaf,
+                            },
                             children: vec![Node::Leaf(piece.leaf)],
                         })),
                     },
