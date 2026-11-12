@@ -2,6 +2,7 @@
 import type { AutosaveSettings } from "./AutosaveSettings";
 import type { ColourMode } from "./ColourMode";
 import type { EditingSettings } from "./EditingSettings";
+import type { ExportPrefs } from "./ExportPrefs";
 import type { InterfaceSettings } from "./InterfaceSettings";
 import type { JaxHelp } from "./JaxHelp";
 import type { MarksSettings } from "./MarksSettings";
@@ -15,6 +16,11 @@ import type { UpdateSettings } from "./UpdateSettings";
  * The application settings: one document every window reads.
  */
 export type Settings = { mode: Mode, colourMode: ColourMode, units: Units, jax: JaxHelp, interface: InterfaceSettings, marks: MarksSettings, rulers: RulerSettings, spelling: SpellingSettings, editing: EditingSettings, autosave: AutosaveSettings, updates: UpdateSettings, 
+/**
+ * What the person chose for their exports, which every book starts from: a book's own
+ * choices, and those of a single export, are laid over these.
+ */
+export: ExportPrefs, 
 /**
  * The paths of recently opened books, newest first.
  */

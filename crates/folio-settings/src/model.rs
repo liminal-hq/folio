@@ -306,6 +306,9 @@ pub struct Settings {
     pub editing: EditingSettings,
     pub autosave: AutosaveSettings,
     pub updates: UpdateSettings,
+    /// What the person chose for their exports, which every book starts from: a book's own
+    /// choices, and those of a single export, are laid over these.
+    pub export: folio_model::ExportPrefs,
     /// The paths of recently opened books, newest first.
     pub recent_books: Vec<String>,
     /// The colours last chosen in the colour picker as `#rrggbb`, newest first, kept per user and
@@ -357,6 +360,9 @@ impl Settings {
                 max: AUTOSAVE_SECS_MAX,
             });
         }
+        self.export
+            .check()
+            .map_err(|e| SettingsError::Malformed(format!("export: {e}")))?;
         let personal = &self.spelling.personal;
         if personal.len() > PERSONAL_WORDS_MAX {
             return Err(SettingsError::OutOfRange {
@@ -557,6 +563,47 @@ mod tests {
         // A settings file from before the section existed still loads.
         let old: Settings = serde_json::from_value(json!({ "mode": "expert" })).unwrap();
         assert_eq!(old.updates, UpdateSettings::default());
+    }
+
+    #[test]
+    fn export_defaults_start_empty_survive_a_round_trip_and_keep_unknown_keys() {
+        let fresh = Settings::default();
+        assert!(fresh.export.is_empty());
+        // An old settings file without the section loads, and an empty section is not written.
+        let old: Settings = serde_json::from_value(json!({ "mode": "expert" })).unwrap();
+        assert!(old.export.is_empty());
+        // The empty choices are written out, so a reader always finds each kind of PDF.
+        assert_eq!(
+            serde_json::to_value(&fresh).unwrap()["export"],
+            json!({ "pdf": { "sharing": {}, "kdp": {}, "printShop": {} } })
+        );
+        let chosen = Settings::default()
+            .patched(&json!({ "export": {
+                "folder": "/home/mom/Books/out",
+                "pdf": { "sharing": { "preset": "small", "jpegQuality": 70 } },
+                "fromANewerFolio": { "kept": true }
+            } }))
+            .unwrap();
+        assert_eq!(
+            chosen.export.pdf.sharing.preset,
+            Some(folio_model::PicturePreset::Small)
+        );
+        let again: Settings =
+            serde_json::from_value(serde_json::to_value(&chosen).unwrap()).unwrap();
+        assert_eq!(again, chosen);
+        assert!(again.export.extensions.contains_key("fromANewerFolio"));
+    }
+
+    #[test]
+    fn export_choices_out_of_range_are_refused() {
+        for bad in [
+            json!({ "export": { "pdf": { "sharing": { "jpegQuality": 0 } } } }),
+            json!({ "export": { "pdf": { "sharing": { "jpegQuality": 101 } } } }),
+            json!({ "export": { "pdf": { "kdp": { "maxPpi": 50 } } } }),
+            json!({ "export": { "pdf": { "printShop": { "maxPpi": 5000 } } } }),
+        ] {
+            assert!(Settings::default().patched(&bad).is_err(), "{bad}");
+        }
     }
 
     #[test]

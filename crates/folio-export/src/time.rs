@@ -5,6 +5,12 @@
 
 /// The time now as `2026-10-20T01:17:00Z`, which an EPUB's `dcterms:modified` wants.
 pub(crate) fn utc_now() -> String {
+    let (year, month, day, hour, minute, second) = utc_parts();
+    format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z")
+}
+
+/// The time now in UTC as year, month, day, hour, minute and second.
+pub(crate) fn utc_parts() -> (i64, i64, i64, i64, i64, i64) {
     let seconds = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -20,10 +26,5 @@ pub(crate) fn utc_now() -> String {
     let day = doy - (153 * mp + 2) / 5 + 1;
     let month = if mp < 10 { mp + 3 } else { mp - 9 };
     let year = yoe + era * 400 + i64::from(month <= 2);
-    format!(
-        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z",
-        rest / 3_600,
-        rest % 3_600 / 60,
-        rest % 60
-    )
+    (year, month, day, rest / 3_600, rest % 3_600 / 60, rest % 60)
 }

@@ -13,6 +13,8 @@ import type { DictionaryOffer } from '@liminal-hq/folio-protocol/generated/Dicti
 import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/DictionaryProgress';
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import type { ExportColour } from '@liminal-hq/folio-protocol/generated/ExportColour';
+import type { SizeEstimate } from '@liminal-hq/folio-protocol/generated/SizeEstimate';
+import type { ExportPrefs } from '@liminal-hq/folio-protocol/generated/ExportPrefs';
 import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
 import type { CoverSheetPreview } from '@liminal-hq/folio-protocol/generated/CoverSheetPreview';
 import type { ImportReport } from '@liminal-hq/folio-protocol/generated/ImportReport';
@@ -328,13 +330,45 @@ export function previewCoverSheet(id: string): Promise<CoverSheetPreview | null>
 	return cmd<CoverSheetPreview | null>('preview_cover_sheet', { id });
 }
 
+/** The choices an export is made with: this export's own, and the person's defaults. */
+export interface ExportChoices {
+	prefs?: ExportPrefs;
+	user?: ExportPrefs;
+}
+
 /** Makes the files for `targets` and writes them into the book's `exports` folder. */
 export function exportBook(
 	id: string,
 	targets: ExportTarget[],
 	colour?: ExportColour,
+	choices?: ExportChoices,
 ): Promise<ExportReport> {
-	return cmd<ExportReport>('export_book', { id, targets, colour });
+	return cmd<ExportReport>('export_book', {
+		id,
+		targets,
+		colour,
+		prefs: choices?.prefs ?? null,
+		user: choices?.user ?? null,
+	});
+}
+
+/**
+ * How big the PDFs `targets` would be, made in memory with the choices `exportBook` would use.
+ * Asking again while one is working stops the older; its answer says `cancelled`.
+ */
+export function estimateExport(
+	id: string,
+	targets: ExportTarget[],
+	colour?: ExportColour,
+	choices?: ExportChoices,
+): Promise<SizeEstimate> {
+	return cmd<SizeEstimate>('estimate_export', {
+		id,
+		targets,
+		colour,
+		prefs: choices?.prefs ?? null,
+		user: choices?.user ?? null,
+	});
 }
 
 /** Brings the words of a Markdown or plain text file in as the book's story, in one undo step. */

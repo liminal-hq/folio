@@ -443,6 +443,45 @@ pub struct ExportReport {
     /// Set when the person stopped the export, so the files are those made before that.
     #[serde(default)]
     pub cancelled: bool,
+    /// What was changed because a destination needs it, one line each, such as "Changed for KDP:
+    /// pictures kept at 300 ppi".
+    #[serde(default)]
+    pub notes: Vec<String>,
+}
+
+/// How big the PDFs of a request would be, from making them in memory.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct SizeEstimate {
+    /// The bytes of every PDF in the request together.
+    #[ts(type = "number")]
+    pub bytes: u64,
+    /// How many pictures the book has.
+    pub pictures: u32,
+    /// Set when a newer estimate was asked for before this one was done, so `bytes` is not whole.
+    #[serde(default)]
+    pub cancelled: bool,
+}
+
+/// What to export and with which choices.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ExportRequest {
+    pub targets: Vec<ExportTarget>,
+    /// The old paperback colour choice; `prefs` is the way now.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub colour: Option<ExportColour>,
+    /// Choices for this export only; they beat every other layer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub prefs: Option<folio_model::ExportPrefs>,
+    /// The person's own defaults, which the window reads from settings and passes in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub user: Option<folio_model::ExportPrefs>,
 }
 
 /// A chapter of the book as a reader shows it.

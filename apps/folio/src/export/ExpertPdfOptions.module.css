@@ -1,0 +1,85 @@
+.expert {
+	margin-block-start: 16px;
+	border-block-start: 1px solid var(--folio-border-subtle);
+	padding-block-start: 12px;
+}
+
+.summary {
+	color: var(--folio-text-secondary);
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.kinds {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-block: 12px 4px;
+}
+
+.kind {
+	padding: 4px 10px;
+	border: 1px solid var(--folio-border-subtle);
+	border-radius: 6px;
+	background: var(--folio-bg-raised);
+	color: var(--folio-text-primary);
+	font: inherit;
+	font-size: 13px;
+	cursor: pointer;
+}
+
+.kind[aria-pressed='true'] {
+	border-color: var(--folio-accent);
+	background: var(--folio-bg-hover);
+}
+
+.panel {
+	display: grid;
+	gap: 8px;
+	margin: 12px 0 0;
+	padding: 0;
+	border: 0;
+}
+
+.legend {
+	margin-block-end: 6px;
+	padding: 0;
+	color: var(--folio-text-secondary);
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.row {
+	display: grid;
+	grid-template-columns: minmax(120px, 40%) 1fr;
+	align-items: start;
+	gap: 8px 12px;
+	font-size: 13px;
+}
+
+.row[data-locked='true'] {
+	opacity: 0.6;
+}
+
+.label {
+	color: var(--folio-text-primary);
+}
+
+.control {
+	display: grid;
+	gap: 4px;
+	justify-items: start;
+}
+
+.control input[type='number'],
+.control input[type='text'],
+.control select {
+	inline-size: 100%;
+	max-inline-size: 260px;
+}
+
+.why {
+	color: var(--folio-text-secondary);
+	font-size: 12px;
+}

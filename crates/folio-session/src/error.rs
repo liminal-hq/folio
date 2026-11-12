@@ -40,6 +40,8 @@ pub enum SessionError {
     BadWord(String),
     #[error("those issues cannot be left alone: {0}")]
     BadIgnore(String),
+    #[error("those export choices cannot be kept: {0}")]
+    BadExport(String),
     #[error("there is no flow {0}")]
     NoSuchFlow(String),
     #[error("that part of the story is not there: {0}")]

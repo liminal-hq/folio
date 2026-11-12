@@ -21,7 +21,7 @@ thumbnails/
   cover.png                      # 512 px, for file managers (Waypoint, Nautilus, Dolphin, Explorer)
   spread-<n>.png                 # small, optional, regenerated on save
 recovery/                        # reserved: ignored on open, never written (see D-27)
-settings.json                    # per-book export settings, last target, preflight ignores
+settings.json                    # kept for older books: per-book choices now live in book.json (`export`, `preflightIgnore`)
 ```
 
 ### Rules
@@ -29,7 +29,7 @@ settings.json                    # per-book export settings, last target, prefli
 - The `mimetype` entry must be first and stored, as in ODF/EPUB. This lets `file(1)` and file managers sniff it.
 - JSON is UTF-8 with no BOM, 2-space indentation, and keys in schema order. That keeps diffs readable, so a `.folio` unpacked into Git is pleasant.
 - Every path in `book.json` is relative to the package root.
-- Unknown files and unknown JSON keys are **preserved** on save (forward compatibility).
+- Unknown files and unknown JSON keys are **preserved** on save (forward compatibility), including keys inside `export`.
 - The writer streams to `<name>.folio.tmp` and fsyncs, then renames atomically. A `<name>.folio~` backup of the previous save is kept (Preferences can turn it off).
 
 ## `META-INF/manifest.json`
@@ -73,9 +73,12 @@ settings.json                    # per-book export settings, last target, prefli
       ] }
   ],
   "flows": [{ "id": "fl_main", "source": "text/flow-main.md", "frames": ["fr_b1", "fr_b2", "fr_b3"] }],
-  "metadata": { "isbn": { "paperback": null, "ebook": null }, "series": null, "description": "" }
+  "metadata": { "isbn": { "paperback": null, "ebook": null }, "series": null, "description": "" },
+  "export": { "pdf": { "sharing": { "preset": "standard", "bookmarks": "chapters" }, "kdp": {}, "printShop": {} }, "folder": "for-print" }
 }
 ```
+
+`export` (D-73) holds how this book is exported: the PDF choices for each kind of file and the folder the files go in, written relative to the book's folder when it is inside it and absolute otherwise. It is omitted when nothing is chosen, is laid over the person's own defaults and under the choices of a single export, and changing it is one undo step. A build that does not know it keeps the key as it was, and so does this one for choices inside it that it does not know.
 
 A page may carry a `bg` (a background, spec 11), a spread a `bgSpan` across both pages, and a master a `bg` for the pages that use it. All three are omitted when there is none, so a book without backgrounds is unchanged.
 

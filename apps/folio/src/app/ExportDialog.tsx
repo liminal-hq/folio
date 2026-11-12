@@ -14,6 +14,8 @@ import { t, type MessageKey } from '../i18n/messages';
 import styles from './ExportDialog.module.css';
 import { EXPORT_TARGETS } from './exportTargets';
 import { whereItGoes } from './uploadGuide';
+import { ExportNotes } from '../export/ExportNotes';
+import { useExportChoices } from '../export/useExportChoices';
 
 const targetName = (id: ExportTarget) =>
 	EXPORT_TARGETS.find((target) => target.id === id)?.name ?? 'export.title';
@@ -60,16 +62,17 @@ export function ExportDialog({
 	const [profile, setProfile] = useState('');
 	const [showWhere, setShowWhere] = useState(false);
 
+	const colour =
+		cmyk || profile.trim() ? { cmyk, profile: profile.trim() || undefined } : undefined;
+	const exportChoices = useExportChoices(client, id, open, chosen, colour);
+
 	const run = (targets: ExportTarget[]) => {
 		if (targets.length === 0) return;
 		setStage({ kind: 'working' });
 		setReached(null);
+		void exportChoices.remember(targets).catch(() => undefined);
 		client
-			.exportBook(
-				id,
-				targets,
-				cmyk || profile.trim() ? { cmyk, profile: profile.trim() || undefined } : undefined,
-			)
+			.exportBook(id, targets, colour, exportChoices.choices)
 			.then((report) => setStage({ kind: 'done', report }))
 			.catch((reason: unknown) =>
 				setStage({
@@ -229,6 +232,7 @@ export function ExportDialog({
 						{t(showWhere ? 'export.where.hide' : 'export.where.show')}
 					</button>
 					<p className={styles.where}>{stage.report.folder}</p>
+					<ExportNotes notes={stage.report.notes} />
 				</section>
 			) : (
 				<fieldset className={styles.targets} disabled={stage.kind === 'working'}>
@@ -248,6 +252,7 @@ export function ExportDialog({
 					))}
 				</fieldset>
 			)}
+			{stage.kind !== 'done' && exportChoices.panel}
 			{stage.kind !== 'done' && chosen.some((x) => x === 'kdpInterior' || x === 'kdpCover') && (
 				<fieldset className={styles.colour} disabled={stage.kind === 'working'}>
 					<legend className={styles.legend}>{t('export.colour')}</legend>

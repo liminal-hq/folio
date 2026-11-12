@@ -9,7 +9,9 @@ import { SettingsGroup } from '@liminal-hq/folio-chrome/SettingsShell/SettingsGr
 import { SettingsSection } from '@liminal-hq/folio-chrome/SettingsShell/SettingsSection';
 import { SettingsShell } from '@liminal-hq/folio-chrome/SettingsShell/SettingsShell';
 import type { SettingsSectionDef } from '@liminal-hq/folio-chrome/SettingsShell/types';
+import { TextRow } from '@liminal-hq/folio-chrome/SettingsShell/TextRow';
 import { ToggleRow } from '@liminal-hq/folio-chrome/SettingsShell/ToggleRow';
+import type { PicturePreset } from '@liminal-hq/folio-protocol/generated/PicturePreset';
 import { WindowFrame } from '@liminal-hq/folio-chrome/WindowFrame';
 import { useState } from 'react';
 import { t, type MessageKey } from '../i18n/messages';
@@ -18,7 +20,8 @@ import { AppTitleBar } from './AppTitleBar';
 import { useDictionaries } from './useDictionaries';
 import styles from './PreferencesScreen.module.css';
 
-type SectionId = 'interface' | 'appearance' | 'units' | 'editing' | 'spelling' | 'saving' | 'help';
+type SectionId =
+	'interface' | 'appearance' | 'units' | 'editing' | 'spelling' | 'saving' | 'export' | 'help';
 
 function InterfacePage() {
 	const settings = useSettings();
@@ -110,6 +113,62 @@ function SavingPage() {
 						label: t(`preferences.autosave.every.${secs}` as MessageKey),
 					}))}
 					onChange={(secs) => void update({ autosave: { intervalSecs: Number(secs) } })}
+				/>
+			</SettingsGroup>
+		</SettingsSection>
+	);
+}
+
+/** The picture settings Preferences offers for each kind of PDF. */
+const SHARING_PRESETS = ['small', 'standard', 'high', 'original'] as const;
+const PRESS_PRESETS = ['high', 'original'] as const;
+
+function ExportPage() {
+	const settings = useSettings();
+	const update = useUpdateSettings();
+	const prefs = settings.export;
+	const press = prefs.pdf.kdp.preset ?? prefs.pdf.printShop.preset ?? 'high';
+	return (
+		<SettingsSection>
+			<SettingsGroup>
+				<SegmentedRow
+					label={t('preferences.export.sharing')}
+					description={t('preferences.export.sharing.description')}
+					value={prefs.pdf.sharing.preset ?? 'standard'}
+					options={SHARING_PRESETS.map((preset) => ({
+						value: preset,
+						label: t(`preferences.export.preset.${preset}` as MessageKey),
+					}))}
+					onChange={(preset) =>
+						void update({ export: { pdf: { sharing: { preset: preset as PicturePreset } } } })
+					}
+				/>
+				<SegmentedRow
+					label={t('preferences.export.press')}
+					description={t('preferences.export.press.description')}
+					value={press === 'original' ? 'original' : 'high'}
+					options={PRESS_PRESETS.map((preset) => ({
+						value: preset,
+						label: t(`preferences.export.preset.${preset}` as MessageKey),
+					}))}
+					onChange={(preset) =>
+						void update({
+							export: {
+								pdf: {
+									kdp: { preset: preset as PicturePreset },
+									printShop: { preset: preset as PicturePreset },
+								},
+							},
+						})
+					}
+				/>
+				<TextRow
+					label={t('preferences.export.folder')}
+					description={t('preferences.export.folder.description')}
+					value={prefs.folder ?? ''}
+					placeholder={t('preferences.export.folder.placeholder')}
+					size={32}
+					onCommit={(folder) => void update({ export: { folder: folder.trim() || undefined } })}
 				/>
 			</SettingsGroup>
 		</SettingsSection>
@@ -294,6 +353,7 @@ function sections(): SettingsSectionDef[] {
 			render: () => <SpellingPage />,
 		},
 		{ id: 'saving', label: t('preferences.section.saving'), render: () => <SavingPage /> },
+		{ id: 'export', label: t('preferences.section.export'), render: () => <ExportPage /> },
 		{ id: 'updates', label: t('preferences.section.updates'), render: () => <UpdatesPage /> },
 		{ id: 'help', label: t('preferences.section.help'), render: () => <HelpPage /> },
 	];

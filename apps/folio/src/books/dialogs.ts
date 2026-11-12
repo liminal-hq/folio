@@ -15,6 +15,8 @@ export interface FileDialogs {
 	pickImage(): Promise<string | null>;
 	/** Asks which Markdown or text file to bring in. */
 	pickText(): Promise<string | null>;
+	/** Asks which folder to put exported files in, starting at `start` when it is given. */
+	pickFolder(start?: string): Promise<string | null>;
 }
 
 const FILTERS = [{ name: 'Folio books', extensions: ['folio'] }];
@@ -39,6 +41,10 @@ export const tauriFileDialogs: FileDialogs = {
 	},
 	async pickText() {
 		const picked = await open({ multiple: false, directory: false, filters: TEXT_FILTERS });
+		return typeof picked === 'string' ? picked : null;
+	},
+	async pickFolder(start) {
+		const picked = await open({ multiple: false, directory: true, defaultPath: start });
 		return typeof picked === 'string' ? picked : null;
 	},
 	async pickImage() {

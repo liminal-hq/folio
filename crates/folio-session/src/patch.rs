@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use folio_model::{
-    BarcodeChoice, BookFont, Details, Flow, FlowId, Grid, Margins, Master, MasterId, PageNumbers,
-    Paper, Proofing, Pt, Size, Spread, SpreadId, Styles,
+    BarcodeChoice, BookFont, Details, ExportPrefs, Flow, FlowId, Grid, Margins, Master, MasterId,
+    PageNumbers, Paper, Proofing, Pt, Size, Spread, SpreadId, Styles,
 };
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -45,6 +45,8 @@ pub enum PatchOp {
     SetDetails { details: Details },
     /// The preflight issues the book leaves alone.
     SetPreflightIgnore { keys: Vec<String> },
+    /// How the book is exported.
+    SetExportPrefs { prefs: Box<ExportPrefs> },
     /// The fonts the book keeps.
     SetFonts { fonts: Vec<BookFont> },
     /// The words spelling leaves alone in the book.

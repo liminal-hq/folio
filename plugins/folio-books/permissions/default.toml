@@ -45,6 +45,7 @@ permissions = [
   "allow-cover-sheet-canvas",
   "allow-proof-spread",
   "allow-export-book",
+  "allow-estimate-export",
   "allow-import-text",
   "allow-cancel-export",
   "allow-reveal-path",

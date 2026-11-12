@@ -7,7 +7,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use folio_engine::{
-    Books, BooksChanged, Error, ExportColour, ExportProgress, ExportTarget, Host, PatchEvent,
+    Books, BooksChanged, Error, ExportColour, ExportProgress, ExportRequest, ExportTarget, Host,
+    PatchEvent,
 };
 use folio_model::{Intent, Pt, Rect, SpreadId, Surface};
 use folio_presets::NewBookSpec;
@@ -430,4 +431,191 @@ fn the_contents_lists_each_chapter_with_the_page_it_begins_on() {
         .find(|s| s.frames.iter().any(|f| f.base().id.0 == "toc_titles"))
         .expect("the contents page");
     assert_eq!(toc.frames.len(), 3);
+}
+
+#[test]
+fn export_settings_are_combined_and_each_target_says_what_it_changed() {
+    use folio_model::{BookmarkChoice, ExportPrefs, PdfPrefs, PicturePreset};
+    let books = Books::new(Arc::new(Recorder::default()));
+    let id = books
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id
+        .clone();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("Otter").join("Otter.folio");
+    books.save(&id, Some(file.as_path())).unwrap();
+
+    // The person's defaults ask for small pictures everywhere and bookmarks for each page; this
+    // export asks for none for the Sharing PDF.
+    let mut user = ExportPrefs::default();
+    user.pdf.sharing = PdfPrefs {
+        preset: Some(PicturePreset::Small),
+        bookmarks: Some(BookmarkChoice::Pages),
+        ..PdfPrefs::default()
+    };
+    user.pdf.kdp = PdfPrefs {
+        preset: Some(PicturePreset::Small),
+        bookmarks: Some(BookmarkChoice::Pages),
+        ..PdfPrefs::default()
+    };
+    let mut once = ExportPrefs::default();
+    once.pdf.sharing.bookmarks = Some(BookmarkChoice::None);
+    let report = books
+        .export_with(
+            &id,
+            &ExportRequest {
+                targets: vec![ExportTarget::SharingPdf, ExportTarget::KdpInterior],
+                prefs: Some(once),
+                user: Some(user),
+                ..ExportRequest::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(report.files.len(), 2);
+    let outlines = |i: usize| {
+        let doc = lopdf::Document::load(&report.files[i].path).unwrap();
+        doc.catalog().unwrap().has(b"Outlines")
+    };
+    assert!(!outlines(0), "this export's choice beats the person's");
+    assert!(!outlines(1), "a paperback has no bookmarks");
+    assert!(
+        report.notes.iter().any(|n| n.contains("Changed for KDP")),
+        "{:?}",
+        report.notes
+    );
+}
+
+#[test]
+fn a_books_own_export_choices_apply_and_its_folder_is_relative_and_falls_back_when_missing() {
+    use folio_model::{BookmarkChoice, ExportPrefs, Intent};
+    let books = Books::new(Arc::new(Recorder::default()));
+    let id = books
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id
+        .clone();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("Otter").join("Otter.folio");
+    books.save(&id, Some(file.as_path())).unwrap();
+    std::fs::create_dir_all(dir.path().join("Otter").join("for-print")).unwrap();
+
+    // The book chooses a folder beside its file, and bookmarks for each page.
+    let mut prefs = ExportPrefs {
+        folder: Some("for-print".into()),
+        ..ExportPrefs::default()
+    };
+    prefs.pdf.sharing.bookmarks = Some(BookmarkChoice::Pages);
+    books.apply(&id, Intent::SetExportPrefs { prefs }).unwrap();
+    let report = books
+        .export(&id, &[ExportTarget::SharingPdf], ExportColour::default())
+        .unwrap();
+    assert!(report.folder.ends_with("for-print"), "{}", report.folder);
+    assert!(report.notes.is_empty());
+    let doc = lopdf::Document::load(&report.files[0].path).unwrap();
+    assert!(
+        doc.catalog().unwrap().has(b"Outlines"),
+        "the book's choice applies"
+    );
+
+    // A folder that is not on this computer falls back to `exports` and says so.
+    let moved = ExportPrefs {
+        folder: Some("/no/such/place/for/folio".into()),
+        ..ExportPrefs::default()
+    };
+    books
+        .apply(&id, Intent::SetExportPrefs { prefs: moved })
+        .unwrap();
+    let report = books
+        .export(&id, &[ExportTarget::SharingPdf], ExportColour::default())
+        .unwrap();
+    assert!(report.folder.ends_with("exports"), "{}", report.folder);
+    assert!(report
+        .notes
+        .iter()
+        .any(|n| n.contains("not on this computer")));
+}
+
+#[test]
+fn an_estimate_is_the_size_of_the_export_and_leaves_no_files() {
+    use folio_model::{ExportPrefs, PdfPrefs, PicturePreset};
+    let books = Books::new(Arc::new(Recorder::default()));
+    let id = books
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id
+        .clone();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("Otter").join("Otter.folio");
+    books.save(&id, Some(file.as_path())).unwrap();
+    let request = ExportRequest {
+        targets: vec![ExportTarget::SharingPdf, ExportTarget::KdpInterior],
+        prefs: Some(ExportPrefs {
+            pdf: folio_model::PdfPrefsByTarget {
+                sharing: PdfPrefs {
+                    preset: Some(PicturePreset::Small),
+                    ..PdfPrefs::default()
+                },
+                ..Default::default()
+            },
+            ..ExportPrefs::default()
+        }),
+        ..ExportRequest::default()
+    };
+    let estimate = books.estimate_export(&id, &request).unwrap();
+    assert!(!estimate.cancelled);
+    assert!(!dir.path().join("Otter").join("exports").exists());
+    let report = books.export_with(&id, &request).unwrap();
+    let real: u64 = report.files.iter().map(|f| u64::from(f.bytes)).sum();
+    let off = estimate.bytes.abs_diff(real) as f64 / real as f64;
+    assert!(off < 0.01, "estimate {} against {real}", estimate.bytes);
+}
+
+#[test]
+fn a_sharing_and_a_print_shop_pdf_name_the_app_and_a_paperback_does_not() {
+    let books = Books::new(Arc::new(Recorder::default()));
+    let id = books
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id
+        .clone();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("Otter").join("Otter.folio");
+    books.save(&id, Some(file.as_path())).unwrap();
+    let report = books
+        .export_with(
+            &id,
+            &ExportRequest {
+                targets: vec![
+                    ExportTarget::SharingPdf,
+                    ExportTarget::PrintShopPdf,
+                    ExportTarget::KdpInterior,
+                ],
+                ..ExportRequest::default()
+            },
+        )
+        .unwrap();
+    let info = |i: usize| {
+        let doc = lopdf::Document::load(&report.files[i].path).unwrap();
+        let id = doc.trailer.get(b"Info").unwrap().as_reference().unwrap();
+        let info = doc.get_object(id).unwrap().as_dict().unwrap().clone();
+        let text = |key: &[u8]| {
+            info.get(key)
+                .ok()
+                .and_then(|o| o.as_str().ok())
+                .map(|b| String::from_utf8_lossy(b).into_owned())
+        };
+        (text(b"Creator"), text(b"Producer"))
+    };
+    for i in [0, 1] {
+        assert_eq!(
+            info(i),
+            (Some("Folio".into()), Some("Folio test (krilla)".into()))
+        );
+    }
+    assert_eq!(info(2), (None, None));
 }

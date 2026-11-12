@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use folio_layout::wire::PreflightItem;
-use folio_model::Intent;
+use folio_model::{ExportPrefs, Intent};
 use folio_presets::{KindInfo, NewBookSpec, PaintPresets};
 use folio_protocol::PluginStatus;
 use folio_session::Patch;
@@ -17,8 +17,9 @@ use folio_engine::DICTIONARY_PROGRESS_EVENT;
 use folio_engine::{
     BookSnapshot, BookSpelling, BookSummary, Books, CoverCanvas, CoverSheetPreview,
     DictionaryProgress, DictionaryStatus, EditAnswer, EditRequest, ExportColour, ExportReport,
-    ExportTarget, FindReport, FindRequest, FontChoice, FontUse, KeepFontsReport, PastedHtml,
-    ProofSpread, ReaderPreview, Recoverable, SpellCheck, SpreadLayoutResult, StoryChapter,
+    ExportRequest, ExportTarget, FindReport, FindRequest, FontChoice, FontUse, KeepFontsReport,
+    PastedHtml, ProofSpread, ReaderPreview, Recoverable, SizeEstimate, SpellCheck,
+    SpreadLayoutResult, StoryChapter,
 };
 use folio_engine::{Error, TemplateGallery, ToolFix, ToolFixed, ToolReport, ToolRequest};
 use folio_engine::{ReplaceReport, ReplaceRequest};
@@ -552,14 +553,50 @@ pub async fn export_book<R: Runtime>(
     id: String,
     targets: Vec<ExportTarget>,
     colour: Option<ExportColour>,
+    prefs: Option<ExportPrefs>,
+    user: Option<ExportPrefs>,
 ) -> Result<ExportReport, Error> {
     // Laying out and writing a book is work for a blocking thread, not the async runtime.
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<Arc<Books>>()
-            .export(&id, &targets, colour.unwrap_or_default())
+        app.state::<Arc<Books>>().export_with(
+            &id,
+            &ExportRequest {
+                targets,
+                colour,
+                prefs,
+                user,
+            },
+        )
     })
     .await
     .expect("the export task does not panic")
+}
+
+/// How big the PDFs `targets` would be, made in memory with the same choices as `export_book`.
+/// Another estimate asked for while this one works stops it.
+#[tauri::command]
+pub async fn estimate_export<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    targets: Vec<ExportTarget>,
+    colour: Option<ExportColour>,
+    prefs: Option<ExportPrefs>,
+    user: Option<ExportPrefs>,
+) -> Result<SizeEstimate, Error> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Arc<Books>>().estimate_export(
+            &id,
+            &ExportRequest {
+                targets,
+                colour,
+                prefs,
+                user,
+            },
+        )
+    })
+    .await
+    .expect("the estimate task does not panic")
 }
 
 /// Brings the words of a Markdown or plain text file in as the book's story, in one undo step.

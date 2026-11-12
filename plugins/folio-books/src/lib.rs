@@ -79,6 +79,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::proof_spread,
             commands::export_book,
             commands::import_text,
+            commands::estimate_export,
             commands::cancel_export,
             commands::reveal_path,
             commands::preflight_book,

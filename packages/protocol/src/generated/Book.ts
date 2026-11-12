@@ -6,6 +6,7 @@ import type { BookId } from "./BookId";
 import type { BookKind } from "./BookKind";
 import type { BookMetadata } from "./BookMetadata";
 import type { Contributor } from "./Contributor";
+import type { ExportPrefs } from "./ExportPrefs";
 import type { Flow } from "./Flow";
 import type { Grid } from "./Grid";
 import type { LayoutMode } from "./LayoutMode";
@@ -55,6 +56,11 @@ fonts?: Array<BookFont>,
  * What the person has told the proofing tools to leave alone, kept with the book.
  */
 proofing?: Proofing, 
+/**
+ * How the person likes this book exported (D-73): laid over their own defaults, under the
+ * choices of a single export. An older Folio keeps the key without reading it.
+ */
+export?: ExportPrefs, 
 /**
  * The named styles and the typeface body text starts in; `styles.json` in the package.
  */

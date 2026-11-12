@@ -173,8 +173,27 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
         return cmd('preview_cover_sheet', { id });
     }
     /** Makes the files for `targets` and writes them into the book's `exports` folder. */
-    function exportBook(id, targets, colour) {
-        return cmd('export_book', { id, targets, colour });
+    function exportBook(id, targets, colour, choices) {
+        return cmd('export_book', {
+            id,
+            targets,
+            colour,
+            prefs: choices?.prefs ?? null,
+            user: choices?.user ?? null,
+        });
+    }
+    /**
+     * How big the PDFs `targets` would be, made in memory with the choices `exportBook` would use.
+     * Asking again while one is working stops the older; its answer says `cancelled`.
+     */
+    function estimateExport(id, targets, colour, choices) {
+        return cmd('estimate_export', {
+            id,
+            targets,
+            colour,
+            prefs: choices?.prefs ?? null,
+            user: choices?.user ?? null,
+        });
     }
     /** Brings the words of a Markdown or plain text file in as the book's story, in one undo step. */
     function importText(id, path, mapping, smart) {
@@ -314,6 +333,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.discardRecovered = discardRecovered;
     exports.downloadDictionary = downloadDictionary;
     exports.editText = editText;
+    exports.estimateExport = estimateExport;
     exports.exportBook = exportBook;
     exports.find = find;
     exports.fontsInUse = fontsInUse;

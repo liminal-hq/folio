@@ -48,6 +48,7 @@ const COMMANDS: &[&str] = &[
     "cover_sheet_canvas",
     "proof_spread",
     "export_book",
+    "estimate_export",
     "import_text",
     "cancel_export",
     "reveal_path",

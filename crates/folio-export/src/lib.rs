@@ -7,17 +7,23 @@
 //! a file holds the very glyphs layout chose.
 
 pub mod barcode;
+pub mod cancel;
 pub mod cover;
 pub mod epub;
 pub mod error;
 pub mod fixed;
 pub mod job;
+pub mod outline;
+pub mod pages;
 pub mod pdf;
 pub mod pdfx;
+pub mod picture;
+pub mod prefs;
 pub mod proof;
 pub mod raster;
+pub mod shop;
 mod texture;
 mod time;
 
 pub use error::ExportError;
-pub use job::{export_target, slug, Exported, Target};
+pub use job::{export_target, export_target_with, slug, Exported, PdfExtras, Target};

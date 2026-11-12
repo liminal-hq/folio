@@ -41,6 +41,7 @@ fn export(kind: BookKind, target: PdfTarget) -> (Book, Vec<u8>) {
             target,
             ink: None,
             crop_marks: target == PdfTarget::PrintShop,
+            ..PdfOptions::default()
         },
     )
     .unwrap();
@@ -318,6 +319,7 @@ fn a_file_of_ink_uses_cmyk_and_black_alone_for_the_text() {
             target: PdfTarget::Print,
             ink: Some(InkOptions::default()),
             crop_marks: false,
+            ..PdfOptions::default()
         },
     )
     .unwrap();
@@ -353,6 +355,7 @@ fn a_textured_page_is_tiled_with_one_shared_picture() {
             target: PdfTarget::Sharing,
             ink: None,
             crop_marks: false,
+            ..PdfOptions::default()
         },
     )
     .unwrap();
@@ -394,6 +397,7 @@ fn underlined_and_struck_words_are_drawn_with_lines() {
         target: PdfTarget::Sharing,
         ink: None,
         crop_marks: false,
+        ..PdfOptions::default()
     };
     let before = fills(&export_pdf(&book, &styles, &fonts, &NoAssets, &options).unwrap());
     for frame in book.spreads.iter_mut().flat_map(|s| s.frames.iter_mut()) {
@@ -486,6 +490,7 @@ fn linked_words_are_link_annotations_over_their_lines_and_only_a_file_for_the_sc
                 target,
                 ink: None,
                 crop_marks: target == PdfTarget::PrintShop,
+                ..PdfOptions::default()
             },
         )
         .unwrap()
@@ -537,4 +542,78 @@ fn linked_words_are_link_annotations_over_their_lines_and_only_a_file_for_the_sc
             String::from_utf8_lossy(&out.stdout)
         );
     }
+}
+
+#[test]
+fn a_link_follows_its_spread_into_a_page_range_and_is_left_out_when_the_spread_is_not_kept() {
+    let (mut book, styles) = sample(BookKind::Picture);
+    let fonts = FontBook::bundled();
+    let spreads = book.spreads.len();
+    for frame in book.spreads.iter_mut().flat_map(|s| s.frames.iter_mut()) {
+        if let folio_model::Frame::Text(t) = frame {
+            for run in t.content.iter_mut().flat_map(|c| c.inline.iter_mut()) {
+                run.href = Some(format!("#spread-{spreads}"));
+            }
+        }
+    }
+    let make = |range| {
+        export_pdf(
+            &book,
+            &styles,
+            &fonts,
+            &NoAssets,
+            &PdfOptions {
+                target: PdfTarget::Sharing,
+                pages: folio_export::pages::PageChoice {
+                    range,
+                    ..Default::default()
+                },
+                ..PdfOptions::default()
+            },
+        )
+        .unwrap()
+    };
+    let whole = make(None);
+    let total = Document::load_mem(&whole).unwrap().get_pages().len();
+    let last = book.spreads[spreads - 1].pages.len();
+    // Only the pages of the last spread: its links go to the first page of the file.
+    let tail = make(Some((total - last + 1, total)));
+    let found = links(&tail);
+    assert!(!found.is_empty());
+    assert!(found.iter().all(|(_, page)| *page == Some(1)), "{found:?}");
+    // Only the first page: the last spread is not in the file, so its links are left out.
+    let head = make(Some((1, 1)));
+    assert!(links(&head).is_empty());
+}
+
+#[test]
+fn a_sharing_pdf_asked_for_no_links_has_none() {
+    let (mut book, styles) = sample(BookKind::Picture);
+    let fonts = FontBook::bundled();
+    for frame in book.spreads.iter_mut().flat_map(|s| s.frames.iter_mut()) {
+        if let folio_model::Frame::Text(t) = frame {
+            for run in t.content.iter_mut().flat_map(|c| c.inline.iter_mut()) {
+                run.href = Some("https://example.org/".to_string());
+            }
+        }
+    }
+    let make = |links| {
+        export_pdf(
+            &book,
+            &styles,
+            &fonts,
+            &NoAssets,
+            &PdfOptions {
+                target: PdfTarget::Sharing,
+                navigation: folio_export::outline::Navigation {
+                    links,
+                    ..Default::default()
+                },
+                ..PdfOptions::default()
+            },
+        )
+        .unwrap()
+    };
+    assert!(!links(&make(true)).is_empty());
+    assert!(links(&make(false)).is_empty());
 }

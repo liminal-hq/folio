@@ -131,6 +131,8 @@ export interface FakeBooks {
 	refuseNext(name: string, kind: string, message: string): void;
 	/** Holds each export at the file it has reached until the returned function is called. */
 	holdExport(): () => void;
+	/** What the next estimates answer, in bytes: about 4 MB to begin with. */
+	estimate: { bytes: number; pictures: number };
 	/** Books a crash left changes in, which a test puts here for the client to offer. */
 	recoveries: Recoverable[];
 	/** The words the fake speller flags, whatever the case; none to begin with. */
@@ -169,6 +171,7 @@ export function createFakeBooksClient(): FakeBooks {
 	const progress = new Set<(event: DictionaryProgress) => void>();
 	const exportListeners = new Set<(event: ExportProgress) => void>();
 	let exportStopped = false;
+	const estimate = { bytes: 4_000_000, pictures: 3 };
 	let exportGate: Promise<void> = Promise.resolve();
 	const listing = (): DictionaryStatus[] => [
 		{
@@ -840,8 +843,26 @@ export function createFakeBooksClient(): FakeBooks {
 			await call('cancelExport', []);
 			exportStopped = true;
 		},
-		async exportBook(id, targets, colour) {
-			await call('exportBook', colour ? [id, targets, colour] : [id, targets]);
+		async estimateExport(id, targets, colour, choices) {
+			await call(
+				'estimateExport',
+				choices
+					? [id, targets, colour ?? null, choices]
+					: colour
+						? [id, targets, colour]
+						: [id, targets],
+			);
+			return { bytes: estimate.bytes, pictures: estimate.pictures, cancelled: false };
+		},
+		async exportBook(id, targets, colour, choices) {
+			await call(
+				'exportBook',
+				choices
+					? [id, targets, colour ?? null, choices]
+					: colour
+						? [id, targets, colour]
+						: [id, targets],
+			);
 			find(id);
 			const names: Record<string, string[]> = {
 				sharingPdf: ['pip-share.pdf'],
@@ -858,6 +879,7 @@ export function createFakeBooksClient(): FakeBooks {
 				folder: '/home/mom/Books/Pip/exports',
 				files: [],
 				cancelled: false,
+				notes: [],
 			};
 			for (const [done, target] of targets.entries()) {
 				for (const listener of exportListeners)
@@ -965,6 +987,7 @@ export function createFakeBooksClient(): FakeBooks {
 			},
 		},
 		refuseNext: (name, kind, message) => refusals.set(name, { kind, message }),
+		estimate,
 		holdExport: () => {
 			let release = () => {};
 			exportGate = new Promise<void>((resolve) => {

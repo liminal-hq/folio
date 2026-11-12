@@ -156,6 +156,13 @@ pub struct ExportBook {
     /// How print files hold colour; left out, sRGB as drawn.
     #[serde(default)]
     pub colour: ExportColour,
+    /// Choices for the PDFs, each kind under `pdf.sharing`, `pdf.kdp` or `pdf.printShop`: picture
+    /// `preset` (small, standard, high, original) or `maxPpi` and `jpegQuality`, `bookmarks`
+    /// (none, chapters, spreads, pages), `pageLabels`, `cropMarks`, and more. A paperback file is
+    /// kept at 300 pixels an inch and carries nothing but a title and author, and the answer's
+    /// `notes` say what was changed for that.
+    #[serde(default)]
+    pub prefs: Option<folio_model::ExportPrefs>,
 }
 
 /// Folio's tools for an agent, over the books of one `Books`.
@@ -576,10 +583,21 @@ impl FolioServer {
             id,
             targets,
             colour,
+            prefs,
         }): Parameters<ExportBook>,
     ) -> Result<CallToolResult, ErrorData> {
         let made = self
-            .blocking(move |books| books.export(&id, &targets, colour))
+            .blocking(move |books| {
+                books.export_with(
+                    &id,
+                    &folio_engine::ExportRequest {
+                        targets,
+                        colour: Some(colour),
+                        prefs,
+                        user: None,
+                    },
+                )
+            })
             .await?;
         Ok(match made {
             Ok(report) => text(&report),

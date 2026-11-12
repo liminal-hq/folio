@@ -15,4 +15,6 @@ pub enum ExportError {
     Epub(String),
     #[error("the book has no pages to export")]
     NoPages,
+    #[error("the export was stopped")]
+    Cancelled,
 }

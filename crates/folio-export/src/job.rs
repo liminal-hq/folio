@@ -10,8 +10,12 @@ use crate::cover::cover_sheet;
 use crate::epub::{export_epub, EpubFlavour, EpubOptions};
 use crate::error::ExportError;
 use crate::fixed::export_fixed_epub;
-use crate::pdf::{export_pdf, Assets, InkOptions, PdfOptions, PdfTarget};
+use crate::outline::Navigation;
+use crate::pages::PageChoice;
+use crate::pdf::{export_pdf_with, Assets, InkOptions, PdfOptions, PdfTarget};
+use crate::picture::{ImagePolicy, PictureCache};
 use crate::raster::page_to_jpeg;
+use crate::shop::ShopOptions;
 
 /// A kind of file to make from a book.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -88,6 +92,23 @@ impl Target {
     }
 }
 
+/// What the PDFs of a job are asked for beyond their target's usual.
+#[derive(Clone, Default)]
+pub struct PdfExtras {
+    pub navigation: Navigation,
+    pub pages: PageChoice,
+    /// Crop marks on the print shop's file; `None` is on, as for any print shop.
+    pub crop_marks: Option<bool>,
+    pub shop: ShopOptions,
+    /// The program to name in a Sharing or print-shop PDF's information.
+    pub application: Option<crate::outline::Application>,
+    /// How pictures are treated; `None` is what each target usually does.
+    pub pictures: Option<ImagePolicy>,
+    pub cache: PictureCache,
+    /// Stops the PDFs when a newer request has made them not worth finishing.
+    pub cancel: crate::cancel::Cancel,
+}
+
 /// Makes the files for `target`.
 pub fn export_target(
     target: Target,
@@ -98,23 +119,63 @@ pub fn export_target(
     assets: &dyn Assets,
     ink: Option<&InkOptions>,
 ) -> Result<Vec<Exported>, ExportError> {
+    export_target_with(
+        target,
+        paper,
+        book,
+        styles,
+        fonts,
+        assets,
+        ink,
+        &PdfExtras::default(),
+    )
+}
+
+/// Makes the files for `target`, its PDFs made as `extras` asks.
+#[allow(clippy::too_many_arguments)]
+pub fn export_target_with(
+    target: Target,
+    paper: Paper,
+    book: &Book,
+    styles: &StyleSheet,
+    fonts: &FontBook,
+    assets: &dyn Assets,
+    ink: Option<&InkOptions>,
+    extras: &PdfExtras,
+) -> Result<Vec<Exported>, ExportError> {
     // Everything but a file in ink draws a swatch as the colour it shows as; a file in ink keeps the
     // references, so each swatch can print as its exact ink.
     let mut shown = book.clone();
     folio_model::resolve_swatches(&mut shown);
     let (resolved, book_in_ink) = (&shown, book);
     let book = resolved;
+    let pictures = |kind| {
+        extras
+            .pictures
+            .unwrap_or_else(|| ImagePolicy::for_target(kind))
+    };
     let pdf = |kind, ink: Option<InkOptions>| {
-        export_pdf(
+        let shop = kind == PdfTarget::PrintShop;
+        export_pdf_with(
             if ink.is_some() { book_in_ink } else { book },
             styles,
             fonts,
             assets,
             &PdfOptions {
                 target: kind,
-                ink,
-                crop_marks: kind == PdfTarget::PrintShop,
+                ink: if shop { None } else { ink.clone() },
+                crop_marks: shop && extras.crop_marks.unwrap_or(true),
+                navigation: extras.navigation.clone(),
+                pages: extras.pages,
+                shop: ShopOptions {
+                    ink: if shop { ink } else { None },
+                    ..extras.shop.clone()
+                },
+                application: extras.application.clone(),
+                cancel: extras.cancel.clone(),
             },
+            &pictures(kind),
+            &extras.cache,
         )
     };
     let epub = |flavour| {
@@ -132,10 +193,10 @@ pub fn export_target(
     let made: Vec<Vec<u8>> = match target {
         Target::SharingPdf => vec![pdf(PdfTarget::Sharing, None)?],
         Target::KdpInterior => vec![pdf(PdfTarget::Print, ink.cloned())?],
-        Target::PrintShopPdf => vec![pdf(PdfTarget::PrintShop, None)?],
+        Target::PrintShopPdf => vec![pdf(PdfTarget::PrintShop, extras.shop.ink.clone())?],
         Target::KdpCover => {
             let sheet = cover_sheet(book_in_ink, paper).ok_or(ExportError::NoPages)?;
-            vec![export_pdf(
+            vec![export_pdf_with(
                 &sheet,
                 styles,
                 fonts,
@@ -146,7 +207,11 @@ pub fn export_target(
                     // chosen press profile when there is one, by a plain separation when not.
                     ink: Some(ink.cloned().unwrap_or_default()),
                     crop_marks: false,
+                    cancel: extras.cancel.clone(),
+                    ..PdfOptions::default()
                 },
+                &pictures(PdfTarget::Cover),
+                &extras.cache,
             )?]
         }
         Target::EbookCover => {
