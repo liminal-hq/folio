@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS: Settings = {
 	jax: 'tips',
 	interface: {
 		menuBar: false,
+		quickActions: true,
 		toolbar: 'ribbon',
 		sidebarLayout: 'rightGrouped',
 		sidebarWidth: 292,

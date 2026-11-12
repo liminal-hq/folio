@@ -1041,6 +1041,22 @@ describe('the title bar quick actions', () => {
 		).toBeInTheDocument();
 	});
 
+	it('goes away at once when the setting is turned off, and comes back when it is turned on', async () => {
+		const { settings } = setup();
+		await screen.findByRole('toolbar', { name: 'Quick actions' });
+		await act(async () => {
+			await settings.update({ interface: { quickActions: false } });
+		});
+		await waitFor(() =>
+			expect(screen.queryByRole('toolbar', { name: 'Quick actions' })).not.toBeInTheDocument(),
+		);
+		expect(screen.getByRole('button', { name: 'Folio' })).toBeInTheDocument();
+		await act(async () => {
+			await settings.update({ interface: { quickActions: true } });
+		});
+		expect(await screen.findByRole('toolbar', { name: 'Quick actions' })).toBeInTheDocument();
+	});
+
 	it('is reached from the app menu button with Tab', async () => {
 		setup();
 		await screen.findByRole('heading', { name: 'What are you making?' });

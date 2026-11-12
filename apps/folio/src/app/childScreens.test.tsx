@@ -99,6 +99,20 @@ describe('PreferencesScreen', () => {
 		await waitFor(async () => expect((await settings.get()).settings.mode).toBe('expert'));
 	});
 
+	it('turns the title bar quick actions off and on', async () => {
+		const settings = mount(<PreferencesScreen />);
+		const row = await screen.findByRole('switch', { name: 'Show quick actions in the title bar' });
+		expect(row).toBeChecked();
+		await userEvent.click(row);
+		await waitFor(async () =>
+			expect((await settings.get()).settings.interface.quickActions).toBe(false),
+		);
+		await userEvent.click(row);
+		await waitFor(async () =>
+			expect((await settings.get()).settings.interface.quickActions).toBe(true),
+		);
+	});
+
 	it('moves between its pages', async () => {
 		const settings = mount(<PreferencesScreen />);
 		await userEvent.click(await screen.findByRole('button', { name: 'Appearance' }));

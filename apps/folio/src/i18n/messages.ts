@@ -660,6 +660,8 @@ export const messages = {
 	'preferences.section.help': 'Help',
 	'preferences.menuBar': 'Show the menu bar',
 	'preferences.menuBar.description': 'Alt or F10 still opens it while it is hidden.',
+	'preferences.quickActions': 'Show quick actions in the title bar',
+	'preferences.quickActions.description': 'Save, New and Open, beside the app menu.',
 	'preferences.toolbar': 'Toolbar',
 	'preferences.toolbar.ribbon': 'Ribbon',
 	'preferences.toolbar.classic': 'Classic',

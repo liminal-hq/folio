@@ -9,7 +9,11 @@ export type InterfaceSettings = {
 /**
  * Whether the menu bar is shown. Alt or F10 still reveals it while it is hidden.
  */
-menuBar: boolean, toolbar: ToolbarLayout, sidebarLayout: SidebarLayout, 
+menuBar: boolean, 
+/**
+ * Whether the main window's title bar shows its quick actions (Save, New and the like).
+ */
+quickActions: boolean, toolbar: ToolbarLayout, sidebarLayout: SidebarLayout, 
 /**
  * The sidebar's width in logical pixels, between `SIDEBAR_WIDTH_MIN` and `SIDEBAR_WIDTH_MAX`.
  */

@@ -164,7 +164,7 @@ export function MainScreen({
 				<AppTitleBar
 					title={title}
 					start={<AppMenu items={menu.items} onSelect={menu.onSelect} menuBar={menuBar} />}
-					quickActions={quickActions}
+					quickActions={settings.interface.quickActions ? quickActions : undefined}
 				/>
 				{menuBar && (
 					<MenuBar
