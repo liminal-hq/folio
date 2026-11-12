@@ -272,6 +272,7 @@ pub fn resolve(kind: PdfKind, layers: &[&ExportPrefs], book: &Book) -> Resolved 
             pages,
             crop_marks: prefs.crop_marks,
             shop,
+            application: None,
             pictures: Some(picture_policy(&prefs)),
             cache: Default::default(),
             cancel: Default::default(),

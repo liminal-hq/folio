@@ -398,6 +398,7 @@ export const messages = {
 	'export.expert.subject': 'Subject',
 	'export.expert.subject.hint': 'The book’s description',
 	'export.expert.keywords': 'Keywords',
+	'export.expert.madeWith': 'Made with Folio: the file says so, and when it was made.',
 	'export.expert.keywords.hint': 'Separated by commas; the book’s own',
 	'export.expert.pages': 'Pages and layout',
 	'export.expert.sheets': 'Each sheet holds',

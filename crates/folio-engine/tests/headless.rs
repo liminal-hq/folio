@@ -573,3 +573,49 @@ fn an_estimate_is_the_size_of_the_export_and_leaves_no_files() {
     let off = estimate.bytes.abs_diff(real) as f64 / real as f64;
     assert!(off < 0.01, "estimate {} against {real}", estimate.bytes);
 }
+
+#[test]
+fn a_sharing_and_a_print_shop_pdf_name_the_app_and_a_paperback_does_not() {
+    let books = Books::new(Arc::new(Recorder::default()));
+    let id = books
+        .new_book(&NewBookSpec::default())
+        .unwrap()
+        .summary
+        .id
+        .clone();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("Otter").join("Otter.folio");
+    books.save(&id, Some(file.as_path())).unwrap();
+    let report = books
+        .export_with(
+            &id,
+            &ExportRequest {
+                targets: vec![
+                    ExportTarget::SharingPdf,
+                    ExportTarget::PrintShopPdf,
+                    ExportTarget::KdpInterior,
+                ],
+                ..ExportRequest::default()
+            },
+        )
+        .unwrap();
+    let info = |i: usize| {
+        let doc = lopdf::Document::load(&report.files[i].path).unwrap();
+        let id = doc.trailer.get(b"Info").unwrap().as_reference().unwrap();
+        let info = doc.get_object(id).unwrap().as_dict().unwrap().clone();
+        let text = |key: &[u8]| {
+            info.get(key)
+                .ok()
+                .and_then(|o| o.as_str().ok())
+                .map(|b| String::from_utf8_lossy(b).into_owned())
+        };
+        (text(b"Creator"), text(b"Producer"))
+    };
+    for i in [0, 1] {
+        assert_eq!(
+            info(i),
+            (Some("Folio".into()), Some("Folio test (krilla)".into()))
+        );
+    }
+    assert_eq!(info(2), (None, None));
+}

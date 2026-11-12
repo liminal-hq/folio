@@ -17,6 +17,34 @@ use krilla::page::{NumberingStyle, PageLabel};
 
 use crate::pdf::PdfTarget;
 
+/// The program that made a file, which a Sharing or print-shop PDF says in its information.
+///
+/// A caller passes it in (the engine knows the app's version) so this crate stays free of the
+/// app. A KDP file never carries it (D-74).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Application {
+    /// The program that created the content: `Folio`.
+    pub creator: String,
+    /// The program that wrote the file: `Folio 0.2.0 (krilla)`.
+    pub producer: String,
+}
+
+impl Application {
+    /// Folio at `version`, writing through krilla.
+    pub fn folio(version: &str) -> Self {
+        Application {
+            creator: "Folio".into(),
+            producer: format!("Folio {version} (krilla)"),
+        }
+    }
+
+    /// Whether a file for `target` says what made it. A paperback's interior and cover carry
+    /// nothing beyond the title and author.
+    pub fn is_written_for(target: PdfTarget) -> bool {
+        matches!(target, PdfTarget::Sharing | PdfTarget::PrintShop)
+    }
+}
+
 /// A chapter of the book and where its first words are, as the engine works it out from layout.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Chapter {
@@ -229,9 +257,24 @@ pub fn metadata(
     title: &str,
     authors: &[String],
     language: &str,
+    application: Option<&Application>,
 ) -> Metadata {
     let info = &navigation.info;
     let mut metadata = Metadata::new().title(info.title.clone().unwrap_or_else(|| title.into()));
+    if let Some(app) = application.filter(|_| Application::is_written_for(target)) {
+        let (year, month, day, hour, minute, second) = crate::time::utc_parts();
+        metadata = metadata
+            .creator(app.creator.clone())
+            .producer(app.producer.clone())
+            .creation_date(
+                krilla::metadata::DateTime::new(year as u16)
+                    .month(month as u8)
+                    .day(day as u8)
+                    .hour(hour as u8)
+                    .minute(minute as u8)
+                    .second(second as u8),
+            );
+    }
     let authors = info.authors.clone().unwrap_or_else(|| authors.to_vec());
     if !authors.is_empty() {
         metadata = metadata.authors(authors);

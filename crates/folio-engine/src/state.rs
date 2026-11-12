@@ -2211,6 +2211,10 @@ impl Books {
                         list.clone_from(&chapters);
                     }
                     resolved.extras.cache = pictures.clone();
+                    // A Sharing or print-shop file says it was made by this version of Folio.
+                    resolved.extras.application = Some(folio_export::outline::Application::folio(
+                        &self.host.version(),
+                    ));
                     if let Some(mine) = estimate {
                         let latest = self.estimates.clone();
                         resolved.extras.cancel = folio_export::cancel::Cancel::when(move || {

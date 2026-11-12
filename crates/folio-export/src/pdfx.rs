@@ -11,6 +11,7 @@
 use lopdf::{Dictionary, Document, Object, ObjectId, Stream, StringFormat};
 
 use crate::error::ExportError;
+use crate::outline::Application;
 use crate::time::utc_now;
 
 /// The colour condition a file is made for.
@@ -51,6 +52,7 @@ fn id_of(bytes: &[u8], salt: &str) -> String {
 pub fn make_pdf_x4(
     bytes: &[u8],
     title: &str,
+    application: Option<&Application>,
     condition: &OutputCondition<'_>,
 ) -> Result<Vec<u8>, ExportError> {
     let fail = |e: lopdf::Error| ExportError::Pdf(e.to_string());
@@ -84,12 +86,18 @@ pub fn make_pdf_x4(
     intent.set("DestOutputProfile", Object::Reference(profile_id));
     let intent_id = doc.add_object(intent);
 
+    // What made the file; `Folio` alone when the caller did not say.
+    let creator = application.map_or("Folio", |a| a.creator.as_str());
+    let producer = application.map_or("Folio", |a| a.producer.as_str());
+
     // The XMP packet.
     let document_id = id_of(bytes, "document");
     let instance_id = id_of(bytes, "instance");
     let xmp = format!(
-        "<?xpacket begin=\"\u{feff}\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\" xmlns:xmpMM=\"http://ns.adobe.com/xap/1.0/mm/\" xmlns:pdf=\"http://ns.adobe.com/pdf/1.3/\" xmlns:pdfxid=\"http://www.npes.org/pdfx/ns/id/\"><dc:format>application/pdf</dc:format><dc:title><rdf:Alt><rdf:li xml:lang=\"x-default\">{title}</rdf:li></rdf:Alt></dc:title><xmp:CreateDate>{now}</xmp:CreateDate><xmp:ModifyDate>{now}</xmp:ModifyDate><xmp:MetadataDate>{now}</xmp:MetadataDate><xmp:CreatorTool>Folio</xmp:CreatorTool><pdf:Producer>Folio</pdf:Producer><pdf:Trapped>False</pdf:Trapped><xmpMM:DocumentID>uuid:{document_id}</xmpMM:DocumentID><xmpMM:InstanceID>uuid:{instance_id}</xmpMM:InstanceID><pdfxid:GTS_PDFXVersion>PDF/X-4</pdfxid:GTS_PDFXVersion></rdf:Description></rdf:RDF></x:xmpmeta>\n<?xpacket end=\"w\"?>",
+        "<?xpacket begin=\"\u{feff}\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\" xmlns:xmpMM=\"http://ns.adobe.com/xap/1.0/mm/\" xmlns:pdf=\"http://ns.adobe.com/pdf/1.3/\" xmlns:pdfxid=\"http://www.npes.org/pdfx/ns/id/\"><dc:format>application/pdf</dc:format><dc:title><rdf:Alt><rdf:li xml:lang=\"x-default\">{title}</rdf:li></rdf:Alt></dc:title><xmp:CreateDate>{now}</xmp:CreateDate><xmp:ModifyDate>{now}</xmp:ModifyDate><xmp:MetadataDate>{now}</xmp:MetadataDate><xmp:CreatorTool>{creator}</xmp:CreatorTool><pdf:Producer>{producer}</pdf:Producer><pdf:Trapped>False</pdf:Trapped><xmpMM:DocumentID>uuid:{document_id}</xmpMM:DocumentID><xmpMM:InstanceID>uuid:{instance_id}</xmpMM:InstanceID><pdfxid:GTS_PDFXVersion>PDF/X-4</pdfxid:GTS_PDFXVersion></rdf:Description></rdf:RDF></x:xmpmeta>\n<?xpacket end=\"w\"?>",
         title = escape(title),
+        creator = escape(creator),
+        producer = escape(producer),
     );
     let mut meta = Dictionary::new();
     meta.set("Type", Object::Name(b"Metadata".to_vec()));
@@ -126,7 +134,10 @@ pub fn make_pdf_x4(
             .and_then(Object::as_dict_mut)
             .map_err(fail)?;
         info.set("Title", text(title));
-        info.set("Producer", text("Folio"));
+        info.set("Producer", text(producer));
+        if application.is_some() {
+            info.set("Creator", text(creator));
+        }
         info.set("GTS_PDFXVersion", text("PDF/X-4"));
         info.set("Trapped", Object::Name(b"False".to_vec()));
         let stamp = format!("D:{}", now.replace(['-', ':', 'T', 'Z'], ""));

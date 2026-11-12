@@ -100,6 +100,8 @@ pub struct PdfExtras {
     /// Crop marks on the print shop's file; `None` is on, as for any print shop.
     pub crop_marks: Option<bool>,
     pub shop: ShopOptions,
+    /// The program to name in a Sharing or print-shop PDF's information.
+    pub application: Option<crate::outline::Application>,
     /// How pictures are treated; `None` is what each target usually does.
     pub pictures: Option<ImagePolicy>,
     pub cache: PictureCache,
@@ -169,6 +171,7 @@ pub fn export_target_with(
                     ink: if shop { ink } else { None },
                     ..extras.shop.clone()
                 },
+                application: extras.application.clone(),
                 cancel: extras.cancel.clone(),
             },
             &pictures(kind),

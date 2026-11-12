@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use folio_export::outline::{Bookmarks, Chapter, Navigation, PdfInfo, ViewerLayout};
+use folio_export::outline::{Application, Bookmarks, Chapter, Navigation, PdfInfo, ViewerLayout};
 use folio_export::pdf::{export_pdf, NoAssets, PdfOptions, PdfTarget};
 use folio_layout::{FontBook, StyleSheet};
 use folio_model::{Book, BookKind, Numbering, Section};
@@ -248,4 +248,64 @@ fn a_print_shop_file_keeps_its_bookmarks_and_stays_pdf_x() {
     );
     assert!(!bookmarks(&doc).is_empty());
     assert!(doc.catalog().unwrap().has(b"OutputIntents"));
+}
+
+fn made_by_folio(target: PdfTarget) -> Document {
+    let (book, styles) = sample();
+    let bytes = export_pdf(
+        &book,
+        &styles,
+        &FontBook::bundled(),
+        &NoAssets,
+        &PdfOptions {
+            target,
+            application: Some(Application::folio("1.2.3")),
+            ..PdfOptions::default()
+        },
+    )
+    .unwrap();
+    Document::load_mem(&bytes).unwrap()
+}
+
+#[test]
+fn a_sharing_pdf_names_the_program_that_made_it() {
+    let doc = made_by_folio(PdfTarget::Sharing);
+    let info = info(&doc);
+    assert_eq!(text(info.get(b"Creator").unwrap()), "Folio");
+    assert_eq!(text(info.get(b"Producer").unwrap()), "Folio 1.2.3 (krilla)");
+    // The date is the time of the export, so it is there but not compared.
+    assert!(text(info.get(b"CreationDate").unwrap()).starts_with("D:20"));
+}
+
+#[test]
+fn a_print_shop_pdf_names_it_too_and_stays_pdf_x4() {
+    let doc = made_by_folio(PdfTarget::PrintShop);
+    let info = info(&doc);
+    assert_eq!(text(info.get(b"Creator").unwrap()), "Folio");
+    assert_eq!(text(info.get(b"Producer").unwrap()), "Folio 1.2.3 (krilla)");
+    assert!(info.has(b"CreationDate") && info.has(b"ModDate"));
+    assert_eq!(text(info.get(b"GTS_PDFXVersion").unwrap()), "PDF/X-4");
+    let catalog = doc.catalog().unwrap();
+    assert!(catalog.has(b"OutputIntents"));
+    let xmp = doc
+        .get_object(catalog.get(b"Metadata").unwrap().as_reference().unwrap())
+        .unwrap()
+        .as_stream()
+        .unwrap();
+    let xmp = String::from_utf8_lossy(&xmp.content);
+    assert!(xmp.contains("<xmp:CreatorTool>Folio</xmp:CreatorTool>"));
+    assert!(xmp.contains("<pdf:Producer>Folio 1.2.3 (krilla)</pdf:Producer>"));
+    assert!(xmp.contains("<pdfxid:GTS_PDFXVersion>PDF/X-4</pdfxid:GTS_PDFXVersion>"));
+}
+
+#[test]
+fn a_kdp_interior_and_cover_name_no_program() {
+    for target in [PdfTarget::Print, PdfTarget::Cover] {
+        let doc = made_by_folio(target);
+        let info = info(&doc);
+        assert!(!info.has(b"Creator"), "{target:?}");
+        assert!(!info.has(b"Producer"), "{target:?}");
+        assert!(!info.has(b"CreationDate"), "{target:?}");
+        assert!(info.has(b"Title"));
+    }
 }

@@ -234,6 +234,7 @@ export function ExpertPdfOptions({ kinds, user, book, edits, onChange }: ExpertP
 						/>
 					)}
 				</Row>
+				{kind !== 'kdp' && <p className={styles.why}>{t('export.expert.madeWith')}</p>}
 			</fieldset>
 
 			<fieldset className={styles.panel}>

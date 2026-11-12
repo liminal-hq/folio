@@ -77,6 +77,8 @@ pub struct PdfOptions {
     pub pages: PageChoice,
     /// What only a print shop's file has: its bleed, the room for crop marks and press ink.
     pub shop: ShopOptions,
+    /// The program to name in the file's information, for the targets that carry it.
+    pub application: Option<crate::outline::Application>,
     /// Stops the file when a newer request has made it not worth finishing.
     pub cancel: crate::cancel::Cancel,
 }
@@ -364,6 +366,7 @@ pub fn export_pdf_with(
         &book.title,
         &authors,
         &book.language,
+        options.application.as_ref(),
     );
     if let Some(outline) = crate::outline::outline(&navigation.bookmarks, &sheet_origins) {
         document.set_outline(outline);
@@ -383,6 +386,7 @@ pub fn export_pdf_with(
         return crate::pdfx::make_pdf_x4(
             &bytes,
             &book.title,
+            options.application.as_ref(),
             &match press {
                 Some(profile) => crate::pdfx::OutputCondition {
                     identifier: name.as_deref().unwrap_or("Press profile"),

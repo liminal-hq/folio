@@ -82,6 +82,15 @@ describe('the Expert panels', () => {
 		expect(call).toContain('"links":false');
 	});
 
+	it('says a Sharing PDF is made with Folio and a paperback says nothing of the sort', async () => {
+		await setup();
+		await userEvent.click(await screen.findByText('More choices'));
+		expect(screen.getByText(/Made with Folio/)).toBeInTheDocument();
+		await userEvent.click(screen.getByRole('checkbox', { name: /Paperback interior/ }));
+		await userEvent.click(screen.getByRole('checkbox', { name: /Sharing PDF/ }));
+		expect(screen.queryByText(/Made with Folio/)).not.toBeInTheDocument();
+	});
+
 	it('grey out what a paperback is fixed at and say why', async () => {
 		await setup();
 		await userEvent.click(screen.getByRole('checkbox', { name: /Paperback interior/ }));
