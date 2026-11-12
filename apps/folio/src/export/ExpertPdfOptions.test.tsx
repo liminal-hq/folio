@@ -107,6 +107,29 @@ describe('the Expert panels', () => {
 		expect(call).toContain('"links":false');
 	});
 
+	it('has screen-reader tagging on for a Sharing PDF and lets it be turned off', async () => {
+		const fake = await setup();
+		await userEvent.click(await screen.findByText('More choices'));
+		const tagged = screen.getByLabelText('Make the PDF readable by screen readers');
+		expect(tagged).toBeChecked();
+		await userEvent.click(tagged);
+		await userEvent.click(screen.getByRole('button', { name: 'Make files' }));
+		await screen.findByText('Your files are ready.');
+		const call = fake.calls.find((c) => c.startsWith('exportBook('))!;
+		expect(call).toContain('"tagged":false');
+	});
+
+	it('says a KDP file is not tagged and greys the choice out', async () => {
+		await setup();
+		await userEvent.click(screen.getByRole('checkbox', { name: /Paperback interior/ }));
+		await userEvent.click(screen.getByRole('checkbox', { name: /Sharing PDF/ }));
+		await userEvent.click(await screen.findByText('More choices'));
+		const tagged = screen.getByLabelText('Make the PDF readable by screen readers');
+		expect(tagged).toBeDisabled();
+		expect(tagged).not.toBeChecked();
+		expect(tagged).toHaveAccessibleDescription('A KDP file is not tagged for screen readers.');
+	});
+
 	it('says a Sharing PDF is made with Folio and a paperback says nothing of the sort', async () => {
 		await setup();
 		await userEvent.click(await screen.findByText('More choices'));
@@ -166,6 +189,9 @@ describe('what each target locks', () => {
 		expect(lockedBecause('sharing', 'bookmarks')).toBeNull();
 		expect(lockedBecause('kdp', 'bookmarks')).not.toBeNull();
 		expect(lockedBecause('kdp', 'range')).not.toBeNull();
+		expect(lockedBecause('kdp', 'tagged')).toBe('export.locked.tagged');
+		expect(lockedBecause('sharing', 'tagged')).toBeNull();
+		expect(lockedBecause('printShop', 'tagged')).toBeNull();
 		expect(lockedBecause('kdp', 'cropMarks')).not.toBeNull();
 		expect(lockedBecause('printShop', 'bookmarks')).toBeNull();
 		expect(lockedBecause('printShop', 'cropMarks')).toBeNull();

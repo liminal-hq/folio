@@ -201,6 +201,18 @@ export function ExpertPdfOptions({ kinds, user, book, edits, onChange }: ExpertP
 						/>
 					)}
 				</Row>
+				<Row label={t('export.expert.tagged')} reason={lock('tagged')}>
+					{({ id, disabled, describedBy }) => (
+						<input
+							id={id}
+							type="checkbox"
+							disabled={disabled}
+							aria-describedby={describedBy}
+							checked={!disabled && eff.tagged === true}
+							onChange={(e) => set({ tagged: e.target.checked })}
+						/>
+					)}
+				</Row>
 				<Row label={t('export.expert.viewer')} reason={lock('viewerLayout')}>
 					{({ id, disabled, describedBy }) => (
 						<select
