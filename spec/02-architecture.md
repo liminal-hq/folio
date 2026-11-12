@@ -39,7 +39,7 @@ folio/
 | `folio-model` | `Book`, `Spread`, `Page`, `Frame`, `Style`, `Master`, units (`Pt`), id newtypes, schema version + migrations | `serde`, `serde_json`, `ts-rs`, `uuid` |
 | `folio-package` | zip container, `mimetype` first + stored, manifest, asset dedupe by SHA-256, a recovery copy of a book beside its file (D-27) | `zip`, `sha2`, `tempfile` |
 | `folio-layout` | font loading, shaping, Knuth–Plass line breaking with a greedy fallback, hyphenation, frame threading, overset detection, snapping maths shared with the UI via WASM (optional) | `rustybuzz`, `ttf-parser`, `fontdb`, `hyphenation`, `unicode-linebreak` |
-| `folio-export` | EPUB 3 (OPF, nav, XHTML, CSS), KEPUB spans, fixed-layout `rendition:layout`, PDF generation, PDF/X output intent, cover PDF | `quick-xml`, `pdf-writer`, `subsetter`, `image` |
+| `folio-export` | EPUB 3 (OPF, nav, XHTML, CSS), KEPUB spans, fixed-layout `rendition:layout`, PDF generation (tagged: structure plan and roles), PDF/X output intent, cover PDF | `quick-xml`, `pdf-writer`, `subsetter`, `image` |
 | `folio-colour` | sRGB/Display-P3 in, CMYK out (GRACoL 2013, FOGRA39), soft-proof previews | `lcms2` |
 | `folio-import` | DOCX/ODT (zip + XML), RTF, Markdown (`pulldown-cmark`), HTML paste (a small tolerant reader of its own, D-68), Scribus `.sla` (XML), IDML (zip + XML), EPUB | `quick-xml`, `zip` |
 | `folio-jax` | help corpus (Markdown → chunks), embedding index, optional small generative model, guardrails | `ort` (ONNX Runtime), `tokenizers` |
