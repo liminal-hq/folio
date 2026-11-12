@@ -60,6 +60,7 @@ const cellLayout = (frame: string, text: string, x: number, y: number) => ({
 							italic: false,
 							tracking: 0,
 							hyphen: false,
+							start: 0,
 						},
 					],
 				},

@@ -47,6 +47,15 @@ const shape = (extra = {}) =>
 		...extra,
 	}) as unknown as Frame;
 
+describe('the find and replace button', () => {
+	it('is always available and asks for the find bar', () => {
+		expect(editorState(input()).available.has('find')).toBe(true);
+		expect(editorAction('find', undefined, input())).toEqual({ kind: 'find' });
+		expect(editorState(input()).available.has('toolFind')).toBe(true);
+		expect(editorAction('toolFind', undefined, input())).toEqual({ kind: 'find' });
+	});
+});
+
 describe('the spelling toggle', () => {
 	it('is always available and asks to be switched', () => {
 		expect(editorState(input()).available.has('spell')).toBe(true);
@@ -257,7 +266,7 @@ describe('editorAction', () => {
 
 	it('sets the alignment and the size within bounds', () => {
 		expect(editorAction('alignR', undefined, input([text()]))).toMatchObject({
-			intents: [{ overrides: { align: 'right' } }],
+			intents: [{ type: 'SetParagraphLook', change: { set: { align: 'right' } } }],
 		});
 		expect(editorAction('size', 500, input([text()]))).toMatchObject({
 			intents: [{ overrides: { size: 200 } }],
@@ -724,7 +733,7 @@ describe('Link text', () => {
 	it('is live for one free text box whose words are its own', () => {
 		expect(editorState(input([text()])).available.has('thread')).toBe(true);
 		expect(editorAction('thread', undefined, input([text()]))).toEqual({
-			kind: 'link',
+			kind: 'frameLink',
 			frame: 't',
 		});
 		for (const selected of [
@@ -856,5 +865,109 @@ describe('Group and Ungroup', () => {
 			frame: { id: 'g' },
 		});
 		expect(editorAction('ungroup', undefined, input([shape2('a')]))).toBeNull();
+	});
+});
+
+describe('a look set with the caret alone in the words', () => {
+	const frame = text({
+		content: {
+			inline: [
+				{ text: 'plain ', style: null, bold: false, italic: false },
+				{ text: 'bold', style: null, bold: true, italic: false },
+			],
+		},
+	});
+
+	it('is for the words typed next, and toggles from the look at the caret', () => {
+		const at = (offset: number, pending = null) =>
+			input([frame], { caret: { frame: 't', offset }, pending });
+		expect(editorAction('bold', undefined, at(3))).toEqual({
+			kind: 'pending',
+			frame: 't',
+			change: { bold: true },
+		});
+		expect(editorAction('bold', undefined, at(9))).toEqual({
+			kind: 'pending',
+			frame: 't',
+			change: { bold: false },
+		});
+		// Pressed twice it goes back.
+		expect(editorAction('bold', undefined, at(3, { bold: true } as never))).toEqual({
+			kind: 'pending',
+			frame: 't',
+			change: { bold: false },
+		});
+		expect(editorAction('colour', '#a23b2a', at(3))).toEqual({
+			kind: 'pending',
+			frame: 't',
+			change: { colour: '#a23b2a' },
+		});
+	});
+
+	it('is not used when words are selected, which are styled instead', () => {
+		const action = editorAction(
+			'bold',
+			undefined,
+			input([frame], {
+				caret: { frame: 't', offset: 3 },
+				selection: { frame: 't', start: 0, end: 3 },
+			}),
+		);
+		expect(action).toMatchObject({ kind: 'intents' });
+	});
+});
+
+describe('Vertical alignment', () => {
+	it('is offered for a text box, ticks top until chosen, and sets the box without losing its other overrides', () => {
+		const box = text({ overrides: { size: 14, align: null, bold: true, italic: null } });
+		const state = editorState(input([box]));
+		expect(state.available.has('valign')).toBe(true);
+		expect(state.options.valign?.map(([v, l]) => [v, l.startsWith('✓')])).toEqual([
+			['top', true],
+			['middle', false],
+			['bottom', false],
+		]);
+		expect(editorAction('valign', 'middle', input([box]))).toEqual({
+			kind: 'intents',
+			intents: [
+				{
+					type: 'OverrideStyle',
+					frame: box.id,
+					overrides: { size: 14, align: null, bold: true, italic: null, valign: 'middle' },
+				},
+			],
+		});
+		const placed = text({
+			overrides: { size: null, align: null, bold: null, italic: null, valign: 'bottom' },
+		});
+		expect(editorState(input([placed])).options.valign?.[2]?.[1]).toMatch(/^✓/);
+		// Bold keeps the place the words were given.
+		const bold = editorAction('bold', undefined, input([placed]));
+		expect(bold).toMatchObject({ intents: [{ overrides: { valign: 'bottom', bold: true } }] });
+	});
+
+	it('ticks middle for a shape that holds words, and is not offered with nothing to place', () => {
+		const words = shape({
+			content: { inline: [{ text: 'Hi', style: null, bold: false, italic: false }] },
+		});
+		expect(editorState(input([words])).options.valign?.[1]?.[1]).toMatch(/^✓/);
+		expect(editorState(input([image()])).available.has('valign')).toBe(false);
+		expect(editorAction('valign', 'sideways', input([words]))).toBeNull();
+	});
+});
+
+describe('Copy and Cut with the on-page editor open', () => {
+	const copyCut = (extra: Partial<EditorInput>) => {
+		const { available } = editorState(input([text()], extra));
+		return [available.has('copy'), available.has('cut')];
+	};
+
+	it('take the selected frames when no editor is open', () => {
+		expect(copyCut({ words: null })).toEqual([true, true]);
+	});
+
+	it('are for the words, so they wait for some to be selected', () => {
+		expect(copyCut({ words: { selected: false } })).toEqual([false, false]);
+		expect(copyCut({ words: { selected: true } })).toEqual([true, true]);
 	});
 });

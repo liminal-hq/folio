@@ -279,7 +279,9 @@ impl Builder<'_> {
                     italic: false,
                     font: None,
                     colour: None,
+                    ..Default::default()
                 }],
+                looks: None,
             }),
             flow: None,
             columns: 1,

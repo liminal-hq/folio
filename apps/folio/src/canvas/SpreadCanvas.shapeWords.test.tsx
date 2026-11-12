@@ -43,6 +43,7 @@ const lines = (frame: string, extra = {}) => ({
 					italic: false,
 					tracking: 0,
 					hyphen: false,
+					start: 0,
 				},
 			],
 		},

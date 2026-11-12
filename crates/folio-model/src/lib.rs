@@ -13,13 +13,16 @@ mod colour;
 mod colour_walk;
 mod cover;
 mod cover_upgrade;
+mod edit;
 mod flow;
 mod frame;
 mod ids;
 mod intent;
 mod isbn;
+mod para;
 mod runs;
 mod sections;
+mod smart;
 mod snap;
 mod spread;
 mod styles;
@@ -31,13 +34,19 @@ pub use colour::*;
 pub use colour_walk::{colours_of, resolve_swatches, visit_colours, visit_spread};
 pub use cover::*;
 pub use cover_upgrade::*;
+pub use edit::*;
 pub use flow::*;
 pub use frame::*;
 pub use ids::*;
 pub use intent::*;
 pub use isbn::is_valid_isbn13;
-pub use runs::{join_runs, retext, split_runs, style_range, text_of, RunChange};
+pub use para::*;
+pub use runs::{
+    clean_href, clean_lang, join_runs, lang_ranges, retext, split_runs, spread_of_href,
+    style_range, text_of, RunChange,
+};
 pub use sections::*;
+pub use smart::{smarten, smarten_with, QuoteStyle, SmartRules, Smartened};
 pub use snap::*;
 pub use spread::*;
 pub use styles::*;

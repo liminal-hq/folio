@@ -126,3 +126,113 @@ fn the_styles_found_are_listed_and_a_choice_changes_what_a_style_becomes() {
     assert_eq!(styles, vec![None, Some("epigraph"), None, None]);
     assert_eq!(second.report.headings, 0);
 }
+
+#[test]
+fn underlined_and_struck_through_runs_come_across() {
+    let body = r#"
+        <w:p>
+          <w:r><w:rPr><w:u w:val="single"/></w:rPr><w:t xml:space="preserve">under </w:t></w:r>
+          <w:r><w:rPr><w:strike/></w:rPr><w:t xml:space="preserve">struck </w:t></w:r>
+          <w:r><w:rPr><w:u w:val="none"/><w:dstrike w:val="false"/></w:rPr><w:t>plain</w:t></w:r>
+        </w:p>
+    "#;
+    let story = import_docx(&docx(body, false)).unwrap().story;
+    let runs = &story[0].inline;
+    assert!(runs
+        .iter()
+        .any(|r| r.underline && !r.strike && r.text == "under "));
+    assert!(runs
+        .iter()
+        .any(|r| r.strike && !r.underline && r.text == "struck "));
+    assert!(runs
+        .iter()
+        .any(|r| !r.strike && !r.underline && r.text == "plain"));
+}
+
+#[test]
+fn sizes_that_the_body_shares_are_left_to_the_style_and_unusual_ones_and_spacing_come_across() {
+    let body = r#"
+        <w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t xml:space="preserve">The body goes on for a good while in the usual size, </w:t></w:r>
+        <w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t xml:space="preserve">and on, </w:t></w:r>
+        <w:r><w:rPr><w:sz w:val="40"/><w:spacing w:val="20"/></w:rPr><w:t>Big</w:t></w:r></w:p>
+    "#;
+    let story = import_docx(&docx(body, false)).unwrap().story;
+    let runs = &story[0].inline;
+    // The two body runs are one run again, with no size of its own.
+    assert_eq!(runs.len(), 2, "{runs:?}");
+    assert_eq!(runs[0].size, None);
+    assert_eq!(runs[1].size, Some(20.0));
+    // A point of spacing at 20 points is fifty thousandths of an em.
+    assert_eq!(runs[1].tracking, Some(50));
+}
+
+#[test]
+fn a_language_that_is_not_the_bodys_comes_across() {
+    let body = r#"
+        <w:p><w:r><w:rPr><w:lang w:val="en-CA"/></w:rPr><w:t xml:space="preserve">The body goes on in the usual language for a while, and then </w:t></w:r>
+        <w:r><w:rPr><w:lang w:val="fr_ca"/></w:rPr><w:t>bonjour</w:t></w:r></w:p>
+    "#;
+    let runs = import_docx(&docx(body, false)).unwrap().story[0]
+        .inline
+        .clone();
+    assert_eq!(runs.len(), 2, "{runs:?}");
+    assert_eq!(runs[0].lang, None);
+    assert_eq!(runs[1].lang.as_deref(), Some("fr-CA"));
+}
+
+#[test]
+fn a_hyperlink_keeps_its_address_when_folio_can_follow_it_and_its_words_when_it_cannot() {
+    let mut out = Cursor::new(Vec::new());
+    {
+        let mut zip = zip::ZipWriter::new(&mut out);
+        let options = zip::write::SimpleFileOptions::default();
+        zip.start_file("word/document.xml", options).unwrap();
+        write!(
+            zip,
+            "<w:document xmlns:w=\"w\" xmlns:r=\"r\"><w:body><w:p>\
+             <w:r><w:t xml:space=\"preserve\">See </w:t></w:r>\
+             <w:hyperlink r:id=\"rId5\"><w:r><w:rPr><w:u w:val=\"single\"/></w:rPr><w:t>our site</w:t></w:r><w:r><w:t xml:space=\"preserve\"> now</w:t></w:r></w:hyperlink>\
+             <w:r><w:t xml:space=\"preserve\">, </w:t></w:r>\
+             <w:hyperlink r:id=\"rId6\"><w:r><w:t>a script</w:t></w:r></w:hyperlink>\
+             <w:r><w:t xml:space=\"preserve\">, </w:t></w:r>\
+             <w:hyperlink w:anchor=\"chapter1\"><w:r><w:t>a chapter</w:t></w:r></w:hyperlink>\
+             <w:r><w:t>.</w:t></w:r></w:p></w:body></w:document>"
+        )
+        .unwrap();
+        zip.start_file("word/_rels/document.xml.rels", options)
+            .unwrap();
+        zip.write_all(
+            b"<Relationships xmlns=\"r\">\
+              <Relationship Id=\"rId5\" Type=\"hyperlink\" Target=\"https://example.org/a?b=c&amp;d=e\" TargetMode=\"External\"/>\
+              <Relationship Id=\"rId6\" Type=\"hyperlink\" Target=\"javascript:alert(1)\" TargetMode=\"External\"/>\
+              <Relationship Id=\"rId7\" Type=\"styles\" Target=\"styles.xml\"/></Relationships>",
+        )
+        .unwrap();
+        zip.finish().unwrap();
+    }
+    let made = import_docx(&out.into_inner()).unwrap();
+    let runs = &made.story[0].inline;
+    let linked = |word: &str| runs.iter().find(|r| r.text.contains(word)).unwrap();
+    // The words of one link, whatever their looks, are linked to the same place.
+    assert_eq!(
+        linked("our site").href.as_deref(),
+        Some("https://example.org/a?b=c&d=e")
+    );
+    assert!(linked("our site").underline);
+    assert_eq!(
+        linked(" now").href.as_deref(),
+        Some("https://example.org/a?b=c&d=e")
+    );
+    assert_eq!(linked("See").href, None);
+    assert_eq!(linked("a script").href, None);
+    assert_eq!(linked("a chapter").href, None);
+    assert_eq!(
+        text(&made.story[0]),
+        "See our site now, a script, a chapter."
+    );
+    assert!(made
+        .report
+        .notes
+        .iter()
+        .any(|n| n.starts_with("Links that Folio cannot follow")));
+}

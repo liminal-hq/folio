@@ -379,3 +379,35 @@ fn a_chapter_with_no_right_hand_page_left_is_overset() {
     assert!(out.overset);
     assert_eq!(out.overset_from, Some((1, 0)));
 }
+
+#[test]
+fn flow_extent_answers_what_a_full_flow_does_and_keeps_no_lines() {
+    use folio_layout::flow::flow_extent;
+    let fonts = FontBook::bundled();
+    let story: Vec<StoryParagraph> = (0..12).map(|i| paragraph(2 + i % 3)).collect();
+    for frames in [
+        vec![FrameBox::new(300.0, 120.0); 2],
+        vec![FrameBox::new(300.0, 120.0); 40],
+        vec![FrameBox::new(300.0, 4000.0)],
+    ] {
+        let full = flow(&fonts, &story, &frames, "en-CA", &FlowOptions::default()).unwrap();
+        let dry = flow_extent(
+            &fonts,
+            &story,
+            &frames,
+            "en-CA",
+            &FlowOptions::default(),
+            None,
+        )
+        .unwrap();
+        assert!(dry.lines.is_empty());
+        assert_eq!(dry.overset, full.overset);
+        assert_eq!(dry.overset_from, full.overset_from);
+        assert_eq!(dry.used_height, full.used_height);
+        assert_eq!(dry.frames_reached, full.frames_reached);
+        assert_eq!(
+            full.frames_reached,
+            full.lines.iter().map(|l| l.frame + 1).max().unwrap_or(0)
+        );
+    }
+}

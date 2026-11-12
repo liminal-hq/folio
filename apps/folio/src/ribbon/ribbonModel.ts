@@ -39,6 +39,7 @@ export const RIBBON_COMMANDS: Readonly<Record<string, CommandId>> = {
 	toolKeywords: 'tool.keywords',
 	toolRoyalty: 'tool.royalty',
 	menubar: 'view.menuBar',
+	smartPunct: 'edit.smartPunctuation',
 	ribbonToggle: 'view.ribbon',
 };
 
@@ -58,6 +59,22 @@ const CLASSIC_ICONS: Readonly<Record<string, string>> = {
 	exportBook: 'export',
 	style: 'tabs',
 };
+
+/** Controls whose tooltip says what they do beyond their name. */
+const TIPS: ReadonlySet<string> = new Set([
+	'alignL',
+	'alignC',
+	'alignR',
+	'justify',
+	'lineSpacing',
+	'spaceBefore',
+	'spaceAfter',
+	'valign',
+	'indentLess',
+	'indentMore',
+	'firstIndent',
+	'tracking',
+]);
 
 const label = (id: string) => t(`ribbon.item.${id}` as MessageKey);
 
@@ -108,12 +125,14 @@ function toRibbonItem(
 	const shownText = context.editor?.texts[source.id];
 	if (shownText !== undefined) item.value = shownText;
 	if (source.id === 'menubar') item.active = context.settings.interface.menuBar;
+	if (source.id === 'smartPunct') item.active = context.settings.editing.smartPunctuation;
 	if (source.id === 'spell' || source.id === 'toolSpelling')
 		item.active = context.settings.spelling.enabled;
 	const pressed = context.editor?.active[source.id];
 	if (kind === 'toggle' && pressed !== undefined) item.active = pressed;
 	const shown = context.editor?.values[source.id];
 	if (shown !== undefined) item.value = shown;
+	if (context.editor?.mixed?.[source.id]) item.mixed = true;
 	if (kind === 'select') {
 		item.options = [
 			['', t(`ribbon.value.${source.id}` as MessageKey)],
@@ -128,6 +147,9 @@ function toRibbonItem(
 		const choices = context.editor?.options[source.id];
 		if (choices) item.options = choices.map(([value, text]) => [value, text] as [string, string]);
 	}
+	const tip =
+		TIPS.has(source.id) && enabled ? t(`ribbon.tip.${source.id}` as MessageKey) : undefined;
+	if (tip) item.desc = tip;
 	if (source.id === 'size') Object.assign(item, { min: 4, max: 96, step: 1, defaultValue: 12 });
 	return item;
 }

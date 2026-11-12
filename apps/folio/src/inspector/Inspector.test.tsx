@@ -157,11 +157,50 @@ describe('with a text frame selected', () => {
 	it('sets the alignment', async () => {
 		const { apply } = setup([text()]);
 		await userEvent.click(screen.getByRole('radio', { name: 'Right' }));
+		// Each paragraph sets its own alignment, so a frame's paragraphs are all changed.
 		expect(apply).toHaveBeenCalledWith({
+			type: 'SetParagraphLook',
+			target: { type: 'frame', frame: 't' },
+			from: 0,
+			to: 0,
+			change: { set: { align: 'right' }, clear: [] },
+		});
+	});
+
+	it('puts the words at the top, in the middle or at the bottom of the box', async () => {
+		const { apply } = setup([
+			text({ overrides: { size: 14, align: null, bold: null, italic: null } }),
+		]);
+		const place = screen.getByRole('radiogroup', { name: 'Vertical alignment' });
+		expect(within(place).getByRole('radio', { name: 'Top' })).toBeChecked();
+		await userEvent.click(within(place).getByRole('radio', { name: 'Middle' }));
+		expect(apply).toHaveBeenLastCalledWith({
 			type: 'OverrideStyle',
 			frame: 't',
-			overrides: { size: null, align: 'right', bold: null, italic: null },
+			overrides: { size: 14, align: null, bold: null, italic: null, valign: 'middle' },
 		});
+	});
+
+	it('sets the space after the paragraphs of the frame, from the Paragraph section', async () => {
+		const { apply } = setup([text({ content: { inline: [{ text: 'One\nTwo' }] } })]);
+		const field = screen.getByRole('textbox', { name: /Space after/ });
+		await userEvent.clear(field);
+		await userEvent.type(field, '0.25{Enter}');
+		expect(apply).toHaveBeenCalledWith({
+			type: 'SetParagraphLook',
+			target: { type: 'frame', frame: 't' },
+			from: 0,
+			to: 1,
+			change: { set: { spaceAfter: 18 }, clear: [] },
+		});
+	});
+
+	it('sets the line spacing and takes it back to the style', async () => {
+		const { apply } = setup([text()]);
+		await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Line spacing' }), '1.5');
+		expect(apply).toHaveBeenCalledWith(
+			expect.objectContaining({ change: { set: { lineHeight: 1.5 }, clear: [] } }),
+		);
 	});
 
 	it('edits words with emphasis, since the look of what is left alone is kept', () => {

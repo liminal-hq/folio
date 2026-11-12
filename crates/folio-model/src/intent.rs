@@ -10,9 +10,11 @@ use crate::background::Background;
 use crate::book::{BookFont, Details, Grid, PageNumbers};
 use crate::colour::{BookSwatch, Colour};
 use crate::cover::{BarcodeChoice, Paper};
+use crate::edit::{EditStep, TextInsert, TextPos, TextTarget};
 use crate::flow::StoryPara;
 use crate::frame::{Fit, Frame, Shape, StyleOverrides, TableLook};
 use crate::ids::{FlowId, FrameId, MasterId, PageId, SpreadId, StyleId, SwatchId};
+use crate::para::ParaChange;
 use crate::runs::RunChange;
 use crate::sections::Section;
 use crate::spread::Axis;
@@ -392,12 +394,44 @@ pub enum Intent {
         frame: FrameId,
         text: String,
     },
+    /// Replaces the words from `from` to `to` of `target` with `insert`, keeping the look of every
+    /// stretch that is left alone. What is typed takes the look of the words before it, changed by
+    /// `look` (a bold set at the caret, say). `step` says whether a keystroke joins the typing
+    /// before it or stands as a step of its own. Positions count code points of a paragraph.
+    EditText {
+        target: TextTarget,
+        from: TextPos,
+        to: TextPos,
+        insert: TextInsert,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        look: Option<RunChange>,
+        step: EditStep,
+    },
+    /// Changes what paragraphs `from` to `to` (both included, counted from the first) of `target`
+    /// set for themselves over their style: spacing before and after, line spacing, indents and
+    /// alignment. Each paragraph keeps its own look, so a change reaches only the ones named.
+    SetParagraphLook {
+        target: TextTarget,
+        from: u32,
+        to: u32,
+        change: ParaChange,
+    },
     /// Changes the look of the characters `start..end` of a frame's words (counted in characters),
     /// splitting the words into runs where it begins and ends. One undo step.
     StyleRange {
         frame: FrameId,
         start: u32,
         end: u32,
+        change: RunChange,
+    },
+    /// Changes the look of the characters from `from` to `to` of `target`, across paragraphs when
+    /// they differ, splitting runs where the stretch begins and ends. It is `StyleRange` for any
+    /// words (a story's, a table cell's) and takes places as an edit does: code points of a
+    /// paragraph. One undo step.
+    StyleText {
+        target: TextTarget,
+        from: TextPos,
+        to: TextPos,
         change: RunChange,
     },
     /// Changes a table: a cell's words, its rows and columns, header rows or look. Typing in one

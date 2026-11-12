@@ -34,6 +34,8 @@ export interface RibbonItem {
 	 */
 	options?: [value: string, label: string, group?: string][];
 	value?: string | number;
+	/** A stepper whose words differ in value shows a dash and steps from `value`. */
+	mixed?: boolean;
 	/** What a select or stepper shows until it is changed, when the app does not own its value. */
 	defaultValue?: string | number;
 	/** Pixel width of a select. */

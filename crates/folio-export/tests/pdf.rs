@@ -371,3 +371,170 @@ fn a_textured_page_is_tiled_with_one_shared_picture() {
     // Twelve-point tiles across a page are drawn many times but stored once (plus its mask).
     assert!((1..=2).contains(&images), "{images}");
 }
+
+#[test]
+fn underlined_and_struck_words_are_drawn_with_lines() {
+    fn fills(bytes: &[u8]) -> usize {
+        let doc = Document::load_mem(bytes).unwrap();
+        doc.get_pages()
+            .values()
+            .map(|&page| {
+                doc.get_and_decode_page_content(page)
+                    .unwrap()
+                    .operations
+                    .iter()
+                    .filter(|op| matches!(op.operator.as_str(), "re" | "f" | "f*"))
+                    .count()
+            })
+            .sum()
+    }
+    let (mut book, styles) = sample(BookKind::Picture);
+    let fonts = FontBook::bundled();
+    let options = PdfOptions {
+        target: PdfTarget::Sharing,
+        ink: None,
+        crop_marks: false,
+    };
+    let before = fills(&export_pdf(&book, &styles, &fonts, &NoAssets, &options).unwrap());
+    for frame in book.spreads.iter_mut().flat_map(|s| s.frames.iter_mut()) {
+        if let folio_model::Frame::Text(t) = frame {
+            for run in t.content.iter_mut().flat_map(|c| c.inline.iter_mut()) {
+                run.underline = true;
+            }
+        }
+    }
+    let after = fills(&export_pdf(&book, &styles, &fonts, &NoAssets, &options).unwrap());
+    assert!(after > before, "{before} fills became {after}");
+}
+
+/// A number of a PDF object, whether it was written as an integer or a real.
+fn number(object: &lopdf::Object) -> f32 {
+    object
+        .as_float()
+        .or_else(|_| object.as_i64().map(|n| n as f32))
+        .unwrap()
+}
+
+/// The links of a PDF: for each, its address, or the number of the page it goes to.
+fn links(bytes: &[u8]) -> Vec<(Option<String>, Option<u32>)> {
+    let doc = Document::load_mem(bytes).unwrap();
+    let pages = doc.get_pages();
+    let mut out = Vec::new();
+    for &page in pages.values() {
+        for annotation in doc.get_page_annotations(page).unwrap_or_default() {
+            assert_eq!(
+                annotation.get(b"Subtype").unwrap().as_name().unwrap(),
+                b"Link"
+            );
+            // Nothing is drawn round a link.
+            let border = annotation.get(b"Border").unwrap().as_array().unwrap();
+            assert_eq!(number(&border[2]), 0.0);
+            let rect = annotation.get(b"Rect").unwrap().as_array().unwrap();
+            assert!(number(&rect[2]) > number(&rect[0]));
+            if let Ok(action) = annotation.get(b"A") {
+                let action = doc.dereference(action).unwrap().1.as_dict().unwrap();
+                assert_eq!(action.get(b"S").unwrap().as_name().unwrap(), b"URI");
+                let uri = action.get(b"URI").unwrap().as_string().unwrap();
+                out.push((Some(uri.into_owned()), None));
+            } else {
+                let dest = doc
+                    .dereference(annotation.get(b"Dest").unwrap())
+                    .unwrap()
+                    .1
+                    .as_array()
+                    .unwrap();
+                let id = dest[0].as_reference().unwrap();
+                let number = pages
+                    .iter()
+                    .find(|(_, v)| **v == id)
+                    .map(|(n, _)| *n)
+                    .expect("the destination is a page of the file");
+                out.push((None, Some(number)));
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn linked_words_are_link_annotations_over_their_lines_and_only_a_file_for_the_screen_has_them() {
+    let (mut book, styles) = sample(BookKind::Picture);
+    let fonts = FontBook::bundled();
+    let spreads = book.spreads.len();
+    let mut set = 0;
+    for frame in book.spreads.iter_mut().flat_map(|s| s.frames.iter_mut()) {
+        if let folio_model::Frame::Text(t) = frame {
+            for run in t.content.iter_mut().flat_map(|c| c.inline.iter_mut()) {
+                run.href = Some(match set % 3 {
+                    0 => "https://example.org/a?b=c&d=e".to_string(),
+                    1 => format!("#spread-{spreads}"),
+                    // A spread the book does not have goes nowhere, so it is left out.
+                    _ => "#spread-99".to_string(),
+                });
+                set += 1;
+            }
+        }
+    }
+    assert!(set >= 3);
+    let make = |target| {
+        export_pdf(
+            &book,
+            &styles,
+            &fonts,
+            &NoAssets,
+            &PdfOptions {
+                target,
+                ink: None,
+                crop_marks: target == PdfTarget::PrintShop,
+            },
+        )
+        .unwrap()
+    };
+    let sharing = make(PdfTarget::Sharing);
+    let found = links(&sharing);
+    assert!(
+        found
+            .iter()
+            .any(|(uri, _)| uri.as_deref() == Some("https://example.org/a?b=c&d=e")),
+        "{found:?}"
+    );
+    let pages = Document::load_mem(&sharing).unwrap().get_pages().len() as u32;
+    let to_pages: Vec<u32> = found.iter().filter_map(|(_, page)| *page).collect();
+    assert!(!to_pages.is_empty());
+    assert!(
+        to_pages.iter().all(|p| (1..=pages).contains(p)),
+        "{to_pages:?}"
+    );
+    // A link to the last spread goes to the first page it is on, not the last page of the book
+    // when that spread has two.
+    let want = book.spreads[..spreads - 1]
+        .iter()
+        .map(|s| s.pages.len() as u32)
+        .sum::<u32>()
+        + 1;
+    assert!(to_pages.contains(&want), "{want} in {to_pages:?}");
+    for target in [PdfTarget::Print, PdfTarget::PrintShop] {
+        assert!(links(&make(target)).is_empty(), "{target:?}");
+    }
+    // The file stays valid with links in it.
+    if std::process::Command::new("qpdf")
+        .arg("--version")
+        .output()
+        .is_ok()
+    {
+        let file =
+            std::env::temp_dir().join(format!("folio-export-links-{}.pdf", std::process::id()));
+        std::fs::write(&file, &sharing).unwrap();
+        let out = std::process::Command::new("qpdf")
+            .arg("--check")
+            .arg(&file)
+            .output()
+            .unwrap();
+        let _ = std::fs::remove_file(&file);
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stdout)
+        );
+    }
+}

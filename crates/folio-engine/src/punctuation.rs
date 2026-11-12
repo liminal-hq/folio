@@ -7,6 +7,7 @@
 //! many places each would change and what they would look like before anything is changed.
 //! Characters already set the way a book sets them are left alone.
 
+use folio_model::{smarten_with, QuoteStyle, SmartRules};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -34,97 +35,43 @@ pub const RULES: [PunctuationRule; 4] = [
     PunctuationRule::Spaces,
 ];
 
-/// `text` with `rule` applied, and how many places it changed.
-pub fn apply(text: &str, rule: PunctuationRule) -> (String, usize) {
+/// `text` with `rule` applied in the quote style given, and how many places it changed.
+pub fn apply(text: &str, rule: PunctuationRule, style: QuoteStyle) -> (String, usize) {
+    let only = |quotes, dashes, ellipses| {
+        let s = smarten_with(
+            "",
+            text,
+            style,
+            SmartRules {
+                quotes,
+                dashes,
+                ellipses,
+            },
+        );
+        (s.text, s.changed)
+    };
     match rule {
-        PunctuationRule::Quotes => quotes(text),
-        PunctuationRule::Dashes => dashes(text),
-        PunctuationRule::Ellipses => ellipses(text),
+        PunctuationRule::Quotes => only(true, false, false),
+        PunctuationRule::Dashes => only(false, true, false),
+        PunctuationRule::Ellipses => only(false, false, true),
         PunctuationRule::Spaces => spaces(text),
     }
 }
 
-/// `text` with every rule in `rules` applied, in the order they are listed.
-pub fn smarten(text: &str, rules: &[PunctuationRule]) -> String {
-    let mut out = text.to_owned();
-    for rule in RULES {
-        if rules.contains(&rule) {
-            out = apply(&out, rule).0;
-        }
+/// `text` with every rule in `rules` applied, in the order they are listed. The quote, dash and
+/// ellipsis rules are those typing and import use (`folio_model::smarten`).
+pub fn smarten(text: &str, rules: &[PunctuationRule], style: QuoteStyle) -> String {
+    let wanted = SmartRules {
+        quotes: rules.contains(&PunctuationRule::Quotes),
+        dashes: rules.contains(&PunctuationRule::Dashes),
+        ellipses: rules.contains(&PunctuationRule::Ellipses),
+    };
+    let out = smarten_with("", text, style, wanted).text;
+    if rules.contains(&PunctuationRule::Spaces) {
+        spaces(&out).0
+    } else {
+        out
     }
-    out
-}
-
-fn opens_after(c: Option<char>) -> bool {
-    match c {
-        None => true,
-        Some(c) => c.is_whitespace() || "([{—–-“‘".contains(c),
-    }
-}
-
-fn quotes(text: &str) -> (String, usize) {
-    let chars: Vec<char> = text.chars().collect();
-    let mut out = String::with_capacity(text.len());
-    let mut changed = 0;
-    for (i, &c) in chars.iter().enumerate() {
-        let before = i.checked_sub(1).map(|j| chars[j]);
-        let after = chars.get(i + 1).copied();
-        match c {
-            '"' => {
-                out.push(if opens_after(before) { '“' } else { '”' });
-                changed += 1;
-            }
-            '\'' => {
-                // An apostrophe, or a quote that closes, follows a letter; one that opens follows
-                // a space, and faces the words that follow it, unless a number does (’90s).
-                let opens = opens_after(before) && after.is_some_and(char::is_alphabetic);
-                out.push(if opens { '‘' } else { '’' });
-                changed += 1;
-            }
-            other => out.push(other),
-        }
-    }
-    (out, changed)
-}
-
-fn dashes(text: &str) -> (String, usize) {
-    let mut changed = 0;
-    let mut out = String::with_capacity(text.len());
-    let chars: Vec<char> = text.chars().collect();
-    let mut i = 0;
-    while i < chars.len() {
-        if chars[i] == '-' && chars.get(i + 1) == Some(&'-') {
-            // Any run of hyphens past two is one dash too.
-            while chars.get(i) == Some(&'-') {
-                i += 1;
-            }
-            out.push('—');
-            changed += 1;
-        } else if chars[i] == '-' && i > 0 && chars[i - 1] == ' ' && chars.get(i + 1) == Some(&' ')
-        {
-            out.push('–');
-            changed += 1;
-            i += 1;
-        } else {
-            out.push(chars[i]);
-            i += 1;
-        }
-    }
-    (out, changed)
-}
-
-fn ellipses(text: &str) -> (String, usize) {
-    let mut changed = 0;
-    let mut out = String::with_capacity(text.len());
-    let mut rest = text;
-    while let Some(at) = rest.find("...") {
-        out.push_str(&rest[..at]);
-        out.push('…');
-        changed += 1;
-        rest = &rest[at + 3..];
-    }
-    out.push_str(rest);
-    (out, changed)
 }
 
 fn spaces(text: &str) -> (String, usize) {
@@ -152,8 +99,8 @@ fn spaces(text: &str) -> (String, usize) {
 
 /// A few words around the first place `rule` would change `text`, as they are now and as they would
 /// be, or `None` when it would change nothing.
-pub fn example(text: &str, rule: PunctuationRule) -> Option<(String, String)> {
-    let (after, changed) = apply(text, rule);
+pub fn example(text: &str, rule: PunctuationRule, style: QuoteStyle) -> Option<(String, String)> {
+    let (after, changed) = apply(text, rule, style);
     if changed == 0 {
         return None;
     }
@@ -178,22 +125,44 @@ pub fn example(text: &str, rule: PunctuationRule) -> Option<(String, String)> {
 mod tests {
     use super::*;
 
+    const EN: QuoteStyle = QuoteStyle::Curly;
+
     #[test]
     fn quotes_face_the_way_they_are_read() {
-        let (out, n) = quotes("\"Don't go,\" she said. 'Really,' he said. It's the '90s.");
+        let (out, n) = apply(
+            "\"Don't go,\" she said. 'Really,' he said. It's the '90s.",
+            PunctuationRule::Quotes,
+            EN,
+        );
         assert_eq!(
             out,
             "“Don’t go,” she said. ‘Really,’ he said. It’s the ’90s."
         );
         assert_eq!(n, 7);
         // Curly ones already there are left alone.
-        assert_eq!(quotes("“Hello,” she said.").1, 0);
+        assert_eq!(
+            apply("“Hello,” she said.", PunctuationRule::Quotes, EN).1,
+            0
+        );
         // A quote after a dash opens, and one after a bracket too.
-        assert_eq!(quotes("He said—\"no\" (\"yes\")").0, "He said—“no” (“yes”)");
+        assert_eq!(
+            apply("He said—\"no\" (\"yes\")", PunctuationRule::Quotes, EN).0,
+            "He said—“no” (“yes”)"
+        );
+    }
+
+    #[test]
+    fn quotes_follow_the_language() {
+        let fr = QuoteStyle::for_language("fr-CA");
+        assert_eq!(
+            apply("Il dit \"oui\"", PunctuationRule::Quotes, fr).0,
+            "Il dit «\u{a0}oui\u{a0}»"
+        );
     }
 
     #[test]
     fn two_hyphens_are_an_em_dash_and_a_spaced_hyphen_an_en_dash() {
+        let dashes = |t| apply(t, PunctuationRule::Dashes, EN);
         assert_eq!(dashes("Wait--what?"), ("Wait—what?".to_owned(), 1));
         assert_eq!(dashes("Wait---what?"), ("Wait—what?".to_owned(), 1));
         assert_eq!(dashes("Pages 4 - 6"), ("Pages 4 – 6".to_owned(), 1));
@@ -204,8 +173,9 @@ mod tests {
 
     #[test]
     fn three_dots_are_one_ellipsis() {
-        assert_eq!(ellipses("Well... maybe..."), ("Well… maybe…".to_owned(), 2));
-        assert_eq!(ellipses("Well… maybe").1, 0);
+        let dots = |t| apply(t, PunctuationRule::Ellipses, EN);
+        assert_eq!(dots("Well... maybe..."), ("Well… maybe…".to_owned(), 2));
+        assert_eq!(dots("Well… maybe").1, 0);
     }
 
     #[test]
@@ -220,9 +190,12 @@ mod tests {
     #[test]
     fn rules_apply_in_order_and_only_those_asked_for() {
         let text = "\"Wait--what...\"  she said";
-        assert_eq!(smarten(text, &RULES), "“Wait—what…” she said".to_owned());
         assert_eq!(
-            smarten(text, &[PunctuationRule::Ellipses]),
+            smarten(text, &RULES, EN),
+            "“Wait—what…” she said".to_owned()
+        );
+        assert_eq!(
+            smarten(text, &[PunctuationRule::Ellipses], EN),
             "\"Wait--what…\"  she said".to_owned()
         );
     }
@@ -232,11 +205,12 @@ mod tests {
         let (before, after) = example(
             "The long walk home ended with a \"hello\" at the gate.",
             PunctuationRule::Quotes,
+            EN,
         )
         .unwrap();
         assert!(before.contains('"') && after.contains('“'));
         assert_eq!(
-            example("Nothing to do here.", PunctuationRule::Quotes),
+            example("Nothing to do here.", PunctuationRule::Quotes, EN),
             None
         );
     }

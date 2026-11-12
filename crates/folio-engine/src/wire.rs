@@ -37,6 +37,74 @@ pub struct SpreadLayoutResult {
     pub layout: SpreadLayout,
 }
 
+/// A replacement of some words, as the editor makes it. See `Intent::EditText`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct EditRequest {
+    pub target: folio_model::TextTarget,
+    pub from: folio_model::TextPos,
+    pub to: folio_model::TextPos,
+    pub insert: folio_model::TextInsert,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub look: Option<folio_model::RunChange>,
+    pub step: folio_model::EditStep,
+    /// Whether typed or pasted plain words are set with smart punctuation (quotes in the book's
+    /// language, dashes, ellipses) before they go in. Rust decides, from the words before the place.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub smart: Option<bool>,
+}
+
+/// Words that smart punctuation changed on their way in, so the editor can put back what was typed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct SmartNote {
+    /// Where the words that were set begin; a rule may have begun before where the edit did.
+    pub from: folio_model::TextPos,
+    /// Where they end, which is where the caret goes.
+    pub to: folio_model::TextPos,
+    /// The words as set, from `from` to `to`.
+    pub text: String,
+    /// The words as they were typed, from `from`.
+    pub raw: String,
+}
+
+impl EditRequest {
+    /// Where the caret goes once the edit is made.
+    pub fn caret(&self) -> folio_model::TextPos {
+        folio_model::caret_after(self.from, &self.insert)
+    }
+
+    pub fn into_intent(self) -> folio_model::Intent {
+        folio_model::Intent::EditText {
+            target: self.target,
+            from: self.from,
+            to: self.to,
+            insert: self.insert,
+            look: self.look,
+            step: self.step,
+        }
+    }
+}
+
+/// What an edit answers with, in one trip: the patch it made, the spread it is on laid out again,
+/// and where the caret goes. The page draws the layout without asking for it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct EditAnswer {
+    pub patch: Patch,
+    pub layout: SpreadLayoutResult,
+    pub caret: folio_model::TextPos,
+    /// What smart punctuation did to the words, when it changed them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub smart: Option<SmartNote>,
+}
+
 /// An open book in full, for a window that is showing it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -159,6 +227,17 @@ pub enum FontOrigin {
     Book,
     /// Installed on this computer.
     System,
+}
+
+/// Pasted HTML read into paragraphs of runs (D-68): the words with the bold, italic, underline,
+/// strike-through, colour, size, typeface and links that a run of a book can hold.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct PastedHtml {
+    pub paragraphs: Vec<folio_model::StoryPara>,
+    /// What was left out or approximated, each said once in plain words.
+    pub notes: Vec<String>,
 }
 
 /// One typeface family a book can draw in.
@@ -491,4 +570,108 @@ pub struct TemplateCard {
     pub name: String,
     /// A `data:image/png` URI of the spread.
     pub image: String,
+}
+
+/// What to look for in a book (D-62).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct FindRequest {
+    /// The words to find. Empty finds nothing.
+    pub query: String,
+    /// Capital letters must agree. Left out, they need not.
+    #[serde(default)]
+    pub match_case: bool,
+    /// Only whole words: "cat" is not found in "concatenate" or "cat's".
+    #[serde(default)]
+    pub whole_word: bool,
+    /// Read `query` as a regular expression (the Rust `regex` syntax: no look-around or
+    /// back-references, and so always quick). Left out, `query` is exactly the words to find.
+    #[serde(default)]
+    pub regex: bool,
+}
+
+/// Where the words found are.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct FindMatch {
+    /// Whose words: the same target an `EditText` takes.
+    pub target: folio_model::TextTarget,
+    /// The paragraph of those words, and the Unicode code points `from..to` of it.
+    pub para: u32,
+    pub from: u32,
+    pub to: u32,
+    /// The spread the words are on; for a story, the one its words at this place are laid out on.
+    /// Not there for words on a master page.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub spread: Option<String>,
+    /// The master page the words are on, when they are on one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub master: Option<String>,
+    /// The words around the match, with … where they are cut off.
+    pub context: String,
+    /// The words cannot be replaced: their frame is locked or comes from a master.
+    pub locked: bool,
+}
+
+/// What a search found, in reading order.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct FindReport {
+    pub matches: Vec<FindMatch>,
+    /// There were more matches than are listed.
+    pub truncated: bool,
+}
+
+/// One match, named as `find` reported it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct MatchRef {
+    pub target: folio_model::TextTarget,
+    pub para: u32,
+    pub from: u32,
+    pub to: u32,
+}
+
+/// Words to put in place of what a search finds.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ReplaceRequest {
+    pub find: FindRequest,
+    /// What goes in place of each match, as written (smart punctuation is not applied). With
+    /// `find.regex`, `$1` or `${name}` is a group of the match and `$$` a dollar sign.
+    pub replacement: String,
+    /// Replace only this match; left out, replace every match as one undo step.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub only: Option<MatchRef>,
+    /// The master page being edited, whose words may be replaced. Words on any other master page
+    /// are left alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub master: Option<String>,
+}
+
+/// What a replace did.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct ReplaceReport {
+    pub replaced: u32,
+    /// Matches left alone because their frame is locked.
+    pub skipped_locked: u32,
+    /// Matches left alone because they are on a master page that is not being edited.
+    pub skipped_masters: u32,
 }

@@ -42,3 +42,66 @@ fn tables_of_fonts_and_pictures_are_left_out() {
 fn something_that_is_not_rtf_is_refused() {
     assert!(matches!(import_rtf(b"plain words"), Err(RtfError::NotRtf)));
 }
+
+#[test]
+fn underlined_and_struck_through_runs_come_across() {
+    let rtf = br"{\rtf1\ansi\pard A \ul line\ulnone  and \strike gone\strike0 .\par}";
+    let s = import_rtf(rtf).unwrap().story;
+    assert!(s[0].inline.iter().any(|r| r.underline && r.text == "line"));
+    assert!(s[0].inline.iter().any(|r| r.strike && r.text == "gone"));
+    assert!(s[0]
+        .inline
+        .iter()
+        .any(|r| !r.underline && !r.strike && r.text == " and "));
+}
+
+#[test]
+fn sizes_and_expansion_come_across_when_they_are_not_the_bodys() {
+    let rtf = br"{\rtf1\ansi\pard\fs22 The body is set in eleven points for a while \fs48\expndtw20 Big\plain\fs22  and back.\par}";
+    let s = import_rtf(rtf).unwrap().story;
+    let big = s[0].inline.iter().find(|r| r.text == "Big").unwrap();
+    assert_eq!(big.size, Some(24.0));
+    assert_eq!(big.tracking, Some(42));
+    assert!(s[0]
+        .inline
+        .iter()
+        .filter(|r| r.text != "Big")
+        .all(|r| r.size.is_none() && r.tracking.is_none()));
+}
+
+#[test]
+fn a_language_that_is_not_the_bodys_comes_across() {
+    let rtf = br"{\rtf1\ansi\pard\lang4105 The body goes on in the usual language for a while, and then \lang3084 bonjour\par}";
+    let s = import_rtf(rtf).unwrap().story;
+    let bonjour = s[0]
+        .inline
+        .iter()
+        .find(|r| r.text.contains("bonjour"))
+        .unwrap();
+    assert_eq!(bonjour.lang.as_deref(), Some("fr-CA"));
+    assert!(s[0].inline.iter().any(|r| r.lang.is_none()));
+}
+
+#[test]
+fn a_hyperlink_field_keeps_its_address_for_the_words_it_shows() {
+    let rtf = br#"{\rtf1\ansi\pard See {\field{\*\fldinst{HYPERLINK "https://example.org/a"}}{\fldrslt{\ul our site}}} now, {\field{\*\fldinst{HYPERLINK "javascript:alert(1)"}}{\fldrslt a script}} and {\field{\*\fldinst{HYPERLINK \\l "mark"}}{\fldrslt a mark}}.\par}"#;
+    let made = import_rtf(rtf).unwrap();
+    let runs = &made.story[0].inline;
+    let word = |w: &str| runs.iter().find(|r| r.text.contains(w)).unwrap();
+    assert_eq!(
+        word("our site").href.as_deref(),
+        Some("https://example.org/a")
+    );
+    assert!(word("our site").underline);
+    assert_eq!(word("See").href, None);
+    assert_eq!(word("now").href, None);
+    assert_eq!(word("a script").href, None);
+    assert_eq!(word("a mark").href, None);
+    let all: String = runs.iter().map(|r| r.text.as_str()).collect();
+    assert_eq!(all, "See our site now, a script and a mark.");
+    assert!(made
+        .report
+        .notes
+        .iter()
+        .any(|n| n.starts_with("Links that Folio cannot follow")));
+}

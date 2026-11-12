@@ -23,6 +23,8 @@ export interface RibbonLabels {
 	increase: string;
 	/** The button that drops down the groups there is no room for in a narrow window. */
 	more: string;
+	/** Says a stepper's words differ in value: "Size: mixed". */
+	mixed: string;
 }
 
 export const defaultRibbonLabels: RibbonLabels = {
@@ -37,4 +39,5 @@ export const defaultRibbonLabels: RibbonLabels = {
 	decrease: 'Decrease',
 	increase: 'Increase',
 	more: 'More',
+	mixed: 'mixed',
 };

@@ -54,6 +54,10 @@ import {
 	storyChapters,
 	keepFonts,
 	listFonts,
+	editText,
+	find,
+	pasteHtml,
+	replace,
 	layoutMaster,
 	layoutSpread,
 	listBooks,
@@ -72,6 +76,7 @@ import {
 	paintPresets,
 	presets,
 	redo,
+	restoredCaret,
 	saveBook,
 	spellCheck,
 	spellCheckBook,
@@ -87,12 +92,20 @@ import {
 	type BookSnapshot,
 	type BookSummary,
 	type BooksChanged,
+	type EditAnswer,
+	type EditCaret,
+	type EditRequest,
+	type FindReport,
+	type FindRequest,
 	type Intent,
 	type KindInfo,
 	type NewBookSpec,
+	type PastedHtml,
 	type PaintPresets,
 	type Patch,
 	type PatchEvent,
+	type ReplaceReport,
+	type ReplaceRequest,
 } from '@liminal-hq/folio-plugin-books';
 
 /** Hears what happens to the open books, from any window. */
@@ -144,8 +157,21 @@ export interface BooksClient {
 	/** Undoes steps until only `mark` can be undone; each is announced as an event. */
 	rewindHistory(id: string, mark: number): Promise<void>;
 	redo(id: string): Promise<Patch | null>;
+	/** Where the editor's caret goes after the undo or redo just made, when that step was an edit to words. */
+	restoredCaret(id: string): Promise<EditCaret | null>;
 	/** The spread's text shaped and broken into lines, from the book at the revision it carries. */
 	layoutSpread(id: string, spread: string, spelling?: string[]): Promise<SpreadLayoutResult>;
+	/**
+	 * Makes an edit to some words and answers, in one trip, with the patch, `spread` laid out again at
+	 * the revision the edit made, and where the caret goes.
+	 */
+	editText(id: string, edit: EditRequest, spread: string, spelling?: string[]): Promise<EditAnswer>;
+	/** Every place `request` is found in the book, in reading order. */
+	find(id: string, request: FindRequest): Promise<FindReport>;
+	/** HTML from the clipboard as paragraphs of runs; refused when it is too large to read. */
+	pasteHtml(id: string, html: string): Promise<PastedHtml>;
+	/** Replaces one match or all of them as one undo step; says how many were left alone. */
+	replace(id: string, request: ReplaceRequest): Promise<ReplaceReport>;
 	/** A master page's text laid out on a page of its own, with `{page}` and other tokens as written. */
 	layoutMaster(id: string, master: string): Promise<SpreadLayoutResult>;
 	/** Reads a picture file into the book; resolves to its path inside the book. */
@@ -175,7 +201,12 @@ export interface BooksClient {
 	/** Makes the files for `targets` and writes them into the book's `exports` folder. */
 	exportBook(id: string, targets: ExportTarget[], colour?: ExportColour): Promise<ExportReport>;
 	/** Brings the words of a Markdown or plain text file in as the book's story. */
-	importText(id: string, path: string, mapping?: Record<string, string>): Promise<ImportReport>;
+	importText(
+		id: string,
+		path: string,
+		mapping?: Record<string, string>,
+		smart?: boolean,
+	): Promise<ImportReport>;
 	/** Shows a file in the system's file manager. */
 	revealPath(path: string): Promise<void>;
 	/** What preflight finds in the whole book, the issues that wait on the person first. */
@@ -228,7 +259,12 @@ export const tauriBooksClient: BooksClient = {
 	historyMark,
 	rewindHistory,
 	redo,
+	restoredCaret,
 	layoutSpread,
+	editText,
+	find,
+	pasteHtml,
+	replace,
 	layoutMaster,
 	importImage,
 	importImageBytes,

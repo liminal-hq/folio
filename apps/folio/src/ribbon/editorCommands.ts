@@ -20,13 +20,27 @@ import {
 	distributeMoves,
 } from '../canvas/arrange';
 import type { PlainRect } from '../canvas/geometry';
-import type { TextSelection } from '../canvas/textSelection';
+import type { PendingLook, TextCaret, TextSelection } from '../canvas/textSelection';
 import type { Marks } from '../canvas/marksModel';
 import { surfaceOf } from '../canvas/masterView';
 import type { NewFrameKind } from '../canvas/newFrames';
 import { t, type MessageKey } from '../i18n/messages';
 import type { StyleChoice } from '../inspector/styleChoices';
 import { effectiveSize, withOverrides } from '../inspector/textFacts';
+import type { TextParagraphs } from '../canvas/textSelection';
+import { FROM_STYLE, paragraphIntents, paragraphState } from './paragraphCommands';
+import {
+	linkTarget,
+	lookOf,
+	lookScope,
+	runBeforeCaret,
+	styleIntent,
+	type LookScope,
+} from './selectionLook';
+import type { StoryPara } from '@liminal-hq/folio-protocol/generated/StoryPara';
+import type { RunChange } from '@liminal-hq/folio-protocol/generated/RunChange';
+import type { Run } from '@liminal-hq/folio-protocol/generated/Run';
+import type { VAlign } from '@liminal-hq/folio-protocol/generated/VAlign';
 
 export interface EditorInput {
 	spread: Spread;
@@ -40,6 +54,8 @@ export interface EditorInput {
 	fonts?: FontChoice[];
 	/** The families the book uses, which the Font list shows under the book's own heading. */
 	fontsInUse?: readonly string[];
+	/** The languages a run can be set in, as the language list of the Properties card offers them. */
+	languages?: readonly { value: string; label: string }[];
 	marks: Marks;
 	snap: boolean;
 	/** Whether the rulers show. */
@@ -60,6 +76,15 @@ export interface EditorInput {
 	hasCover?: boolean;
 	/** Whether Jax is switched on, which is what Ask Jax needs. */
 	jax?: boolean;
+	/** The caret in the open editor when nothing is selected, and the look already set at it. */
+	caret?: TextCaret | null;
+	pending?: PendingLook | null;
+	/** The paragraphs the open editor's caret or selection is in: the Paragraph group acts on those. */
+	paragraphs?: TextParagraphs | null;
+	/** The on-page editor, when it is open, and whether words are selected in it: Copy and Cut take those. */
+	words?: { selected: boolean } | null;
+	/** The book's stories, for the looks of the paragraphs of a frame that flows. */
+	flows?: readonly { id: string; paragraphs: readonly StoryPara[] }[];
 }
 
 /** What the controls show: which can be used now, which are pressed, the numbers, the extra tabs. */
@@ -67,6 +92,8 @@ export interface EditorState {
 	available: ReadonlySet<string>;
 	active: Readonly<Record<string, boolean>>;
 	values: Readonly<Record<string, number>>;
+	/** Controls whose value differs across the selected words, which show it as mixed. */
+	mixed?: Readonly<Record<string, boolean>>;
 	/** The text a list shows as chosen, by control: the font of the selected words. */
 	texts: Readonly<Record<string, string>>;
 	/** The choices of a list, by control, as value, label and the heading to draw it under. */
@@ -96,7 +123,16 @@ export type EditorAction =
 	| { kind: 'barcode' }
 	| { kind: 'bookDetails' }
 	| { kind: 'exportBook'; quick: boolean }
+	| {
+			kind: 'pending';
+			frame: string;
+			change: PendingLook;
+			/** An installed font the book must keep with it, for a font chosen at the caret. */
+			keep?: string | null;
+	  }
 	| { kind: 'editMaster' }
+	| { kind: 'find' }
+	| { kind: 'link'; scope: LookScope }
 	| { kind: 'pageBackground' }
 	| { kind: 'rulerUnit'; unit: RulerUnit }
 	| { kind: 'toolbar'; toolbar: 'ribbon' | 'classic' }
@@ -104,13 +140,28 @@ export type EditorAction =
 	| { kind: 'bookSize' }
 	| { kind: 'pageMargins' }
 	| { kind: 'cover' }
-	| { kind: 'link'; frame: string }
+	| { kind: 'frameLink'; frame: string }
 	| { kind: 'group'; frames: Frame[] }
 	| { kind: 'ungroup'; frame: Frame }
 	| {
 			kind: 'clipboard';
 			op: 'copy' | 'cut' | 'paste' | 'pasteInPlace' | 'pastePlain' | 'pasteInto';
 	  };
+
+/** Where the words sit up and down in a box, as the Vertical alignment menu offers it. */
+const VALIGNS: ReadonlyArray<readonly [VAlign, MessageKey]> = [
+	['top', 'inspector.valign.top'],
+	['middle', 'inspector.valign.middle'],
+	['bottom', 'inspector.valign.bottom'],
+];
+
+/** The free frames whose words can be placed up and down: text boxes, and shapes that hold words. */
+const placeable = (frames: Frame[]) =>
+	frames.flatMap((f) =>
+		(f.type === 'text' || (f.type === 'shape' && f.content)) && !f.locked && !f.fromMaster
+			? [f]
+			: [],
+	);
 
 const ALIGNS: Record<string, 'left' | 'center' | 'right' | 'justify'> = {
 	alignL: 'left',
@@ -121,33 +172,6 @@ const ALIGNS: Record<string, 'left' | 'center' | 'right' | 'justify'> = {
 
 const texts = (frames: Frame[]) =>
 	frames.flatMap((f) => (f.type === 'text' && !f.locked && !f.fromMaster ? [f] : []));
-/** The selected stretch of words, when it is in one of the selected text frames or shapes. */
-function wordsSelected(input: EditorInput) {
-	const { selection } = input;
-	if (!selection || selection.end <= selection.start) return null;
-	const frame = input.selected.find((f) => f.id === selection.frame);
-	return frame && (frame.type === 'text' || frame.type === 'shape') && !frame.locked
-		? { frame, selection }
-		: null;
-}
-
-/** Whether every character of `start..end` is in a run where `has` is true. */
-function allRuns(
-	frame: Extract<Frame, { type: 'text' | 'shape' }>,
-	start: number,
-	end: number,
-	has: (run: { bold: boolean; italic: boolean }) => boolean,
-): boolean {
-	let at = 0;
-	for (const run of frame.content?.inline ?? []) {
-		const length = [...run.text].length;
-		const overlaps = at < end && at + length > start;
-		if (overlaps && !has(run)) return false;
-		at += length;
-	}
-	return true;
-}
-
 /** The colours the Text colour list offers: ink first, then colours that read well on paper. */
 const TEXT_COLOURS: ReadonlyArray<readonly [hex: string, name: MessageKey]> = [
 	['#1c1b20', 'colour.ink'],
@@ -184,6 +208,50 @@ export function fontOptions(
 
 /** The shapes the Shape menu draws. */
 const SHAPE_CHOICES = ['rect', 'round', 'ellipse', 'line'] as const;
+
+/** The letter spacings the menu offers, in thousandths of an em (spec 09). */
+const TRACKINGS: ReadonlyArray<readonly [number, MessageKey]> = [
+	[-20, 'ribbon.tracking.tight'],
+	[0, 'ribbon.tracking.normal'],
+	[30, 'ribbon.tracking.loose'],
+	[80, 'ribbon.tracking.veryLoose'],
+];
+
+/**
+ * The languages the list offers and the one it shows: the run's own language is matched to a choice
+ * by its code, else by its language alone (`fr-CA` is `fr`), and is added as a choice when none is
+ * the same. `null` is words in several languages, and is shown as such.
+ */
+export function languageOptions(
+	choices: readonly { value: string; label: string }[],
+	current: string | null,
+): { options: ReadonlyArray<readonly [string, string]>; shown: string } {
+	const list: Array<readonly [string, string]> = choices.map((c) => [c.value, c.label] as const);
+	if (current === null)
+		return { options: [...list, [MIXED, t('ribbon.lang.mixed')]], shown: MIXED };
+	if (current === '') return { options: list, shown: '' };
+	const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+	const primary = current.split('-')[0]!;
+	const match =
+		choices.find((c) => same(c.value, current)) ??
+		choices.find((c) => same(c.value.split('-')[0]!, primary));
+	if (match) return { options: list, shown: match.value };
+	return { options: [...list, [current, current]], shown: current };
+}
+
+/** The value of the list's entry that stands for words in several languages, which does nothing. */
+const MIXED = '\u0000mixed';
+
+/** The size of a run's words: its own, else its style's, else the frame's. */
+function runSize(
+	frame: Frame,
+	layout: SpreadLayout | null,
+	choices: StyleChoice[],
+): (run: Run) => number {
+	const base = frame.type === 'text' ? effectiveSize(frame, layout, choices) : 12;
+	return (run) =>
+		run.size ?? (run.style ? choices.find((c) => c.id === run.style)?.size : null) ?? base;
+}
 
 const free = (frames: Frame[]) => frames.filter((f) => !f.locked && !f.fromMaster);
 
@@ -240,6 +308,9 @@ export function editorState(input: EditorInput): EditorState {
 		snap,
 	};
 	const values: Record<string, number> = {};
+	const mixed: Record<string, boolean> = {};
+	let language: string | null = '';
+	let tracking: { own: number | undefined; mixed: boolean } = { own: undefined, mixed: false };
 	const shown: Record<string, string> = {};
 	const contextual: string[] = [];
 
@@ -254,6 +325,8 @@ export function editorState(input: EditorInput): EditorState {
 	}
 	if (input.master) active.master = true;
 	available.add('master');
+	available.add('find');
+	available.add('toolFind');
 	available.add('preflight');
 	if (!input.master) available.add('templates');
 	available.add('softProof');
@@ -280,11 +353,39 @@ export function editorState(input: EditorInput): EditorState {
 	if (movable.length >= 3) for (const id of Object.keys(DISTRIBUTE_CONTROLS)) available.add(id);
 	if (canGroup(selected, !!input.master)) available.add('group');
 	if (canUngroup(selected)) available.add('ungroup');
-	if (selected.length > 0) available.add('copy');
-	if (cuttable(selected).length > 0) available.add('cut');
+	if (input.words) {
+		if (input.words.selected) {
+			available.add('copy');
+			available.add('cut');
+		}
+	} else {
+		if (selected.length > 0) available.add('copy');
+		if (cuttable(selected).length > 0) available.add('cut');
+	}
 	const words = texts(selected);
 	if (words.length > 0) {
-		for (const id of ['bold', 'italic', ...Object.keys(ALIGNS), 'size']) available.add(id);
+		for (const id of [
+			'bold',
+			'italic',
+			'underline',
+			'strike',
+			'tracking',
+			...Object.keys(ALIGNS),
+			'size',
+		])
+			available.add(id);
+		// Underline and strike are on the words themselves, not the frame's style.
+		const runs = words.flatMap((f) => (f.content?.inline ?? []).filter((r) => r.text !== ''));
+		active.underline = runs.length > 0 && runs.every((r) => r.underline === true);
+		active.strike = runs.length > 0 && runs.every((r) => r.strike === true);
+		available.add('lang');
+		const spoken = new Set(runs.map((r) => r.lang ?? ''));
+		language = spoken.size === 1 ? [...spoken][0]! : null;
+		const spacings = new Set(runs.map((r) => r.tracking ?? null));
+		tracking = {
+			own: spacings.size === 1 ? ([...spacings][0] ?? undefined) : undefined,
+			mixed: spacings.size > 1,
+		};
 		const first = words[0]!;
 		active.bold = first.overrides?.bold === true;
 		active.italic = first.overrides?.italic === true;
@@ -298,6 +399,74 @@ export function editorState(input: EditorInput): EditorState {
 			available.add('paragraphStyle');
 			shown.paragraphStyle = first.style;
 		}
+	}
+	// With a caret or a selection in the words, the controls show the look of those words: bold only
+	// when every character is, a font only when they share one.
+	const scope = lookScope(input);
+	if (scope) {
+		for (const id of [
+			'bold',
+			'italic',
+			'underline',
+			'strike',
+			'font',
+			'colour',
+			'size',
+			'tracking',
+		])
+			available.add(id);
+		const look = lookOf(scope, runSize(scope.frame, input.layout, choices));
+		available.add('lang');
+		// A link is set on selected words, or edited or taken away with the caret in it.
+		const link = linkTarget(scope);
+		if (link.words) available.add('link');
+		active.link = link.link;
+		const typed = scope.collapsed ? input.pending : null;
+		active.bold = typed?.bold ?? look.bold;
+		active.italic = typed?.italic ?? look.italic;
+		active.underline = typed?.underline ?? look.underline;
+		active.strike = typed?.strike ?? look.strike;
+		shown.font = typed?.font ?? look.font ?? '';
+		// The words' size, or the first one's with the control marked mixed when they differ.
+		values.size = typed?.size ?? look.size;
+		mixed.size = typed?.size === undefined && look.sizeMixed;
+		language = typed?.lang ?? look.lang;
+		tracking = {
+			own: typed?.clearTracking ? undefined : (typed?.tracking ?? look.tracking),
+			mixed: typed?.tracking === undefined && !typed?.clearTracking && look.trackingMixed,
+		};
+	}
+	const options: Record<string, ReadonlyArray<readonly [string, string, string?]>> = {};
+	options.tracking = TRACKINGS.map(
+		([value, name]) =>
+			[
+				String(value),
+				!tracking.mixed && tracking.own === value ? `✓ ${t(name)}` : t(name),
+			] as const,
+	).concat([
+		[
+			FROM_STYLE,
+			!tracking.mixed && tracking.own === undefined
+				? `✓ ${t('ribbon.para.fromStyle')}`
+				: t('ribbon.para.fromStyle'),
+		] as const,
+	]);
+	{
+		const { options: listed, shown: spoken } = languageOptions(input.languages ?? [], language);
+		options.lang = listed;
+		shown.lang = spoken;
+	}
+	paragraphState(input, available, active, options);
+	{
+		// A text box sits at the top, a shape's words in the middle, until one is chosen.
+		const boxes = placeable(selected);
+		if (boxes.length > 0) available.add('valign');
+		const first = boxes[0];
+		const now: VAlign | undefined =
+			first?.overrides?.valign ?? (first?.type === 'shape' ? 'middle' : first ? 'top' : undefined);
+		options.valign = VALIGNS.map(
+			([value, name]) => [value, now === value ? `✓ ${t(name)}` : t(name)] as const,
+		);
 	}
 	const only = selected.length === 1 ? selected[0]! : null;
 	if (only?.type === 'image') {
@@ -330,7 +499,6 @@ export function editorState(input: EditorInput): EditorState {
 		available.add('rotL');
 		available.add('rotR');
 	}
-	const options: Record<string, ReadonlyArray<readonly [string, string, string?]>> = {};
 	options.colour = [
 		...TEXT_COLOURS.map(([hex, name]) => [hex, t(name)] as const),
 		...(input.swatches ?? []).map((s) => [`swatch:${s.id}`, s.name] as const),
@@ -355,7 +523,7 @@ export function editorState(input: EditorInput): EditorState {
 	];
 	options.paragraphStyle = choices.map((c) => [c.id, c.name] as const);
 	if (input.fonts) options.font = fontOptions(input.fonts, input.fontsInUse ?? []);
-	return { available, active, values, texts: shown, options, contextual };
+	return { available, active, values, mixed, texts: shown, options, contextual };
 }
 
 /** The action a control asks for, or `null` when it is not one of the document's controls. */
@@ -424,7 +592,7 @@ export function editorAction(
 		case 'thread': {
 			const only = selected.length === 1 ? selected[0]! : null;
 			if (only?.type !== 'text' || only.locked || only.fromMaster || only.flow) return null;
-			return { kind: 'link', frame: only.id };
+			return { kind: 'frameLink', frame: only.id };
 		}
 		case 'group':
 			return canGroup(selected, !!input.master) ? { kind: 'group', frames: selected } : null;
@@ -484,6 +652,9 @@ export function editorAction(
 		case 'spell':
 		case 'toolSpelling':
 			return { kind: 'spelling' };
+		case 'find':
+		case 'toolFind':
+			return { kind: 'find' };
 		case 'rguides':
 			return { kind: 'marks', marks: { guides: !input.marks.guides } };
 		case 'master':
@@ -538,23 +709,49 @@ export function editorAction(
 					.map((f) => ({ type: 'LockFrame', ...on, frame: f.id, locked: lock })),
 			};
 		}
-		case 'bold':
-		case 'italic': {
-			const picked = wordsSelected(input);
-			if (picked) {
-				const { frame, selection } = picked;
-				const on = allRuns(frame, selection.start, selection.end, (r) => r[id]);
+		case 'underline':
+		case 'strike': {
+			const scope = lookScope(input);
+			if (scope?.collapsed) {
+				const now = input.pending?.[id] ?? runBeforeCaret(scope)?.[id] ?? false;
+				return { kind: 'pending', frame: scope.frame.id, change: { [id]: !now } };
+			}
+			if (scope) {
 				return {
 					kind: 'intents',
-					intents: [
-						{
-							type: 'StyleRange',
-							frame: frame.id,
-							start: selection.start,
-							end: selection.end,
-							change: { [id]: !on },
-						},
-					],
+					intents: [styleIntent(scope, { [id]: !lookOf(scope)[id] })],
+				};
+			}
+			// With no words selected in an editor, the line goes on (or off) all of the frames' words.
+			const frames = texts(selected);
+			const all = frames.every((f) =>
+				(f.content?.inline ?? []).every((r) => r.text === '' || r[id] === true),
+			);
+			return {
+				kind: 'intents',
+				intents: frames
+					.map((f) => ({
+						type: 'StyleRange' as const,
+						frame: f.id,
+						start: 0,
+						end: [...(f.content?.inline ?? []).map((r) => r.text).join('')].length,
+						change: { [id]: !all },
+					}))
+					.filter((r) => r.end > r.start),
+			};
+		}
+		case 'bold':
+		case 'italic': {
+			const scope = lookScope(input);
+			if (scope?.collapsed) {
+				// With the caret in the words and nothing selected, the look is for the words typed next.
+				const now = input.pending?.[id] ?? runBeforeCaret(scope)?.[id] ?? false;
+				return { kind: 'pending', frame: scope.frame.id, change: { [id]: !now } };
+			}
+			if (scope) {
+				return {
+					kind: 'intents',
+					intents: [styleIntent(scope, { [id]: !lookOf(scope)[id] })],
 				};
 			}
 			const words = texts(selected);
@@ -568,10 +765,34 @@ export function editorAction(
 				})),
 			};
 		}
+		case 'valign': {
+			const place = VALIGNS.find(([v]) => v === value)?.[0];
+			if (!place) return null;
+			return {
+				kind: 'intents',
+				intents: placeable(selected).map((f) => ({
+					type: 'OverrideStyle',
+					frame: f.id,
+					overrides: withOverrides(f, { valign: place }),
+				})),
+			};
+		}
+		case 'lineSpacing':
+		case 'spaceBefore':
+		case 'spaceAfter':
+		case 'indentLess':
+		case 'indentMore':
+		case 'firstIndent': {
+			const intents = paragraphIntents(id, value, input);
+			return intents ? { kind: 'intents', intents } : null;
+		}
 		case 'alignL':
 		case 'alignC':
 		case 'alignR':
-		case 'justify':
+		case 'justify': {
+			// Each paragraph keeps its own alignment; a frame with no paragraphs to name is aligned whole.
+			const intents = paragraphIntents(id, value, input);
+			if (intents) return { kind: 'intents', intents };
 			return {
 				kind: 'intents',
 				intents: texts(selected).map((f) => ({
@@ -580,17 +801,19 @@ export function editorAction(
 					overrides: withOverrides(f, { align: ALIGNS[id]! }),
 				})),
 			};
+		}
 		case 'colour': {
 			// The selected words, or all of them when none are selected.
 			const hex = typeof value === 'string' ? value : '';
-			const picked = wordsSelected(input);
-			const targets = picked
-				? [{ id: picked.frame.id, start: picked.selection.start, end: picked.selection.end }]
-				: texts(selected).map((f) => ({
-						id: f.id,
-						start: 0,
-						end: [...(f.content?.inline ?? []).map((r) => r.text).join('')].length,
-					}));
+			const scope = lookScope(input);
+			if (scope?.collapsed)
+				return { kind: 'pending', frame: scope.frame.id, change: { colour: hex } };
+			if (scope) return { kind: 'intents', intents: [styleIntent(scope, { colour: hex })] };
+			const targets = texts(selected).map((f) => ({
+				id: f.id,
+				start: 0,
+				end: [...(f.content?.inline ?? []).map((r) => r.text).join('')].length,
+			}));
 			return {
 				kind: 'intents',
 				intents: targets
@@ -607,22 +830,13 @@ export function editorAction(
 		case 'font': {
 			const family = typeof value === 'string' ? value : '';
 			const origin = input.fonts?.find((f) => f.family === family)?.origin;
-			const picked = wordsSelected(input);
-			if (picked) {
-				const { frame, selection } = picked;
-				return {
-					kind: 'font',
-					keep: origin === 'system' ? family : null,
-					intents: [
-						{
-							type: 'StyleRange',
-							frame: frame.id,
-							start: selection.start,
-							end: selection.end,
-							change: { font: family },
-						},
-					],
-				};
+			const scope = lookScope(input);
+			const keep = origin === 'system' ? family : null;
+			// With the caret alone in the words, the font is for the words typed next.
+			if (scope?.collapsed)
+				return { kind: 'pending', frame: scope.frame.id, change: { font: family }, keep };
+			if (scope) {
+				return { kind: 'font', keep, intents: [styleIntent(scope, { font: family })] };
 			}
 			return {
 				kind: 'font',
@@ -638,9 +852,70 @@ export function editorAction(
 				}),
 			};
 		}
+		case 'link': {
+			const scope = lookScope(input);
+			return scope && linkTarget(scope).words ? { kind: 'link', scope } : null;
+		}
+		case 'lang': {
+			// An empty choice is the book's language; the entry for mixed languages does nothing.
+			const tag = typeof value === 'string' ? value : '';
+			if (tag.startsWith('\u0000')) return null;
+			const scope = lookScope(input);
+			if (scope?.collapsed)
+				return { kind: 'pending', frame: scope.frame.id, change: { lang: tag } };
+			if (scope) return { kind: 'intents', intents: [styleIntent(scope, { lang: tag })] };
+			return {
+				kind: 'intents',
+				intents: texts(selected)
+					.map((f) => ({
+						type: 'StyleRange' as const,
+						frame: f.id,
+						start: 0,
+						end: [...(f.content?.inline ?? []).map((r) => r.text).join('')].length,
+						change: { lang: tag },
+					}))
+					.filter((r) => r.end > r.start),
+			};
+		}
+		case 'tracking': {
+			const clear = value === FROM_STYLE;
+			const spacing = Number(value);
+			if (!clear && (value === undefined || value === '' || !Number.isFinite(spacing))) return null;
+			const change: RunChange = clear ? { clearTracking: true } : { tracking: spacing };
+			const scope = lookScope(input);
+			if (scope?.collapsed) {
+				// At the caret alone the spacing is for the words typed next.
+				return {
+					kind: 'pending',
+					frame: scope.frame.id,
+					change: clear
+						? { clearTracking: true, tracking: undefined }
+						: { tracking: spacing, clearTracking: false },
+				};
+			}
+			if (scope) return { kind: 'intents', intents: [styleIntent(scope, change)] };
+			return {
+				kind: 'intents',
+				intents: texts(selected)
+					.map((f) => ({
+						type: 'StyleRange' as const,
+						frame: f.id,
+						start: 0,
+						end: [...(f.content?.inline ?? []).map((r) => r.text).join('')].length,
+						change,
+					}))
+					.filter((r) => r.end > r.start),
+			};
+		}
 		case 'size': {
 			const size = typeof value === 'number' ? value : Number(value);
 			if (!Number.isFinite(size)) return null;
+			const own = Math.min(200, Math.max(4, size));
+			// The words selected in an open editor, or the next ones typed at its caret, are sized alone.
+			const scope = lookScope(input);
+			if (scope?.collapsed)
+				return { kind: 'pending', frame: scope.frame.id, change: { size: own } };
+			if (scope) return { kind: 'intents', intents: [styleIntent(scope, { size: own })] };
 			return {
 				kind: 'intents',
 				intents: texts(selected).map((f) => ({

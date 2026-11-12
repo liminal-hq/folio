@@ -25,11 +25,37 @@ pub struct LayoutRun {
     /// The colour of the words, when the style or the run sets one; the page's ink otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub colour: Option<Colour>,
+    /// A line under the words, when they are underlined.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub underline: Option<Stroke>,
+    /// A line through the words, when they are struck through.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strike: Option<Stroke>,
+    /// The language of the words when it is not the book's (a BCP 47 tag).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lang: Option<String>,
+    /// Where the words link to, when they do.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub href: Option<String>,
+    /// The line the page draws under a link in the link colour; it is not part of the run's look,
+    /// and the exporters do not draw it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link: Option<Stroke>,
     /// A hyphen drawn at the end of a line; it is not part of the text.
     pub hyphen: bool,
-    /// The misspelt parts of `text`, each as where it starts and ends in UTF-16 code units.
+    /// The misspelt parts of `text`, each as where it starts and ends in code points from the start
+    /// of `text`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub miss: Vec<(u32, u32)>,
+    /// Where `text` starts in its paragraph, in code points. A hyphen run has no text of the
+    /// paragraph's: it holds where the run before it ends.
+    pub start: u32,
+    /// Where every code point boundary of `text` falls, in points from `x`: one more stop than
+    /// `text` has code points, the first 0 and the last the run's width. Inside a ligature or a
+    /// cluster the stops are spread evenly, and the page snaps them to grapheme boundaries. Empty
+    /// for a hyphen.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stops: Vec<f64>,
     /// The key of the font file the run was shaped with (`Font::face_key`). Not sent to the page:
     /// the page draws text itself, and only the exporters want this.
     #[serde(skip)]
@@ -39,6 +65,18 @@ pub struct LayoutRun {
     #[serde(skip)]
     #[ts(skip)]
     pub glyphs: Vec<SceneGlyph>,
+}
+
+/// A line drawn under or through a run, in points. `offset` is from the baseline to the middle of
+/// the line (positive downwards, negative above the baseline), `width` from the run's `x`: it
+/// runs on over the space to the next run when that is set the same way.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(rename_all = "camelCase")]
+pub struct Stroke {
+    pub offset: f64,
+    pub thickness: f64,
+    pub width: f64,
 }
 
 /// One shaped glyph of a run: which glyph of the font, and how far to move for it, in points.
@@ -63,9 +101,15 @@ pub struct LayoutLine {
     pub width: f64,
     pub height: f64,
     pub runs: Vec<LayoutRun>,
-    /// For a line of a story: the paragraph it is from, so a click on it finds its words.
+    /// The paragraph the line is from (a line break in a frame's own words, a paragraph of a
+    /// story), so a click on it finds its words.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub paragraph: Option<u32>,
+    /// The code points of the paragraph this line stands for. The lines of a paragraph tile it: a
+    /// line's end is the next line's start, so the spaces a line ends on are in it though they are
+    /// not drawn, and the first line starts at 0. A paragraph's last line ends at its length.
+    pub start: u32,
+    pub end: u32,
 }
 
 /// A rectangle in points, from a frame's top-left.
@@ -152,6 +196,14 @@ pub enum PreflightKind {
     /// Small words are set in a black made of several inks, so the plates can misregister and
     /// fringe the letters. The item's `family` names the swatch.
     RichBlackSmallText,
+    /// Words link to an address Folio does not follow (`javascript:`, a relative path, something
+    /// mistyped), so the link does nothing. The item's `chars` names the address.
+    LinkInvalid,
+    /// Words link to a spread the book does not have, so the link goes nowhere. The item's `chars`
+    /// names the address.
+    LinkNowhere,
+    /// A link has no words to click: only spaces. The item's `chars` names the address.
+    LinkEmpty,
 }
 
 /// How much an issue matters: an error waits on the person, a warning is worth a look and a note
@@ -173,7 +225,7 @@ impl PreflightKind {
             | Self::PictureMissing
             | Self::VeryLowResolution
             | Self::PicturePlaceholder => Severity::Error,
-            Self::AltMissing => Severity::Note,
+            Self::AltMissing | Self::LinkEmpty => Severity::Note,
             Self::MissingGlyphs | Self::InkOverLimit | Self::RichBlackSmallText => {
                 Severity::Warning
             }
@@ -183,6 +235,8 @@ impl PreflightKind {
             | Self::PoemLineTooLong
             | Self::LowResolution
             | Self::BleedNeeded
+            | Self::LinkInvalid
+            | Self::LinkNowhere
             | Self::FontMissing => Severity::Warning,
         }
     }

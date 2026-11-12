@@ -33,6 +33,16 @@ import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderP
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
 import type { Misspelling } from '@liminal-hq/folio-protocol/generated/Misspelling';
 import type { SpellCheck } from '@liminal-hq/folio-protocol/generated/SpellCheck';
+import type { EditAnswer } from '@liminal-hq/folio-protocol/generated/EditAnswer';
+import type { EditCaret } from '@liminal-hq/folio-protocol/generated/EditCaret';
+import type { EditRequest } from '@liminal-hq/folio-protocol/generated/EditRequest';
+import type { FindMatch } from '@liminal-hq/folio-protocol/generated/FindMatch';
+import type { FindReport } from '@liminal-hq/folio-protocol/generated/FindReport';
+import type { FindRequest } from '@liminal-hq/folio-protocol/generated/FindRequest';
+import type { PastedHtml } from '@liminal-hq/folio-protocol/generated/PastedHtml';
+import type { MatchRef } from '@liminal-hq/folio-protocol/generated/MatchRef';
+import type { ReplaceReport } from '@liminal-hq/folio-protocol/generated/ReplaceReport';
+import type { ReplaceRequest } from '@liminal-hq/folio-protocol/generated/ReplaceRequest';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
 import type { PaintPresets } from '@liminal-hq/folio-protocol/generated/PaintPresets';
 import type { KindInfo } from '@liminal-hq/folio-protocol/generated/KindInfo';
@@ -177,6 +187,14 @@ export function redo(id: string): Promise<Patch | null> {
 	return cmd<Patch | null>('redo', { id });
 }
 
+/**
+ * Where the editor's caret goes after the undo or redo just made, when that step was an edit to
+ * words; `null` when it was anything else.
+ */
+export function restoredCaret(id: string): Promise<EditCaret | null> {
+	return cmd<EditCaret | null>('restored_caret', { id });
+}
+
 /** A master page's text laid out on a page of its own, with `{page}` and other tokens as written. */
 export function layoutMaster(id: string, master: string): Promise<SpreadLayoutResult> {
 	return cmd<SpreadLayoutResult>('layout_master', { id, master });
@@ -193,6 +211,36 @@ export function layoutSpread(
 	spelling?: string[],
 ): Promise<SpreadLayoutResult> {
 	return cmd<SpreadLayoutResult>('layout_spread', { id, spread, spelling });
+}
+
+/**
+ * Makes an edit to some words and answers, in one trip, with the patch, `spread` laid out again at
+ * the revision the edit made, and where the caret goes. Every window also hears the patch.
+ */
+export function editText(
+	id: string,
+	edit: EditRequest,
+	spread: string,
+	spelling?: string[],
+): Promise<EditAnswer> {
+	return cmd<EditAnswer>('edit_text', { id, edit, spread, spelling });
+}
+
+/**
+ * Finds words in a book: every place, in reading order, as a target and a paragraph and code point
+ * range an `EditText` takes, with the spread each is on.
+ */
+export function find(id: string, request: FindRequest): Promise<FindReport> {
+	return cmd<FindReport>('find', { id, request });
+}
+
+/**
+ * Puts words in place of one match (`request.only`) or of every match, all as one undo step, and
+ * answers how many were replaced and how many were left alone (a locked frame, a master page that is
+ * not being edited). Every window also hears the patch.
+ */
+export function replace(id: string, request: ReplaceRequest): Promise<ReplaceReport> {
+	return cmd<ReplaceReport>('replace', { id, request });
 }
 
 /** Hears every change to every open book. Read `snapshot` first and apply patches with a higher revision. */
@@ -229,11 +277,19 @@ export type {
 	BookSpelling,
 	DictionaryOffer,
 	DictionaryStatus,
+	EditAnswer,
+	EditCaret,
+	EditRequest,
 	ExportReport,
 	ExportTarget,
+	FindMatch,
+	FindReport,
+	FindRequest,
 	FontChoice,
+	PastedHtml,
 	FontUse,
 	KeepFontsReport,
+	MatchRef,
 	Misspelling,
 	PreflightItem,
 	ReaderPreview,
@@ -248,6 +304,8 @@ export type {
 	PatchEvent,
 	PluginStatus,
 	Recoverable,
+	ReplaceReport,
+	ReplaceRequest,
 };
 
 /** The book as an e-reader would show it, from the same chapters and CSS the EPUB ships. */
@@ -284,8 +342,14 @@ export function importText(
 	id: string,
 	path: string,
 	mapping?: Record<string, string>,
+	smart?: boolean,
 ): Promise<ImportReport> {
-	return cmd<ImportReport>('import_text', { id, path, mapping: mapping ?? null });
+	return cmd<ImportReport>('import_text', {
+		id,
+		path,
+		mapping: mapping ?? null,
+		smart: smart ?? null,
+	});
 }
 
 /** Asks a Book tool about a book; the answer is worked out in Rust. */
@@ -341,6 +405,15 @@ export function revealPath(path: string): Promise<void> {
 /** What preflight finds in the whole book, the issues that wait on the person first. */
 export function preflightBook(id: string): Promise<PreflightItem[]> {
 	return cmd<PreflightItem[]>('preflight_book', { id });
+}
+
+/**
+ * Reads HTML from the clipboard into paragraphs of runs: bold, italic, underline, strike-through, a
+ * colour, a size, a typeface the book can draw in, and links. Anything else in it is dropped. Refused
+ * when the HTML is too large, and the caller pastes the plain words instead.
+ */
+export function pasteHtml(id: string, html: string): Promise<PastedHtml> {
+	return cmd<PastedHtml>('paste_html', { id, html });
 }
 
 /** Every family a book can draw in, and where each comes from (bundled, kept in the book or installed). */

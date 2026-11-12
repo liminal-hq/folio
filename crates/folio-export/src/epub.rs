@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use std::io::Write;
 
 use folio_layout::{FontBook, FontRequest};
-use folio_model::{Book, Frame, InlineContent, Run, StyleDef, Styles};
+use folio_model::{Book, Frame, InlineContent, ParaLook, Run, StyleDef, Styles};
 use unicode_segmentation::UnicodeSegmentation;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
@@ -68,9 +68,14 @@ fn role_of(style: &str) -> Role {
 
 /// One thing in the story, in reading order.
 enum Piece {
+    /// Where spread `n` (counted from 1) begins in the story, which a link to it lands on.
+    Anchor(usize),
     Title(Vec<Run>),
-    Block(Role, String, Vec<Vec<Run>>),
-    Picture { asset: String, alt: String },
+    Block(Role, String, Vec<(Vec<Run>, ParaLook)>),
+    Picture {
+        asset: String,
+        alt: String,
+    },
     Table(Vec<Vec<String>>, u8),
 }
 
@@ -81,8 +86,9 @@ fn escape(text: &str) -> String {
         .replace('"', "&quot;")
 }
 
-/// The paragraphs of some words: one for each line break, each a list of runs.
-fn paragraphs(content: &InlineContent) -> Vec<Vec<Run>> {
+/// The paragraphs of some words: one for each line break, each a list of runs with the look the
+/// paragraph sets for itself.
+fn paragraphs(content: &InlineContent) -> Vec<(Vec<Run>, ParaLook)> {
     let mut out: Vec<Vec<Run>> = vec![Vec::new()];
     for run in &content.inline {
         let mut parts = run.text.split('\n');
@@ -99,8 +105,68 @@ fn paragraphs(content: &InlineContent) -> Vec<Vec<Run>> {
             }]);
         }
     }
-    out.retain(|p| p.iter().any(|r| !r.text.trim().is_empty()));
-    out
+    let looks = content.looks.as_deref().unwrap_or(&[]);
+    out.into_iter()
+        .enumerate()
+        .filter(|(_, p)| p.iter().any(|r| !r.text.trim().is_empty()))
+        .map(|(i, runs)| (runs, looks.get(i).cloned().unwrap_or_default()))
+        .collect()
+}
+
+/// The `style` attribute a paragraph's own look needs, or nothing.
+///
+/// Space is written as padding, with the margin of the same side taken to nothing: the margins of
+/// neighbouring paragraphs collapse in CSS (the larger wins) where the layout adds space after to
+/// space before, and padding does not collapse, so these agree with the page. The spacing a style
+/// gives in the stylesheet is margin, and still collapses. Lengths are in `em` of the body size.
+fn look_attr(look: &ParaLook, base: f64) -> String {
+    let mut rules = Vec::new();
+    if let Some(a) = look.align {
+        rules.push(format!(
+            "text-align: {}",
+            match a {
+                folio_model::Align::Left => "left",
+                folio_model::Align::Center => "center",
+                folio_model::Align::Right => "right",
+                folio_model::Align::Justify => "justify",
+            }
+        ));
+    }
+    if let Some(v) = look.space_before {
+        rules.push(format!("margin-top: 0; padding-top: {:.3}em", v / base));
+    }
+    if let Some(v) = look.space_after {
+        rules.push(format!(
+            "margin-bottom: 0; padding-bottom: {:.3}em",
+            v / base
+        ));
+    }
+    if let Some(v) = look.line_height {
+        rules.push(format!("line-height: {v}"));
+    }
+    if let Some(v) = look.first_indent {
+        rules.push(format!("text-indent: {:.3}em", v / base));
+    }
+    if let Some(v) = look.indent {
+        rules.push(format!("margin-left: {:.3}em", v / base));
+    }
+    if let Some(v) = look.indent_right {
+        rules.push(format!("margin-right: {:.3}em", v / base));
+    }
+    if rules.is_empty() {
+        String::new()
+    } else {
+        format!(" style=\"{}\"", rules.join("; "))
+    }
+}
+
+/// The size of body text in points, which a paragraph's lengths are written in ems of.
+fn base_size(book: &Book) -> f64 {
+    book.styles
+        .styles
+        .get("body")
+        .and_then(|s| s.size_pt)
+        .unwrap_or(10.5)
 }
 
 fn plain(runs: &[Run]) -> String {
@@ -119,6 +185,7 @@ fn flow_pieces(flow: &folio_model::Flow, frame_style: &str) -> Vec<Piece> {
         let style = para.style.as_ref().map_or(frame_style, |s| s.0.as_str());
         let words = InlineContent {
             inline: para.inline.clone(),
+            looks: para.look.clone().map(|l| vec![l]),
         };
         let paras = paragraphs(&words);
         if paras.is_empty() {
@@ -126,7 +193,9 @@ fn flow_pieces(flow: &folio_model::Flow, frame_style: &str) -> Vec<Piece> {
         }
         match role_of(style) {
             Role::Skip => {}
-            Role::Title => out.push(Piece::Title(paras.into_iter().flatten().collect())),
+            Role::Title => out.push(Piece::Title(
+                paras.into_iter().flat_map(|(runs, _)| runs).collect(),
+            )),
             role => match out.last_mut() {
                 Some(Piece::Block(last_role, last_style, blocks))
                     if *last_role == role && last_style == style =>
@@ -144,7 +213,10 @@ fn flow_pieces(flow: &folio_model::Flow, frame_style: &str) -> Vec<Piece> {
 fn story(book: &Book) -> Vec<Piece> {
     let mut out = Vec::new();
     let mut poured = std::collections::HashSet::new();
-    for spread in book.spreads.iter().skip(1) {
+    // The cover has no words in the story, so a link to it lands where the story begins.
+    out.push(Piece::Anchor(1));
+    for (number, spread) in book.spreads.iter().enumerate().skip(1) {
+        out.push(Piece::Anchor(number + 1));
         let page_w = book.trim.w.0;
         let mut frames: Vec<(usize, f64, f64, &Frame)> = folio_model::leaves(&spread.frames)
             .into_iter()
@@ -186,9 +258,9 @@ fn story(book: &Book) -> Vec<Piece> {
                     let role = role_of(&t.style.0);
                     match role {
                         Role::Skip => {}
-                        Role::Title => {
-                            out.push(Piece::Title(paras.into_iter().flatten().collect()))
-                        }
+                        Role::Title => out.push(Piece::Title(
+                            paras.into_iter().flat_map(|(runs, _)| runs).collect(),
+                        )),
                         role => out.push(Piece::Block(role, t.style.0.clone(), paras)),
                     }
                 }
@@ -236,7 +308,9 @@ struct Writer {
 }
 
 impl Writer {
-    fn runs(&mut self, runs: &[Run]) -> String {
+    /// The markup of some runs. `parent` is the size of the element they are in, as a multiple of
+    /// the body text, which a run's own size is written relative to.
+    fn runs(&mut self, runs: &[Run], base: f64, parent: f64) -> String {
         let mut out = String::new();
         for run in runs {
             let mut text = String::new();
@@ -257,14 +331,44 @@ impl Writer {
             } else {
                 text = escape(&run.text);
             }
+            let mut rules = Vec::new();
             if let Some(colour) = &run.colour {
-                text = format!("<span style=\"color:{}\">{text}</span>", escape(&colour.0));
+                rules.push(format!("color:{}", escape(&colour.0)));
+            }
+            if let Some(size) = run.size {
+                rules.push(format!("font-size:{:.3}em", size / base / parent));
+            }
+            if let Some(tracking) = run.tracking {
+                rules.push(format!(
+                    "letter-spacing:{:.3}em",
+                    f64::from(tracking) / 1000.0
+                ));
+            }
+            // Words in another language say so, for a reader's speech, hyphenation and quotes.
+            let lang = run.lang.as_deref().map_or(String::new(), |l| {
+                format!(" lang=\"{0}\" xml:lang=\"{0}\"", escape(l))
+            });
+            if !rules.is_empty() {
+                text = format!("<span{lang} style=\"{}\">{text}</span>", rules.join(";"));
+            } else if !lang.is_empty() {
+                text = format!("<span{lang}>{text}</span>");
+            }
+            if run.strike {
+                text = format!("<s>{text}</s>");
+            }
+            if run.underline {
+                text = format!("<u>{text}</u>");
             }
             if run.italic {
                 text = format!("<em>{text}</em>");
             }
             if run.bold {
                 text = format!("<strong>{text}</strong>");
+            }
+            // A link goes round the lot. A link to a spread of the book is pointed at its place in
+            // the files once they are all written (see `resolve_links`).
+            if let Some(href) = run.href.as_deref().and_then(folio_model::clean_href) {
+                text = format!("<a href=\"{}\">{text}</a>", escape(&href));
             }
             out.push_str(&text);
         }
@@ -274,11 +378,7 @@ impl Writer {
 
 fn css(book: &Book, families: &BTreeMap<String, Option<(String, bool)>>) -> String {
     let styles: &Styles = &book.styles;
-    let base = styles
-        .styles
-        .get("body")
-        .and_then(|s| s.size_pt)
-        .unwrap_or(10.5);
+    let base = base_size(book);
     let family = if styles.font_family.is_empty() {
         "Literata".to_string()
     } else {
@@ -395,7 +495,7 @@ pub fn reflow(
     flavour: EpubFlavour,
 ) -> Result<Reflow, ExportError> {
     let pieces = story(book);
-    if pieces.is_empty() {
+    if pieces.iter().all(|p| matches!(p, Piece::Anchor(_))) {
         return Err(ExportError::NoPages);
     }
     let kobo = flavour == EpubFlavour::Kobo;
@@ -421,8 +521,15 @@ pub fn reflow(
         images.push((asset.to_string(), name.clone()));
         name
     };
+    // Spreads whose place in the files is not written yet, and where each has been written.
+    let mut waiting: Vec<usize> = Vec::new();
+    let mut anchors: BTreeMap<usize, usize> = BTreeMap::new();
     for piece in &pieces {
+        if !matches!(piece, Piece::Anchor(_) | Piece::Title(_)) {
+            place_anchors(&mut chapters, &mut waiting, &mut anchors);
+        }
         match piece {
+            Piece::Anchor(n) => waiting.push(*n),
             Piece::Title(runs) => {
                 let text = plain(runs);
                 if chapters.len() > 1 || !chapters[0].body.is_empty() {
@@ -434,25 +541,36 @@ pub fn reflow(
                 } else {
                     chapters[0].title = text.clone();
                 }
+                place_anchors(&mut chapters, &mut waiting, &mut anchors);
                 let current = chapters.last_mut().expect("a chapter is open");
-                let markup = writer.runs(runs);
+                // A chapter title is an `<h1>`, which a reader sets at twice the body text.
+                let markup = writer.runs(runs, base_size(book), 2.0);
                 current.body.push_str(&format!("<h1>{markup}</h1>\n"));
             }
             Piece::Block(role, style, paras) => {
                 let current = chapters.last_mut().expect("a chapter is open");
-                for para in paras {
-                    let markup = writer.runs(para);
+                let parent = book
+                    .styles
+                    .styles
+                    .get(style.as_str())
+                    .and_then(|s| s.size_pt)
+                    .map_or(1.0, |size| size / base_size(book));
+                for (para, look) in paras {
+                    let markup = writer.runs(para, base_size(book), parent);
+                    let own = look_attr(look, base_size(book));
                     let line = match role {
-                        Role::Subheading => format!("<h2 class=\"{style}\">{markup}</h2>\n"),
-                        Role::Caption => format!("<p class=\"{style}\">{markup}</p>\n"),
+                        Role::Subheading => format!("<h2 class=\"{style}\"{own}>{markup}</h2>\n"),
+                        Role::Caption => format!("<p class=\"{style}\"{own}>{markup}</p>\n"),
                         Role::Epigraph => {
-                            format!("<blockquote class=\"{style}\"><p>{markup}</p></blockquote>\n")
+                            format!(
+                                "<blockquote class=\"{style}\"><p{own}>{markup}</p></blockquote>\n"
+                            )
                         }
-                        Role::Poem => format!("<p class=\"{style}\">{markup}</p>\n"),
+                        Role::Poem => format!("<p class=\"{style}\"{own}>{markup}</p>\n"),
                         Role::Note => {
-                            format!("<aside class=\"{style}\"><p>{markup}</p></aside>\n")
+                            format!("<aside class=\"{style}\"><p{own}>{markup}</p></aside>\n")
                         }
-                        _ => format!("<p class=\"{style}\">{markup}</p>\n"),
+                        _ => format!("<p class=\"{style}\"{own}>{markup}</p>\n"),
                     };
                     current.body.push_str(&line);
                 }
@@ -490,7 +608,59 @@ pub fn reflow(
         }
     }
 
+    place_anchors(&mut chapters, &mut waiting, &mut anchors);
+    for (index, chapter) in chapters.iter_mut().enumerate() {
+        chapter.body = resolve_links(&chapter.body, index, &anchors);
+    }
     Ok(Reflow { chapters, images })
+}
+
+/// The file of chapter `index` (counted from 0), as the other chapters name it.
+fn chapter_file(index: usize) -> String {
+    format!("chapter-{:03}.xhtml", index + 1)
+}
+
+/// Writes where the spreads that are waiting begin into the chapter being written.
+fn place_anchors(
+    chapters: &mut [ReflowChapter],
+    waiting: &mut Vec<usize>,
+    anchors: &mut BTreeMap<usize, usize>,
+) {
+    let at = chapters.len() - 1;
+    for n in waiting.drain(..) {
+        anchors.insert(n, at);
+        chapters[at]
+            .body
+            .push_str(&format!("<span id=\"spread-{n}\"/>\n"));
+    }
+}
+
+/// Points the links to a spread of the book (`#spread-3`) at the file and place that spread
+/// begins in. A link to a spread the book does not have goes to the first chapter instead, so it
+/// is never broken.
+fn resolve_links(body: &str, here: usize, anchors: &BTreeMap<usize, usize>) -> String {
+    const OPEN: &str = "href=\"#spread-";
+    let mut out = String::with_capacity(body.len());
+    let mut rest = body;
+    while let Some(at) = rest.find(OPEN) {
+        out.push_str(&rest[..at]);
+        let after = &rest[at + OPEN.len()..];
+        let digits = after.find('"').unwrap_or(0);
+        let target = after[..digits]
+            .parse::<usize>()
+            .ok()
+            .and_then(|n| anchors.get(&n).map(|c| (n, *c)));
+        match target {
+            Some((n, chapter)) if chapter == here => out.push_str(&format!("href=\"#spread-{n}\"")),
+            Some((n, chapter)) => {
+                out.push_str(&format!("href=\"{}#spread-{n}\"", chapter_file(chapter)))
+            }
+            None => out.push_str(&format!("href=\"{}\"", chapter_file(0))),
+        }
+        rest = &after[(digits + 1).min(after.len())..];
+    }
+    out.push_str(rest);
+    out
 }
 
 /// The book as an EPUB 3 file.
@@ -559,7 +729,7 @@ pub fn export_epub(
         );
         put(
             &mut zip,
-            &format!("OEBPS/text/chapter-{:03}.xhtml", index + 1),
+            &format!("OEBPS/text/{}", chapter_file(index)),
             xhtml(&chapter.title, &book.language, &body).as_bytes(),
             deflated,
         )?;

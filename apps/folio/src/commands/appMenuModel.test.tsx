@@ -51,6 +51,20 @@ describe('the app menu', () => {
 		expect(checked('view.jax')).toBe(false);
 	});
 
+	it('has a smart punctuation switch in the Edit menu and the app menu, pressed by default', () => {
+		const checked = (items: MenuItem[]) => {
+			const item = find(items, 'edit.smartPunctuation');
+			return item?.type === 'checkbox' ? [item.checked, item.disabled] : undefined;
+		};
+		expect(checked(buildMenuBar(DEFAULT_SETTINGS, available))).toEqual([true, false]);
+		expect(checked(buildAppMenu(DEFAULT_SETTINGS, available))).toEqual([true, false]);
+		const off = {
+			...DEFAULT_SETTINGS,
+			editing: { ...DEFAULT_SETTINGS.editing, smartPunctuation: false },
+		};
+		expect(checked(buildMenuBar(off, available))?.[0]).toBe(false);
+	});
+
 	it('lists commands that do nothing yet as unavailable, with the reason', () => {
 		const items = buildAppMenu(DEFAULT_SETTINGS, available);
 		const save = find(items, 'file.save');

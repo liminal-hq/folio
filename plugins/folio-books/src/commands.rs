@@ -16,11 +16,12 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow};
 use folio_engine::DICTIONARY_PROGRESS_EVENT;
 use folio_engine::{
     BookSnapshot, BookSpelling, BookSummary, Books, CoverCanvas, CoverSheetPreview,
-    DictionaryProgress, DictionaryStatus, ExportColour, ExportReport, ExportTarget, FontChoice,
-    FontUse, KeepFontsReport, ProofSpread, ReaderPreview, Recoverable, SpellCheck,
-    SpreadLayoutResult, StoryChapter,
+    DictionaryProgress, DictionaryStatus, EditAnswer, EditRequest, ExportColour, ExportReport,
+    ExportTarget, FindReport, FindRequest, FontChoice, FontUse, KeepFontsReport, PastedHtml,
+    ProofSpread, ReaderPreview, Recoverable, SpellCheck, SpreadLayoutResult, StoryChapter,
 };
 use folio_engine::{Error, TemplateGallery, ToolFix, ToolFixed, ToolReport, ToolRequest};
+use folio_engine::{ReplaceReport, ReplaceRequest};
 use folio_import::ImportReport;
 
 /// Reports that books work. They need nothing from the system, so this is always available.
@@ -302,6 +303,17 @@ pub async fn redo<R: Runtime>(
     books.redo(&id)
 }
 
+/// Where the editor's caret goes after the undo or redo just made, when that step was an edit to
+/// words; `null` when it was anything else.
+#[tauri::command]
+pub async fn restored_caret<R: Runtime>(
+    _window: WebviewWindow<R>,
+    books: State<'_, Arc<Books>>,
+    id: String,
+) -> Result<Option<folio_model::EditCaret>, Error> {
+    books.restored_caret(&id)
+}
+
 /// Lays out one spread of a book: where every line of text goes, and the preflight checks on it. It
 /// runs on a blocking thread, because the first call scans the system's fonts.
 #[tauri::command]
@@ -318,6 +330,52 @@ pub async fn layout_spread<R: Runtime>(
     })
     .await
     .expect("the layout task does not panic")
+}
+
+/// Makes an edit to some words and answers with the patch, the spread laid out again and the
+/// caret, in one call, so a keystroke is a single trip. Every window is also sent the patch.
+#[tauri::command]
+pub async fn edit_text<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    edit: EditRequest,
+    spread: String,
+    spelling: Option<Vec<String>>,
+) -> Result<EditAnswer, Error> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Arc<Books>>()
+            .edit_text(&id, edit, &spread, spelling.as_deref())
+    })
+    .await
+    .expect("the edit task does not panic")
+}
+
+/// Finds words in a book: every place, in reading order, with where each is on the pages.
+#[tauri::command]
+pub async fn find<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    request: FindRequest,
+) -> Result<FindReport, Error> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().find(&id, &request))
+        .await
+        .expect("the find task does not panic")
+}
+
+/// Puts words in place of one match or of every match, as one undo step, and says how many matches
+/// were left alone. Every window is sent the patch.
+#[tauri::command]
+pub async fn replace<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    request: ReplaceRequest,
+) -> Result<ReplaceReport, Error> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().replace(&id, &request))
+        .await
+        .expect("the replace task does not panic")
 }
 
 /// Lays out the text of one master page of a book, with `{page}` and the other tokens as written.
@@ -512,10 +570,15 @@ pub async fn import_text<R: Runtime>(
     id: String,
     path: String,
     mapping: Option<std::collections::BTreeMap<String, String>>,
+    smart: Option<bool>,
 ) -> Result<ImportReport, Error> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<Arc<Books>>()
-            .import_text_with(&id, &path, &mapping.unwrap_or_default())
+        app.state::<Arc<Books>>().import_text_smart(
+            &id,
+            &path,
+            &mapping.unwrap_or_default(),
+            smart.unwrap_or(true),
+        )
     })
     .await
     .expect("the import task does not panic")
@@ -561,6 +624,20 @@ pub async fn story_chapters<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().story_chapters(&id))
         .await
         .expect("the chapters task does not panic")
+}
+
+/// Reads HTML from the clipboard into paragraphs of runs (D-68). Runs on a blocking thread, because
+/// the first call scans the system's fonts.
+#[tauri::command]
+pub async fn paste_html<R: Runtime>(
+    app: AppHandle<R>,
+    _window: WebviewWindow<R>,
+    id: String,
+    html: String,
+) -> Result<PastedHtml, Error> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Books>>().paste_html(&id, &html))
+        .await
+        .expect("the paste task does not panic")
 }
 
 /// Every family a book can draw in, and where each comes from.

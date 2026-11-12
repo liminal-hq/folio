@@ -15,13 +15,22 @@ export interface LengthFieldProps {
 	disabled?: boolean;
 	/** Commits a length typed and confirmed, in points. */
 	onCommit(points: number): void;
+	/** Enter or Escape finished with the box: where the focus goes next is the caller's. */
+	onDone?(): void;
 }
 
 /**
  * Enter or leaving the box keeps what was typed when it is a number that differs from the length;
  * Escape puts the length back. Anything else is put back too, so a typo never reaches the book.
  */
-export function LengthField({ label, points, units, disabled, onCommit }: LengthFieldProps) {
+export function LengthField({
+	label,
+	points,
+	units,
+	disabled,
+	onCommit,
+	onDone,
+}: LengthFieldProps) {
 	const shown = String(fromPoints(points, units));
 	const [draft, setDraft] = useState<string | null>(null);
 
@@ -53,10 +62,12 @@ export function LengthField({ label, points, units, disabled, onCommit }: Length
 					if (event.key === 'Enter') {
 						event.preventDefault();
 						finish();
+						onDone?.();
 					} else if (event.key === 'Escape') {
 						event.preventDefault();
 						event.stopPropagation();
 						setDraft(null);
+						onDone?.();
 					}
 				}}
 			/>

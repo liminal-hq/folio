@@ -10,4 +10,32 @@ font?: string | null,
 /**
  * A colour for these words alone, over the style's.
  */
-colour?: Colour | null, };
+colour?: Colour | null, 
+/**
+ * A line under these words.
+ */
+underline?: boolean, 
+/**
+ * A line through these words.
+ */
+strike?: boolean, 
+/**
+ * A size in points for these words alone, over the style's.
+ */
+size?: number | null, 
+/**
+ * Space added after every letter of these words, in thousandths of an em, over the style's.
+ */
+tracking?: number | null, 
+/**
+ * The language of these words alone (a BCP 47 tag: `fr-CA`), over the book's. It picks the
+ * dictionary spelling checks them against, how they are hyphenated and which quotes smart
+ * punctuation sets.
+ */
+lang?: string | null, 
+/**
+ * Where these words link to: a web address, `mailto:` or `tel:` address, or `#spread-3` for
+ * the third spread of the book. A link is drawn underlined in the link colour by the page, and
+ * never merges with the words beside it that link elsewhere or not at all.
+ */
+href?: string | null, };

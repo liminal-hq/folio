@@ -1364,7 +1364,9 @@ fn a_number_the_person_reworded_keeps_its_words_when_the_numbers_move() {
                 italic: false,
                 font: None,
                 colour: None,
+                ..Default::default()
             }],
+            looks: None,
         });
     }
     let mut s = Session::new(edited);
@@ -2499,6 +2501,7 @@ fn words_go_into_a_shape_and_emptying_them_takes_them_out_but_a_line_has_no_insi
     s.apply(Intent::OverrideStyle {
         frame: frame("fr_shape"),
         overrides: folio_model::StyleOverrides {
+            valign: None,
             size: Some(folio_model::Pt(20.0)),
             align: None,
             bold: Some(true),

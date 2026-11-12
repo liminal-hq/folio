@@ -12,7 +12,8 @@ use folio_layout::assets::sniff;
 use folio_layout::preflight::spread_assets;
 use folio_layout::wire::PreflightItem;
 use folio_layout::{
-    AssetFact, AssetFacts, BookFace, FlowCache, FontBook, FontSource, Layouter, StyleSheet,
+    AssetFact, AssetFacts, BookFace, FlowCache, FontBook, FontSource, Layouter, ParagraphCache,
+    StyleSheet,
 };
 use folio_model::{BookFont, Intent, SpreadId};
 use folio_package::{Package, SaveOptions};
@@ -25,11 +26,12 @@ use crate::recovery::{self, Recovery};
 use crate::spelling::Spelling;
 use crate::wire::{
     BatchOutcome, BookSnapshot, BookSpelling, BookSummary, BooksChanged, CoverCanvas,
-    CoverSheetPreview, ExportColour, ExportProgress, ExportReport, ExportTarget, ExportedFile,
-    FontChoice, FontLicence, FontOrigin, FontSkip, FontUse, KeepFontsReport, Misspelling,
-    MisspeltWord, PatchEvent, PreviewChapter, PreviewImage, ProofColour, ProofPage, ProofSpread,
-    ReaderPreview, Recoverable, SkippedFont, SpellCheck, SpreadLayoutResult, StoryChapter,
-    TemplateCard, TemplateGallery,
+    CoverSheetPreview, EditAnswer, EditRequest, ExportColour, ExportProgress, ExportReport,
+    ExportTarget, ExportedFile, FindReport, FindRequest, FontChoice, FontLicence, FontOrigin,
+    FontSkip, FontUse, KeepFontsReport, Misspelling, MisspeltWord, PastedHtml, PatchEvent,
+    PreviewChapter, PreviewImage, ProofColour, ProofPage, ProofSpread, ReaderPreview, Recoverable,
+    ReplaceReport, ReplaceRequest, SkippedFont, SmartNote, SpellCheck, SpreadLayoutResult,
+    StoryChapter, TemplateCard, TemplateGallery,
 };
 use crate::Host;
 
@@ -180,6 +182,9 @@ struct OpenBook {
     fonts: Option<(Vec<BookFont>, Arc<FontBook>)>,
     /// The flows laid out at one revision of the book, shared by the spreads laid out at it.
     flow_cache: Option<(u64, Arc<FlowCache>)>,
+    /// Paragraphs already shaped and broken, kept across edits and made again when the fonts the
+    /// book keeps change, so an edit to one paragraph of a long story shapes just that one.
+    paragraphs: Option<(Vec<BookFont>, Arc<ParagraphCache>)>,
     /// Keeps other programs from opening the book's file while it is open here.
     lock: Option<BookLock>,
 }
@@ -210,6 +215,19 @@ impl OpenBook {
         let mut book = self.session.book().clone();
         folio_model::resolve_swatches(&mut book);
         book
+    }
+
+    /// The cache of shaped paragraphs: the one kept while the book's own fonts stay the same.
+    fn paragraph_cache(&mut self) -> Arc<ParagraphCache> {
+        let fonts = &self.session.book().fonts;
+        match &self.paragraphs {
+            Some((was, cache)) if was == fonts => Arc::clone(cache),
+            _ => {
+                let cache = Arc::new(ParagraphCache::new());
+                self.paragraphs = Some((fonts.clone(), Arc::clone(&cache)));
+                cache
+            }
+        }
     }
 
     /// The cache of laid out flows for the book as it is now: the one kept while the revision stays
@@ -373,6 +391,27 @@ impl Books {
         path: &str,
         mapping: &folio_import::StyleMap,
     ) -> Result<folio_import::ImportReport, Error> {
+        self.import_text_smart(id, path, mapping, true)
+    }
+
+    /// As `import_text_with`, setting the words with smart punctuation (D-57) in the quote style of
+    /// the book's language when `smart` is on, and leaving them as written when it is off.
+    pub fn import_text_smart(
+        &self,
+        id: &str,
+        path: &str,
+        mapping: &folio_import::StyleMap,
+        smart: bool,
+    ) -> Result<folio_import::ImportReport, Error> {
+        let style = smart.then(|| {
+            let language = locked(&self.inner)
+                .books
+                .iter()
+                .find(|b| b.id == id)
+                .map(|open| open.session.book().language.clone())
+                .unwrap_or_default();
+            folio_model::QuoteStyle::for_language(&language)
+        });
         /// More than this is not a manuscript someone typed; it would also stall the page.
         const MAX_BYTES: u64 = 8 * 1024 * 1024;
         let file = Path::new(path);
@@ -398,7 +437,7 @@ impl Books {
                 "That file is too large to bring in (the limit is 8 MB).".into(),
             ));
         }
-        let imported = if matches!(known.as_deref(), Some("docx" | "odt" | "rtf")) {
+        let mut imported = if matches!(known.as_deref(), Some("docx" | "odt" | "rtf")) {
             let bytes = std::fs::read(file).map_err(|e| Error::Import(format!("{path}: {e}")))?;
             if known.as_deref() == Some("docx") {
                 folio_import::import_docx_with(&bytes, mapping)
@@ -415,8 +454,13 @@ impl Books {
                     "{path} could not be read as text ({e}). Save it as UTF-8 and try again."
                 ))
             })?;
-            folio_import::import_markdown(&text)
+            folio_import::import_markdown_with(&text, style)
         };
+        // Markdown was set as it was read; the other formats carry the author's own characters, set
+        // here by the same rules.
+        if let (Some(style), Some("docx" | "odt" | "rtf")) = (style, known.as_deref()) {
+            folio_import::smarten_story(&mut imported.story, style);
+        }
         if imported.story.is_empty() {
             return Err(Error::Import("That file has no words to bring in.".into()));
         }
@@ -554,6 +598,7 @@ impl Books {
             facts: HashMap::new(),
             fonts: None,
             flow_cache: None,
+            paragraphs: None,
             lock,
         };
         let snapshot = book.snapshot();
@@ -759,7 +804,7 @@ impl Books {
         spelling: Option<&[String]>,
     ) -> Result<SpreadLayoutResult, Error> {
         let base = self.fonts.get_or_init(FontBook::with_system_fonts);
-        let (book, styles, revision, facts, layered, flows) = {
+        let (book, styles, revision, facts, layered, flows, paragraphs) = {
             let mut inner = locked(&self.inner);
             let open = inner
                 .books
@@ -776,6 +821,7 @@ impl Books {
                 facts,
                 layered,
                 open.flows_laid(),
+                open.paragraph_cache(),
             )
         };
         let fonts = layered.as_deref().unwrap_or(base);
@@ -786,8 +832,23 @@ impl Books {
         let speller = spelling
             .and_then(|_| self.spelling.for_language(&book.language))
             .map(|(_, checker)| checker);
-        let find = |text: &str| -> Vec<std::ops::Range<usize>> {
-            speller
+        // A stretch in another language is checked with that language's dictionary, found once.
+        let others: std::cell::RefCell<std::collections::HashMap<String, Option<_>>> =
+            Default::default();
+        let find = |text: &str, lang: Option<&str>| -> Vec<std::ops::Range<usize>> {
+            let own = lang.and_then(|tag| {
+                others
+                    .borrow_mut()
+                    .entry(tag.to_owned())
+                    .or_insert_with(|| self.spelling.for_language(tag).map(|(_, c)| c))
+                    .clone()
+            });
+            // A language with no dictionary is not checked, which is not the book's dictionary.
+            let checker = match (lang, own) {
+                (Some(_), found) => found,
+                (None, _) => speller.clone(),
+            };
+            checker
                 .as_deref()
                 .map(|checker| {
                     find_misspellings(checker, text, &ignore)
@@ -807,7 +868,8 @@ impl Books {
         };
         let mut layouter = Layouter::new(&book, &styles, fonts)
             .with_assets(&facts)
-            .with_flow_cache(&flows, variant);
+            .with_flow_cache(&flows, variant)
+            .with_paragraph_cache(&paragraphs);
         if speller.is_some() {
             layouter = layouter.with_proofing(&find);
         }
@@ -815,6 +877,88 @@ impl Books {
             .layout_spread(&SpreadId(spread.to_string()))?
             .ok_or_else(|| Error::NoSuchSpread(spread.to_string()))?;
         Ok(SpreadLayoutResult { revision, layout })
+    }
+
+    /// Makes an edit to some words and lays out `spread` again, in one call, so a keystroke is a
+    /// single trip. The layout is of the revision the edit made, unless another change came in
+    /// between, and then the revision it carries says so.
+    pub fn edit_text(
+        &self,
+        id: &str,
+        edit: EditRequest,
+        spread: &str,
+        spelling: Option<&[String]>,
+    ) -> Result<EditAnswer, Error> {
+        let mut edit = edit;
+        let smart = self.smarten_edit(id, &mut edit);
+        let caret = edit.caret();
+        let patch = self.apply(id, edit.into_intent())?;
+        let layout = self.layout_spread(id, spread, spelling)?;
+        Ok(EditAnswer {
+            patch,
+            layout,
+            caret,
+            smart: smart.map(|(from, text, raw)| SmartNote {
+                from,
+                to: caret,
+                text,
+                raw,
+            }),
+        })
+    }
+
+    /// Sets the plain words of `edit` with smart punctuation when it asks for it, in the style of
+    /// the book's language and by what comes before the place they go in. A rule may rewrite the
+    /// words just before (a second hyphen makes the first an em dash), so the edit begins earlier.
+    /// Returns where the set words begin and the words as typed, when anything was changed.
+    fn smarten_edit(
+        &self,
+        id: &str,
+        edit: &mut EditRequest,
+    ) -> Option<(folio_model::TextPos, String, String)> {
+        if edit.smart != Some(true) {
+            return None;
+        }
+        let folio_model::TextInsert::Text { text } = &edit.insert else {
+            return None;
+        };
+        let (before, language) = {
+            let inner = locked(&self.inner);
+            let open = inner.books.iter().find(|b| b.id == id)?;
+            let book = open.session.book();
+            let para = folio_session::paragraph_text(book, &edit.target, edit.from.para)?;
+            // The quotes follow the language of the words typed into: one chosen for the next words
+            // (`look.lang`), else the run before the place, else the book's.
+            let own = match edit.look.as_ref().and_then(|l| l.lang.as_deref()) {
+                Some("") => None,
+                Some(chosen) => folio_model::clean_lang(chosen),
+                None => folio_session::paragraph_lang(
+                    book,
+                    &edit.target,
+                    edit.from.para,
+                    edit.from.offset,
+                ),
+            };
+            (
+                para.chars()
+                    .take(edit.from.offset as usize)
+                    .collect::<String>(),
+                own.unwrap_or_else(|| book.language.clone()),
+            )
+        };
+        let set = folio_model::smarten(
+            &before,
+            text,
+            folio_model::QuoteStyle::for_language(&language),
+        );
+        if set.text == *text && set.rewind == 0 || set.text.is_empty() {
+            return None;
+        }
+        edit.from.offset -= set.rewind as u32;
+        edit.insert = folio_model::TextInsert::Text {
+            text: set.text.clone(),
+        };
+        Some((edit.from, set.text, set.raw))
     }
 
     /// Lays out the text of one master page of a book, with its tokens as written, at the revision
@@ -914,9 +1058,35 @@ impl Books {
         ignore.extend_from_slice(personal);
         let mut words = Vec::new();
         let mut truncated = false;
-        let mut look =
-            |spread: &str, frame: &str, cell: Option<(u32, u32)>, text: &str, replaceable: bool| {
-                for m in find_misspellings(&*speller, text, &ignore) {
+        // A stretch in another language is checked with that language's dictionary, found once; a
+        // language with no dictionary is not checked.
+        let mut others: std::collections::HashMap<String, Option<_>> = Default::default();
+        let mut look = |spread: &str,
+                        frame: &str,
+                        cell: Option<(u32, u32)>,
+                        text: &str,
+                        langs: &[(std::ops::Range<usize>, Option<String>)],
+                        replaceable: bool| {
+            let mut found = Vec::new();
+            for (range, lang) in langs {
+                let checker = match lang {
+                    None => Some(speller.clone()),
+                    Some(tag) => others
+                        .entry(tag.clone())
+                        .or_insert_with(|| self.spelling.for_language(tag).map(|(_, c)| c))
+                        .clone(),
+                };
+                let Some(checker) = checker else { continue };
+                let chars = text[..range.start].chars().count();
+                for mut m in find_misspellings(&*checker, &text[range.clone()], &ignore) {
+                    m.start += chars;
+                    m.end += chars;
+                    m.bytes = m.bytes.start + range.start..m.bytes.end + range.start;
+                    found.push(m);
+                }
+            }
+            {
+                for m in found {
                     if words.len() >= MAX_LISTED_WORDS {
                         truncated = true;
                         return;
@@ -949,16 +1119,20 @@ impl Books {
                         replaceable,
                     });
                 }
-            };
-        let plain = |content: &Option<InlineContent>| -> (String, bool) {
+            }
+        };
+        let plain = |content: &Option<InlineContent>| -> (String, Vec<_>, bool) {
             let runs = content
                 .as_ref()
                 .map(|c| c.inline.as_slice())
                 .unwrap_or_default();
+            // Words with a language of their own are changed by a replacement that keeps their runs
+            // (it does not, here), so they are not offered one.
             (
                 runs.iter().map(|r| r.text.as_str()).collect(),
+                folio_model::lang_ranges(runs),
                 runs.iter()
-                    .all(|r| !r.bold && !r.italic && r.style.is_none()),
+                    .all(|r| !r.bold && !r.italic && r.style.is_none() && r.lang.is_none()),
             )
         };
         let mut flowed = std::collections::HashSet::new();
@@ -966,8 +1140,8 @@ impl Books {
             for frame in folio_model::leaves(&spread.frames) {
                 match frame {
                     Frame::Text(t) if t.flow.is_none() => {
-                        let (text, ok) = plain(&t.content);
-                        look(&spread.id.0, &t.base.id.0, None, &text, ok);
+                        let (text, langs, ok) = plain(&t.content);
+                        look(&spread.id.0, &t.base.id.0, None, &text, &langs, ok);
                     }
                     Frame::Text(t) => {
                         // Flowing text is one story across its frames: look at it once, at its first frame.
@@ -977,29 +1151,51 @@ impl Books {
                             .and_then(|s| book.flows.iter().find(|f| f.id == s.id))
                         {
                             if flowed.insert(flow.id.0.clone()) {
-                                look(&spread.id.0, &t.base.id.0, None, &flow.text(), false);
+                                // The paragraphs are joined by a line break the ranges skip.
+                                let mut langs = Vec::new();
+                                let mut base = 0;
+                                for p in &flow.paragraphs {
+                                    langs.extend(
+                                        folio_model::lang_ranges(&p.inline).into_iter().map(
+                                            |(range, lang)| {
+                                                (range.start + base..range.end + base, lang)
+                                            },
+                                        ),
+                                    );
+                                    base += p.text().len() + 1;
+                                }
+                                look(
+                                    &spread.id.0,
+                                    &t.base.id.0,
+                                    None,
+                                    &flow.text(),
+                                    &langs,
+                                    false,
+                                );
                             }
                         }
                     }
                     Frame::Shape(sh) => {
-                        let (text, ok) = plain(&sh.content);
+                        let (text, langs, ok) = plain(&sh.content);
                         look(
                             &spread.id.0,
                             &sh.base.id.0,
                             None,
                             &text,
+                            &langs,
                             ok && sh.shape.holds_text(),
                         );
                     }
                     Frame::Table(tb) => {
                         for (r, row) in tb.rows.iter().enumerate() {
                             for (c, cell) in row.iter().enumerate() {
-                                let (text, ok) = plain(&cell.content);
+                                let (text, langs, ok) = plain(&cell.content);
                                 look(
                                     &spread.id.0,
                                     &tb.base.id.0,
                                     Some((r as u32, c as u32)),
                                     &text,
+                                    &langs,
                                     ok,
                                 );
                             }
@@ -1493,6 +1689,122 @@ impl Books {
         Ok(crate::tools::ToolFixed { changed })
     }
 
+    /// Every place in the book where `request` is found, in reading order (D-62). A match in a story
+    /// is put on the spread its words are laid out on, so next and previous move through the pages.
+    pub fn find(&self, id: &str, request: &FindRequest) -> Result<FindReport, Error> {
+        let book = locked(&self.inner)
+            .books
+            .iter()
+            .find(|b| b.id == id)
+            .map(|b| b.session.book().clone())
+            .ok_or_else(|| Error::NoSuchBook(id.into()))?;
+        let bad = |e: crate::find::BadSearch| Error::BadSearch(e.0);
+        let unplaced = crate::find::find(&book, request, &|_, _, _| None).map_err(bad)?;
+        let flows: std::collections::HashSet<folio_model::FlowId> = unplaced
+            .matches
+            .iter()
+            .filter_map(|m| match &m.target {
+                folio_model::TextTarget::Story { flow } => Some(flow.clone()),
+                _ => None,
+            })
+            .collect();
+        if flows.is_empty() {
+            return Ok(unplaced);
+        }
+        let lines = self.story_lines(id, &book, &flows)?;
+        crate::find::find(&book, request, &|flow, para, offset| {
+            let lines = lines.get(&(flow.clone(), para))?;
+            lines
+                .iter()
+                .find(|(start, end, _)| *start <= offset && offset < *end)
+                .or_else(|| lines.last())
+                .map(|(_, _, slot)| *slot)
+        })
+        .map_err(bad)
+    }
+
+    /// Where each line of the stories in `flows` is on the pages: the code points it holds and the
+    /// place of its frame, by story and paragraph.
+    #[allow(clippy::type_complexity)]
+    fn story_lines(
+        &self,
+        id: &str,
+        book: &folio_model::Book,
+        flows: &std::collections::HashSet<folio_model::FlowId>,
+    ) -> Result<HashMap<(folio_model::FlowId, u32), Vec<(u32, u32, crate::find::Slot)>>, Error>
+    {
+        let mut out: HashMap<(folio_model::FlowId, u32), Vec<(u32, u32, crate::find::Slot)>> =
+            HashMap::new();
+        for (index, spread) in book.spreads.iter().enumerate() {
+            let flowed: Vec<(&folio_model::Frame, &folio_model::FlowId)> = spread
+                .frames
+                .iter()
+                .filter_map(|f| match f {
+                    folio_model::Frame::Text(t) => t
+                        .flow
+                        .as_ref()
+                        .filter(|s| flows.contains(&s.id))
+                        .map(|s| (f, &s.id)),
+                    _ => None,
+                })
+                .collect();
+            if flowed.is_empty() {
+                continue;
+            }
+            let laid = self.layout_spread(id, &spread.id.0, None)?;
+            for frame_layout in &laid.layout.frames {
+                let Some((frame, flow)) = flowed
+                    .iter()
+                    .find(|(f, _)| f.base().id == frame_layout.frame)
+                else {
+                    continue;
+                };
+                let slot =
+                    crate::find::slot_of(index, frame.base(), spread.pages.len(), book.trim.w.0);
+                for line in &frame_layout.lines {
+                    if let Some(para) = line.paragraph {
+                        out.entry(((*flow).clone(), para))
+                            .or_default()
+                            .push((line.start, line.end, slot));
+                    }
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    /// Puts words in place of what `request` finds (D-62): one match or all of them, all as one
+    /// undo step. Matches in a locked frame, or on a master page that is not the one being edited,
+    /// are left alone and counted in the answer.
+    pub fn replace(&self, id: &str, request: &ReplaceRequest) -> Result<ReplaceReport, Error> {
+        self.replace_by(id, request, None)
+    }
+
+    /// As `replace`, as an agent's change.
+    pub fn replace_as_agent(
+        &self,
+        id: &str,
+        request: &ReplaceRequest,
+    ) -> Result<ReplaceReport, Error> {
+        self.replace_by(id, request, Some("agent"))
+    }
+
+    fn replace_by(
+        &self,
+        id: &str,
+        request: &ReplaceRequest,
+        by: Option<&str>,
+    ) -> Result<ReplaceReport, Error> {
+        let book = self.snapshot(id)?.book;
+        let plan = crate::find::replacements(&book, request, &|_, _, _| None)
+            .map_err(|e| Error::BadSearch(e.0))?;
+        let intents = plan.intents();
+        if !intents.is_empty() {
+            self.apply_batch_by(id, intents, by)?;
+        }
+        Ok(plan.report())
+    }
+
     /// The spread templates a book can add, each drawn at this book's size, with the group of the
     /// book's own kind to show first.
     pub fn template_gallery(&self, id: &str) -> Result<TemplateGallery, Error> {
@@ -1801,6 +2113,24 @@ impl Books {
         Ok(seen)
     }
 
+    /// Reads HTML from the clipboard into paragraphs of runs, keeping a typeface it names only if
+    /// the book can draw in it (D-68). A paste that is too large is refused, and the window pastes
+    /// its plain words instead.
+    pub fn paste_html(&self, id: &str, html: &str) -> Result<PastedHtml, Error> {
+        let installed: std::collections::HashSet<String> = self
+            .font_choices(id)?
+            .into_iter()
+            .map(|c| c.family.to_lowercase())
+            .collect();
+        let read =
+            folio_import::import_html(html, &|family| installed.contains(&family.to_lowercase()))
+                .map_err(|e| Error::Import(e.to_string()))?;
+        Ok(PastedHtml {
+            paragraphs: read.story,
+            notes: read.report.notes,
+        })
+    }
+
     /// The typefaces the book uses and where each comes from, for the Fonts panel.
     pub fn fonts_in_use(&self, id: &str) -> Result<Vec<FontUse>, Error> {
         let base = self.fonts.get_or_init(FontBook::with_system_fonts);
@@ -1982,15 +2312,14 @@ impl Books {
         let refit = changes_a_story(&intent);
         let edits_words = edits_a_story(&intent);
         let base = self.fonts.get_or_init(FontBook::with_system_fonts);
-        let layered = if refit {
+        let (layered, paragraphs) = if refit {
             let mut inner = locked(&self.inner);
-            inner
-                .books
-                .iter_mut()
-                .find(|b| b.id == id)
-                .and_then(|open| open.font_book(base))
+            match inner.books.iter_mut().find(|b| b.id == id) {
+                Some(open) => (open.font_book(base), Some(open.paragraph_cache())),
+                None => (None, None),
+            }
         } else {
-            None
+            (None, None)
         };
         self.change(
             id,
@@ -2013,13 +2342,18 @@ impl Books {
                     .map(|f| f.id.clone())
                     .collect();
                 for flow in flows {
-                    let needed = Layouter::new(session.book(), &styles, fonts)
-                        .frames_needed(&flow)
-                        .map_err(Error::from)?;
-                    if needed > 0 {
+                    // One pass over the story says both how many frames it needs and how many it uses.
+                    let fit = with_paragraphs(
+                        Layouter::new(session.book(), &styles, fonts),
+                        paragraphs.as_deref(),
+                    )
+                    .page_fit(&flow)
+                    .map_err(Error::from)?;
+                    let Some(fit) = fit else { continue };
+                    if fit.needed > 0 {
                         let more = session.apply(Intent::AddFlowPages {
                             flow,
-                            count: needed,
+                            count: fit.needed,
                         })?;
                         patch.ops.extend(more.ops);
                         patch.revision = more.revision;
@@ -2030,16 +2364,17 @@ impl Books {
                     if !edits_words {
                         continue;
                     }
-                    let layouter = Layouter::new(session.book(), &styles, fonts);
-                    let used = layouter.frames_used(&flow).map_err(Error::from)?;
                     let have = session
                         .book()
                         .flows
                         .iter()
                         .find(|f| f.id == flow)
                         .map_or(0, |f| f.frames.len());
-                    if let Some(used) = used.filter(|u| *u < have) {
-                        let less = session.apply(Intent::TrimFlowPages { flow, keep: used })?;
+                    if fit.used < have {
+                        let less = session.apply(Intent::TrimFlowPages {
+                            flow,
+                            keep: fit.used,
+                        })?;
                         patch.ops.extend(less.ops);
                         patch.revision = less.revision;
                     }
@@ -2120,6 +2455,18 @@ impl Books {
         )
     }
 
+    /// Where the editor's caret goes after the undo or redo just made, when the step was an edit to
+    /// words.
+    pub fn restored_caret(&self, id: &str) -> Result<Option<folio_model::EditCaret>, Error> {
+        let inner = locked(&self.inner);
+        inner
+            .books
+            .iter()
+            .find(|b| b.id == id)
+            .map(|open| open.session.restored_caret().cloned())
+            .ok_or_else(|| Error::NoSuchBook(id.into()))
+    }
+
     /// How many steps of the book can be undone now: a mark for [`Books::rewind`].
     pub fn history_mark(&self, id: &str) -> Result<usize, Error> {
         let inner = locked(&self.inner);
@@ -2185,10 +2532,33 @@ fn style_sheet(styles: &folio_model::Styles) -> StyleSheet {
         .with_fallback(&StyleSheet::from_styles(&folio_presets::preset_styles()))
 }
 
+/// A layouter that keeps the paragraphs it shapes in `cache`, when there is one.
+fn with_paragraphs<'a>(layouter: Layouter<'a>, cache: Option<&'a ParagraphCache>) -> Layouter<'a> {
+    match cache {
+        Some(cache) => layouter.with_paragraph_cache(cache),
+        None => layouter,
+    }
+}
+
 /// Whether an intent can change how much room a story needs: its words, their styles, or the frames
 /// they run through.
 fn changes_a_story(intent: &Intent) -> bool {
     matches!(
+        intent,
+        Intent::EditText {
+            target: folio_model::TextTarget::Story { .. },
+            ..
+        }
+    ) || matches!(
+        intent,
+        Intent::SetParagraphLook {
+            target: folio_model::TextTarget::Story { .. },
+            ..
+        } | Intent::StyleText {
+            target: folio_model::TextTarget::Story { .. },
+            ..
+        }
+    ) || matches!(
         intent,
         Intent::SetParagraphText { .. }
             | Intent::SpliceStory { .. }
@@ -2206,6 +2576,12 @@ fn changes_a_story(intent: &Intent) -> bool {
 /// Whether an intent edits the words of a story, which can make it shorter.
 fn edits_a_story(intent: &Intent) -> bool {
     matches!(
+        intent,
+        Intent::EditText {
+            target: folio_model::TextTarget::Story { .. },
+            ..
+        }
+    ) || matches!(
         intent,
         Intent::SetParagraphText { .. }
             | Intent::SpliceStory { .. }

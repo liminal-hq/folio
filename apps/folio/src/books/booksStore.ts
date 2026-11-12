@@ -8,6 +8,9 @@ import type {
 	BookSummary,
 	BooksChanged,
 	BooksCommandError,
+	EditAnswer,
+	EditCaret,
+	EditRequest,
 	Intent,
 	KindInfo,
 	NewBookSpec,
@@ -55,8 +58,22 @@ export interface BooksStore {
 	save(id: string, path?: string): Promise<BookSummary | null>;
 	close(id: string): Promise<void>;
 	apply(intent: Intent): Promise<void>;
+	/**
+	 * Makes an edit to some words and lays out `spread` again in the same call. The patch goes in
+	 * like any other; the laid-out spread comes back for the window to draw without asking again.
+	 * Answers `null` when the book was closed.
+	 */
+	editText(
+		edit: EditRequest,
+		spread: string,
+		spelling?: string[],
+		/** Called with the answer before the book is told of the patch, so a window can take the layout first. */
+		early?: (answer: EditAnswer) => void,
+	): Promise<EditAnswer | null>;
 	undo(): Promise<void>;
 	redo(): Promise<void>;
+	/** Undoes (or redoes) one step and answers where the editor's caret goes, when it was an edit to words. */
+	step(direction: 'undo' | 'redo'): Promise<EditCaret | null>;
 	/** How many steps of the shown book can be undone now, or `null` with no book: a mark to rewind to. */
 	mark(): Promise<number | null>;
 	/** Undoes the shown book's steps until only `mark` can be undone. */
@@ -298,6 +315,31 @@ export function createBooksStore(
 					state.setState({ error: null });
 				} catch (reason) {
 					fail(reason);
+				}
+			});
+		},
+		async editText(edit, spread, spelling, early) {
+			const id = active();
+			if (id === null) return null;
+			return inOrder(async () => {
+				const answer = await client.editText(id, edit, spread, spelling);
+				early?.(answer);
+				onPatch({ id, patch: answer.patch, canUndo: true, canRedo: false });
+				state.setState({ error: null });
+				return answer;
+			});
+		},
+		async step(direction) {
+			const id = active();
+			if (id === null) return null;
+			return inOrder(async () => {
+				try {
+					if (direction === 'undo') await client.undo(id);
+					else await client.redo(id);
+					return await client.restoredCaret(id);
+				} catch (reason) {
+					fail(reason);
+					return null;
 				}
 			});
 		},

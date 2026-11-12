@@ -63,10 +63,18 @@ fn what_cannot_come_across_is_left_out_and_said_once() {
     assert!(text.contains(&"Words.".to_string()));
     assert!(text.contains(&"\u{2013} one".to_string()));
     assert!(text.contains(&"a link here.".to_string()));
+    // A link to an address Folio follows is kept, so it is not among the things left out.
+    let linked = made
+        .story
+        .iter()
+        .flat_map(|p| &p.inline)
+        .find(|r| r.text == "a link")
+        .unwrap();
+    assert_eq!(linked.href.as_deref(), Some("https://example.org"));
     assert!(!text
         .iter()
         .any(|t| t.contains("code") || t.contains("x.png")));
-    for note in ["Pictures", "Code blocks", "Tables", "List items", "Links"] {
+    for note in ["Pictures", "Code blocks", "Tables", "List items"] {
         assert_eq!(
             made.report
                 .notes
@@ -84,4 +92,37 @@ fn an_empty_document_is_an_empty_story() {
     let made = import_markdown("  \n\n");
     assert!(made.story.is_empty());
     assert_eq!(made.report.paragraphs, 0);
+}
+
+#[test]
+fn links_come_across_when_folio_can_follow_them_and_their_words_stay_when_it_cannot() {
+    let made = import_markdown(
+        "Go [here](https://example.org/a), [mail me](mailto:me@example.org), [bad](javascript:alert(1)) or [back](chapter.md) and **[bold](http://example.org)**.\n",
+    );
+    let runs = &made.story[0].inline;
+    let href = |word: &str| {
+        runs.iter()
+            .find(|r| r.text.contains(word))
+            .unwrap()
+            .href
+            .clone()
+    };
+    assert_eq!(href("here").as_deref(), Some("https://example.org/a"));
+    assert_eq!(href("mail me").as_deref(), Some("mailto:me@example.org"));
+    assert_eq!(href("bad"), None);
+    assert_eq!(href("back"), None);
+    let bold = runs.iter().find(|r| r.text == "bold").unwrap();
+    assert!(bold.bold && bold.href.as_deref() == Some("http://example.org"));
+    // The words that are not linked are plain, and the words around them are not linked either.
+    assert!(runs
+        .iter()
+        .any(|r| r.text.contains("bad") && r.text.contains("or") && r.href.is_none()));
+    assert_eq!(
+        made.report
+            .notes
+            .iter()
+            .filter(|n| n.starts_with("Links that Folio cannot follow"))
+            .count(),
+        1
+    );
 }

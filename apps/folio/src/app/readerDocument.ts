@@ -85,6 +85,8 @@ const escape = (text: string) =>
 export function readerDocument({ preview, faces, scale, theme, readerFont }: Options): string {
 	const { background, text } = COLOURS[theme];
 	let body = preview.chapters.map((c) => `<section>${c.body}</section>`).join('\n');
+	// A link in the preview goes nowhere: it would take the page it is shown in off to the address.
+	body = body.replace(/<a href=/g, '<a data-href=');
 	for (const image of preview.images) {
 		body = body.split(`../images/${image.name}`).join(image.dataUri);
 	}
@@ -98,5 +100,6 @@ body { margin: 0; height: 100%; box-sizing: border-box; padding: 28px; font-size
   column-width: calc(100vw - 56px); column-gap: 56px; column-fill: auto; }
 section { break-inside: auto; }
 img { max-height: 70vh; }
+a[data-href] { text-decoration: underline; cursor: default; }
 </style></head><body>${body}</body></html>`;
 }

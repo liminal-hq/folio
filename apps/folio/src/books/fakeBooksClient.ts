@@ -23,6 +23,7 @@ import type { FontUse } from '@liminal-hq/folio-protocol/generated/FontUse';
 import type { ReaderPreview } from '@liminal-hq/folio-protocol/generated/ReaderPreview';
 import type { ExportReport } from '@liminal-hq/folio-protocol/generated/ExportReport';
 import type { PreflightItem } from '@liminal-hq/folio-protocol/generated/PreflightItem';
+import type { FindMatch } from '@liminal-hq/folio-protocol/generated/FindMatch';
 import type { KeepFontsReport } from '@liminal-hq/folio-protocol/generated/KeepFontsReport';
 import { applyPatch } from './applyPatch';
 import type { BooksClient, BooksListener } from './booksClient';
@@ -140,6 +141,10 @@ export interface FakeBooks {
 	preflightItems: PreflightItem[];
 	/** The typefaces the fake book uses; a test puts some here. */
 	fontUses: FontUse[];
+	/** What the fake finds for any search, in order; a test puts matches here. */
+	found: FindMatch[];
+	/** The matches the fake leaves alone when it replaces, as `[locked, masters]`. */
+	skipped: [number, number];
 }
 
 export function createFakeBooksClient(): FakeBooks {
@@ -154,6 +159,8 @@ export function createFakeBooksClient(): FakeBooks {
 	const installedFonts: string[] = [];
 	const preflightItems: PreflightItem[] = [];
 	const fontUses: FontUse[] = [];
+	const found: FindMatch[] = [];
+	const skipped: [number, number] = [0, 0];
 	const downloaded = new Set<string>();
 	/** Books a crash left changes in; a test puts some here. */
 	const recoveries: Recoverable[] = [];
@@ -574,6 +581,63 @@ export function createFakeBooksClient(): FakeBooks {
 				.map((f) => ({ frame: f.id, lines: [], overset: false }));
 			return { revision: h.snapshot.revision, layout: { spread, frames, preflight: [] } };
 		},
+		async restoredCaret(id) {
+			await call('restoredCaret', [id]);
+			find(id);
+			return null;
+		},
+		async editText(id, edit, spread, spelling) {
+			await call('editText', [id, edit.target.type, spread]);
+			const { smart, ...plain } = edit;
+			void smart;
+			const patched = await this.apply(id, { type: 'EditText', ...plain });
+			const laid = await this.layoutSpread(id, spread, spelling);
+			const { insert, from } = edit;
+			const pieces =
+				insert.type === 'text'
+					? insert.text.split('\n').map((p) => Array.from(p).length)
+					: insert.paragraphs.map((p) =>
+							p.inline.reduce((n, r) => n + Array.from(r.text).length, 0),
+						);
+			const last = pieces[pieces.length - 1] ?? 0;
+			const caret =
+				pieces.length <= 1
+					? { para: from.para, offset: from.offset + (pieces[0] ?? 0) }
+					: { para: from.para + pieces.length - 1, offset: last };
+			return { patch: patched, layout: laid, caret };
+		},
+		async find(id, request) {
+			await call('find', [id, request.query]);
+			find(id);
+			return { matches: found.map((m) => ({ ...m })), truncated: false };
+		},
+		async pasteHtml(id, html) {
+			await call('pasteHtml', [id, html.length]);
+			find(id);
+			// The words with the tags taken out: the real reader is Rust's.
+			const text = html.replace(/<[^>]*>/g, '').trim();
+			return {
+				paragraphs: [{ style: null, inline: [{ text, style: null, bold: false, italic: false }] }],
+				notes: [],
+			};
+		},
+		async replace(id, request) {
+			await call('replace', [
+				id,
+				request.find.query,
+				request.replacement,
+				request.only ? 'one' : 'all',
+			]);
+			const h = find(id);
+			const count = request.only ? Math.min(1, found.length) : found.length;
+			if (count > 0) {
+				h.past += 1;
+				h.future = 0;
+				patch(id, h, h.snapshot.book.bleed + 1);
+				changed();
+			}
+			return { replaced: count, skippedLocked: skipped[0], skippedMasters: skipped[1] };
+		},
 		async layoutMaster(id, master) {
 			await call('layoutMaster', [id, master]);
 			const h = find(id);
@@ -915,6 +979,8 @@ export function createFakeBooksClient(): FakeBooks {
 		installedFonts,
 		preflightItems,
 		fontUses,
+		found,
+		skipped,
 		recoveries,
 	};
 }

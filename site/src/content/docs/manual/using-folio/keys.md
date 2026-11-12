@@ -17,7 +17,7 @@ The ones worth learning.
 | Edit the selected text | Enter |
 | Stop editing · deselect | Esc |
 | Nudge · nudge ×10 | Arrows · Shift+arrows |
-| Find & replace | Ctrl+F |
+| Find · Replace | Ctrl+F · Ctrl+H |
 | Export book | Ctrl+E |
 | Show or hide Jax | Ctrl+J |
 | Menu bar | F10 |

@@ -64,6 +64,7 @@ fn place_number(master: &mut Master, id: &str, x: f64, y: f64, align: Align) {
         text.base.rect.x = Pt(x);
         text.base.rect.y = Pt(y);
         let overrides = text.overrides.get_or_insert(StyleOverrides {
+            valign: None,
             size: None,
             align: None,
             bold: None,

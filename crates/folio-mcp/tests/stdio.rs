@@ -220,3 +220,91 @@ async fn an_agent_asks_a_book_tool_what_it_finds() {
         .iter()
         .all(|row| row["status"] == "empty"));
 }
+
+#[tokio::test]
+async fn an_agent_finds_words_and_replaces_them_as_one_step() {
+    let client = connect().await;
+    let made = client.call_tool(call("new_book", json!({}))).await.unwrap();
+    let made: Value = serde_json::from_str(&first_text(&made.content)).unwrap();
+    let id = made["id"].as_str().unwrap().to_owned();
+    let frame = made["book"]["spreads"][0]["frames"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["type"] == "text")
+        .expect("the cover has a text frame")["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let set = client
+        .call_tool(call(
+            "apply_intents",
+            json!({ "id": id, "intents": [{ "type": "SetText", "frame": frame, "text": "zzfox and zzFox" }] }),
+        ))
+        .await
+        .unwrap();
+    assert_ne!(set.is_error, Some(true), "{set:?}");
+
+    let found = client
+        .call_tool(call(
+            "find_text",
+            json!({ "id": id, "request": { "query": "zzfox" } }),
+        ))
+        .await
+        .unwrap();
+    assert_ne!(found.is_error, Some(true), "{found:?}");
+    let found: Value = serde_json::from_str(&first_text(&found.content)).unwrap();
+    let matches = found["matches"].as_array().unwrap();
+    assert_eq!(matches.len(), 2);
+    assert_eq!(matches[0]["from"], 0);
+    assert_eq!(matches[0]["to"], 5);
+    assert_eq!(matches[0]["target"]["frame"], frame.as_str());
+
+    let case = client
+        .call_tool(call(
+            "find_text",
+            json!({ "id": id, "request": { "query": "zzfox", "matchCase": true } }),
+        ))
+        .await
+        .unwrap();
+    let case: Value = serde_json::from_str(&first_text(&case.content)).unwrap();
+    assert_eq!(case["matches"].as_array().unwrap().len(), 1);
+
+    let replaced = client
+        .call_tool(call(
+            "replace_text",
+            json!({ "id": id, "request": { "find": { "query": "zzfox" }, "replacement": "hound" } }),
+        ))
+        .await
+        .unwrap();
+    assert_ne!(replaced.is_error, Some(true), "{replaced:?}");
+    let replaced: Value = serde_json::from_str(&first_text(&replaced.content)).unwrap();
+    assert_eq!(replaced["replaced"], 2);
+    assert_eq!(replaced["skippedLocked"], 0);
+
+    let after = client
+        .call_tool(call(
+            "find_text",
+            json!({ "id": id, "request": { "query": "hound" } }),
+        ))
+        .await
+        .unwrap();
+    let after: Value = serde_json::from_str(&first_text(&after.content)).unwrap();
+    assert_eq!(after["matches"].as_array().unwrap().len(), 2);
+
+    // One undo takes both replacements back.
+    client
+        .call_tool(call("undo", json!({ "id": id })))
+        .await
+        .unwrap();
+    let undone = client
+        .call_tool(call(
+            "find_text",
+            json!({ "id": id, "request": { "query": "hound" } }),
+        ))
+        .await
+        .unwrap();
+    let undone: Value = serde_json::from_str(&first_text(&undone.content)).unwrap();
+    assert!(undone["matches"].as_array().unwrap().is_empty());
+    client.cancel().await.unwrap();
+}

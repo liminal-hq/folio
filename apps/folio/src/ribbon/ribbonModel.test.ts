@@ -104,6 +104,22 @@ describe('buildRibbonModel', () => {
 		expect(find(off)?.active).toBe(false);
 	});
 
+	it('shows the smart punctuation toggle pressed by default, and runs the edit command', () => {
+		const off = {
+			...DEFAULT_SETTINGS,
+			editing: { ...DEFAULT_SETTINGS.editing, smartPunctuation: false },
+		};
+		const find = (settings: Settings) =>
+			allItems(buildRibbonModel({ settings, available: new Set(['edit.smartPunctuation']) })).find(
+				(i) => i.id === 'smartPunct',
+			);
+		expect(find(DEFAULT_SETTINGS)?.kind).toBe('toggle');
+		expect(find(DEFAULT_SETTINGS)?.active).toBe(true);
+		expect(find(DEFAULT_SETTINGS)?.disabled).toBe(false);
+		expect(find(off)?.active).toBe(false);
+		expect(RIBBON_COMMANDS.smartPunct).toBe('edit.smartPunctuation');
+	});
+
 	it('puts the commands that can run in the File menu', () => {
 		const model = buildRibbonModel({ settings: DEFAULT_SETTINGS, available: some });
 		expect(model.file?.items?.map(([id, label]) => [id, label])).toEqual([['file.save', 'Save']]);
@@ -226,7 +242,7 @@ describe('the Font list', () => {
 			buildRibbonModel({ settings: DEFAULT_SETTINGS, available: none, editor }),
 		).find((i) => i.id === 'font');
 		expect(font?.options).toEqual([
-			['', 'Style’s font'],
+			['', 'Font from style'],
 			['Literata', 'Literata', 'In this book'],
 			['Arial', 'Arial', 'Installed'],
 		]);
@@ -273,7 +289,7 @@ describe('the Tools tab', () => {
 		for (const item of items) expect(homeIds).not.toContain(item.id);
 	});
 
-	it('runs the tools without a selection, switches Spelling and leaves Find unavailable', () => {
+	it('runs the tools without a selection, switches Spelling and opens Find', () => {
 		const available = new Set<CommandId>(Object.keys(TOOL_COMMANDS) as CommandId[]);
 		const editor = editorState({
 			spread: { id: 'sp', kind: 'spread', pages: [], frames: [], guides: [] } as never,
@@ -293,8 +309,7 @@ describe('the Tools tab', () => {
 		}
 		expect(byId('toolSpelling').disabled).toBe(false);
 		expect(byId('toolSpelling').active).toBe(true);
-		expect(byId('toolFind').disabled).toBe(true);
-		expect(byId('toolFind').desc).toBe('Not available yet');
+		expect(byId('toolFind').disabled).toBe(false);
 	});
 
 	it('marks the technical tool for Expert mode', () => {

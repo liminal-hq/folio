@@ -44,6 +44,8 @@ pub enum SessionError {
     NoSuchFlow(String),
     #[error("that part of the story is not there: {0}")]
     BadStory(String),
+    #[error("those words cannot be edited that way: {0}")]
+    BadEdit(String),
     #[error("that stretch of words cannot be styled: {0}")]
     BadRange(String),
     #[error("that barcode cannot be used: {0}")]

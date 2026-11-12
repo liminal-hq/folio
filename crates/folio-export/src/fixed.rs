@@ -69,6 +69,7 @@ fn page_html(
     images: &mut Vec<String>,
     assets: &dyn Assets,
     natural: &dyn Fn(&str) -> Option<(f64, f64)>,
+    spread_file: &dyn Fn(usize) -> String,
 ) -> Page {
     let mut image_name = |asset: &str| -> Option<String> {
         assets.bytes(asset)?;
@@ -231,11 +232,25 @@ fn page_html(
                     let mut text = String::new();
                     let flush = |inner: &mut String, word: Option<&Word>, text: &mut String| {
                         if let Some(word) = word {
-                            inner.push_str(&format!(
-                                "<span style=\"{}\">{}</span>",
+                            let lang = word.lang.as_deref().map_or(String::new(), |l| {
+                                format!(" lang=\"{0}\" xml:lang=\"{0}\"", esc(l))
+                            });
+                            let span = format!(
+                                "<span{lang} style=\"{}\">{}</span>",
                                 word_style(word),
                                 esc(text)
-                            ));
+                            );
+                            // A link to a spread of the book goes to the file its first page is in.
+                            let href = word.href.as_deref().map(|h| {
+                                folio_model::spread_of_href(h)
+                                    .map_or_else(|| h.to_string(), spread_file)
+                            });
+                            match href {
+                                Some(h) => {
+                                    inner.push_str(&format!("<a href=\"{}\">{span}</a>", esc(&h)))
+                                }
+                                None => inner.push_str(&span),
+                            }
                         }
                         text.clear();
                     };
@@ -279,6 +294,10 @@ struct Word {
     italic: bool,
     tracking: f64,
     colour: Option<Colour>,
+    underline: bool,
+    strike: bool,
+    lang: Option<String>,
+    href: Option<String>,
 }
 
 impl Word {
@@ -290,13 +309,23 @@ impl Word {
             && self.italic == other.italic
             && self.tracking == other.tracking
             && self.colour == other.colour
+            && self.underline == other.underline
+            && self.strike == other.strike
+            && self.lang == other.lang
+            && self.href == other.href
     }
 }
 
 /// The CSS for words set as `word` is.
 fn word_style(word: &Word) -> String {
+    let decoration = match (word.underline, word.strike) {
+        (true, true) => ";text-decoration:underline line-through",
+        (true, false) => ";text-decoration:underline",
+        (false, true) => ";text-decoration:line-through",
+        (false, false) => "",
+    };
     format!(
-        "white-space:pre;font-family:'{}';font-size:{}px;font-weight:{};font-style:{};letter-spacing:{}em;color:{}",
+        "white-space:pre;font-family:'{}';font-size:{}px;font-weight:{};font-style:{};letter-spacing:{}em;color:{}{decoration}",
         esc(&word.family),
         px(word.size),
         word.weight,
@@ -325,7 +354,11 @@ fn words_of(runs: &[folio_layout::wire::LayoutRun]) -> Vec<Word> {
                 && last.weight == run.weight
                 && last.italic == run.italic
                 && last.tracking == run.tracking
-                && last.colour == run.colour;
+                && last.colour == run.colour
+                && last.underline == run.underline.is_some()
+                && last.strike == run.strike.is_some()
+                && last.lang == run.lang
+                && last.href == run.href;
             if alike && (run.x - last.end).abs() < 0.01 {
                 last.text.push_str(&text);
                 last.end = run.x + run.width;
@@ -342,6 +375,10 @@ fn words_of(runs: &[folio_layout::wire::LayoutRun]) -> Vec<Word> {
             italic: run.italic,
             tracking: run.tracking,
             colour: run.colour.clone(),
+            underline: run.underline.is_some(),
+            strike: run.strike.is_some(),
+            lang: run.lang.clone(),
+            href: run.href.clone(),
         });
     }
     words
@@ -430,7 +467,10 @@ pub fn export_fixed_epub(
     let book = &front;
     let layouter = Layouter::new(book, styles, fonts);
     let mut scenes: Vec<PageScene> = Vec::new();
+    // The page each spread begins on, which a link to the spread goes to.
+    let mut first_page: Vec<usize> = Vec::new();
     for spread in &book.spreads {
+        first_page.push(scenes.len());
         if let Some(scene) = layouter.scene_spread(&spread.id)? {
             scenes.extend(scene.pages);
         }
@@ -447,8 +487,28 @@ pub fn export_fixed_epub(
     let mut names: BTreeMap<String, String> = BTreeMap::new();
     let mut images: Vec<String> = Vec::new();
     let mut pages: Vec<Page> = Vec::new();
+    // The file of the page a spread begins on; a spread the book does not have goes to the cover.
+    let spread_file = |n: usize| -> String {
+        let page = first_page
+            .get(n.saturating_sub(1))
+            .copied()
+            .filter(|p| *p < scenes.len())
+            .unwrap_or(0);
+        if page == 0 {
+            "cover.xhtml".to_string()
+        } else {
+            format!("page-{:03}.xhtml", page + 1)
+        }
+    };
     for scene in &scenes {
-        pages.push(page_html(scene, &mut names, &mut images, assets, &natural));
+        pages.push(page_html(
+            scene,
+            &mut names,
+            &mut images,
+            assets,
+            &natural,
+            &spread_file,
+        ));
     }
     let (w, h) = (book.trim.w.0, book.trim.h.0);
 
@@ -655,8 +715,15 @@ mod tests {
             italic: false,
             tracking: 0.0,
             colour: None,
+            underline: None,
+            strike: None,
+            href: None,
+            link: None,
+            lang: None,
             hyphen: false,
             miss: Vec::new(),
+            start: 0,
+            stops: Vec::new(),
             face_key: String::new(),
             glyphs: Vec::new(),
         }

@@ -19,6 +19,8 @@ fn odt(body: &str) -> Vec<u8> {
              <office:automatic-styles>\
              <style:style style:name=\"T1\" style:family=\"text\"><style:text-properties fo:font-weight=\"bold\"/></style:style>\
              <style:style style:name=\"T2\" style:family=\"text\"><style:text-properties fo:font-style=\"italic\"/></style:style>\
+             <style:style style:name=\"T3\" style:family=\"text\"><style:text-properties style:text-underline-style=\"solid\"/></style:style>\
+             <style:style style:name=\"T4\" style:family=\"text\"><style:text-properties style:text-line-through-style=\"solid\" style:text-underline-style=\"none\"/></style:style>\
              </office:automatic-styles><office:body><office:text>{body}</office:text></office:body></office:document-content>"
         )
         .unwrap();
@@ -100,4 +102,100 @@ fn the_styles_found_are_listed_and_a_choice_changes_what_a_style_becomes() {
         .collect();
     assert_eq!(styles, vec![Some("h1"), Some("epigraph"), None]);
     assert_eq!(second.report.headings, 1);
+}
+
+#[test]
+fn underlined_and_struck_through_spans_come_across() {
+    let body = r#"<text:p>An <text:span text:style-name="T3">underlined</text:span> and a <text:span text:style-name="T4">struck</text:span> word.</text:p>"#;
+    let s = import_odt(&odt(body)).unwrap().story;
+    assert!(s[0]
+        .inline
+        .iter()
+        .any(|r| r.underline && !r.strike && r.text == "underlined"));
+    assert!(s[0]
+        .inline
+        .iter()
+        .any(|r| r.strike && !r.underline && r.text == "struck"));
+    assert!(s[0].inline.iter().any(|r| !r.underline && !r.strike));
+}
+
+#[test]
+fn a_spans_size_and_letter_spacing_come_across() {
+    let mut out = Cursor::new(Vec::new());
+    {
+        let mut zip = zip::ZipWriter::new(&mut out);
+        zip.start_file("content.xml", zip::write::SimpleFileOptions::default())
+            .unwrap();
+        write!(
+            zip,
+            "<office:document-content xmlns:office=\"o\" xmlns:text=\"t\" xmlns:style=\"s\" xmlns:fo=\"f\">\
+             <office:automatic-styles>\
+             <style:style style:name=\"T1\" style:family=\"text\"><style:text-properties fo:font-size=\"24pt\" fo:letter-spacing=\"1.2pt\"/></style:style>\
+             </office:automatic-styles><office:body><office:text>\
+             <text:p>Plain words and <text:span text:style-name=\"T1\">Large</text:span> ones.</text:p>\
+             </office:text></office:body></office:document-content>"
+        )
+        .unwrap();
+        zip.finish().unwrap();
+    }
+    let story = import_odt(&out.into_inner()).unwrap().story;
+    let large = story[0].inline.iter().find(|r| r.text == "Large").unwrap();
+    assert_eq!(large.size, Some(24.0));
+    assert_eq!(large.tracking, Some(50));
+    assert!(story[0].inline.iter().any(|r| r.size.is_none()));
+}
+
+#[test]
+fn a_spans_language_comes_across_and_the_bodys_is_left_to_the_book() {
+    let mut out = Cursor::new(Vec::new());
+    {
+        let mut zip = zip::ZipWriter::new(&mut out);
+        zip.start_file("content.xml", zip::write::SimpleFileOptions::default())
+            .unwrap();
+        write!(
+            zip,
+            "<office:document-content xmlns:office=\"o\" xmlns:text=\"t\" xmlns:style=\"s\" xmlns:fo=\"f\">\
+             <office:automatic-styles>\
+             <style:style style:name=\"E\" style:family=\"text\"><style:text-properties fo:language=\"en\" fo:country=\"CA\"/></style:style>\
+             <style:style style:name=\"F\" style:family=\"text\"><style:text-properties fo:language=\"fr\" fo:country=\"CA\"/></style:style>\
+             <style:style style:name=\"N\" style:family=\"text\"><style:text-properties fo:language=\"zxx\"/></style:style>\
+             </office:automatic-styles><office:body><office:text>\
+             <text:p><text:span text:style-name=\"E\">The body goes on in the usual language for a while, and then </text:span><text:span text:style-name=\"F\">bonjour</text:span><text:span text:style-name=\"N\"> code</text:span></text:p>\
+             </office:text></office:body></office:document-content>"
+        )
+        .unwrap();
+        zip.finish().unwrap();
+    }
+    let runs = import_odt(&out.into_inner()).unwrap().story[0]
+        .inline
+        .clone();
+    let bonjour = runs.iter().find(|r| r.text == "bonjour").unwrap();
+    assert_eq!(bonjour.lang.as_deref(), Some("fr-CA"));
+    assert!(runs
+        .iter()
+        .filter(|r| r.text != "bonjour")
+        .all(|r| r.lang.is_none()));
+}
+
+#[test]
+fn a_link_keeps_its_address_through_the_spans_inside_it() {
+    let body = "<text:p>See <text:a xlink:href=\"https://example.org/x\" text:style-name=\"Link\">our <text:span text:style-name=\"T1\">site</text:span></text:a>, <text:a xlink:href=\"javascript:alert(1)\">a script</text:a> and <text:a xlink:href=\"#Heading\">a heading</text:a>.</text:p>";
+    let made = import_odt(&odt(body)).unwrap();
+    let runs = &made.story[0].inline;
+    let word = |w: &str| runs.iter().find(|r| r.text.contains(w)).unwrap();
+    assert_eq!(word("our").href.as_deref(), Some("https://example.org/x"));
+    assert!(word("site").bold);
+    assert_eq!(word("site").href.as_deref(), Some("https://example.org/x"));
+    assert_eq!(word("See").href, None);
+    assert_eq!(word("a script").href, None);
+    assert_eq!(word("a heading").href, None);
+    assert_eq!(
+        text(&made.story[0]),
+        "See our site, a script and a heading."
+    );
+    assert!(made
+        .report
+        .notes
+        .iter()
+        .any(|n| n.starts_with("Links that Folio cannot follow")));
 }

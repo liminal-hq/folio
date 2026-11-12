@@ -232,3 +232,214 @@ fn a_novels_story_is_told_once_in_the_epub_though_it_runs_through_three_frames()
         assert_eq!(all.matches(words).count(), 1, "{words}");
     }
 }
+
+#[test]
+fn a_paragraphs_own_look_is_written_as_padding_so_before_and_after_add_as_they_do_on_the_page() {
+    let mut book = sample(BookKind::Novel);
+    let base = book.styles.styles["body"].size_pt.unwrap_or(10.5);
+    let at = book.flows[0]
+        .paragraphs
+        .iter()
+        .position(|p| p.text().starts_with("Mara had kept the light"))
+        .expect("the opening paragraph");
+    book.flows[0].paragraphs[at].look = Some(folio_model::ParaLook {
+        space_before: Some(base),
+        space_after: Some(base * 2.0),
+        indent: Some(base * 3.0),
+        align: Some(folio_model::Align::Center),
+        ..folio_model::ParaLook::default()
+    });
+    let bytes = epub(&book, &NoAssets, EpubFlavour::Standard);
+    let (mut zip, names) = files(&bytes);
+    let mut found = false;
+    for name in names
+        .iter()
+        .filter(|n| n.ends_with(".xhtml") && !n.ends_with("nav.xhtml"))
+    {
+        let text = read(&mut zip, name);
+        assert!(well_formed(&text), "{name}");
+        if let Some(line) = text.lines().find(|l| l.contains("Mara had kept the light")) {
+            found = true;
+            assert!(
+                line.contains("margin-top: 0; padding-top: 1.000em"),
+                "{line}"
+            );
+            assert!(
+                line.contains("margin-bottom: 0; padding-bottom: 2.000em"),
+                "{line}"
+            );
+            assert!(line.contains("margin-left: 3.000em"), "{line}");
+            assert!(line.contains("text-align: center"), "{line}");
+        }
+    }
+    assert!(found);
+    // A paragraph with no look of its own gets no style attribute.
+    let plain = epub(&sample(BookKind::Novel), &NoAssets, EpubFlavour::Standard);
+    let (mut zip, names) = files(&plain);
+    for name in names.iter().filter(|n| n.ends_with(".xhtml")) {
+        assert!(!read(&mut zip, name).contains("padding-top"));
+    }
+}
+
+#[test]
+fn underlined_and_struck_words_are_marked_up() {
+    let mut book = sample(BookKind::Novel);
+    let at = book.flows[0]
+        .paragraphs
+        .iter()
+        .position(|p| p.text().starts_with("Mara had kept the light"))
+        .expect("the opening paragraph");
+    book.flows[0].paragraphs[at].inline[0].underline = true;
+    book.flows[0].paragraphs[at].inline[0].strike = true;
+    let (mut zip, names) = files(&epub(&book, &NoAssets, EpubFlavour::Standard));
+    let mut marked = false;
+    for name in names
+        .iter()
+        .filter(|n| n.ends_with(".xhtml") && !n.ends_with("nav.xhtml"))
+    {
+        let text = read(&mut zip, name);
+        assert!(well_formed(&text), "{name}");
+        marked |= text.contains("<u><s>Mara had kept the light");
+    }
+    assert!(marked);
+}
+
+#[test]
+fn words_with_their_own_size_and_tracking_are_spans_in_ems_of_the_paragraph() {
+    let mut book = sample(BookKind::Novel);
+    let at = book.flows[0]
+        .paragraphs
+        .iter()
+        .position(|p| p.text().starts_with("Mara had kept the light"))
+        .expect("the opening paragraph");
+    let style = book.flows[0].paragraphs[at].style.clone();
+    book.flows[0].paragraphs[at].inline[0].size = Some(21.0);
+    book.flows[0].paragraphs[at].inline[0].tracking = Some(50);
+    let base = book.styles.styles["body"].size_pt.unwrap_or(10.5);
+    let parent = style
+        .and_then(|s| book.styles.styles.get(&s.0).and_then(|d| d.size_pt))
+        .map_or(1.0, |s| s / base);
+    let (mut zip, names) = files(&epub(&book, &NoAssets, EpubFlavour::Standard));
+    let want = format!(
+        "font-size:{:.3}em;letter-spacing:0.050em",
+        21.0 / base / parent
+    );
+    let mut found = false;
+    for name in names
+        .iter()
+        .filter(|n| n.ends_with(".xhtml") && !n.ends_with("nav.xhtml"))
+    {
+        let text = read(&mut zip, name);
+        assert!(well_formed(&text), "{name}");
+        found |= text.contains(&want);
+    }
+    assert!(found, "{want}");
+}
+
+#[test]
+fn words_in_another_language_are_marked_with_it() {
+    let mut book = sample(BookKind::Novel);
+    let at = book.flows[0]
+        .paragraphs
+        .iter()
+        .position(|p| p.text().starts_with("Mara had kept the light"))
+        .expect("the opening paragraph");
+    book.flows[0].paragraphs[at].inline[0].lang = Some("fr-CA".into());
+    let (mut zip, names) = files(&epub(&book, &NoAssets, EpubFlavour::Standard));
+    let mut found = false;
+    for name in names
+        .iter()
+        .filter(|n| n.ends_with(".xhtml") && !n.ends_with("nav.xhtml"))
+    {
+        let text = read(&mut zip, name);
+        assert!(well_formed(&text), "{name}");
+        found |= text.contains("<span lang=\"fr-CA\" xml:lang=\"fr-CA\">Mara had kept the light");
+    }
+    assert!(found);
+}
+
+/// Every `href` of an `<a>` in `text`.
+fn hrefs(text: &str) -> Vec<String> {
+    text.split("<a href=\"")
+        .skip(1)
+        .filter_map(|rest| rest.split('"').next())
+        .map(str::to_string)
+        .collect()
+}
+
+#[test]
+fn linked_words_are_anchors_and_a_link_to_a_spread_lands_on_the_file_that_spread_begins_in() {
+    let mut book = sample(BookKind::Novel);
+    let opening = book.flows[0]
+        .paragraphs
+        .iter()
+        .position(|p| p.text().starts_with("Mara had kept the light"))
+        .expect("the opening paragraph");
+    book.flows[0].paragraphs[opening].inline[0].href = Some("https://example.org/a?x=1&y=2".into());
+    let later = book.flows[0].paragraphs.len() - 1;
+    let last_spread = book.spreads.len();
+    book.flows[0].paragraphs[later].inline[0].href = Some(format!("#spread-{last_spread}"));
+    book.flows[0].paragraphs[later - 1].inline[0].href = Some("#spread-99".into());
+    book.flows[0].paragraphs[later - 2].inline[0].href = Some("#spread-1".into());
+    for flavour in [EpubFlavour::Standard, EpubFlavour::Kobo] {
+        let (mut zip, names) = files(&epub(&book, &NoAssets, flavour));
+        let chapters: Vec<&String> = names
+            .iter()
+            .filter(|n| n.contains("/text/chapter-"))
+            .collect();
+        let texts: Vec<(String, String)> = chapters
+            .iter()
+            .map(|n| ((*n).clone(), read(&mut zip, n)))
+            .collect();
+        let all: String = texts.iter().map(|(_, t)| t.as_str()).collect();
+        assert!(
+            all.contains("<a href=\"https://example.org/a?x=1&amp;y=2\">"),
+            "{flavour:?}"
+        );
+        for (name, text) in &texts {
+            assert!(well_formed(text), "{name}");
+        }
+        // Every link into the story lands on a place that is there, in the file it names.
+        let mut internal = 0;
+        for (name, text) in &texts {
+            for href in hrefs(text) {
+                if href.starts_with("http") {
+                    continue;
+                }
+                internal += 1;
+                let (file, id) = match href.split_once('#') {
+                    Some((file, id)) => (file.to_string(), Some(id.to_string())),
+                    None => (href.clone(), None),
+                };
+                let target = if file.is_empty() {
+                    name.clone()
+                } else {
+                    format!("OEBPS/text/{file}")
+                };
+                let (_, body) = texts
+                    .iter()
+                    .find(|(n, _)| *n == target)
+                    .unwrap_or_else(|| panic!("{href} names a file that is not there"));
+                if let Some(id) = id {
+                    assert!(body.contains(&format!("id=\"{id}\"")), "{href} in {name}");
+                }
+            }
+        }
+        assert_eq!(internal, 3, "{flavour:?}");
+        // A link to a spread the book does not have goes to the first chapter, whole.
+        assert!(
+            all.contains("<a href=\"chapter-001.xhtml\">"),
+            "{flavour:?}"
+        );
+    }
+}
+
+#[test]
+fn a_link_the_model_would_refuse_is_not_written() {
+    let mut book = sample(BookKind::Novel);
+    book.flows[0].paragraphs[0].inline[0].href = Some("javascript:alert(1)".into());
+    let (mut zip, names) = files(&epub(&book, &NoAssets, EpubFlavour::Standard));
+    for name in names.iter().filter(|n| n.ends_with(".xhtml")) {
+        assert!(!read(&mut zip, name).contains("javascript"), "{name}");
+    }
+}

@@ -58,6 +58,18 @@ pub struct Metrics {
     pub line_gap: f64,
     pub x_height: f64,
     pub cap_height: f64,
+    /// Where the underline's middle falls below the baseline, and how thick it is.
+    pub underline: Rule,
+    /// Where the strike-through's middle falls (negative: above the baseline), and how thick.
+    pub strike: Rule,
+}
+
+/// A horizontal line drawn with text, in points: `offset` from the baseline to the middle of the
+/// line, positive downwards.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Rule {
+    pub offset: f64,
+    pub thickness: f64,
 }
 
 /// One font file, ready to shape with.
@@ -203,7 +215,20 @@ impl Font {
             .expect("the font parsed when it was loaded");
         let scale = size_pt / self.units_per_em;
         let height = |value: Option<i16>, fallback: f64| value.map_or(fallback, f64::from) * scale;
+        // The tables give the line's top above the baseline; the page wants its middle below it.
+        let stroke = |m: Option<ttf_parser::LineMetrics>, fallback_top: f64| {
+            let (top, thickness) = m.map_or((fallback_top, self.units_per_em * 0.05), |m| {
+                (f64::from(m.position), f64::from(m.thickness))
+            });
+            let thickness = thickness.max(self.units_per_em * 0.02);
+            Rule {
+                offset: -(top - thickness / 2.0) * scale,
+                thickness: thickness * scale,
+            }
+        };
         Metrics {
+            underline: stroke(face.underline_metrics(), -self.units_per_em * 0.1),
+            strike: stroke(face.strikeout_metrics(), self.units_per_em * 0.3),
             ascent: f64::from(face.ascender()) * scale,
             descent: -f64::from(face.descender()) * scale,
             line_gap: f64::from(face.line_gap()) * scale,

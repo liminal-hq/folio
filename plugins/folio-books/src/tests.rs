@@ -372,6 +372,116 @@ fn a_spread_is_laid_out_at_the_revision_the_book_is_at() {
 }
 
 #[test]
+fn an_edit_answers_with_the_patch_the_spread_and_the_caret_in_one_call() {
+    use folio_engine::EditRequest;
+    use folio_model::{EditStep, Frame, TextInsert, TextPos, TextTarget};
+    let app = app();
+    let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();
+    let id = snapshot.summary.id.clone();
+    let spread = &snapshot.book.spreads[1];
+    let frame = spread
+        .frames
+        .iter()
+        .find_map(|f| match f {
+            Frame::Text(t) if t.flow.is_none() => Some(t.base.id.clone()),
+            _ => None,
+        })
+        .expect("a text frame of its own");
+    let edit = EditRequest {
+        target: TextTarget::Frame { frame },
+        from: TextPos { para: 0, offset: 0 },
+        to: TextPos { para: 0, offset: 0 },
+        insert: TextInsert::Text {
+            text: "Zq\u{e9}x\n".into(),
+        },
+        look: None,
+        step: EditStep::Own,
+        smart: None,
+    };
+    let answer = books(&app)
+        .edit_text(&id, edit, &spread.id.0, None)
+        .unwrap();
+    assert_eq!(answer.patch.revision, snapshot.revision + 1);
+    assert_eq!(answer.layout.revision, answer.patch.revision);
+    assert_eq!(answer.caret, TextPos { para: 1, offset: 0 });
+    let shown: String = answer
+        .layout
+        .layout
+        .frames
+        .iter()
+        .flat_map(|f| f.lines.iter())
+        .flat_map(|l| l.runs.iter())
+        .map(|r| r.text.as_str())
+        .collect();
+    assert!(shown.contains("Zq\u{e9}x"), "{shown}");
+    // A range outside the words is refused and changes nothing.
+    let bad = EditRequest {
+        target: TextTarget::Frame {
+            frame: folio_model::FrameId("nope".into()),
+        },
+        from: TextPos { para: 0, offset: 0 },
+        to: TextPos { para: 0, offset: 0 },
+        insert: TextInsert::Text { text: "x".into() },
+        look: None,
+        step: EditStep::Own,
+        smart: None,
+    };
+    assert!(books(&app).edit_text(&id, bad, &spread.id.0, None).is_err());
+}
+
+#[test]
+fn words_are_found_and_replaced_through_the_books() {
+    use folio_engine::{FindRequest, ReplaceRequest};
+    use folio_model::Frame;
+    let app = app();
+    let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();
+    let id = snapshot.summary.id.clone();
+    let frame = snapshot.book.spreads[1]
+        .frames
+        .iter()
+        .find_map(|f| match f {
+            Frame::Text(t) if t.flow.is_none() => Some(t.base.id.clone()),
+            _ => None,
+        })
+        .expect("a text frame of its own");
+    books(&app)
+        .apply(
+            &id,
+            Intent::SetText {
+                frame,
+                text: "zzalpha beta zzalpha".into(),
+            },
+        )
+        .unwrap();
+    let find = FindRequest {
+        query: "zzalpha".into(),
+        match_case: false,
+        whole_word: false,
+        regex: false,
+    };
+    let found = books(&app).find(&id, &find).unwrap();
+    assert_eq!(found.matches.len(), 2);
+    let changed = hear::<PatchEvent>(&app, "main", PATCH_EVENT);
+    let report = books(&app)
+        .replace(
+            &id,
+            &ReplaceRequest {
+                find: find.clone(),
+                replacement: "gamma".into(),
+                only: None,
+                master: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(report.replaced, 2);
+    assert!(
+        !changed.lock().unwrap().is_empty(),
+        "windows hear the patch"
+    );
+    assert!(books(&app).find(&id, &find).unwrap().matches.is_empty());
+}
+
+#[test]
 fn a_master_page_is_laid_out_with_its_tokens_as_written() {
     let app = app();
     let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();
@@ -1772,4 +1882,30 @@ fn a_swatch_is_drawn_as_the_colour_it_shows_as() {
         .collect();
     assert!(colours.contains(&"#ff0000".to_string()), "{colours:?}");
     assert!(!colours.iter().any(|c| c.starts_with("swatch:")));
+}
+
+#[test]
+fn pasted_html_is_read_into_runs_with_only_the_typefaces_the_book_can_draw_in() {
+    let app = app();
+    let snapshot = books(&app).new_book(&NewBookSpec::default()).unwrap();
+    let id = snapshot.summary.id.clone();
+    let html = "<p>plain <b>bold</b> <span style=\"font-family: Literata, serif\">literary</span> \
+                <span style=\"font-family: 'No Such Face'\">other</span> \
+                <a href=\"https://example.org\">link</a></p><script>alert(1)</script><p>second</p>";
+    let pasted = books(&app).paste_html(&id, html).unwrap();
+    assert_eq!(pasted.paragraphs.len(), 2);
+    let runs = &pasted.paragraphs[0].inline;
+    let word = |w: &str| runs.iter().find(|r| r.text.contains(w)).unwrap();
+    assert!(word("bold").bold);
+    assert_eq!(word("literary").font.as_deref(), Some("Literata"));
+    assert_eq!(word("other").font, None);
+    assert_eq!(word("link").href.as_deref(), Some("https://example.org"));
+    assert!(!pasted
+        .paragraphs
+        .iter()
+        .any(|p| p.inline.iter().any(|r| r.text.contains("alert"))));
+    // Too much to read is refused, with a reason to show.
+    let big = format!("<p>{}</p>", "x".repeat(folio_import::MAX_HTML_BYTES));
+    assert!(books(&app).paste_html(&id, &big).is_err());
+    assert!(books(&app).paste_html("no-such-book", html).is_err());
 }

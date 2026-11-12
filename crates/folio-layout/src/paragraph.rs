@@ -30,6 +30,16 @@ pub struct TextStyle {
     pub line_height: f64,
     /// The colour the words are drawn in; `None` is the ink the page uses.
     pub colour: Option<Colour>,
+    /// A line under the words.
+    pub underline: bool,
+    /// A line through the words.
+    pub strike: bool,
+    /// The language of the words when it is not the paragraph's: it picks their hyphenation
+    /// patterns and the language the font's features are shaped for.
+    pub lang: Option<String>,
+    /// Where the words link to. It changes nothing about their shape or place; the page and the
+    /// exporters read it to mark and follow the link.
+    pub href: Option<String>,
 }
 
 impl TextStyle {
@@ -43,6 +53,10 @@ impl TextStyle {
             features: Vec::new(),
             line_height: 1.3,
             colour: None,
+            underline: false,
+            strike: false,
+            lang: None,
+            href: None,
         }
     }
 }
@@ -127,6 +141,13 @@ pub struct LineRun {
     pub glyphs: Vec<Glyph>,
     /// The hyphen drawn at a line's end; it is not part of the text.
     pub hyphen: bool,
+    /// Byte offset into `ParagraphLayout::text` of the run's first character. For a hyphen, where
+    /// the run before it ends.
+    pub start: usize,
+    /// Where each character boundary of `text` falls, in points from the run's left edge: one more
+    /// stop than the text has characters, so `stops[0]` is 0 and the last is the run's width. Inside
+    /// a ligature or a cluster the stops are spread evenly over its advance. Empty for a hyphen.
+    pub stops: Vec<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -167,6 +188,52 @@ struct Piece {
     range: Range<usize>,
     glyphs: Vec<Glyph>,
     width: f64,
+    stops: Vec<f64>,
+}
+
+/// Where each character boundary of `text` falls along its glyphs. `base` is the byte offset the
+/// glyphs' clusters count from, so that `cluster - base` is a byte offset into `text`. A cluster
+/// that stands for several characters (a ligature, a base and its marks) gives them evenly spaced
+/// stops across its advance; the caller snaps those to grapheme boundaries.
+pub fn char_stops(text: &str, glyphs: &[Glyph], base: u32) -> Vec<f64> {
+    let offsets: Vec<usize> = text.char_indices().map(|(i, _)| i).collect();
+    let n = offsets.len();
+    let mut stops = vec![f64::NAN; n + 1];
+    stops[0] = 0.0;
+    let mut x = 0.0;
+    let mut i = 0;
+    while i < glyphs.len() {
+        let cluster = glyphs[i].cluster;
+        let mut j = i;
+        let mut advance = 0.0;
+        while j < glyphs.len() && glyphs[j].cluster == cluster {
+            advance += glyphs[j].advance;
+            j += 1;
+        }
+        let from = (cluster.saturating_sub(base)) as usize;
+        let to = glyphs
+            .get(j)
+            .map_or(text.len(), |g| (g.cluster.saturating_sub(base)) as usize);
+        let first = offsets.partition_point(|&o| o < from);
+        let last = offsets.partition_point(|&o| o < to);
+        let count = last.saturating_sub(first).max(1);
+        for k in 0..count {
+            if first + k <= n {
+                stops[first + k] = x + advance * k as f64 / count as f64;
+            }
+        }
+        x += advance;
+        i = j;
+    }
+    stops[n] = x;
+    let mut last = 0.0;
+    for stop in &mut stops {
+        if stop.is_nan() {
+            *stop = last;
+        }
+        last = *stop;
+    }
+    stops
 }
 
 /// The things a break can be: pieces of words, spaces between them, and hyphens.
@@ -216,8 +283,17 @@ impl Shaper<'_> {
         run.weight = f.weight;
         run.tracking_em = style.tracking_em;
         run.features = &f.features;
-        run.language = Some(self.language);
+        run.language = Some(self.language_of(span));
         shape(&f.font, &run)
+    }
+
+    /// The language of a span: its own, else the paragraph's.
+    fn language_of(&self, span: usize) -> &str {
+        self.spans[span]
+            .style
+            .lang
+            .as_deref()
+            .unwrap_or(self.language)
     }
 
     fn width(&self, span: usize, text: &str) -> f64 {
@@ -285,7 +361,9 @@ fn word_slots(
         let core_end = spoken.rfind(char::is_alphabetic).map_or(lead, |at| {
             at + spoken[at..].chars().next().map_or(0, char::len_utf8)
         });
-        hyphenation_points(&spoken[lead..core_end], shaper.language)
+        // A word is hyphenated by the language of the span its first letter is in.
+        let first = span_at(ends, word.start + lead);
+        hyphenation_points(&spoken[lead..core_end], shaper.language_of(first))
             .into_iter()
             .map(|p| word.start + lead + p)
             .filter(|&p| {
@@ -326,11 +404,13 @@ fn word_slots(
                 let last = shaped.glyphs.partition_point(|g| (g.cluster as usize) < hi);
                 let glyphs = shaped.glyphs[first..last].to_vec();
                 let width = glyphs.iter().map(|g| g.advance).sum();
+                let stops = char_stops(&text[from..to], &glyphs, lo as u32);
                 Some(Piece {
                     span: *span,
                     range: from..to,
                     glyphs,
                     width,
+                    stops,
                 })
             })
             .collect();
@@ -540,6 +620,8 @@ fn place_line(
                         width: p.width,
                         glyphs: p.glyphs.clone(),
                         hyphen: false,
+                        start: p.range.start,
+                        stops: p.stops.clone(),
                     });
                     x += p.width;
                     natural += p.width;
@@ -577,6 +659,8 @@ fn place_line(
                     width,
                     glyphs: shaped.glyphs,
                     hyphen: true,
+                    start: last,
+                    stops: Vec::new(),
                 });
                 x += width;
                 natural += width;

@@ -4,7 +4,15 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import type { RibbonCommand } from '@liminal-hq/folio-ribbon/types';
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useSyncExternalStore,
+	type CSSProperties,
+} from 'react';
 import { usePaintPresets } from './usePaintPresets';
 import { useFontChoices } from './useFontChoices';
 import { useFontsInUse } from './useFontsInUse';
@@ -27,7 +35,16 @@ import { coloursOf, marksOf, marksPatch, type MarkKey, type Marks } from '../can
 import { keepWords } from '../canvas/editCheckpoint';
 import { CheckBookDialog } from './CheckBookDialog';
 import { ExportDialog } from './ExportDialog';
-import { getTextSelection } from '../canvas/textSelection';
+import {
+	getPendingLook,
+	getTextCaret,
+	getTextLookState,
+	getTextParagraphs,
+	getTextSelection,
+	setPendingLook,
+	subscribeTextLook,
+	subscribeTextParagraphs,
+} from '../canvas/textSelection';
 import { IMPORT_TEXT_EVENT } from './importRequest';
 import { ImportReportDialog, type ImportOutcome } from './ImportReportDialog';
 import { StoryEditorDialog } from '../story/StoryEditorDialog';
@@ -35,9 +52,21 @@ import { rangeIntents } from '../story/rangeEdit';
 import { BookDetailsDialog } from './BookDetailsDialog';
 import type { PastedPicture } from '../clipboard/frameClipboard';
 import { useFrameClipboard } from '../clipboard/useFrameClipboard';
+import { openEditor } from '../text/openEditor';
 import { BarcodeDialog } from './BarcodeDialog';
 import { BookSizeDialog } from './BookSizeDialog';
 import { MarginsDialog } from './MarginsDialog';
+import { LinkDialog } from './LinkDialog';
+import { openUrl } from '@tauri-apps/plugin-opener';
+import { setLinkActions } from '../text/linkActions';
+import { isExternalHref, spreadOfHref } from '../text/links';
+import {
+	linkIntent,
+	linkTarget,
+	textBetween,
+	type LinkTarget,
+	type LookScope,
+} from '../ribbon/selectionLook';
 import { SpreadTemplatesDialog } from './SpreadTemplatesDialog';
 import { CoverSheetDialog } from './CoverSheetDialog';
 import { JAX_TOGGLE_EVENT } from '../jax/jaxToggle';
@@ -45,6 +74,11 @@ import { JaxPanel } from '../jax/JaxPanel';
 import rowStyles from '../jax/shelfSlot.module.css';
 import { SoftProofDialog } from './SoftProofDialog';
 import { EXPORT_EVENT } from './exportRequest';
+import { FindBar } from '../find/FindBar';
+import { styleForKey } from './useBookKeys';
+import { FIND_EVENT } from '../find/findRequest';
+import { onShown } from '../find/matches';
+import { useFind } from '../find/useFind';
 import { ReaderView } from './ReaderView';
 import { PageBackgroundDialog } from '../canvas/PageBackgroundDialog';
 import { Stage, type ZoomApi } from '../canvas/Stage';
@@ -53,6 +87,7 @@ import { useSelection } from '../canvas/useSelection';
 import { useAssetUrls } from '../canvas/useAssetUrls';
 import { useCoverSheet } from '../canvas/useCoverSheet';
 import { useSpreadLayout } from '../canvas/useSpreadLayout';
+import { useTextEdits } from '../text/useTextEdits';
 import type { CommandId } from '../commands/appMenuModel';
 import type { Frame } from '@liminal-hq/folio-protocol/generated/Frame';
 import type { Intent } from '@liminal-hq/folio-protocol/generated/Intent';
@@ -153,6 +188,12 @@ export function BookView({
 		() => (onSheet ? resolveSwatches(onSheet, displays) : onSheet),
 		[onSheet, displays],
 	);
+	const textEdits = useTextEdits(
+		store,
+		spread?.id ?? null,
+		settings.spelling.enabled ? settings.spelling.personal : null,
+		settings.editing.smartPunctuation,
+	);
 	const spreadLayout = useSpreadLayout(
 		client,
 		id,
@@ -160,6 +201,7 @@ export function BookView({
 		copy.revision,
 		master !== null,
 		settings.spelling.enabled ? settings.spelling.personal : null,
+		textEdits.seed,
 	);
 	const layout = sheet?.layout ?? spreadLayout;
 	// What the stage shows: the pages as printed, or as a Kindle or a Kobo shows them.
@@ -214,6 +256,28 @@ export function BookView({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[spelling, client, id, personal],
 	);
+	const [dictionaryTick, setDictionaryTick] = useState(0);
+	// The dictionaries there are, for the language list: read once and again after a download.
+	const [dictionaries, setDictionaries] = useState<DictionaryStatus[]>([]);
+	useEffect(() => {
+		let live = true;
+		client
+			.dictionaries()
+			.then((found) => live && setDictionaries(found))
+			.catch(() => undefined);
+		return () => {
+			live = false;
+		};
+	}, [client, dictionaryTick]);
+	const languages = useMemo(
+		() => languageChoices(dictionaries, book.language),
+		[dictionaries, book.language],
+	);
+	// The paragraphs the open editor's caret is in, which the Paragraph controls act on.
+	const textParagraphs = useSyncExternalStore(subscribeTextParagraphs, getTextParagraphs);
+	// What is selected or under the caret, so the controls show the look of those words (Expert only).
+	const textLook = useSyncExternalStore(subscribeTextLook, getTextLookState);
+	const expert = settings.mode === 'expert';
 	const input: EditorInput | null = spread
 		? {
 				spread,
@@ -224,6 +288,7 @@ export function BookView({
 				choices,
 				...(fonts ? { fonts } : {}),
 				...(fontUses ? { fontsInUse: fontUses.map((u) => u.family) } : {}),
+				languages: languages.choices,
 				marks,
 				snap,
 				rulers: rulers.on,
@@ -234,6 +299,14 @@ export function BookView({
 				master: master !== null,
 				cell: editingCell,
 				swatches: (book.styles?.swatches ?? []).map((s) => ({ id: s.id, name: s.name })),
+				paragraphs: textParagraphs,
+				// Copy and Cut take the words selected in the open editor, not the frame.
+				words:
+					textLook.caret || textLook.selection ? { selected: textLook.selection !== null } : null,
+				flows: book.flows ?? [],
+				selection: expert ? textLook.selection : null,
+				caret: expert ? textLook.caret : null,
+				pending: expert && textLook.caret ? getPendingLook(textLook.caret.frame) : null,
 			}
 		: null;
 	const editor = useMemo(
@@ -256,6 +329,11 @@ export function BookView({
 			book.margins,
 			editingCell,
 			book.styles,
+			book.flows,
+			textParagraphs,
+			textLook,
+			expert,
+			languages,
 		],
 	);
 
@@ -270,6 +348,25 @@ export function BookView({
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
 	}, [rulers.on, update]);
+
+	// Ctrl+B, Ctrl+I and Ctrl+U in the on-page editor style the selected words (or the next ones typed
+	// at a caret), as the ribbon's buttons do. Only the editor's own input is listened to.
+	const styleKey = useRef<(id: string) => void>(() => undefined);
+	styleKey.current = (name) => {
+		if (settings.mode === 'expert') onEditorCommand({ id: name });
+	};
+	useEffect(() => {
+		const onKey = (event: KeyboardEvent) => {
+			const name = styleForKey(event);
+			if (!name) return;
+			if (!(event.target instanceof HTMLElement) || !event.target.closest('[data-text-sink]'))
+				return;
+			event.preventDefault();
+			styleKey.current(name);
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	}, []);
 
 	// A master that is gone (undone, or removed with the page numbers) ends the editing of it.
 	useEffect(() => {
@@ -495,10 +592,13 @@ export function BookView({
 	const [imported, setImported] = useState<ImportOutcome | null>(null);
 	/** The file last brought in, so it can be brought in again with other choices of style. */
 	const importedPath = useRef<string | null>(null);
+	const smartPunctuation = settings.editing.smartPunctuation;
 	const bringIn = useCallback(
 		async (path: string, mapping?: Record<string, string>) => {
 			try {
-				setImported({ report: await client.importText(id, path, mapping) });
+				setImported({
+					report: await client.importText(id, path, mapping, smartPunctuation),
+				});
 			} catch (reason) {
 				setImported({
 					problem:
@@ -508,7 +608,7 @@ export function BookView({
 				});
 			}
 		},
-		[client, id],
+		[client, id, smartPunctuation],
 	);
 	useEffect(() => {
 		const run = () => {
@@ -551,6 +651,42 @@ export function BookView({
 		window.addEventListener(EXPORT_EVENT, open);
 		return () => window.removeEventListener(EXPORT_EVENT, open);
 	}, []);
+	// Find and replace: the bar is opened by Ctrl+F and Ctrl+H (and the ribbon's Find & replace), and
+	// the page goes to the match it is on.
+	const find = useFind(client, id, copy.revision, editing);
+	useEffect(() => {
+		const open = (event: Event) =>
+			find.show((event as CustomEvent<{ replace?: boolean }>).detail?.replace === true);
+		window.addEventListener(FIND_EVENT, open);
+		return () => window.removeEventListener(FIND_EVENT, open);
+	}, [find.show]);
+	const foundAt = find.focus?.match;
+	useEffect(() => {
+		if (!foundAt) return;
+		if (foundAt.master) {
+			if (masterSpread(book, foundAt.master)) setEditing(foundAt.master);
+		} else {
+			const at = book.spreads.findIndex((s) => s.id === foundAt.spread);
+			if (at >= 0) {
+				setEditing(null);
+				setSpreadIndex(at);
+			}
+		}
+		// Only a new request moves the page; the book changing under it does not.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [find.focus?.nonce]);
+	const closeFind = () => {
+		find.close();
+		// The words being edited, or the page, get the keyboard back.
+		queueMicrotask(() =>
+			(
+				document.querySelector<HTMLElement>('[data-text-sink]') ??
+				document.querySelector<HTMLElement>('svg[role="group"]')
+			)?.focus(),
+		);
+	};
+	const marked =
+		find.open && spread ? find.matches.filter((m) => onShown(m, spread.id, editing)) : [];
 	const [reveal, setReveal] = useState<{ spread: string; frame: string } | null>(null);
 	useEffect(() => {
 		if (reveal && spread?.id === reveal.spread) {
@@ -594,24 +730,7 @@ export function BookView({
 	// What spelling finds in the whole book, read when the Proofing group is open and read again a
 	// moment after the book, the dictionary or the words added for every book change.
 	const [proofing, setProofing] = useState<BookSpelling | null>(null);
-	const [dictionaryTick, setDictionaryTick] = useState(0);
 	const personalKey = settings.spelling.personal.join('\u0000');
-	// The dictionaries there are, for the language list: read once and again after a download.
-	const [dictionaries, setDictionaries] = useState<DictionaryStatus[]>([]);
-	useEffect(() => {
-		let live = true;
-		client
-			.dictionaries()
-			.then((found) => live && setDictionaries(found))
-			.catch(() => undefined);
-		return () => {
-			live = false;
-		};
-	}, [client, dictionaryTick]);
-	const languages = useMemo(
-		() => languageChoices(dictionaries, book.language),
-		[dictionaries, book.language],
-	);
 	useEffect(() => {
 		if (group !== 'proofing') return;
 		let live = true;
@@ -643,6 +762,80 @@ export function BookView({
 		background !== null || (group === 'properties' && selected.some((f) => f.type === 'shape')),
 	);
 
+	/** The words the link dialog is for: where they are, the link they have and what they say. */
+	const [linkDialog, setLinkDialog] = useState<{
+		scope: LookScope;
+		target: LinkTarget;
+		words: string;
+	} | null>(null);
+	const openLinkFor = (scope: LookScope) => {
+		const target = linkTarget(scope);
+		setLinkDialog({ scope, target, words: textBetween(scope, target.from, target.to) });
+	};
+	/** Opens the link dialog for what the on-page editor has selected (Ctrl+K, in Easy as well as Expert). */
+	const openLink = () => {
+		const caret = getTextCaret();
+		const action = editorAction('link', undefined, {
+			...input!,
+			selection: getTextSelection(),
+			caret,
+			pending: null,
+		});
+		if (action?.kind === 'link') openLinkFor(action.scope);
+	};
+	/** Follows a link: an address opens in the system's program, a spread of the book is shown. */
+	const followLink = (href: string) => {
+		const spreadNumber = spreadOfHref(href);
+		if (spreadNumber !== null) {
+			if (editing !== null) setEditing(null);
+			setSpreadIndex(Math.min(spreadNumber, book.spreads.length) - 1);
+			select([]);
+		} else if (isExternalHref(href)) {
+			openUrl(href).catch(() => setNotice(t('link.openFailed')));
+		}
+	};
+	const linkNow = useRef<{
+		followLink(href: string): void;
+		openLink(): void;
+		removeLink(): void;
+	}>(null!);
+	linkNow.current = {
+		followLink,
+		openLink,
+		removeLink: () => {
+			const action = editorAction('link', undefined, {
+				...input!,
+				selection: getTextSelection(),
+				caret: getTextCaret(),
+				pending: null,
+			});
+			if (action?.kind !== 'link') return;
+			apply(linkIntent(action.scope, linkTarget(action.scope), ''));
+		},
+	};
+	useEffect(
+		() =>
+			setLinkActions({
+				follow: (href) => linkNow.current.followLink(href),
+				edit: () => linkNow.current.openLink(),
+				remove: () => linkNow.current.removeLink(),
+			}),
+		[],
+	);
+	// Ctrl+K in the on-page editor sets, changes or takes away the link on the selected words.
+	useEffect(() => {
+		const onKey = (event: KeyboardEvent) => {
+			if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+			if (event.key.toLowerCase() !== 'k') return;
+			if (!(event.target instanceof HTMLElement) || !event.target.closest('[data-text-sink]'))
+				return;
+			event.preventDefault();
+			linkNow.current.openLink();
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	}, []);
+
 	const perform = (action: EditorAction) => {
 		switch (action.kind) {
 			case 'intents':
@@ -664,6 +857,17 @@ export function BookView({
 				break;
 			case 'rulers':
 				void update({ rulers: { on: !rulers.on } } as SettingsPatch);
+				break;
+			case 'pending':
+				setPendingLook(action.frame, action.change);
+				// An installed font is kept inside the book, so it opens the same on another computer.
+				if (action.keep) void client.keepFonts(id, [action.keep]).catch(() => undefined);
+				break;
+			case 'find':
+				find.show(false);
+				break;
+			case 'link':
+				openLinkFor(action.scope);
 				break;
 			case 'spelling':
 				void update({ spelling: { enabled: !settings.spelling.enabled } } as SettingsPatch);
@@ -732,7 +936,18 @@ export function BookView({
 				setSpreadIndex(0);
 				select([]);
 				break;
-			case 'clipboard':
+			case 'clipboard': {
+				// While the on-page editor is open, the clipboard is for its words, as Ctrl+C and Ctrl+V are.
+				const words = openEditor();
+				if (words && action.op !== 'pasteInPlace') {
+					if (action.op === 'copy') void words.copy();
+					else if (action.op === 'cut') void words.cut();
+					else
+						void words.paste(action.op === 'pastePlain').then((pasted) => {
+							if (!pasted) setNotice(t('clipboard.nothing'));
+						});
+					break;
+				}
 				if (action.op === 'copy') void clipboard.copy();
 				else if (action.op === 'cut') void clipboard.cut();
 				else if (action.op === 'paste') void clipboard.pasteWith('paste');
@@ -740,13 +955,14 @@ export function BookView({
 				else if (action.op === 'pastePlain') void clipboard.pasteWith('plain');
 				else void clipboard.pasteWith('into');
 				break;
+			}
 			case 'group':
 				makeGroup(action.frames);
 				break;
 			case 'ungroup':
 				breakGroup(action.frame);
 				break;
-			case 'link':
+			case 'frameLink':
 				// The Properties group says to choose the box the words continue in.
 				setGroup('properties');
 				setLinking(action.frame);
@@ -770,9 +986,20 @@ export function BookView({
 			...input,
 			// Easy styles the whole box; only Expert styles the selected words (spec 09).
 			selection: settings.mode === 'expert' ? getTextSelection() : null,
+			// With the caret alone in the words, a bold or colour is for the words typed next.
+			caret: settings.mode === 'expert' ? getTextCaret() : null,
+			pending: getTextCaret() ? getPendingLook(getTextCaret()!.frame) : null,
+			// Paragraph controls act on the paragraphs the caret is in, in Easy as well as Expert.
+			paragraphs: getTextParagraphs(),
 		});
 		if (!action) return false;
 		perform(action);
+		// A list in the ribbon keeps the focus once it is chosen from; the words being edited get it back.
+		if (
+			document.activeElement instanceof Element &&
+			document.activeElement.closest('[data-ribbon]')
+		)
+			openEditor()?.focus();
 		return true;
 	};
 
@@ -792,6 +1019,7 @@ export function BookView({
 				}
 			>
 				<div className={styles.stage}>
+					{find.open && <FindBar find={{ ...find, close: closeFind }} expert={expert} />}
 					{notice && (
 						<div className={styles.masterBanner} role="status">
 							<span>{notice}</span>
@@ -875,6 +1103,11 @@ export function BookView({
 							}}
 							hint={barcodeHint}
 							onEditText={(frame, text) => keepAsStep({ type: 'SetText', frame, text })}
+							newEditor={settings.editing.newEditor}
+							onEditRequest={textEdits.onEdit}
+							onEditUndo={() => store.step('undo')}
+							onEditRedo={() => store.step('redo')}
+							onPasteHtml={(html) => client.pasteHtml(id, html).then((read) => read.paragraphs)}
 							onEditTable={(frame, edit) => keepAsStep({ type: 'EditTable', frame, edit })}
 							onEditStory={(flow, paragraph) => {
 								setStoryPara(paragraph ?? null);
@@ -888,6 +1121,15 @@ export function BookView({
 									keepAsStep(intent);
 							}}
 							speller={speller}
+							find={
+								find.open
+									? {
+											matches: marked,
+											current: find.index === null ? null : (find.matches[find.index] ?? null),
+											focus: find.focus,
+										}
+									: undefined
+							}
 							onEditingCell={(cell) => cell && setEditingCell(cell)}
 							editableMasters={settings.mode === 'expert'}
 							demoteTo={demoteTo}
@@ -979,6 +1221,7 @@ export function BookView({
 								marks={marks}
 								onMarks={(next) => setMarks(next)}
 								apply={apply}
+								paragraphs={textParagraphs}
 								paints={paints}
 								images={images}
 								choosePicture={(frame) => void choosePicture(frame)}
@@ -1198,6 +1441,22 @@ export function BookView({
 					select([]);
 					setTemplatesOpen(false);
 					setNotice(t('templates.added', { name }));
+				}}
+			/>
+			<LinkDialog
+				open={linkDialog !== null}
+				onClose={() => setLinkDialog(null)}
+				words={linkDialog?.words ?? ''}
+				href={linkDialog?.target.href ?? ''}
+				editing={linkDialog?.target.link ?? false}
+				mixed={linkDialog?.target.mixed ?? false}
+				hasWords={linkDialog?.target.words ?? false}
+				spreads={labels}
+				onSet={(href) => {
+					if (linkDialog) apply(linkIntent(linkDialog.scope, linkDialog.target, href));
+				}}
+				onRemove={() => {
+					if (linkDialog) apply(linkIntent(linkDialog.scope, linkDialog.target, ''));
 				}}
 			/>
 			<BarcodeDialog

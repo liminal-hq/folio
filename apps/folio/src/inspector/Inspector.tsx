@@ -33,6 +33,9 @@ import { styleChoices } from './styleChoices';
 import { LanguageSelect } from './LanguageSelect';
 import type { LanguageChoice } from './languageChoices';
 import { effectiveSize, withOverrides } from './textFacts';
+import { ParagraphSection } from './ParagraphSection';
+import { paragraphIntents, paragraphScopes } from '../ribbon/paragraphCommands';
+import type { TextParagraphs } from '../canvas/textSelection';
 
 export interface InspectorProps {
 	book: Book;
@@ -61,6 +64,8 @@ export interface InspectorProps {
 	onLink?(frame: string | null): void;
 	/** Opens the story of a flow in the story editor. */
 	onEditStory?(flow: string): void;
+	/** The paragraphs the open editor's caret or selection is in, which the Paragraph section changes. */
+	paragraphs?: TextParagraphs | null;
 }
 
 const MARK_ROWS: { key: keyof Marks; label: string }[] = [
@@ -378,6 +383,7 @@ function WordsBox({
 }
 
 const ALIGNS = ['left', 'center', 'right', 'justify'] as const;
+const VALIGNS = ['top', 'middle', 'bottom'] as const;
 
 function TextSection({ frame, props }: { frame: TextFrame; props: InspectorProps }) {
 	const { layout, styleFile, apply } = props;
@@ -389,7 +395,21 @@ function TextSection({ frame, props }: { frame: TextFrame; props: InspectorProps
 		frame: frame.id,
 		overrides: withOverrides(frame, change),
 	});
-	const align = frame.overrides?.align ?? 'left';
+	const paraInput = {
+		selected: props.selected,
+		layout,
+		choices,
+		paragraphs: props.paragraphs,
+		flows: props.book.flows ?? [],
+	};
+	// The alignment a paragraph sets for itself, then the frame's.
+	const align = paragraphScopes(paraInput)[0]?.looks[0]?.align ?? frame.overrides?.align ?? 'left';
+	const alignIds = {
+		left: 'alignL',
+		center: 'alignC',
+		right: 'alignR',
+		justify: 'justify',
+	} as const;
 	return (
 		<>
 			<Header
@@ -489,9 +509,26 @@ function TextSection({ frame, props }: { frame: TextFrame; props: InspectorProps
 					label={t('inspector.align')}
 					value={align}
 					options={ALIGNS.map((a) => ({ value: a, label: t(`inspector.align.${a}`) }))}
-					onChange={(next) => !frame.locked && apply(overrides({ align: next }))}
+					onChange={(next) => {
+						if (frame.locked) return;
+						const intents = paragraphIntents(alignIds[next], undefined, paraInput);
+						if (intents) intents.forEach((intent) => apply(intent));
+						else apply(overrides({ align: next }));
+					}}
 				/>
 			</div>
+			<div className={styles.field}>
+				<span>{t('inspector.valign')}</span>
+				<Segmented
+					label={t('inspector.valign')}
+					value={frame.overrides?.valign ?? 'top'}
+					options={VALIGNS.map((v) => ({ value: v, label: t(`inspector.valign.${v}`) }))}
+					onChange={(next) => {
+						if (!frame.locked) apply(overrides({ valign: next }));
+					}}
+				/>
+			</div>
+			<ParagraphSection {...paraInput} units={props.units} disabled={frame.locked} apply={apply} />
 		</>
 	);
 }

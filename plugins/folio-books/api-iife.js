@@ -94,6 +94,13 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     function redo(id) {
         return cmd('redo', { id });
     }
+    /**
+     * Where the editor's caret goes after the undo or redo just made, when that step was an edit to
+     * words; `null` when it was anything else.
+     */
+    function restoredCaret(id) {
+        return cmd('restored_caret', { id });
+    }
     /** A master page's text laid out on a page of its own, with `{page}` and other tokens as written. */
     function layoutMaster(id, master) {
         return cmd('layout_master', { id, master });
@@ -105,6 +112,28 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
      */
     function layoutSpread(id, spread, spelling) {
         return cmd('layout_spread', { id, spread, spelling });
+    }
+    /**
+     * Makes an edit to some words and answers, in one trip, with the patch, `spread` laid out again at
+     * the revision the edit made, and where the caret goes. Every window also hears the patch.
+     */
+    function editText(id, edit, spread, spelling) {
+        return cmd('edit_text', { id, edit, spread, spelling });
+    }
+    /**
+     * Finds words in a book: every place, in reading order, as a target and a paragraph and code point
+     * range an `EditText` takes, with the spread each is on.
+     */
+    function find(id, request) {
+        return cmd('find', { id, request });
+    }
+    /**
+     * Puts words in place of one match (`request.only`) or of every match, all as one undo step, and
+     * answers how many were replaced and how many were left alone (a locked frame, a master page that is
+     * not being edited). Every window also hears the patch.
+     */
+    function replace(id, request) {
+        return cmd('replace', { id, request });
     }
     /** Hears every change to every open book. Read `snapshot` first and apply patches with a higher revision. */
     function onPatch(listener) {
@@ -148,8 +177,13 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
         return cmd('export_book', { id, targets, colour });
     }
     /** Brings the words of a Markdown or plain text file in as the book's story, in one undo step. */
-    function importText(id, path, mapping) {
-        return cmd('import_text', { id, path, mapping: mapping ?? null });
+    function importText(id, path, mapping, smart) {
+        return cmd('import_text', {
+            id,
+            path,
+            mapping: mapping ?? null,
+            smart: smart ?? null,
+        });
     }
     /** Asks a Book tool about a book; the answer is worked out in Rust. */
     function bookTool(id, request) {
@@ -194,6 +228,14 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     /** What preflight finds in the whole book, the issues that wait on the person first. */
     function preflightBook(id) {
         return cmd('preflight_book', { id });
+    }
+    /**
+     * Reads HTML from the clipboard into paragraphs of runs: bold, italic, underline, strike-through, a
+     * colour, a size, a typeface the book can draw in, and links. Anything else in it is dropped. Refused
+     * when the HTML is too large, and the caller pastes the plain words instead.
+     */
+    function pasteHtml(id, html) {
+        return cmd('paste_html', { id, html });
     }
     /** Every family a book can draw in, and where each comes from (bundled, kept in the book or installed). */
     function listFonts(id) {
@@ -271,7 +313,9 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.dictionaries = dictionaries;
     exports.discardRecovered = discardRecovered;
     exports.downloadDictionary = downloadDictionary;
+    exports.editText = editText;
     exports.exportBook = exportBook;
+    exports.find = find;
     exports.fontsInUse = fontsInUse;
     exports.getStatus = getStatus;
     exports.historyMark = historyMark;
@@ -291,6 +335,7 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.onPatch = onPatch;
     exports.openBook = openBook;
     exports.paintPresets = paintPresets;
+    exports.pasteHtml = pasteHtml;
     exports.preflightBook = preflightBook;
     exports.presets = presets;
     exports.previewCoverSheet = previewCoverSheet;
@@ -300,7 +345,9 @@ var __TAURI_PLUGIN_FOLIO_BOOKS__ = (function (exports, core, event) {
     exports.recoverableBooks = recoverableBooks;
     exports.redo = redo;
     exports.removeDictionary = removeDictionary;
+    exports.replace = replace;
     exports.restoreBook = restoreBook;
+    exports.restoredCaret = restoredCaret;
     exports.revealPath = revealPath;
     exports.rewindHistory = rewindHistory;
     exports.saveBook = saveBook;

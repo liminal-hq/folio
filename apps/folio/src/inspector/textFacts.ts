@@ -23,7 +23,7 @@ export function effectiveSize(
 
 /** The overrides of a frame with `change` laid over them, every field present as the intent needs. */
 export function withOverrides(
-	frame: TextFrame,
+	frame: Pick<TextFrame, 'overrides'>,
 	change: Partial<NonNullable<TextFrame['overrides']>>,
 ): NonNullable<TextFrame['overrides']> {
 	return {
@@ -32,6 +32,7 @@ export function withOverrides(
 		bold: frame.overrides?.bold ?? null,
 		italic: frame.overrides?.italic ?? null,
 		...(frame.overrides?.font ? { font: frame.overrides.font } : {}),
+		...(frame.overrides?.valign ? { valign: frame.overrides.valign } : {}),
 		...change,
 	};
 }

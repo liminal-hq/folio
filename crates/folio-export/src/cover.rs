@@ -42,7 +42,9 @@ fn words(text: &str) -> InlineContent {
             italic: false,
             font: None,
             colour: None,
+            ..Default::default()
         }],
+        looks: None,
     }
 }
 
@@ -79,6 +81,7 @@ fn small_text(name: &str, rect: Rect, text: &str) -> Frame {
     let mut frame = text_frame(name, "body", rect, 0.0, text);
     if let Frame::Text(f) = &mut frame {
         f.overrides = Some(StyleOverrides {
+            valign: None,
             size: Some(Pt(7.0)),
             align: Some(Align::Center),
             bold: None,

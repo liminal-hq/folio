@@ -91,6 +91,28 @@ impl Default for SpellingSettings {
     }
 }
 
+/// How words are edited on the page.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+pub struct EditingSettings {
+    /// Edit words with the editor that draws the page's own lines (D-53) rather than a text box
+    /// over the frame. On; the text box stays as a fallback (D-54).
+    pub new_editor: bool,
+    /// Set straight quotes, double hyphens and three dots the way a book sets them as words are
+    /// typed and pasted (D-57). A personal setting, on unless turned off.
+    pub smart_punctuation: bool,
+}
+
+impl Default for EditingSettings {
+    fn default() -> Self {
+        Self {
+            new_editor: true,
+            smart_punctuation: true,
+        }
+    }
+}
+
 /// Whether Folio keeps a recovery copy of a book with changes while it is open (D-27), and how often.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
@@ -279,6 +301,7 @@ pub struct Settings {
     pub marks: MarksSettings,
     pub rulers: RulerSettings,
     pub spelling: SpellingSettings,
+    pub editing: EditingSettings,
     pub autosave: AutosaveSettings,
     pub updates: UpdateSettings,
     /// The paths of recently opened books, newest first.
@@ -569,6 +592,38 @@ mod tests {
         assert_eq!(patched.rulers.units, RulerUnit::Picas);
         assert!(Settings::default()
             .patched(&json!({ "rulers": { "units": "cubits" } }))
+            .is_err());
+    }
+
+    #[test]
+    fn the_new_editor_starts_on_and_is_turned_off_by_a_patch() {
+        assert!(Settings::default().editing.new_editor);
+        let off = Settings::default()
+            .patched(&json!({ "editing": { "newEditor": false } }))
+            .unwrap();
+        assert!(!off.editing.new_editor);
+        // A settings file from before the editor existed reads as on.
+        let old: Settings = serde_json::from_value(json!({ "mode": "easy" })).unwrap();
+        assert!(old.editing.new_editor);
+        assert!(Settings::default()
+            .patched(&json!({ "editing": { "newEditor": "yes" } }))
+            .is_err());
+    }
+
+    #[test]
+    fn smart_punctuation_starts_on_and_is_turned_off_by_a_patch() {
+        assert!(Settings::default().editing.smart_punctuation);
+        let off = Settings::default()
+            .patched(&json!({ "editing": { "smartPunctuation": false } }))
+            .unwrap();
+        assert!(!off.editing.smart_punctuation);
+        // The other editing setting is not disturbed, and an older file reads as on.
+        assert!(off.editing.new_editor);
+        let old: Settings =
+            serde_json::from_value(json!({ "editing": { "newEditor": false } })).unwrap();
+        assert!(old.editing.smart_punctuation);
+        assert!(Settings::default()
+            .patched(&json!({ "editing": { "smartPunctuation": 1 } }))
             .is_err());
     }
 

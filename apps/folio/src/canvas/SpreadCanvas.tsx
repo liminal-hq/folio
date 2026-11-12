@@ -9,7 +9,7 @@ import type { TableEdit } from '@liminal-hq/folio-protocol/generated/TableEdit';
 import type { FrameLayout } from '@liminal-hq/folio-protocol/generated/FrameLayout';
 import type { Spread } from '@liminal-hq/folio-protocol/generated/Spread';
 import type { SpreadLayout } from '@liminal-hq/folio-protocol/generated/SpreadLayout';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { FocusedImage } from './FocusedImage';
 import { BackgroundLayer } from './BackgroundLayer';
 import { TableArt } from './TableArt';
@@ -22,6 +22,18 @@ import './fonts.css';
 import { PX_PER_POINT, spreadGeometry, type PlainRect } from './geometry';
 import type { FrameCommand } from './frameMenu';
 import { canEditText, TextEditor, type Speller } from './TextEditor';
+import type { EditRequest } from '@liminal-hq/folio-protocol/generated/EditRequest';
+import type { EditCaret } from '@liminal-hq/folio-protocol/generated/EditCaret';
+import type { SmartNote } from '@liminal-hq/folio-protocol/generated/SmartNote';
+import type { TextPos } from '@liminal-hq/folio-protocol/generated/TextPos';
+import type { StoryPara } from '@liminal-hq/folio-protocol/generated/StoryPara';
+import { paragraphsOf } from '../text/edit';
+import type { FlowFrame } from '../text/flowGeometry';
+import { TextSurface } from '../text/TextSurface';
+import { linkActions } from '../text/linkActions';
+import { t } from '../i18n/messages';
+import { selectionRects } from '../text/caretGeometry';
+import { framesShowing, laidOut, matchKey, type FindDisplay } from '../find/matches';
 import { boxOf, linesOf } from '../story/rangeEdit';
 import { DEFAULT_MARK_COLOURS, DEFAULT_MARKS, type MarkColours, type Marks } from './marksModel';
 import { masterGuidesOn } from './masterGuides';
@@ -78,15 +90,41 @@ export interface SpreadCanvasProps {
 	 * now (`after`), after the words of a frame of it were edited in place.
 	 */
 	onEditParagraphs?(flow: string, from: number, before: string[], after: string[]): void;
+	/**
+	 * Edit a text frame's words with the editor that draws the page's own lines (D-53). It needs
+	 * `onEditRequest`; without it the text box over the frame is used.
+	 */
+	newEditor?: boolean;
+	/** Makes an edit to some words; answers once the book has it, with where the caret goes. */
+	onEditRequest?(edit: EditRequest): Promise<{ caret: TextPos; smart?: SmartNote }>;
+	/** Undo and redo from inside the editor, which stays open. */
+	onEditUndo?(): Promise<EditCaret | null>;
+	onEditRedo?(): Promise<EditCaret | null>;
+	/** Reads HTML pasted from another program into paragraphs of runs; refused when it is too large. */
+	onPasteHtml?(html: string): Promise<StoryPara[]>;
 	/** Underlines misspelt words in the editor, when spelling is on. */
 	speller?: Speller;
 	/** The cell being edited has changed: its row and column, or `null` when none is. */
 	onEditingCell?(cell: { row: number; col: number } | null): void;
+	/** The words found by the find bar to mark on the page, and the match to select in the editor. */
+	find?: FindDisplay;
 	/** The accessible name of the page area. */
 	label: string;
 }
 
 const INK = '#1c1b20';
+/** The colour a link is drawn in on the paper (the Navy of the text colours). Paper is never themed. */
+const LINK = '#2b3a67';
+
+/** The address of the link under an event, when it is a Ctrl or Command click on one. */
+function linkOfClick(event: {
+	ctrlKey: boolean;
+	metaKey: boolean;
+	target: EventTarget;
+}): string | null {
+	if (!(event.ctrlKey || event.metaKey) || !(event.target instanceof Element)) return null;
+	return event.target.closest('[data-href]')?.getAttribute('data-href') ?? null;
+}
 
 /** A wavy line from `x1` to `x2` at height `y`, with waves of `wave` points up and down. */
 export function squiggle(x1: number, x2: number, y: number, wave: number): string {
@@ -115,7 +153,8 @@ function Lines({
 			{layout.lines.map((line, index) => (
 				<g key={index} transform={`translate(${line.x} ${line.baseline})`}>
 					{line.runs.map((run, i) => (
-						<g key={i}>
+						<g key={i} data-href={run.href}>
+							{run.href && <title>{t('link.tip', { href: run.href })}</title>}
 							<text
 								x={run.x}
 								y={0}
@@ -123,17 +162,34 @@ function Lines({
 								fontSize={run.size}
 								fontWeight={run.weight}
 								fontStyle={run.italic ? 'italic' : 'normal'}
-								fill={run.colour ?? INK}
+								fill={run.colour ?? (run.href ? LINK : INK)}
 								textLength={run.width}
 								lengthAdjust="spacing"
 								xmlSpace="preserve"
 							>
 								{run.text}
 							</text>
+							{[run.underline, run.strike, run.link].map(
+								(rule, n) =>
+									rule && (
+										<rect
+											key={['underline', 'strike', 'link'][n]}
+											data-rule={['underline', 'strike', 'link'][n]}
+											x={run.x}
+											y={rule.offset - rule.thickness / 2}
+											width={rule.width}
+											height={rule.thickness}
+											fill={run.colour ?? (n === 2 ? LINK : INK)}
+										/>
+									),
+							)}
 							{run.miss?.map(([from, to]) => {
 								// The marked part of a word, along the word as it is drawn.
-								const x1 = run.x + (run.width * from) / (run.text.length || 1);
-								const x2 = run.x + (run.width * to) / (run.text.length || 1);
+								// `from` and `to` count code points, and `stops` has a boundary for each.
+								const points = Array.from(run.text).length || 1;
+								const at = (n: number) => run.stops?.[n] ?? (run.width * n) / points;
+								const x1 = run.x + at(from);
+								const x2 = run.x + at(to);
 								return (
 									<path
 										key={`${from}-${to}`}
@@ -262,11 +318,17 @@ export function SpreadCanvas({
 	onActivate,
 	hint,
 	onEditText,
+	newEditor = false,
+	onEditRequest,
+	onEditUndo,
+	onEditRedo,
+	onPasteHtml,
 	onEditStory,
 	onEditParagraphs,
 	onEditTable,
 	onEditingCell,
 	speller,
+	find,
 	onPageMenu,
 	images = {},
 }: SpreadCanvasProps) {
@@ -322,10 +384,13 @@ export function SpreadCanvas({
 	const [storyEdit, setStoryEdit] = useState<{ frame: string; flow: string; from: number } | null>(
 		null,
 	);
+	/** Where in the frame the editing began, in points, so the caret starts under the click. */
+	const [editStart, setEditStart] = useState<{ x: number; y: number } | undefined>(undefined);
 	/** The paragraphs of the stretch being edited as the book was last told them. */
 	const lastLines = useRef<string[]>([]);
 	const startEditing = (frame: Frame, at?: { x: number; y: number }) => {
 		if (onActivate?.(frame.id)) return;
+		setReveal(null);
 		if (frame.type === 'table') {
 			if (!onEditTable || frame.locked || frame.fromMaster) return;
 			const cell = at ? cellAt(frame, at) : { frame: frame.id, row: 0, col: 0 };
@@ -347,6 +412,12 @@ export function SpreadCanvas({
 			// The whole of every paragraph the frame shows is edited together, one to a line.
 			const shown = laid?.lines.flatMap((l) => (l.paragraph == null ? [] : [l.paragraph])) ?? [];
 			const story = (book.flows ?? []).find((f) => f.id === frame.flow?.id);
+			if (newEditor && onEditRequest && story && shown.length > 0) {
+				// A frame of a story is edited in place with the whole story's words behind it.
+				setEditStart(at ? { x: at.x - frame.box.x, y: at.y - frame.box.y } : undefined);
+				setEditing(frame.id);
+				return;
+			}
 			if (onEditParagraphs && story && shown.length > 0) {
 				const from = Math.min(...shown);
 				const count = Math.max(...shown) - from + 1;
@@ -357,10 +428,126 @@ export function SpreadCanvas({
 			if (onEditStory) onEditStory(frame.flow.id, para ?? undefined);
 			return;
 		}
-		if (onEditText && (frame.type === 'text' || frame.type === 'shape') && canEditText(frame))
+		if (onEditText && (frame.type === 'text' || frame.type === 'shape') && canEditText(frame)) {
+			setEditStart(at ? { x: at.x - frame.box.x, y: at.y - frame.box.y } : undefined);
 			setEditing(frame.id);
+		}
 	};
 	const byFrame = new Map(layout?.frames.map((f) => [f.frame, f]));
+	// The frames of the story being edited that are on this spread, in reading order, so the caret
+	// can cross from one to the next. Frames of the story on other spreads are out of reach.
+	const storyFrames = useMemo((): FlowFrame[] | undefined => {
+		if (editedFrame?.type !== 'text' || !editedFrame.flow) return undefined;
+		const flowId = editedFrame.flow.id;
+		const order = (book.flows ?? []).find((f) => f.id === flowId)?.frames ?? [];
+		const here = frames.filter(
+			(f): f is Extract<typeof f, { type: 'text' }> =>
+				f.type === 'text' && f.flow?.id === flowId && !f.fromMaster,
+		);
+		here.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+		return here.map((f) => ({
+			id: f.id,
+			box: f.box,
+			rotation: f.rotation,
+			layout: layout?.frames.find((l) => l.frame === f.id),
+		}));
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [editedFrame, frames, book.flows, layout]);
+	/**
+	 * What the on-page editor edits, when it is the one in use: the words of a frame, a shape, a
+	 * table cell or a story, the lines they are laid out in, and where they are over the page.
+	 */
+	const surface = (() => {
+		if (!newEditor || !onEditRequest || editing === null || !editedFrame) return null;
+		if (editedFrame.type === 'text' && editedFrame.flow) {
+			const story = (book.flows ?? []).find((f) => f.id === editedFrame.flow?.id);
+			if (!story || editedFrame.locked || editedFrame.fromMaster) return null;
+			const runs = story.paragraphs.flatMap((p, i) =>
+				i === 0 ? p.inline : [{ text: '\n', style: null, bold: false, italic: false }, ...p.inline],
+			);
+			return {
+				target: { type: 'story', flow: story.id } as const,
+				frameId: editedFrame.id,
+				texts: story.paragraphs.map((p) => p.inline.map((r) => r.text).join('')),
+				content: { inline: runs, looks: story.paragraphs.map((p) => p.look ?? {}) },
+				layoutKey: editedFrame.id,
+			};
+		}
+		if (editedFrame.type === 'text' || editedFrame.type === 'shape') {
+			if (!canEditText(editedFrame)) return null;
+			return {
+				target:
+					editedFrame.type === 'text'
+						? ({ type: 'frame', frame: editedFrame.id } as const)
+						: ({ type: 'shape', frame: editedFrame.id } as const),
+				frameId: editedFrame.id,
+				texts: paragraphsOf(editedFrame.content),
+				content: editedFrame.content,
+				layoutKey: editedFrame.id,
+			};
+		}
+		if (
+			editedFrame.type === 'table' &&
+			editingCell &&
+			editingCell.row < editedFrame.rows.length &&
+			editingCell.col < editedFrame.cols.length
+		) {
+			const content = editedFrame.rows[editingCell.row]![editingCell.col]!.content;
+			return {
+				target: {
+					type: 'cell',
+					frame: editedFrame.id,
+					row: editingCell.row,
+					col: editingCell.col,
+				} as const,
+				frameId: editedFrame.id,
+				texts: paragraphsOf(content),
+				content,
+				layoutKey: editing,
+			};
+		}
+		return null;
+	})();
+	const surfaceEdits = surface !== null;
+	// The find bar's current match is selected in the editor, which does not take the focus for it.
+	const [reveal, setReveal] = useState<{
+		key: string;
+		anchor: TextPos;
+		focus: TextPos;
+		nonce: number;
+	} | null>(null);
+	const revealed = useRef(0);
+	useEffect(() => {
+		const asked = find?.focus;
+		if (!asked || revealed.current === asked.nonce) return;
+		const { match } = asked;
+		const shown = framesShowing(match, frames).find(({ layoutKey }) =>
+			laidOut(byFrame.get(layoutKey), match),
+		);
+		// Not laid out yet (another spread was just opened): this runs again with the layout.
+		if (!shown) return;
+		revealed.current = asked.nonce;
+		const { frame, layoutKey } = shown;
+		const openable =
+			newEditor &&
+			onEditRequest !== undefined &&
+			!frame.locked &&
+			!frame.fromMaster &&
+			(frame.type === 'table' ||
+				(frame.type === 'text' && frame.flow !== undefined && frame.flow !== null) ||
+				((frame.type === 'text' || frame.type === 'shape') && canEditText(frame)));
+		if (!openable) return;
+		setEditStart(undefined);
+		setEditing(layoutKey);
+		setReveal({
+			key: layoutKey,
+			anchor: { para: match.para, offset: match.from },
+			focus: { para: match.para, offset: match.to },
+			nonce: asked.nonce,
+		});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [find?.focus, frames, layout]);
+	const currentKey = find?.current ? matchKey(find.current) : null;
 	const furniture = masterFurniture(book, spread);
 	const grid = book.grid;
 	/** One frame as it is drawn: its art, its edges, and the words laid out in it. */
@@ -379,12 +566,42 @@ export function SpreadCanvas({
 					strokeWidth={0.5}
 				/>
 			)}
-			{byFrame.has(frame.id) && frame.id !== editing && (
+			{find?.matches.map((match) =>
+				framesShowing(match, [frame]).flatMap(({ layoutKey }) => {
+					const laid = byFrame.get(layoutKey);
+					if (!laid) return [];
+					const current = matchKey(match) === currentKey;
+					return selectionRects(
+						laid,
+						{ para: match.para, offset: match.from },
+						{ para: match.para, offset: match.to },
+					).map((r, i) => (
+						<rect
+							key={`${matchKey(match)}:${layoutKey}:${i}`}
+							data-find-match={current ? 'current' : 'other'}
+							x={frame.box.x + r.x}
+							y={frame.box.y + r.y}
+							width={r.w}
+							height={r.h}
+							rx={1}
+							style={{ fill: 'var(--folio-accent)' }}
+							fillOpacity={current ? 0.45 : 0.22}
+							stroke={current ? 'var(--folio-accent)' : 'none'}
+							strokeWidth={current ? 1 / scale : 0}
+							pointerEvents="none"
+						/>
+					));
+				}),
+			)}
+			{byFrame.has(frame.id) && (frame.id !== editing || surfaceEdits) && (
 				<Lines id={frame.id} at={frame.box} layout={byFrame.get(frame.id)!} />
 			)}
 			{frame.type === 'table' &&
 				layout?.frames
-					.filter((cell) => cell.frame.startsWith(`${frame.id}#`) && cell.frame !== editing)
+					.filter(
+						(cell) =>
+							cell.frame.startsWith(`${frame.id}#`) && (cell.frame !== editing || surfaceEdits),
+					)
 					.map((cell) => <Lines key={cell.frame} id={cell.frame} at={frame.box} layout={cell} />)}
 		</g>
 	);
@@ -437,6 +654,17 @@ export function SpreadCanvas({
 				onPointerUp={editable ? drag.onPointerUp : undefined}
 				onPointerCancel={editable ? drag.onPointerCancel : undefined}
 				onLostPointerCapture={editable ? drag.onPointerCancel : undefined}
+				onPointerDownCapture={(event) => {
+					// A Ctrl+click on a link follows it; it does not select or move the frame.
+					if (linkOfClick(event) !== null) event.stopPropagation();
+				}}
+				onClickCapture={(event) => {
+					const href = linkOfClick(event);
+					if (href === null) return;
+					event.preventDefault();
+					event.stopPropagation();
+					linkActions().follow(href);
+				}}
 				role="group"
 				aria-label={label}
 				width={bounds.w * scale}
@@ -800,7 +1028,55 @@ export function SpreadCanvas({
 					/>
 				))}
 			</svg>
-			{(editedFrame?.type === 'text' || editedFrame?.type === 'shape') && (
+			{surface && onEditRequest && editedFrame && (
+				<TextSurface
+					key={editing}
+					target={surface.target}
+					frameId={surface.frameId}
+					texts={surface.texts}
+					content={surface.content}
+					layout={byFrame.get(surface.layoutKey)}
+					story={surface.target.type === 'story' ? storyFrames : undefined}
+					box={editedFrame.box}
+					at={{
+						x: (editedFrame.box.x - bounds.x) * scale,
+						y: (editedFrame.box.y - bounds.y) * scale,
+					}}
+					scale={scale}
+					rotation={editedFrame.rotation}
+					start={editStart}
+					reveal={reveal && reveal.key === editing ? reveal : undefined}
+					speller={speller}
+					onEdit={onEditRequest}
+					onUndo={onEditUndo}
+					onRedo={onEditRedo}
+					onPasteHtml={onPasteHtml}
+					onTab={
+						editedFrame.type === 'table' && editingCell
+							? (back) => {
+									const next = nextCell(editedFrame, editingCell, back);
+									if (next) {
+										setEditStart(undefined);
+										setEditing(cellId(next));
+									} else if (!back) {
+										// Tab out of the last cell makes a row for what comes next.
+										onEditTable?.(editedFrame.id, { type: 'addRow', at: editedFrame.rows.length });
+										setEditStart(undefined);
+										setEditing(
+											cellId({ frame: editedFrame.id, row: editedFrame.rows.length, col: 0 }),
+										);
+									}
+								}
+							: undefined
+					}
+					onClose={() => {
+						setReveal(null);
+						setEditing(null);
+						svg.current?.focus();
+					}}
+				/>
+			)}
+			{!surfaceEdits && (editedFrame?.type === 'text' || editedFrame?.type === 'shape') && (
 				<TextEditor
 					key={editing}
 					speller={speller}
@@ -861,7 +1137,8 @@ export function SpreadCanvas({
 						/>
 					);
 				})()}
-			{editedFrame?.type === 'table' &&
+			{!surfaceEdits &&
+				editedFrame?.type === 'table' &&
 				editingCell &&
 				editingCell.row < editedFrame.rows.length &&
 				editingCell.col < editedFrame.cols.length && (

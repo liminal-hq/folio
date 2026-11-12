@@ -64,7 +64,9 @@ fn text_frame(id: &str, style: &str, x: f64, y: f64, w: f64, h: f64, text: &str)
                 italic: false,
                 font: None,
                 colour: None,
+                ..Default::default()
             }],
+            looks: None,
         }),
         flow: None,
         columns: 1,
@@ -628,7 +630,9 @@ fn shape_frame(id: &str, shape: folio_model::Shape, w: f64, h: f64, text: Option
                 italic: false,
                 font: None,
                 colour: None,
+                ..Default::default()
             }],
+            looks: None,
         }),
         overrides: None,
     })
@@ -924,7 +928,9 @@ fn table_frame(id: &str, w: f64, h: f64, words: &[&[&str]]) -> Frame {
                     italic: false,
                     font: None,
                     colour: None,
+                    ..Default::default()
                 }],
+                looks: None,
             });
         }
     }
@@ -1260,8 +1266,10 @@ fn page_and_section_tokens_follow_the_sections_of_the_book() {
 }
 
 /// Marks every occurrence of the given words, as a speller would.
-fn flag<'a>(wrong: &'a [&'a str]) -> impl Fn(&str) -> Vec<std::ops::Range<usize>> + 'a {
-    move |text: &str| {
+fn flag<'a>(
+    wrong: &'a [&'a str],
+) -> impl Fn(&str, Option<&str>) -> Vec<std::ops::Range<usize>> + 'a {
+    move |text: &str, _lang: Option<&str>| {
         let mut found = Vec::new();
         let mut at = 0;
         for word in text.split(' ') {
@@ -1363,6 +1371,7 @@ fn a_run_can_have_its_own_typeface_and_colour_and_the_others_keep_the_styles() {
         italic: false,
         font: Some("Inter".into()),
         colour: Some(folio_model::Colour("#b91c1c".into())),
+        ..Default::default()
     });
     let (_, layout) = laid_with(frame);
     let runs: Vec<_> = layout
@@ -1405,6 +1414,7 @@ fn the_families_a_book_asks_for_come_from_its_look_styles_overrides_and_runs() {
         italic: false,
         font: Some("Quill Mono".into()),
         colour: None,
+        ..Default::default()
     });
     book.spreads[1].frames.push(frame);
     let after = families_used(&book);
@@ -1618,6 +1628,7 @@ fn a_story_keeps_the_emphasis_and_paragraph_style_of_its_paragraphs() {
         italic: false,
         font: None,
         colour: None,
+        ..Default::default()
     });
     flow.paragraphs[1] = second;
     book.flows.push(flow);
@@ -1845,7 +1856,7 @@ fn a_frame_in_a_story_says_which_paragraph_its_words_begin_with() {
 }
 
 #[test]
-fn each_line_of_a_story_names_its_paragraph_and_other_lines_name_none() {
+fn each_line_names_its_paragraph_in_the_story_or_in_the_frames_own_words() {
     let (book, styles) = sample(BookKind::Novel);
     let flow = &book.flows[0];
     let mut story_lines = 0;
@@ -1859,7 +1870,8 @@ fn each_line_of_a_story_names_its_paragraph_and_other_lines_name_none() {
                         .paragraph
                         .is_some_and(|p| (p as usize) < flow.paragraphs.len()));
                 } else {
-                    assert_eq!(line.paragraph, None);
+                    // A frame's own words are paragraphs too, counted from 0 within the frame.
+                    assert!(line.paragraph.is_some());
                 }
             }
         }
@@ -1952,4 +1964,329 @@ fn frames_in_a_group_are_laid_out_where_they_are_as_if_they_were_not_grouped() {
         .unwrap();
     let words: String = format!("{scene:?}");
     assert!(words.contains("In") && words.contains("group"));
+}
+
+#[test]
+fn underlined_and_struck_runs_carry_their_lines_and_a_line_runs_on_over_the_space_between_words() {
+    let mut frame = text_frame("lines", "body", 60.0, 60.0, 300.0, 80.0, "plain ");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    text.content.as_mut().unwrap().inline.push(Run {
+        text: "two words".into(),
+        underline: true,
+        strike: true,
+        ..Default::default()
+    });
+    let (_, layout) = laid_with(frame);
+    let runs: Vec<_> = layout
+        .frames
+        .iter()
+        .find(|f| f.frame.0 == "lines")
+        .unwrap()
+        .lines
+        .iter()
+        .flat_map(|l| &l.runs)
+        .collect();
+    let plain = runs.iter().find(|r| r.text.contains("plain")).unwrap();
+    assert!(plain.underline.is_none() && plain.strike.is_none());
+    let two = runs.iter().find(|r| r.text == "two").unwrap();
+    let words = runs.iter().find(|r| r.text == "words").unwrap();
+    let (under, strike) = (two.underline.unwrap(), two.strike.unwrap());
+    // The underline hangs below the baseline and the strike-through sits above it.
+    assert!(under.offset > 0.0 && under.thickness > 0.0);
+    assert!(strike.offset < 0.0 && strike.thickness > 0.0);
+    // It runs on over the space to the next word, which it does not for the last one.
+    assert!((under.width - (words.x - two.x)).abs() < 0.02, "{under:?}");
+    assert!((words.underline.unwrap().width - words.width).abs() < 0.02);
+}
+
+#[test]
+fn a_run_with_its_own_size_makes_its_line_taller_and_the_baseline_follows_the_tallest() {
+    fn line_of(frame: Frame) -> (f64, f64, f64, f64) {
+        let (_, layout) = laid_with(frame);
+        let line = layout
+            .frames
+            .iter()
+            .find(|f| f.frame.0 == "sized")
+            .unwrap()
+            .lines
+            .first()
+            .unwrap()
+            .clone();
+        let small = line.runs.iter().find(|r| r.text == "small").unwrap();
+        let big = line.runs.iter().find(|r| r.text == "big").unwrap();
+        (line.height, line.baseline - line.top, small.size, big.size)
+    }
+    let plain = text_frame("sized", "body", 60.0, 60.0, 300.0, 80.0, "small big");
+    let (even_height, even_ascent, size, _) = line_of(plain);
+
+    let mut frame = text_frame("sized", "body", 60.0, 60.0, 300.0, 80.0, "small ");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    text.content.as_mut().unwrap().inline.push(Run {
+        text: "big".into(),
+        size: Some(size * 3.0),
+        tracking: Some(200),
+        ..Default::default()
+    });
+    let (height, ascent, small, big) = line_of(frame);
+    assert_eq!(small, size);
+    assert_eq!(big, size * 3.0);
+    // The line is as tall as its tallest run and the baseline sits at the tallest ascent.
+    assert!(height > even_height * 2.5, "{height} against {even_height}");
+    assert!(ascent > even_ascent * 2.0, "{ascent} against {even_ascent}");
+}
+
+#[test]
+fn a_run_with_its_own_tracking_is_set_looser_and_a_tracking_of_nothing_overrides_the_style() {
+    let mut frame = text_frame("tracked", "body", 60.0, 60.0, 400.0, 80.0, "plain ");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    for (word, tracking) in [("loose", 250), ("tight", -50)] {
+        text.content.as_mut().unwrap().inline.push(Run {
+            text: format!("{word} "),
+            tracking: Some(tracking),
+            ..Default::default()
+        });
+    }
+    let (_, layout) = laid_with(frame);
+    let runs: Vec<_> = layout
+        .frames
+        .iter()
+        .find(|f| f.frame.0 == "tracked")
+        .unwrap()
+        .lines
+        .iter()
+        .flat_map(|l| &l.runs)
+        .collect();
+    let by = |word: &str| runs.iter().find(|r| r.text.contains(word)).unwrap();
+    assert_eq!(by("loose").tracking, 0.25);
+    assert_eq!(by("tight").tracking, -0.05);
+    assert!(by("plain").tracking != 0.25);
+}
+
+#[test]
+fn a_run_in_another_language_says_so_and_is_proofed_in_it() {
+    use std::cell::RefCell;
+    let mut frame = text_frame("langs", "body", 60.0, 60.0, 300.0, 80.0, "plain words ");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    text.content.as_mut().unwrap().inline.push(Run {
+        text: "bonjour tout".into(),
+        lang: Some("fr-CA".into()),
+        ..Default::default()
+    });
+    let (mut book, styles) = sample(BookKind::Picture);
+    book.spreads[1].frames.push(frame);
+    let asked = RefCell::new(Vec::new());
+    let find = |text: &str, lang: Option<&str>| {
+        asked
+            .borrow_mut()
+            .push((text.to_owned(), lang.map(str::to_owned)));
+        Vec::new()
+    };
+    let fonts = FontBook::bundled();
+    let id = book.spreads[1].id.clone();
+    let layout = Layouter::new(&book, &styles, &fonts)
+        .with_proofing(&find)
+        .layout_spread(&id)
+        .unwrap()
+        .unwrap();
+    // The paragraph is checked in two stretches, each in its own language.
+    let asked = asked.borrow();
+    assert!(asked.contains(&("plain words ".to_owned(), None)));
+    assert_eq!(
+        asked[asked.len() - 2..],
+        [
+            ("plain words ".to_owned(), None),
+            ("bonjour tout".to_owned(), Some("fr-CA".to_owned()))
+        ]
+    );
+    let runs: Vec<_> = layout
+        .frames
+        .iter()
+        .find(|f| f.frame.0 == "langs")
+        .unwrap()
+        .lines
+        .iter()
+        .flat_map(|l| &l.runs)
+        .collect();
+    assert!(runs
+        .iter()
+        .filter(|r| r.text.contains("bonjour") || r.text.contains("tout"))
+        .all(|r| r.lang.as_deref() == Some("fr-CA")));
+    assert!(runs
+        .iter()
+        .filter(|r| r.text.contains("plain"))
+        .all(|r| r.lang.is_none()));
+}
+
+#[test]
+fn a_linked_run_carries_its_address_and_a_rule_for_the_page_to_draw_but_no_underline_of_its_own() {
+    let mut frame = text_frame("links", "body", 60.0, 60.0, 300.0, 80.0, "plain ");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    for (word, href) in [
+        ("two words ", "https://example.org/a"),
+        ("other", "https://example.org/b"),
+    ] {
+        text.content.as_mut().unwrap().inline.push(Run {
+            text: word.into(),
+            href: Some(href.into()),
+            ..Default::default()
+        });
+    }
+    let (_, layout) = laid_with(frame);
+    let runs: Vec<_> = layout
+        .frames
+        .iter()
+        .find(|f| f.frame.0 == "links")
+        .unwrap()
+        .lines
+        .iter()
+        .flat_map(|l| &l.runs)
+        .collect();
+    let plain = runs.iter().find(|r| r.text.contains("plain")).unwrap();
+    assert!(plain.href.is_none() && plain.link.is_none());
+    let two = runs.iter().find(|r| r.text == "two").unwrap();
+    let words = runs.iter().find(|r| r.text == "words").unwrap();
+    let other = runs.iter().find(|r| r.text == "other").unwrap();
+    assert_eq!(two.href.as_deref(), Some("https://example.org/a"));
+    assert_eq!(other.href.as_deref(), Some("https://example.org/b"));
+    // The run is not underlined; the rule is the page's, and it runs on within one link.
+    assert!(two.underline.is_none() && two.strike.is_none());
+    let rule = two.link.unwrap();
+    assert!(rule.offset > 0.0 && rule.thickness > 0.0);
+    assert!((rule.width - (words.x - two.x)).abs() < 0.02, "{rule:?}");
+    // It stops at the end of one link and does not run into the next.
+    let end = words.link.unwrap();
+    assert!(end.width < (other.x - words.x) - 0.5 || (end.width - words.width).abs() < 0.02);
+}
+
+#[test]
+fn links_that_go_nowhere_or_have_nothing_to_click_are_flagged_once_each_and_good_ones_are_not() {
+    let mut frame = text_frame("links", "body", 60.0, 60.0, 300.0, 80.0, "plain ");
+    let Frame::Text(text) = &mut frame else {
+        unreachable!()
+    };
+    for (word, href) in [
+        ("fine ", "https://example.org"),
+        ("script ", "javascript:alert(1)"),
+        ("again ", "javascript:alert(1)"),
+        ("gone ", "#spread-99"),
+        ("   ", "https://example.org/blank"),
+    ] {
+        text.content.as_mut().unwrap().inline.push(Run {
+            text: word.into(),
+            href: Some(href.into()),
+            ..Default::default()
+        });
+    }
+    let (_, layout) = laid_with(frame);
+    let found: Vec<(PreflightKind, String)> = layout
+        .preflight
+        .iter()
+        .filter(|i| {
+            matches!(
+                i.kind,
+                PreflightKind::LinkInvalid | PreflightKind::LinkNowhere | PreflightKind::LinkEmpty
+            )
+        })
+        .map(|i| (i.kind, i.chars.clone().unwrap()))
+        .collect();
+    assert_eq!(
+        found,
+        vec![
+            (
+                PreflightKind::LinkInvalid,
+                "javascript:alert(1)".to_string()
+            ),
+            (PreflightKind::LinkNowhere, "#spread-99".to_string()),
+            (
+                PreflightKind::LinkEmpty,
+                "https://example.org/blank".to_string()
+            ),
+        ]
+    );
+    use folio_layout::wire::Severity;
+    assert_eq!(PreflightKind::LinkInvalid.severity(), Severity::Warning);
+    assert_eq!(PreflightKind::LinkNowhere.severity(), Severity::Warning);
+    assert_eq!(PreflightKind::LinkEmpty.severity(), Severity::Note);
+}
+
+#[test]
+fn a_frame_puts_its_words_at_the_top_in_the_middle_or_at_the_bottom_of_its_room() {
+    let (mut book, styles) = sample(BookKind::Picture);
+    book.spreads[1].frames.push(text_frame(
+        "v",
+        "body",
+        60.0,
+        60.0,
+        300.0,
+        200.0,
+        "A few words",
+    ));
+    let lines_of = |book: &Book| {
+        lay(book, &styles, 1)
+            .frames
+            .into_iter()
+            .find(|f| f.frame.0 == "v")
+            .expect("laid out")
+            .lines
+    };
+    let top = lines_of(&book);
+    assert!(!top.is_empty());
+    let used = top.iter().map(|l| l.top + l.height).fold(0.0, f64::max);
+    let set = |book: &mut Book, valign: Option<folio_model::VAlign>, lock: bool| {
+        let Some(Frame::Text(t)) = book.spreads[1].frames.last_mut() else {
+            unreachable!()
+        };
+        t.overrides = Some(folio_model::StyleOverrides {
+            valign,
+            ..Default::default()
+        });
+        t.baseline_lock = lock;
+    };
+
+    set(&mut book, Some(folio_model::VAlign::Middle), false);
+    let middle = lines_of(&book);
+    let spare = 200.0 - used;
+    assert!((middle[0].top - (top[0].top + spare / 2.0)).abs() < 1e-6);
+    assert!((middle[0].baseline - (top[0].baseline + spare / 2.0)).abs() < 1e-6);
+
+    set(&mut book, Some(folio_model::VAlign::Bottom), false);
+    let bottom = lines_of(&book);
+    let last = bottom.last().unwrap();
+    assert!(
+        (last.top + last.height - 200.0).abs() < 1e-6,
+        "the last line ends at the bottom"
+    );
+
+    // Locked to the baseline grid, the words stay at the top, on the grid.
+    set(&mut book, Some(folio_model::VAlign::Bottom), true);
+    let locked = lines_of(&book);
+    assert!(locked[0].top <= top[0].top + 12.0);
+
+    set(&mut book, Some(folio_model::VAlign::Top), false);
+    assert_eq!(lines_of(&book)[0].top, top[0].top);
+}
+
+#[test]
+fn the_overrides_of_a_frame_without_a_vertical_place_read_and_write_as_before() {
+    let json = r#"{"size":null,"align":null,"bold":null,"italic":null}"#;
+    let read: folio_model::StyleOverrides = serde_json::from_str(json).unwrap();
+    assert_eq!(read.valign, None);
+    assert_eq!(serde_json::to_string(&read).unwrap(), json);
+    let middle = folio_model::StyleOverrides {
+        valign: Some(folio_model::VAlign::Middle),
+        ..Default::default()
+    };
+    assert!(serde_json::to_string(&middle)
+        .unwrap()
+        .contains(r#""valign":"middle""#));
 }

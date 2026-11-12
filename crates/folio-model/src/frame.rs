@@ -8,6 +8,7 @@ use ts_rs::TS;
 
 use crate::colour::Colour;
 use crate::ids::{FlowId, FrameId, MasterId, StyleId};
+use crate::para::ParaLook;
 use crate::units::{Pt, Rect};
 
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
@@ -103,9 +104,24 @@ fn one() -> u8 {
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct InlineContent {
     pub inline: Vec<Run>,
+    /// The look of each paragraph (a paragraph begins at a line break), by place; paragraphs past
+    /// the end of the list, and every one when there is no list, take their style's look.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub looks: Option<Vec<ParaLook>>,
+}
+
+impl InlineContent {
+    /// Words with no paragraph looks of their own.
+    pub fn of(inline: Vec<Run>) -> Self {
+        Self {
+            inline,
+            looks: None,
+        }
+    }
 }
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../packages/protocol/src/generated/")]
 pub struct Run {
     pub text: String,
@@ -121,6 +137,32 @@ pub struct Run {
     /// A colour for these words alone, over the style's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub colour: Option<Colour>,
+    /// A line under these words.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub underline: bool,
+    /// A line through these words.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub strike: bool,
+    /// A size in points for these words alone, over the style's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size: Option<f64>,
+    /// Space added after every letter of these words, in thousandths of an em, over the style's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tracking: Option<i32>,
+    /// The language of these words alone (a BCP 47 tag: `fr-CA`), over the book's. It picks the
+    /// dictionary spelling checks them against, how they are hyphenated and which quotes smart
+    /// punctuation sets.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lang: Option<String>,
+    /// Where these words link to: a web address, `mailto:` or `tel:` address, or `#spread-3` for
+    /// the third spread of the book. A link is drawn underlined in the link colour by the page, and
+    /// never merges with the words beside it that link elsewhere or not at all.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub href: Option<String>,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
@@ -142,6 +184,33 @@ pub struct StyleOverrides {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub font: Option<String>,
+    /// Where the words sit in the box when they do not fill it: at the top (a text box's way),
+    /// in the middle (a shape's) or at the bottom.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub valign: Option<VAlign>,
+}
+
+/// Where words sit up and down in a box that has room to spare.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/protocol/src/generated/")]
+#[serde(rename_all = "lowercase")]
+pub enum VAlign {
+    Top,
+    Middle,
+    Bottom,
+}
+
+impl VAlign {
+    /// How much of the room to spare goes above the words.
+    pub fn share(self) -> f64 {
+        match self {
+            Self::Top => 0.0,
+            Self::Middle => 0.5,
+            Self::Bottom => 1.0,
+        }
+    }
 }
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]

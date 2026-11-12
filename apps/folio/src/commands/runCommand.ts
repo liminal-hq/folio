@@ -24,6 +24,8 @@ export interface BookCommands {
 	exportBook(): Promise<void>;
 	/** Asks for a Markdown or text file and brings its words into the book being shown. */
 	importText(): Promise<void>;
+	/** Opens the find bar on the book being shown, or with `replace` the find and replace bar. */
+	find(replace: boolean): Promise<void>;
 	/** Copies, cuts or pastes the page objects of the book being shown. */
 	clipboard(kind: 'copy' | 'cut' | 'paste'): void;
 }
@@ -49,6 +51,7 @@ export const ALWAYS_AVAILABLE: ReadonlySet<CommandId> = new Set<CommandId>([
 	'view.ribbon',
 	'view.expert',
 	'view.jax',
+	'edit.smartPunctuation',
 	'tools.structure',
 	'tools.typesetting',
 	'tools.pictures',
@@ -79,6 +82,8 @@ export function availableCommands(state: CommandState): ReadonlySet<CommandId> {
 				'file.close',
 				'file.export',
 				'file.importText',
+				'edit.find',
+				'edit.replace',
 				'edit.cut',
 				'edit.copy',
 				'edit.paste',
@@ -115,6 +120,10 @@ export async function runCommand(
 		case 'view.jax':
 			// Switching Jax back on returns to the gentle default rather than the last choice.
 			return context.update({ jax: settings.jax === 'off' ? 'tips' : 'off' });
+		case 'edit.smartPunctuation':
+			return context.update({
+				editing: { smartPunctuation: !settings.editing.smartPunctuation },
+			});
 		case 'tools.structure':
 		case 'tools.typesetting':
 		case 'tools.pictures':
@@ -146,6 +155,10 @@ export async function runCommand(
 			return books.exportBook();
 		case 'file.importText':
 			return books.importText();
+		case 'edit.find':
+			return books.find(false);
+		case 'edit.replace':
+			return books.find(true);
 		// Words being typed are kept first, and the editing closes, so the undo or redo that follows
 		// acts on the book as it stands and not on the box.
 		case 'edit.undo':

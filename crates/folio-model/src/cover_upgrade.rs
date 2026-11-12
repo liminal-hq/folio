@@ -41,7 +41,9 @@ pub fn words_frame(id: &str, rect: Rect, rotation: f64, text: &str) -> Frame {
                 italic: false,
                 font: None,
                 colour: None,
+                ..Default::default()
             }],
+            looks: None,
         }),
         flow: None,
         columns: 1,
@@ -120,6 +122,7 @@ pub fn upgrade_cover(book: &mut Book, paper: Option<crate::Paper>) {
                 let mut frame = words_frame(&id, note.rect, turn, &note.text);
                 if let Frame::Text(f) = &mut frame {
                     f.overrides = Some(StyleOverrides {
+                        valign: None,
                         size: Some(Pt(note.size)),
                         align: None,
                         bold: None,

@@ -4,4 +4,30 @@
  * A change to the look of some words. A field left out is left as it is; an empty `font` or
  * `colour` takes the override away.
  */
-export type RunChange = { bold?: boolean, italic?: boolean, font?: string, colour?: string, };
+export type RunChange = { bold?: boolean, italic?: boolean, font?: string, colour?: string, underline?: boolean, strike?: boolean, 
+/**
+ * A size in points for the words, kept between `MIN_SIZE` and `MAX_SIZE`.
+ */
+size?: number, 
+/**
+ * Letter spacing in thousandths of an em, kept between `MIN_TRACKING` and `MAX_TRACKING`.
+ */
+tracking?: number, 
+/**
+ * A language tag for the words; an empty one takes the words' own away, so the book's shows
+ * again. A tag that is not shaped like one is ignored.
+ */
+lang?: string, 
+/**
+ * Where the words link to; an empty one takes the link away. An address `clean_href` refuses
+ * (`javascript:` and the like) is ignored.
+ */
+href?: string, 
+/**
+ * Takes the words' own size away, so the style's shows again.
+ */
+clearSize?: boolean, 
+/**
+ * Takes the words' own letter spacing away, so the style's shows again.
+ */
+clearTracking?: boolean, };

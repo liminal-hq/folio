@@ -5,7 +5,7 @@
 
 use folio_model::{
     page_labels, Book, Colour, Flow, FlowId, Frame, FrameId, InlineContent, MasterId, PageLabel,
-    Pt, ShapeFrame, Spread, SpreadId, StyleId, TableFrame, TextFrame,
+    ParaLook, Pt, ShapeFrame, Spread, SpreadId, StyleId, TableFrame, TextFrame,
 };
 
 use std::collections::HashMap;
@@ -14,18 +14,22 @@ use std::sync::{Arc, Mutex};
 
 use crate::assets::AssetFacts;
 use crate::error::LayoutError;
-use crate::flow::{flow, FlowOptions, Flowed, FrameBox, PlacedLine, StoryParagraph};
-use crate::fonts::{FontBook, FontRequest};
+use crate::flow::{
+    flow_cached, flow_extent, FlowOptions, Flowed, FrameBox, ParagraphCache, PlacedLine,
+    StoryParagraph,
+};
+use crate::fonts::{FontBook, FontRequest, Rule};
 use crate::paragraph::{Span, Wrap};
 use crate::preflight::{asset_checks, geometry_checks};
 use crate::styles::{ResolvedStyle, StyleSheet};
 use crate::wire::{
     FrameLayout, LayoutLine, LayoutRect, LayoutRun, Origin, PreflightItem, PreflightKind,
-    SceneGlyph, SpreadLayout,
+    SceneGlyph, SpreadLayout, Stroke,
 };
 
-/// Finds the misspelt words of some text, as ranges of its bytes.
-pub type Proofer<'a> = &'a dyn Fn(&str) -> Vec<Range<usize>>;
+/// Finds the misspelt words of some text, as ranges of its bytes. The second argument is the
+/// language of the text when it is not the book's.
+pub type Proofer<'a> = &'a dyn Fn(&str, Option<&str>) -> Vec<Range<usize>>;
 
 /// Lays out the text of a book. Cheap to make; holds nothing but what it was given.
 pub struct Layouter<'a> {
@@ -42,6 +46,8 @@ pub struct Layouter<'a> {
     /// Flows already laid out for this book as it is, shared between the spreads laid out one after
     /// another, so a story is poured through its frames once and not once for every spread.
     flow_cache: Option<(&'a FlowCache, u64)>,
+    /// Paragraphs already shaped, kept between layouts of the book.
+    paragraphs: Option<&'a ParagraphCache>,
 }
 
 /// The flows laid out for one state of a book. The owner makes a new one whenever the book changes.
@@ -68,7 +74,15 @@ impl<'a> Layouter<'a> {
             assets: None,
             proofing: None,
             flow_cache: None,
+            paragraphs: None,
         }
+    }
+
+    /// Takes paragraphs from `cache` when it has them, and leaves the ones it shapes there, so a
+    /// change to one paragraph of a long story shapes just that one.
+    pub fn with_paragraph_cache(mut self, cache: &'a ParagraphCache) -> Self {
+        self.paragraphs = Some(cache);
+        self
     }
 
     /// Shares the flows laid out in `cache`. `variant` tells apart layouts of the same book that
@@ -151,6 +165,7 @@ impl<'a> Layouter<'a> {
         preflight.extend(self.font_checks(spread));
         preflight.extend(crate::preflight::swatch_checks(self.book, spread));
         preflight.extend(crate::preflight::rich_black_checks(self.book, spread));
+        preflight.extend(crate::preflight::link_checks(self.book, spread));
         if let Some(facts) = self.assets {
             preflight.extend(asset_checks(self.book, spread, facts));
         }
@@ -184,7 +199,7 @@ impl<'a> Layouter<'a> {
             let Frame::Text(text) = frame else {
                 continue;
             };
-            let layout = match &text.flow {
+            let mut layout = match &text.flow {
                 None => {
                     let (laid, overlong) = self.own_text(&self.with_tokens(spread, text))?;
                     if overlong {
@@ -206,7 +221,9 @@ impl<'a> Layouter<'a> {
                                 &text.base.id,
                             ));
                         }
-                        frames.push(own.0);
+                        let mut own = own.0;
+                        place_text_vertically(&mut own, text);
+                        frames.push(own);
                         continue;
                     };
                     if !flowed.iter().any(|f| f.id == chain.id.0) {
@@ -228,6 +245,7 @@ impl<'a> Layouter<'a> {
                     flow_frame(&text.base.id, laid, index, info)
                 }
             };
+            place_text_vertically(&mut layout, text);
             if layout.overset {
                 preflight.push(PreflightItem::of_frame(
                     PreflightKind::OversetText,
@@ -295,6 +313,7 @@ impl<'a> Layouter<'a> {
                 copy.base.id = FrameId(format!("{}@{}", text.base.id.0, page.id.0));
                 self.fill_tokens(&mut copy, &label);
                 let (mut laid, _) = self.own_text(&copy)?;
+                place_text_vertically(&mut laid, &copy);
                 laid.origin = Some(Origin {
                     x: copy.base.rect.x.0,
                     y: copy.base.rect.y.0,
@@ -388,6 +407,12 @@ impl<'a> Layouter<'a> {
             baseline_lock: false,
             overrides: shape.overrides.clone(),
         };
+        // A shape's words sit in the middle of its room unless it says otherwise.
+        let share = shape
+            .overrides
+            .as_ref()
+            .and_then(|o| o.valign)
+            .map_or(0.5, folio_model::VAlign::share);
         let resolved = self.styles.resolve(&words.style, words.overrides.as_ref());
         let (mut laid, _) = self.own_text(&words)?;
         laid.text_align = Some(match resolved.align {
@@ -401,7 +426,7 @@ impl<'a> Layouter<'a> {
             .iter()
             .map(|l| l.top + l.height)
             .fold(0.0, f64::max);
-        let shift = y + ((inner_h - used) / 2.0).max(0.0);
+        let shift = y + ((inner_h - used) * share).max(0.0);
         for line in &mut laid.lines {
             line.x += x;
             line.top += shift;
@@ -500,16 +525,23 @@ impl<'a> Layouter<'a> {
         if !text.baseline_lock {
             options.baseline_grid = None;
         }
-        let laid = flow(
+        let laid = flow_cached(
             self.fonts,
             &story,
             std::slice::from_ref(&frame),
             &self.book.language,
             &options,
+            self.paragraphs,
         )?;
         let mut layout = frame_layout(&text.base.id, &laid, 0, &self.runs_info(&story));
         // How the style sets the words, so an editor in place sets them the same way.
-        layout.text_align = Some(
+        let first_look = text
+            .content
+            .as_ref()
+            .and_then(|c| c.looks.as_ref())
+            .and_then(|l| l.first())
+            .and_then(|l| l.align);
+        layout.text_align = Some(first_look.unwrap_or_else(|| {
             match self
                 .styles
                 .resolve(&text.style, text.overrides.as_ref())
@@ -519,8 +551,8 @@ impl<'a> Layouter<'a> {
                 crate::paragraph::Align::Center => folio_model::Align::Center,
                 crate::paragraph::Align::Right => folio_model::Align::Right,
                 crate::paragraph::Align::Justify => folio_model::Align::Justify,
-            },
-        );
+            }
+        }));
         Ok((layout, laid.overlong))
     }
 
@@ -650,17 +682,34 @@ impl<'a> Layouter<'a> {
             if let Some(colour) = &run.colour {
                 text_style.colour = Some(colour.clone());
             }
+            if let Some(size) = run.size {
+                text_style.size_pt = size;
+            }
+            if let Some(tracking) = run.tracking {
+                text_style.tracking_em = f64::from(tracking) / 1000.0;
+            }
+            if let Some(lang) = &run.lang {
+                text_style.lang = Some(lang.clone());
+            }
+            text_style.href = run.href.clone();
+            text_style.underline |= run.underline;
+            text_style.strike |= run.strike;
             // A character the run's font lacks is set in one that has it.
-            for piece in
-                crate::fallback::split_with_fallback(self.fonts, &Span::new(&run.text, text_style))
-            {
+            let span = Span::new(&run.text, text_style);
+            let pieces = match self.paragraphs {
+                Some(cache) => cache.split_with_fallback(self.fonts, &span),
+                None => crate::fallback::split_with_fallback(self.fonts, &span),
+            };
+            for piece in pieces {
                 spans.push((piece, resolved.clone()));
             }
         }
+        let looks = content.looks.as_deref().unwrap_or(&[]);
         if base.wrap == Wrap::Preserve {
             return vec![paragraph_from(
                 spans.into_iter().map(|(s, _)| s).collect(),
                 &base,
+                looks.first(),
             )];
         }
         // Split the runs at every line break into paragraphs. A paragraph is set as the style of its
@@ -696,7 +745,14 @@ impl<'a> Layouter<'a> {
         }
         paragraphs
             .into_iter()
-            .map(|open| paragraph_from(open.spans, open.style.as_ref().unwrap_or(&base)))
+            .enumerate()
+            .map(|(i, open)| {
+                paragraph_from(
+                    open.spans,
+                    open.style.as_ref().unwrap_or(&base),
+                    looks.get(i),
+                )
+            })
             .collect()
     }
 
@@ -706,22 +762,37 @@ impl<'a> Layouter<'a> {
     }
 
     /// How many more frames, each like the last one of the flow, its story needs to be shown whole:
-    /// none when it already fits. The story is laid out once with more frames than it can need, and
-    /// the frames it reaches are counted; if even those are not enough, it is laid out again with
-    /// twice as many.
+    /// none when it already fits. See [`Layouter::page_fit`].
     pub fn frames_needed(&self, flow: &FlowId) -> Result<usize, LayoutError> {
+        Ok(self.page_fit(flow)?.map_or(0, |fit| fit.needed))
+    }
+
+    /// How many of the flow's own frames its story reaches: at least one, and the story's frames
+    /// after those hold nothing. `None` when there is no such flow.
+    pub fn frames_used(&self, flow: &FlowId) -> Result<Option<usize>, LayoutError> {
+        Ok(self.page_fit(flow)?.map(|fit| fit.used))
+    }
+
+    /// How a story sits in its frames: how many more it needs and how many of its own it reaches,
+    /// from one pass over the story. `None` when there is no such flow or it has no frames.
+    ///
+    /// The story is poured through its own frames once, placing every line but keeping none. When
+    /// it fits that is all; when it does not, it is poured again with more frames than it can need,
+    /// and the frames it reaches are counted; if even those are not enough, again with twice as many.
+    pub fn page_fit(&self, flow: &FlowId) -> Result<Option<PageFit>, LayoutError> {
         /// A story that needs more frames than this is not laid out further.
         const MOST: usize = 1024;
         let Some(chain) = self.book.flows.iter().find(|f| &f.id == flow) else {
-            return Ok(0);
+            return Ok(None);
         };
         if chain.frames.is_empty() {
-            return Ok(0);
+            return Ok(None);
         }
         let own = chain.frames.len();
-        let first = self.flow_chain_with(chain, 0)?;
-        if !first.flowed.overset {
-            return Ok(0);
+        let first = self.flow_extent_with(chain, 0)?;
+        let used = first.frames_reached.max(1);
+        if !first.overset {
+            return Ok(Some(PageFit { needed: 0, used }));
         }
         // A frame holds at least a few hundred characters, so this is more than the story needs.
         let characters: usize = chain
@@ -731,43 +802,19 @@ impl<'a> Layouter<'a> {
             .sum();
         let mut extra = (characters / 150 + 2).min(MOST);
         loop {
-            let laid = self.flow_chain_with(chain, extra)?;
-            if !laid.flowed.overset || extra >= MOST {
-                let reached = laid
-                    .flowed
-                    .lines
-                    .iter()
-                    .map(|l| l.frame + 1)
-                    .max()
-                    .unwrap_or(0);
-                return Ok(reached.saturating_sub(own).max(1));
+            let laid = self.flow_extent_with(chain, extra)?;
+            if !laid.overset || extra >= MOST {
+                return Ok(Some(PageFit {
+                    needed: laid.frames_reached.saturating_sub(own).max(1),
+                    used,
+                }));
             }
             extra = (extra * 2).min(MOST);
         }
     }
 
-    /// How many of the flow's own frames its story reaches: at least one, and the story's frames
-    /// after those hold nothing. `None` when there is no such flow.
-    pub fn frames_used(&self, flow: &FlowId) -> Result<Option<usize>, LayoutError> {
-        let Some(chain) = self.book.flows.iter().find(|f| &f.id == flow) else {
-            return Ok(None);
-        };
-        if chain.frames.is_empty() {
-            return Ok(None);
-        }
-        let laid = self.flow_chain_with(chain, 0)?;
-        let reached = laid
-            .flowed
-            .lines
-            .iter()
-            .map(|l| l.frame + 1)
-            .max()
-            .unwrap_or(0);
-        Ok(Some(reached.max(1)))
-    }
-
-    /// A flow laid out in its own frames and `extra` more like the last of them.
-    fn flow_chain_with(&self, chain: &Flow, extra: usize) -> Result<FlowLayout, LayoutError> {
+    /// The frames of a chain with `extra` more like the last of them, in order, as boxes.
+    fn chain_boxes(&self, chain: &Flow, extra: usize) -> ChainBoxes<'_> {
         let mut boxes = Vec::new();
         let mut order = Vec::new();
         let mut style = StyleId("body".to_string());
@@ -797,6 +844,17 @@ impl<'a> Layouter<'a> {
                 boxes.push(more);
             }
         }
+        ChainBoxes {
+            boxes,
+            order,
+            style,
+            lock,
+            first_frame,
+        }
+    }
+
+    /// The paragraphs of a chain's story, as they are laid out.
+    fn chain_story(&self, chain: &Flow, laid: &ChainBoxes<'_>) -> Vec<StoryParagraph> {
         // The story is laid out as the words of a frame are: the paragraphs' runs, a line break
         // between them, and a paragraph's own style given to its runs that have none.
         let mut runs: Vec<folio_model::Run> = Vec::new();
@@ -819,21 +877,55 @@ impl<'a> Layouter<'a> {
                 runs.push(empty);
             }
         }
-        let content = InlineContent { inline: runs };
-        let story: Vec<StoryParagraph> = match first_frame {
-            Some(text) => self.story_of(Some(&content), &style, text),
-            None => Vec::new(),
+        let content = InlineContent {
+            inline: runs,
+            looks: folio_model::looks_of(&chain.paragraphs),
         };
+        match laid.first_frame {
+            Some(text) => self.story_of(Some(&content), &laid.style, text),
+            None => Vec::new(),
+        }
+    }
+
+    /// How a chain's story sits in its frames and `extra` more, without keeping its lines.
+    fn flow_extent_with(&self, chain: &Flow, extra: usize) -> Result<Flowed, LayoutError> {
+        let laid = self.chain_boxes(chain, extra);
+        let story = self.chain_story(chain, &laid);
         let mut options = self.options();
-        if !lock {
+        if !laid.lock {
             options.baseline_grid = None;
         }
-        let laid = flow(self.fonts, &story, &boxes, &self.book.language, &options)?;
+        flow_extent(
+            self.fonts,
+            &story,
+            &laid.boxes,
+            &self.book.language,
+            &options,
+            self.paragraphs,
+        )
+    }
+
+    /// A flow laid out in its own frames and `extra` more like the last of them.
+    fn flow_chain_with(&self, chain: &Flow, extra: usize) -> Result<FlowLayout, LayoutError> {
+        let laid_out = self.chain_boxes(chain, extra);
+        let story = self.chain_story(chain, &laid_out);
+        let mut options = self.options();
+        if !laid_out.lock {
+            options.baseline_grid = None;
+        }
+        let laid = flow_cached(
+            self.fonts,
+            &story,
+            &laid_out.boxes,
+            &self.book.language,
+            &options,
+            self.paragraphs,
+        )?;
         let styles = self.runs_info(&story);
         Ok(FlowLayout {
             id: chain.id.0.clone(),
             flowed: laid,
-            order,
+            order: laid_out.order,
             info: styles,
         })
     }
@@ -888,7 +980,15 @@ impl<'a> Layouter<'a> {
                             ),
                             Err(_) => (s.style.family.clone(), s.style.weight, s.style.italic),
                         };
+                        let rules = found.as_ref().ok().map(|r| r.font.metrics(s.style.size_pt));
                         RunStyle {
+                            lang: s.style.lang.clone(),
+                            href: s.style.href.clone(),
+                            link: rules
+                                .filter(|_| s.style.href.is_some())
+                                .map(|m| m.underline),
+                            underline: rules.filter(|_| s.style.underline).map(|m| m.underline),
+                            strike: rules.filter(|_| s.style.strike).map(|m| m.strike),
                             family,
                             size: s.style.size_pt,
                             weight,
@@ -909,16 +1009,69 @@ impl<'a> Layouter<'a> {
             .iter()
             .map(|p| p.spans.iter().map(|s| s.text.as_str()).collect())
             .collect();
+        // Each stretch of a paragraph in one language is checked in that language.
         let misses = match self.proofing {
-            Some(find) => texts.iter().map(|t| find(t)).collect(),
+            Some(find) => story
+                .iter()
+                .zip(&texts)
+                .map(|(p, text)| {
+                    let mut at = 0;
+                    let mut stretches: Vec<(Range<usize>, Option<&str>)> = Vec::new();
+                    for span in &p.spans {
+                        let end = at + span.text.len();
+                        let lang = span.style.lang.as_deref();
+                        match stretches.last_mut() {
+                            Some((range, was)) if *was == lang => range.end = end,
+                            _ => stretches.push((at..end, lang)),
+                        }
+                        at = end;
+                    }
+                    stretches
+                        .into_iter()
+                        .flat_map(|(range, lang)| {
+                            find(&text[range.clone()], lang)
+                                .into_iter()
+                                .map(move |m| m.start + range.start..m.end + range.start)
+                        })
+                        .collect()
+                })
+                .collect(),
             None => Vec::new(),
         };
+        let mut next = 0;
+        let bases = texts
+            .iter()
+            .map(|t| {
+                let base = next;
+                next += t.matches('\n').count() as u32 + 1;
+                base
+            })
+            .collect();
         StoryInfo {
             styles,
             texts,
+            bases,
             misses,
         }
     }
+}
+
+/// How a story sits in its frames: what [`Layouter::page_fit`] answers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PageFit {
+    /// How many more frames, like the last of the flow, the story needs; none when it fits.
+    pub needed: usize,
+    /// How many of the flow's own frames it reaches: at least one.
+    pub used: usize,
+}
+
+/// The frames of a chain as boxes, with what the first frame says about the story's style.
+struct ChainBoxes<'a> {
+    boxes: Vec<FrameBox>,
+    order: Vec<FrameId>,
+    style: StyleId,
+    lock: bool,
+    first_frame: Option<&'a TextFrame>,
 }
 
 /// What is known of a story's paragraphs besides where their lines fall.
@@ -927,6 +1080,9 @@ struct StoryInfo {
     styles: Vec<Vec<RunStyle>>,
     /// The text of each paragraph.
     texts: Vec<String>,
+    /// Where each paragraph starts among the wire's paragraphs: a paragraph that keeps its line
+    /// breaks counts as one for each.
+    bases: Vec<u32>,
     /// The misspelt words of each paragraph, as ranges of bytes of its text; empty when spelling is
     /// not being checked.
     misses: Vec<Vec<Range<usize>>>,
@@ -948,6 +1104,12 @@ struct RunStyle {
     italic: bool,
     tracking: f64,
     colour: Option<Colour>,
+    underline: Option<Rule>,
+    strike: Option<Rule>,
+    lang: Option<String>,
+    /// Where the words link to, and the rule the page draws under them for it.
+    href: Option<String>,
+    link: Option<Rule>,
     face_key: String,
 }
 
@@ -960,37 +1122,53 @@ fn break_run() -> folio_model::Run {
         italic: false,
         font: None,
         colour: None,
+        ..Default::default()
     }
 }
 
-fn paragraph_from(spans: Vec<Span>, style: &ResolvedStyle) -> StoryParagraph {
+/// A paragraph set as `style` says, with what the paragraph sets for itself (`look`) over it.
+fn paragraph_from(
+    mut spans: Vec<Span>,
+    style: &ResolvedStyle,
+    look: Option<&ParaLook>,
+) -> StoryParagraph {
+    let look = look.cloned().unwrap_or_default();
+    if let Some(height) = look.line_height {
+        for span in &mut spans {
+            span.style.line_height = height;
+        }
+    }
     let mut p = StoryParagraph::new(spans);
-    p.align = style.align;
-    p.first_indent = style.first_indent;
-    p.space_before = style.space_before;
-    p.space_after = style.space_after;
+    p.align = match look.align {
+        Some(a) => match a {
+            folio_model::Align::Left => crate::paragraph::Align::Left,
+            folio_model::Align::Center => crate::paragraph::Align::Center,
+            folio_model::Align::Right => crate::paragraph::Align::Right,
+            folio_model::Align::Justify => crate::paragraph::Align::Justify,
+        },
+        None => style.align,
+    };
+    p.first_indent = look.first_indent.unwrap_or(style.first_indent);
+    p.indent = look.indent.unwrap_or(0.0);
+    p.indent_right = look.indent_right.unwrap_or(0.0);
+    p.space_before = look.space_before.unwrap_or(style.space_before);
+    p.space_after = look.space_after.unwrap_or(style.space_after);
     p.wrap = style.wrap;
     p.hyphenate = style.hyphenate;
     p.start = style.start;
     p
 }
 
-/// The misspelt parts of each run of a line, as UTF-16 ranges of the run's own text. Each run is
-/// found in the paragraph's text where the line is, and what a misspelt word shares with it is what
-/// is marked.
+/// The misspelt parts of each run of a line, as code points from the start of the run's own text.
+/// What a misspelt word shares with the run is what is marked.
 fn run_marks(placed: &PlacedLine, info: &StoryInfo) -> Vec<Vec<(u32, u32)>> {
     let none = || vec![Vec::new(); placed.line.runs.len()];
-    let (Some(text), Some(misses)) = (
-        info.texts.get(placed.paragraph),
-        info.misses.get(placed.paragraph),
-    ) else {
+    let Some(misses) = info.misses.get(placed.paragraph) else {
         return none();
     };
     if misses.is_empty() {
         return none();
     }
-    let line = placed.offset + placed.line.text.start..placed.offset + placed.line.text.end;
-    let mut at = line.start;
     placed
         .line
         .runs
@@ -999,19 +1177,15 @@ fn run_marks(placed: &PlacedLine, info: &StoryInfo) -> Vec<Vec<(u32, u32)>> {
             if run.hyphen {
                 return Vec::new();
             }
-            let Some(found) = text.get(at..line.end).and_then(|rest| rest.find(&run.text)) else {
-                return Vec::new();
-            };
-            let (start, end) = (at + found, at + found + run.text.len());
-            at = end;
+            let start = placed.offset + run.start;
+            let end = start + run.text.len();
             misses
                 .iter()
                 .filter_map(|m| {
                     let (from, to) = (m.start.max(start), m.end.min(end));
                     (from < to).then(|| {
-                        let utf16 =
-                            |bytes: usize| run.text[..bytes - start].encode_utf16().count() as u32;
-                        (utf16(from), utf16(to))
+                        let chars = |bytes: usize| run.text[..bytes - start].chars().count() as u32;
+                        (chars(from), chars(to))
                     })
                 })
                 .collect()
@@ -1019,14 +1193,139 @@ fn run_marks(placed: &PlacedLine, info: &StoryInfo) -> Vec<Vec<(u32, u32)>> {
         .collect()
 }
 
-fn wire_line(placed: &PlacedLine, info: &StoryInfo) -> LayoutLine {
+/// Moves the lines of a text frame down when its overrides put its words in the middle or at the
+/// bottom of the box: the room left under the last line, or that share of it, goes above the
+/// first. A frame of a story is placed on its own, with the lines it holds (D-70): a frame the story
+/// fills has no room to spare, so in practice the last frame of a story moves. A frame locked to the
+/// baseline grid stays at the top, so its lines stay on the grid.
+fn place_text_vertically(layout: &mut FrameLayout, text: &TextFrame) {
+    let Some(valign) = text.overrides.as_ref().and_then(|o| o.valign) else {
+        return;
+    };
+    if text.baseline_lock || layout.lines.is_empty() {
+        return;
+    }
+    let bottom = layout
+        .lines
+        .iter()
+        .map(|l| l.top + l.height)
+        .fold(0.0, f64::max);
+    let shift = ((text.base.rect.h.0 - bottom) * valign.share()).max(0.0);
+    if shift <= 0.0 {
+        return;
+    }
+    for line in &mut layout.lines {
+        line.top += shift;
+        line.baseline += shift;
+    }
+}
+
+/// Where a line is in its paragraph, in the wire's units.
+struct LineSpan {
+    paragraph: u32,
+    start: u32,
+    end: u32,
+}
+
+/// The paragraph and code point a byte of layout paragraph `para` is at. A layout paragraph that
+/// keeps its line breaks (verse) is several paragraphs on the wire, one to a line break, as the
+/// editor counts them.
+fn wire_pos(info: &StoryInfo, para: usize, byte: usize) -> (u32, u32) {
+    let text = &info.texts[para];
+    let byte = byte.min(text.len());
+    let head = &text[..byte];
+    let breaks = head.matches('\n').count() as u32;
+    let line_start = head.rfind('\n').map_or(0, |i| i + 1);
+    (
+        info.bases[para] + breaks,
+        head[line_start..].chars().count() as u32,
+    )
+}
+
+/// The place of every line of a flow in its paragraph. The lines of a paragraph tile it, so the
+/// spaces a line ends on belong to it and a click past its last word lands at its end.
+fn line_spans(lines: &[PlacedLine], info: &StoryInfo) -> Vec<LineSpan> {
+    (0..lines.len())
+        .map(|k| {
+            let placed = &lines[k];
+            let p = placed.paragraph;
+            let Some(text) = info.texts.get(p) else {
+                return LineSpan {
+                    paragraph: p as u32,
+                    start: 0,
+                    end: 0,
+                };
+            };
+            let first = k == 0 || lines[k - 1].paragraph != p;
+            let start = if first {
+                0
+            } else {
+                placed.offset + placed.line.text.start
+            };
+            let mut end = match lines.get(k + 1) {
+                Some(next) if next.paragraph == p => next.offset + next.line.text.start,
+                _ => text.len(),
+            };
+            let start = start.min(text.len());
+            end = end.clamp(start, text.len());
+            // A line break ends a verse line without being part of it.
+            if end > start && text.as_bytes()[end - 1] == b'\n' {
+                end -= 1;
+            }
+            let (paragraph, from) = wire_pos(info, p, start);
+            let (_, to) = wire_pos(info, p, end);
+            LineSpan {
+                paragraph,
+                start: from,
+                end: to,
+            }
+        })
+        .collect()
+}
+
+fn round2(value: f64) -> f64 {
+    (value * 100.0).round() / 100.0
+}
+
+fn wire_line(placed: &PlacedLine, info: &StoryInfo, span: &LineSpan) -> LayoutLine {
     let marks = run_marks(placed, info);
     let runs = placed
         .line
         .runs
         .iter()
         .zip(marks)
-        .map(|(r, miss)| {
+        .enumerate()
+        .map(|(i, (r, miss))| {
+            // A line runs on over the space to the next run when that is set the same way.
+            let style_of = |at: usize| {
+                let run = placed.line.runs.get(at)?;
+                info.styles.get(placed.paragraph)?.get(run.span)
+            };
+            let stroke_of = |pick: fn(&RunStyle) -> Option<Rule>, linked: bool| {
+                let rule = pick(style_of(i)?)?;
+                let next = placed.line.runs.get(i + 1);
+                let joins = next.is_some_and(|n| {
+                    !r.hyphen
+                        // A link runs on only into the same link.
+                        && (!linked || style_of(i + 1).map(|m| &m.href) == style_of(i).map(|m| &m.href))
+                        && style_of(i + 1).and_then(pick).is_some_and(|m| m == rule)
+                        && n.x >= r.x + r.width
+                });
+                let end = match next {
+                    Some(n) if joins => n.x,
+                    _ => r.x + r.width,
+                };
+                Some(Stroke {
+                    offset: round2(rule.offset),
+                    thickness: round2(rule.thickness),
+                    width: round2(end - r.x),
+                })
+            };
+            let (underline, strike, link) = (
+                stroke_of(|s| s.underline, false),
+                stroke_of(|s| s.strike, false),
+                stroke_of(|s| s.link, true),
+            );
             let s = info
                 .styles
                 .get(placed.paragraph)
@@ -1039,8 +1338,16 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo) -> LayoutLine {
                     italic: false,
                     tracking: 0.0,
                     colour: None,
+                    underline: None,
+                    strike: None,
+                    lang: None,
+                    href: None,
+                    link: None,
                     face_key: String::new(),
                 });
+            let start = info.texts.get(placed.paragraph).map_or(0, |_| {
+                wire_pos(info, placed.paragraph, placed.offset + r.start).1
+            });
             LayoutRun {
                 text: r.text.clone(),
                 x: r.x,
@@ -1051,8 +1358,19 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo) -> LayoutLine {
                 italic: s.italic,
                 tracking: s.tracking,
                 colour: s.colour,
+                underline,
+                strike,
+                lang: s.lang,
+                href: s.href,
+                link,
                 hyphen: r.hyphen,
                 miss,
+                start,
+                stops: r
+                    .stops
+                    .iter()
+                    .map(|x| (x * 100.0).round() / 100.0)
+                    .collect(),
                 face_key: s.face_key,
                 glyphs: r
                     .glyphs
@@ -1075,7 +1393,9 @@ fn wire_line(placed: &PlacedLine, info: &StoryInfo) -> LayoutLine {
         width: placed.line.width,
         height: placed.line.height,
         runs,
-        paragraph: None,
+        paragraph: Some(span.paragraph),
+        start: span.start,
+        end: span.end,
     }
 }
 
@@ -1085,8 +1405,9 @@ fn frame_layout(id: &FrameId, flowed: &Flowed, frame: usize, info: &StoryInfo) -
         lines: flowed
             .lines
             .iter()
-            .filter(|l| l.frame == frame)
-            .map(|l| wire_line(l, info))
+            .zip(line_spans(&flowed.lines, info))
+            .filter(|(l, _)| l.frame == frame)
+            .map(|(l, span)| wire_line(l, info, &span))
             .collect(),
         overset: flowed.overset && frame + 1 == flowed.used_height.len().max(1),
         origin: None,
@@ -1114,11 +1435,9 @@ fn flow_frame(id: &FrameId, laid: &Flowed, index: Option<usize>, info: &StoryInf
         lines: laid
             .lines
             .iter()
-            .filter(|l| l.frame == index)
-            .map(|l| LayoutLine {
-                paragraph: Some(l.paragraph as u32),
-                ..wire_line(l, info)
-            })
+            .zip(line_spans(&laid.lines, info))
+            .filter(|(l, _)| l.frame == index)
+            .map(|(l, span)| wire_line(l, info, &span))
             .collect(),
         overset: laid.overset && index + 1 == laid.used_height.len(),
         origin: None,

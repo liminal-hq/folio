@@ -19,6 +19,8 @@ Folio can be driven by an AI agent through a [Model Context Protocol](https://mo
 | `render_page` | A PNG of one page, as drawn, so the agent can look at its work |
 | `preflight`, `story_chapters` | The problems a printer would find; the chapters of the story |
 | `book_report` | What one of the app's Book tools finds (`{"tool": "pictures"}`: every picture with its pixels per inch and status; `{"tool": "checklist"}`: what a store will still ask for; `{"tool": "royalty", …}`: print cost and royalties; `{"tool": "punctuation"}` and `{"tool": "styles"}`: what the typesetting tools would tidy; `{"tool": "contents"}` and `{"tool": "copyright", "fields": {…}}`: the chapters with their pages and the words of the copyright page), the same report the tools window shows (D-49) |
+| `find_text` | Where words are in the book — text frames, stories, shapes, table cells and master pages — in reading order, each as the `TextTarget`, paragraph and code point range an `EditText` takes, with its spread; options `matchCase`, `wholeWord` and `regex` |
+| `replace_text` | Puts words in place of what `find_text` finds — one match (`only`) or every match as one undo step — with the replacement as written, taking the look of the replaced words; locked frames and other masters' words are left alone and counted |
 | `apply_intents` | Any change the app can make: a list of intents applied together as one undo step, or not at all |
 | `undo`, `redo` | Step through history |
 | `import_manuscript`, `import_picture` | Bring in Markdown, plain text, Word, OpenDocument or Rich Text as the story; bring in a picture |

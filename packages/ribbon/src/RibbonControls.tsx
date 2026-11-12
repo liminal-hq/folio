@@ -131,8 +131,11 @@ export function RibbonControl(props: ControlProps) {
 				>
 					−
 				</button>
-				<output className={styles.stepperValue} aria-label={item.label}>
-					{current}
+				<output
+					className={styles.stepperValue}
+					aria-label={item.mixed ? `${item.label}: ${labels.mixed}` : item.label}
+				>
+					{item.mixed ? '—' : current}
 				</output>
 				<button
 					type="button"

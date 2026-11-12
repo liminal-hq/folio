@@ -5,7 +5,7 @@
 
 use std::time::{Duration, Instant};
 
-use folio_model::{Book, Intent};
+use folio_model::{Book, EditCaret, Intent};
 
 use crate::apply::{plan, run, MergeKey};
 use crate::delta::Delta;
@@ -18,6 +18,10 @@ pub const UNDO_DEPTH: usize = 200;
 /// Repeats of one intent on one frame within this long make a single undo step: a drag, a run of
 /// arrow-key nudges, or typing.
 pub const COALESCE_WINDOW: Duration = Duration::from_millis(600);
+
+/// Typing joins the step before it for this long after the last key, so a pause of a second starts
+/// a new step.
+pub const TYPING_WINDOW: Duration = Duration::from_millis(1000);
 
 /// Makes the id of a new part of the book, given a short prefix (`sp`, `pg`, `fr`).
 pub type IdSource = Box<dyn FnMut(&str) -> String + Send>;
@@ -35,6 +39,9 @@ struct Entry {
     after: Delta,
     merge: Option<MergeKey>,
     at: Instant,
+    /// For an edit to words: the selection before the step and the caret after it, so undo and
+    /// redo can put the editor's caret back.
+    carets: Option<(EditCaret, EditCaret)>,
 }
 
 /// An open book.
@@ -45,6 +52,8 @@ pub struct Session {
     undo: Vec<Entry>,
     redo: Vec<Entry>,
     ids: IdSource,
+    /// Where the caret goes after the last undo or redo, when the step was an edit to words.
+    restored: Option<EditCaret>,
 }
 
 impl Session {
@@ -69,6 +78,7 @@ impl Session {
             undo: Vec::new(),
             redo: Vec::new(),
             ids,
+            restored: None,
         }
     }
 
@@ -104,6 +114,12 @@ impl Session {
         !self.redo.is_empty()
     }
 
+    /// Where the editor's caret goes after the undo or redo just made, when the step was an edit to
+    /// words; `None` when it was anything else, or after a new change.
+    pub fn restored_caret(&self) -> Option<&EditCaret> {
+        self.restored.as_ref()
+    }
+
     /// Applies an intent now.
     pub fn apply(&mut self, intent: Intent) -> Result<Patch, SessionError> {
         self.apply_at(intent, Instant::now())
@@ -123,6 +139,31 @@ impl Session {
             });
         }
         let mut plan = plan(&self.book, &intent, &mut self.ids)?;
+        let carets = match &intent {
+            Intent::EditText {
+                target,
+                from,
+                to,
+                insert,
+                ..
+            } => {
+                let end = folio_model::caret_after(*from, insert);
+                Some((
+                    EditCaret {
+                        target: target.clone(),
+                        anchor: *from,
+                        focus: *to,
+                    },
+                    EditCaret {
+                        target: target.clone(),
+                        anchor: end,
+                        focus: end,
+                    },
+                ))
+            }
+            _ => None,
+        };
+        self.restored = None;
         // The spine is as thick as the pages and the paper make it, and the front cover sits past
         // it, so what changes either takes the cover along in the same step.
         let spine_may_move = matches!(
@@ -171,13 +212,24 @@ impl Session {
 
         let merges = plan.merge.is_some()
             && self.redo.is_empty()
-            && self.undo.last().is_some_and(|last| {
-                last.merge == plan.merge && at.saturating_duration_since(last.at) <= COALESCE_WINDOW
-            });
+            && self
+                .undo
+                .last()
+                .is_some_and(|last| match (&plan.merge, &last.merge) {
+                    (Some(now), Some(was)) => {
+                        now.joins(was) && at.saturating_duration_since(last.at) <= now.window()
+                    }
+                    _ => false,
+                });
         if merges {
             if let Some(last) = self.undo.last_mut() {
                 last.after = after;
                 last.at = at;
+                last.merge = plan.merge;
+                last.carets = match (last.carets.take(), carets) {
+                    (Some((before, _)), Some((_, after))) => Some((before, after)),
+                    (_, other) => other,
+                };
             }
         } else {
             self.undo.push(Entry {
@@ -185,6 +237,7 @@ impl Session {
                 after,
                 merge: plan.merge,
                 at,
+                carets,
             });
             if self.undo.len() > UNDO_DEPTH {
                 self.undo.remove(0);
@@ -217,6 +270,7 @@ impl Session {
             after: so_far.after.after_both(&next.after),
             merge: None,
             at: next.at,
+            carets: so_far.carets,
         });
         self.undo.push(joined);
     }
@@ -225,6 +279,7 @@ impl Session {
     pub fn undo(&mut self) -> Option<Patch> {
         let entry = self.undo.pop()?;
         let ops = entry.before.restore(&mut self.book);
+        self.restored = entry.carets.as_ref().map(|(before, _)| before.clone());
         self.redo.push(entry);
         self.revision += 1;
         Some(Patch {
@@ -237,6 +292,7 @@ impl Session {
     pub fn redo(&mut self) -> Option<Patch> {
         let mut entry = self.redo.pop()?;
         let ops = entry.after.restore(&mut self.book);
+        self.restored = entry.carets.as_ref().map(|(_, after)| after.clone());
         // A step redone is closed: the next intent starts a new one.
         entry.merge = None;
         self.undo.push(entry);

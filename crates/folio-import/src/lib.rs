@@ -7,16 +7,74 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 mod docx;
+mod html;
 mod mapping;
 mod odt;
 mod rtf;
 
 pub use docx::{import_docx, import_docx_with, DocxError};
+pub use html::{import_html, HtmlError, MAX_HTML_BYTES};
 pub use mapping::{SourceStyle, StyleMap, Tally, MAPPABLE};
 pub use odt::{import_odt, import_odt_with, OdtError};
 pub use rtf::{import_rtf, RtfError};
 
+/// The reference size a letter spacing given in points is turned into ems of when the run names no
+/// size of its own (Word's default text size).
+pub(crate) const REFERENCE_SIZE: f64 = 11.0;
+
+/// A letter spacing of `spacing_pt` points at `size_pt`, in thousandths of an em; `None` for none.
+pub(crate) fn tracking_of(spacing_pt: f64, size_pt: f64) -> Option<i32> {
+    let thousandths = (spacing_pt / size_pt * 1000.0).round();
+    (thousandths.is_finite() && thousandths != 0.0).then_some(thousandths as i32)
+}
+
+/// Takes the size and the language away from the runs that are set in the size and language most
+/// of the words are. Word and Rich Text files name the body size and language on nearly every run,
+/// and keeping them would pin each run over the Folio style and the book's language; the runs that
+/// differ (a larger word, a phrase in French) keep theirs.
+pub(crate) fn keep_unusual_looks(story: &mut [StoryPara]) {
+    keep_unusual(
+        story,
+        |r| r.size.map(|s| (s * 100.0).round() as i64),
+        |r| r.size = None,
+    );
+    keep_unusual(story, |r| r.lang.clone(), |r| r.lang = None);
+}
+
+/// Clears `key` from the runs that have the value most characters have, when that is a value and
+/// not "none", and joins the runs that then look alike.
+fn keep_unusual<K: Ord + Clone>(
+    story: &mut [StoryPara],
+    key: impl Fn(&Run) -> Option<K>,
+    clear: impl Fn(&mut Run),
+) {
+    let mut counts: std::collections::BTreeMap<Option<K>, usize> = Default::default();
+    for run in story.iter().flat_map(|p| &p.inline) {
+        *counts.entry(key(run)).or_default() += run.text.chars().count();
+    }
+    let usual = counts
+        .iter()
+        .max_by_key(|(k, count)| (**count, k.is_none()))
+        .and_then(|(k, _)| k.clone());
+    let Some(usual) = usual else { return };
+    for para in story.iter_mut() {
+        let mut changed = false;
+        for run in para.inline.iter_mut() {
+            if key(run).as_ref() == Some(&usual) {
+                clear(run);
+                changed = true;
+            }
+        }
+        if changed {
+            para.inline = para.inline.iter().fold(Vec::<Run>::new(), |out, run| {
+                join_runs(&out, std::slice::from_ref(run))
+            });
+        }
+    }
+}
+
 use folio_model::{join_runs, Run, StoryPara, StyleId};
+use folio_model::{smarten_with, QuoteStyle, SmartRules};
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -65,6 +123,15 @@ struct Reader {
     quote: u32,
     in_item: bool,
     report: ImportReport,
+    /// How quotes are set when Markdown's straight ones are made curly; `None` leaves them be.
+    smart: Option<QuoteStyle>,
+    /// Where the words being read link to, inside a link.
+    href: Option<String>,
+}
+
+/// The words of `runs`, run together.
+fn plain_text(runs: &[Run]) -> String {
+    runs.iter().map(|r| r.text.as_str()).collect()
 }
 
 impl Reader {
@@ -85,8 +152,23 @@ impl Reader {
             italic: self.italic > 0,
             font: None,
             colour: None,
+            href: self.href.clone(),
+            ..Default::default()
         };
         self.current = join_runs(&self.current, &[run]);
+    }
+
+    /// Adds words that were written as text, set with smart punctuation by what comes before them
+    /// in the paragraph. Words in `code` spans are pushed as they are.
+    fn push_text(&mut self, text: &str) {
+        let Some(style) = self.smart else {
+            return self.push(text);
+        };
+        // A rule may reach back into the words before (a second hyphen, a third dot).
+        let before = plain_text(&self.current);
+        let set = smarten_with(&before, text, style, SmartRules::ALL);
+        trim_end(&mut self.current, set.rewind);
+        self.push(&set.text);
     }
 
     /// Ends the paragraph being read, if it has words.
@@ -97,6 +179,7 @@ impl Reader {
             self.story.push(StoryPara {
                 style: style.map(|s| StyleId(s.to_owned())),
                 inline: std::mem::take(&mut self.current),
+                look: None,
             });
         } else {
             self.current.clear();
@@ -105,11 +188,51 @@ impl Reader {
     }
 }
 
+/// Takes `count` characters off the end of `runs`, dropping runs left empty.
+fn trim_end(runs: &mut Vec<Run>, mut count: usize) {
+    while count > 0 {
+        let Some(last) = runs.last_mut() else { return };
+        let have = last.text.chars().count();
+        if have <= count {
+            count -= have;
+            runs.pop();
+        } else {
+            last.text = last.text.chars().take(have - count).collect();
+            count = 0;
+        }
+    }
+}
+
+/// Sets the quotes, dashes and ellipses of every paragraph of `story` the way a book sets them,
+/// in the quote style given. The runs keep their looks; a rule may reach back into the run before.
+pub fn smarten_story(story: &mut [StoryPara], style: QuoteStyle) {
+    for para in story {
+        let mut done: Vec<Run> = Vec::new();
+        for run in std::mem::take(&mut para.inline) {
+            let before = plain_text(&done);
+            let set = smarten_with(&before, &run.text, style, SmartRules::ALL);
+            trim_end(&mut done, set.rewind);
+            let mut next = run;
+            next.text = set.text;
+            if !next.text.is_empty() {
+                done.push(next);
+            }
+        }
+        para.inline = done;
+    }
+}
+
 /// Reads Markdown (or plain text) into a story: `#` is a chapter title, other headings are
 /// subheadings, blank lines separate paragraphs, `***` is a scene break, `*` and `**` are italic
-/// and bold, quotations take the epigraph style and list items become paragraphs. Pictures, tables,
+/// and bold, `[words](https://address)` is a link, quotations take the epigraph style and list items become paragraphs. Pictures, tables,
 /// code and HTML are left out, and the report says so.
 pub fn import_markdown(text: &str) -> Imported {
+    import_markdown_with(text, Some(QuoteStyle::Curly))
+}
+
+/// As `import_markdown`, with the quotes of text set in `smart` style (`None` leaves them as
+/// written). Dashes and ellipses follow the same rules as typing (`folio_model::smarten`).
+pub fn import_markdown_with(text: &str, smart: Option<QuoteStyle>) -> Imported {
     let mut reader = Reader {
         story: Vec::new(),
         current: Vec::new(),
@@ -119,12 +242,13 @@ pub fn import_markdown(text: &str) -> Imported {
         quote: 0,
         in_item: false,
         report: ImportReport::default(),
+        smart,
+        href: None,
     };
     let mut skipping = 0u32;
-    let options = Options::ENABLE_SMART_PUNCTUATION
-        | Options::ENABLE_STRIKETHROUGH
-        | Options::ENABLE_TABLES
-        | Options::ENABLE_FOOTNOTES;
+    // The parser's own smart punctuation is off: it makes `--` an en dash, and Folio's rules apply.
+    let options =
+        Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TABLES | Options::ENABLE_FOOTNOTES;
     for event in Parser::new_ext(text, options) {
         // Inside a block that is left out, only its end is looked for.
         if skipping > 0 {
@@ -170,13 +294,22 @@ pub fn import_markdown(text: &str) -> Imported {
                 reader.in_item = false;
                 reader.flush();
             }
-            Event::Start(Tag::Link { .. }) => {
-                reader.note("Links were left out; their words were kept.");
+            // A link to an address Folio follows keeps it; a relative one or one that runs code is
+            // left out, and its words are kept.
+            Event::Start(Tag::Link { dest_url, .. }) => {
+                reader.href = folio_model::clean_href(&dest_url);
+                if reader.href.is_none() {
+                    reader.note(
+                        "Links that Folio cannot follow were left out; their words were kept.",
+                    );
+                }
             }
+            Event::End(TagEnd::Link) => reader.href = None,
             Event::Start(Tag::Strikethrough) => {
                 reader.note("Struck-through words were kept without the line through them.");
             }
-            Event::Text(t) | Event::Code(t) => reader.push(&t),
+            Event::Text(t) => reader.push_text(&t),
+            Event::Code(t) => reader.push(&t),
             Event::SoftBreak | Event::HardBreak => reader.push(" "),
             Event::Rule => {
                 reader.flush();
@@ -189,7 +322,9 @@ pub fn import_markdown(text: &str) -> Imported {
                         italic: false,
                         font: None,
                         colour: None,
+                        ..Default::default()
                     }],
+                    look: None,
                 });
                 reader.report.scene_breaks += 1;
             }

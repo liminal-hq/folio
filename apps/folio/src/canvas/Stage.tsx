@@ -33,7 +33,7 @@ import { Ruler, RULER_SIZE } from './Ruler';
 import { formatPosition, RULER_UNITS } from './rulerMath';
 import { rulerUnitItems } from './rulerMenu';
 import { snapTargets } from './snap';
-import { SpreadCanvas } from './SpreadCanvas';
+import { SpreadCanvas, type SpreadCanvasProps } from './SpreadCanvas';
 import styles from './Stage.module.css';
 import { useElementSize } from './useElementSize';
 import type { FrameBoxMove } from './useFrameDrag';
@@ -81,10 +81,17 @@ export interface StageProps {
 	onActivate?(id: string): boolean;
 	hint?: { box: { x: number; y: number; w: number; h: number }; text: string };
 	onEditText?(id: string, text: string): void;
+	newEditor?: boolean;
+	onEditRequest?: SpreadCanvasProps['onEditRequest'];
+	onEditUndo?: SpreadCanvasProps['onEditUndo'];
+	onEditRedo?: SpreadCanvasProps['onEditRedo'];
+	onPasteHtml?: SpreadCanvasProps['onPasteHtml'];
 	onEditTable?(id: string, edit: TableEdit): void;
 	onEditStory?(flow: string, paragraph?: number): void;
 	onEditParagraphs?(flow: string, from: number, before: string[], after: string[]): void;
 	speller?: Speller;
+	/** The words the find bar found, marked on the page. */
+	find?: SpreadCanvasProps['find'];
 	onEditingCell?(cell: { row: number; col: number } | null): void;
 	/** A choice from the page menu; `point` is where it was asked for, in points on the spread. */
 	onPageCommand?(command: PageCommand, point: { x: number; y: number }): void;
@@ -121,11 +128,17 @@ export function Stage({
 	onActivate,
 	hint,
 	onEditText,
+	newEditor,
+	onEditRequest,
+	onEditUndo,
+	onEditRedo,
+	onPasteHtml,
 	onEditTable,
 	onEditStory,
 	onEditParagraphs,
 	onEditingCell,
 	speller,
+	find,
 	onPageCommand,
 	editableMasters = false,
 	demoteTo = null,
@@ -319,7 +332,10 @@ export function Stage({
 					onPointerDown={(event) => {
 						// A press on the bare table, not on the page, lets go of the selection. The words being
 						// edited sit beside the page, so a press in them (placing the caret, picking a word) does not.
-						if (!(event.target as Element).closest('svg, textarea')) onSelect?.([]);
+						// The on-page editor draws its caret and selection in a box of its own over the page, and
+						// that box is what a press in the words lands on: its frame stays selected for the ribbon.
+						if (!(event.target as Element).closest('svg, textarea, [data-text-surface]'))
+							onSelect?.([]);
 					}}
 				>
 					<div className={styles.sheet}>
@@ -341,10 +357,16 @@ export function Stage({
 							onActivate={onActivate}
 							hint={hint}
 							onEditText={onEditText}
+							newEditor={newEditor}
+							onEditRequest={onEditRequest}
+							onEditUndo={onEditUndo}
+							onEditRedo={onEditRedo}
+							onPasteHtml={onPasteHtml}
 							onEditTable={onEditTable}
 							onEditStory={onEditStory}
 							onEditParagraphs={onEditParagraphs}
 							speller={speller}
+							find={find}
 							onEditingCell={onEditingCell}
 							onPageMenu={(at, point) => setPageMenu({ at, point })}
 							onFrameMenu={(_, at) => setMenu(at)}

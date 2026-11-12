@@ -18,7 +18,7 @@ import { AppTitleBar } from './AppTitleBar';
 import { useDictionaries } from './useDictionaries';
 import styles from './PreferencesScreen.module.css';
 
-type SectionId = 'interface' | 'appearance' | 'units' | 'spelling' | 'saving' | 'help';
+type SectionId = 'interface' | 'appearance' | 'units' | 'editing' | 'spelling' | 'saving' | 'help';
 
 function InterfacePage() {
 	const settings = useSettings();
@@ -131,6 +131,29 @@ function UnitsPage() {
 						{ value: 'millimetres', label: t('preferences.units.millimetres') },
 					]}
 					onChange={(units) => void update({ units })}
+				/>
+			</SettingsGroup>
+		</SettingsSection>
+	);
+}
+
+function EditingPage() {
+	const settings = useSettings();
+	const update = useUpdateSettings();
+	return (
+		<SettingsSection>
+			<SettingsGroup>
+				<ToggleRow
+					label={t('preferences.newEditor')}
+					description={t('preferences.newEditor.description')}
+					checked={settings.editing.newEditor}
+					onChange={(newEditor) => void update({ editing: { newEditor } })}
+				/>
+				<ToggleRow
+					label={t('preferences.smartPunctuation')}
+					description={t('preferences.smartPunctuation.description')}
+					checked={settings.editing.smartPunctuation}
+					onChange={(smartPunctuation) => void update({ editing: { smartPunctuation } })}
 				/>
 			</SettingsGroup>
 		</SettingsSection>
@@ -264,6 +287,7 @@ function sections(): SettingsSectionDef[] {
 			render: () => <AppearancePage />,
 		},
 		{ id: 'units', label: t('preferences.section.units'), render: () => <UnitsPage /> },
+		{ id: 'editing', label: t('preferences.section.editing'), render: () => <EditingPage /> },
 		{
 			id: 'spelling',
 			label: t('preferences.section.spelling'),
