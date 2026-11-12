@@ -320,7 +320,7 @@ pub fn export_pdf_with(
         if navigation.page_labels {
             if let Some(label) = sheet_origins
                 .get(number)
-                .and_then(|o| crate::outline::page_label(o, &navigation.cover_names))
+                .and_then(|o| crate::outline::page_label(o, &navigation.names))
             {
                 settings = settings.with_page_label(label);
             }
@@ -407,11 +407,9 @@ pub fn export_pdf_with(
         &book.language,
         options.application.as_ref(),
     );
-    if let Some(outline) = crate::outline::outline(
-        &navigation.bookmarks,
-        &sheet_origins,
-        &navigation.cover_names,
-    ) {
+    if let Some(outline) =
+        crate::outline::outline(&navigation.bookmarks, &sheet_origins, &navigation.names)
+    {
         document.set_outline(outline);
     }
     document.set_metadata(metadata);

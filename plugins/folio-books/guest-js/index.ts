@@ -14,6 +14,7 @@ import type { DictionaryProgress } from '@liminal-hq/folio-protocol/generated/Di
 import type { DictionaryStatus } from '@liminal-hq/folio-protocol/generated/DictionaryStatus';
 import type { ExportColour } from '@liminal-hq/folio-protocol/generated/ExportColour';
 import type { SizeEstimate } from '@liminal-hq/folio-protocol/generated/SizeEstimate';
+import type { ExportNames } from '@liminal-hq/folio-protocol/generated/ExportNames';
 import type { ExportPrefs } from '@liminal-hq/folio-protocol/generated/ExportPrefs';
 import type { ExportProgress } from '@liminal-hq/folio-protocol/generated/ExportProgress';
 import type { CoverSheetPreview } from '@liminal-hq/folio-protocol/generated/CoverSheetPreview';
@@ -334,6 +335,8 @@ export function previewCoverSheet(id: string): Promise<CoverSheetPreview | null>
 export interface ExportChoices {
 	prefs?: ExportPrefs;
 	user?: ExportPrefs;
+	/** Words the file carries that are the person's language: the covers' names, how pages read. */
+	names?: ExportNames;
 }
 
 /** Makes the files for `targets` and writes them into the book's `exports` folder. */
@@ -349,6 +352,7 @@ export function exportBook(
 		colour,
 		prefs: choices?.prefs ?? null,
 		user: choices?.user ?? null,
+		names: choices?.names ?? null,
 	});
 }
 
@@ -368,6 +372,7 @@ export function estimateExport(
 		colour,
 		prefs: choices?.prefs ?? null,
 		user: choices?.user ?? null,
+		names: choices?.names ?? null,
 	});
 }
 

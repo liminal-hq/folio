@@ -16,9 +16,9 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow};
 use folio_engine::DICTIONARY_PROGRESS_EVENT;
 use folio_engine::{
     BookSnapshot, BookSpelling, BookSummary, Books, CoverCanvas, CoverSheetPreview,
-    DictionaryProgress, DictionaryStatus, EditAnswer, EditRequest, ExportColour, ExportReport,
-    ExportRequest, ExportTarget, FindReport, FindRequest, FontChoice, FontUse, KeepFontsReport,
-    PastedHtml, ProofSpread, ReaderPreview, Recoverable, SizeEstimate, SpellCheck,
+    DictionaryProgress, DictionaryStatus, EditAnswer, EditRequest, ExportColour, ExportNames,
+    ExportReport, ExportRequest, ExportTarget, FindReport, FindRequest, FontChoice, FontUse,
+    KeepFontsReport, PastedHtml, ProofSpread, ReaderPreview, Recoverable, SizeEstimate, SpellCheck,
     SpreadLayoutResult, StoryChapter,
 };
 use folio_engine::{Error, TemplateGallery, ToolFix, ToolFixed, ToolReport, ToolRequest};
@@ -555,6 +555,7 @@ pub async fn export_book<R: Runtime>(
     colour: Option<ExportColour>,
     prefs: Option<ExportPrefs>,
     user: Option<ExportPrefs>,
+    names: Option<ExportNames>,
 ) -> Result<ExportReport, Error> {
     // Laying out and writing a book is work for a blocking thread, not the async runtime.
     tauri::async_runtime::spawn_blocking(move || {
@@ -565,6 +566,7 @@ pub async fn export_book<R: Runtime>(
                 colour,
                 prefs,
                 user,
+                names,
             },
         )
     })
@@ -583,6 +585,7 @@ pub async fn estimate_export<R: Runtime>(
     colour: Option<ExportColour>,
     prefs: Option<ExportPrefs>,
     user: Option<ExportPrefs>,
+    names: Option<ExportNames>,
 ) -> Result<SizeEstimate, Error> {
     tauri::async_runtime::spawn_blocking(move || {
         app.state::<Arc<Books>>().estimate_export(
@@ -592,6 +595,7 @@ pub async fn estimate_export<R: Runtime>(
                 colour,
                 prefs,
                 user,
+                names,
             },
         )
     })

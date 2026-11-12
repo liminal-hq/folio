@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use folio_export::outline::{Bookmarks, Chapter, CoverNames, Navigation};
+use folio_export::outline::{BookmarkNames, Bookmarks, Chapter, Navigation};
 use folio_export::pages::{CoverPages, PageChoice, Sheets};
 use folio_export::pdf::{export_pdf, NoAssets, PdfOptions, PdfTarget};
 use folio_layout::{FontBook, StyleSheet};
@@ -254,9 +254,11 @@ fn the_covers_are_not_numbered_and_the_pages_between_still_are() {
     let (book, styles) = sample();
     let navigation = Navigation {
         page_labels: true,
-        cover_names: CoverNames {
+        names: BookmarkNames {
             front: "Couverture".into(),
             back: "Quatrième".into(),
+            page: "Page {n}".into(),
+            pages: "Pages {from} à {to}".into(),
         },
         ..Navigation::default()
     };
@@ -301,9 +303,11 @@ fn bookmarks_name_the_covers_with_the_names_the_caller_passes() {
     }];
     let navigation = Navigation {
         bookmarks: Bookmarks::Chapters(chapters),
-        cover_names: CoverNames {
+        names: BookmarkNames {
             front: "Couverture".into(),
             back: "Quatrième".into(),
+            page: "Page {n}".into(),
+            pages: "Pages {from} à {to}".into(),
         },
         ..Navigation::default()
     };
@@ -464,4 +468,74 @@ fn dump_for_the_eye() {
         sharing(&book, &styles, ends(), Navigation::default()),
     )
     .unwrap();
+}
+
+#[test]
+fn a_book_without_chapters_gets_one_bookmark_for_each_spread_between_the_covers() {
+    let (book, styles) = sample();
+    let names = BookmarkNames {
+        front: "Couverture".into(),
+        back: "Quatrième".into(),
+        page: "Page {n}".into(),
+        pages: "Pages {from} à {to}".into(),
+    };
+    let navigation = Navigation {
+        bookmarks: Bookmarks::Automatic(Vec::new()),
+        names,
+        ..Navigation::default()
+    };
+    let doc = Document::load_mem(&sharing(&book, &styles, ends(), navigation)).unwrap();
+    let found = bookmarks(&doc);
+    let pages = page_ids(&doc).len();
+    assert_eq!(found.first(), Some(&("Couverture".to_string(), 1)));
+    assert_eq!(found.last(), Some(&("Quatrième".to_string(), pages)));
+    // One for each spread of the interior, in order, each landing on its first page.
+    let spreads = book.spreads.len() - 1;
+    assert_eq!(found.len(), spreads + 2, "{found:?}");
+    assert!(found.windows(2).all(|w| w[0].1 < w[1].1), "{found:?}");
+    assert_eq!(found[1].1, 2);
+    assert!(
+        found[1..found.len() - 1]
+            .iter()
+            .all(|(title, _)| title.starts_with("Pages ")),
+        "{found:?}"
+    );
+    assert!(found.iter().any(|(t, _)| t.contains(" à ")), "{found:?}");
+}
+
+#[test]
+fn a_book_with_chapters_keeps_them_between_the_covers() {
+    let (book, styles) = sample();
+    let chapters = vec![Chapter {
+        title: "The reeds".into(),
+        spread: book.spreads[2].id.0.clone(),
+        page: 0,
+    }];
+    let navigation = Navigation {
+        bookmarks: Bookmarks::Automatic(chapters),
+        ..Navigation::default()
+    };
+    let doc = Document::load_mem(&sharing(&book, &styles, ends(), navigation)).unwrap();
+    let found = bookmarks(&doc);
+    let titles: Vec<&str> = found.iter().map(|(t, _)| t.as_str()).collect();
+    assert_eq!(titles, ["Front cover", "The reeds", "Back cover"]);
+}
+
+#[test]
+fn the_sharing_pdf_asks_for_automatic_bookmarks_and_a_paperback_for_none() {
+    use folio_export::prefs::{resolve, PdfKind};
+    let (book, _) = sample();
+    let sharing = resolve(PdfKind::Sharing, &[], &book);
+    assert!(sharing.wants_chapters);
+    assert_eq!(
+        sharing.extras.navigation.bookmarks,
+        Bookmarks::Automatic(Vec::new())
+    );
+    assert_eq!(
+        resolve(PdfKind::Kdp, &[], &book)
+            .extras
+            .navigation
+            .bookmarks,
+        Bookmarks::None
+    );
 }

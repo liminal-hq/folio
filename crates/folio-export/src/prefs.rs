@@ -68,7 +68,7 @@ pub fn builtin(kind: PdfKind) -> PdfPrefs {
     match kind {
         PdfKind::Sharing => PdfPrefs {
             preset: Some(PicturePreset::Standard),
-            bookmarks: Some(BookmarkChoice::Chapters),
+            bookmarks: Some(BookmarkChoice::Auto),
             page_labels: Some(true),
             links: Some(true),
             // A file for reading is a book: the front cover first and the back cover last.
@@ -204,7 +204,11 @@ pub fn wants_chapters(kind: PdfKind, layers: &[&ExportPrefs]) -> bool {
         prefs = of_kind(layer, kind).over(&prefs);
     }
     // A paperback has no bookmarks whatever was asked.
-    kind != PdfKind::Kdp && prefs.bookmarks == Some(BookmarkChoice::Chapters)
+    kind != PdfKind::Kdp
+        && matches!(
+            prefs.bookmarks,
+            Some(BookmarkChoice::Chapters | BookmarkChoice::Auto)
+        )
 }
 
 /// The settings for `kind`, from `layers` (lowest first: your defaults, the book's, this export's)
@@ -217,10 +221,10 @@ pub fn resolve(kind: PdfKind, layers: &[&ExportPrefs], book: &Book) -> Resolved 
     let mut notes = Vec::new();
     lock(kind, &mut prefs, &mut notes);
 
-    let chapters = prefs.bookmarks == Some(BookmarkChoice::Chapters);
     let navigation = Navigation {
         bookmarks: match prefs.bookmarks.unwrap_or(BookmarkChoice::None) {
             BookmarkChoice::None => Bookmarks::None,
+            BookmarkChoice::Auto => Bookmarks::Automatic(Vec::new()),
             BookmarkChoice::Chapters => Bookmarks::Chapters(Vec::new()),
             BookmarkChoice::Spreads => Bookmarks::Spreads,
             BookmarkChoice::Pages => Bookmarks::Pages,
@@ -239,7 +243,7 @@ pub fn resolve(kind: PdfKind, layers: &[&ExportPrefs], book: &Book) -> Resolved 
         },
         page_labels: prefs.page_labels.unwrap_or(false),
         links: prefs.links.unwrap_or(false),
-        cover_names: Default::default(),
+        names: Default::default(),
         viewer_layout: match prefs.viewer_layout {
             Some(ViewerLayoutChoice::Spreads) => ViewerLayout::Spreads,
             _ => ViewerLayout::Single,
@@ -283,7 +287,10 @@ pub fn resolve(kind: PdfKind, layers: &[&ExportPrefs], book: &Book) -> Resolved 
             cancel: Default::default(),
         },
         ink,
-        wants_chapters: chapters,
+        wants_chapters: matches!(
+            prefs.bookmarks,
+            Some(BookmarkChoice::Chapters | BookmarkChoice::Auto)
+        ),
         notes,
         prefs,
     }
@@ -320,7 +327,7 @@ mod tests {
     fn nothing_chosen_is_the_built_in_settings() {
         let r = resolve(PdfKind::Sharing, &[], &book());
         assert_eq!(r.extras.pictures.unwrap().max_ppi, Some(150.0));
-        assert_eq!(r.extras.navigation.bookmarks, Bookmarks::Chapters(vec![]));
+        assert_eq!(r.extras.navigation.bookmarks, Bookmarks::Automatic(vec![]));
         assert!(r.extras.navigation.page_labels);
         assert!(r.wants_chapters && r.notes.is_empty());
         let shop = resolve(PdfKind::PrintShop, &[], &book());

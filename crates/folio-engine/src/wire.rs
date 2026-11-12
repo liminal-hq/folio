@@ -496,6 +496,10 @@ pub struct ExportRequest {
 pub struct ExportNames {
     pub front_cover: String,
     pub back_cover: String,
+    /// One page, with `{n}` where its number goes.
+    pub page: String,
+    /// Several pages, with `{from}` and `{to}` where the first and last numbers go.
+    pub pages: String,
 }
 
 /// A chapter of the book as a reader shows it.

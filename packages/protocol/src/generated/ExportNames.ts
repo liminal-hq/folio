@@ -3,4 +3,12 @@
 /**
  * What the covers are called in a PDF's bookmarks and page numbers.
  */
-export type ExportNames = { frontCover: string, backCover: string, };
+export type ExportNames = { frontCover: string, backCover: string, 
+/**
+ * One page, with `{n}` where its number goes.
+ */
+page: string, 
+/**
+ * Several pages, with `{from}` and `{to}` where the first and last numbers go.
+ */
+pages: string, };

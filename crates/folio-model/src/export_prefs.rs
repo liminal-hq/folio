@@ -49,6 +49,9 @@ pub enum PictureCompression {
 #[serde(rename_all = "camelCase")]
 pub enum BookmarkChoice {
     None,
+    /// The chapters when the book has any, else one for each spread; the covers lead and close
+    /// either way (D-80).
+    Auto,
     Chapters,
     Spreads,
     Pages,
