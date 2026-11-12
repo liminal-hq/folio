@@ -132,6 +132,35 @@ describe('the Expert panels', () => {
 	});
 });
 
+describe('the flatten row', () => {
+	it('is off and free for a Sharing PDF, and keeps a choice for the export', async () => {
+		const fake = await setup();
+		await userEvent.click(await screen.findByText('More choices'));
+		const flatten = screen.getByLabelText('Flatten transparent pictures');
+		expect(flatten).toBeEnabled();
+		expect(flatten).not.toBeChecked();
+		await userEvent.click(flatten);
+		expect(flatten).toBeChecked();
+		await userEvent.click(screen.getByRole('button', { name: 'Make files' }));
+		await screen.findByText('Your files are ready.');
+		const call = fake.calls.find((c) => c.startsWith('exportBook('))!;
+		expect(call).toContain('"flatten":true');
+	});
+
+	it('is on, greyed and explained for a paperback and a print-shop file', async () => {
+		await setup();
+		await userEvent.click(screen.getByRole('checkbox', { name: /Paperback interior/ }));
+		await userEvent.click(screen.getByRole('checkbox', { name: /Sharing PDF/ }));
+		await userEvent.click(await screen.findByText('More choices'));
+		const flatten = screen.getByLabelText('Flatten transparent pictures');
+		expect(flatten).toBeDisabled();
+		expect(flatten).toBeChecked();
+		expect(flatten).toHaveAccessibleDescription(
+			'Print files are flattened, so nothing in them is see-through.',
+		);
+	});
+});
+
 describe('what each target locks', () => {
 	it('matches the table in the spec', () => {
 		expect(lockedBecause('sharing', 'bookmarks')).toBeNull();
@@ -143,5 +172,8 @@ describe('what each target locks', () => {
 		expect(lockedBecause('printShop', 'links')).not.toBeNull();
 		expect(lockedBecause('printShop', 'sheets')).not.toBeNull();
 		expect(lockedBecause('sharing', 'cropMarks')).not.toBeNull();
+		expect(lockedBecause('sharing', 'flatten')).toBeNull();
+		expect(lockedBecause('kdp', 'flatten')).not.toBeNull();
+		expect(lockedBecause('printShop', 'flatten')).not.toBeNull();
 	});
 });

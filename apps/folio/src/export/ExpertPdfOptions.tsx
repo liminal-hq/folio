@@ -144,6 +144,18 @@ export function ExpertPdfOptions({ kinds, user, book, edits, onChange }: ExpertP
 						/>
 					)}
 				</Row>
+				<Row label={t('export.expert.flatten')} reason={lock('flatten')}>
+					{({ id, disabled, describedBy }) => (
+						<input
+							id={id}
+							type="checkbox"
+							disabled={disabled}
+							aria-describedby={describedBy}
+							checked={disabled || eff.flatten === true}
+							onChange={(e) => set({ flatten: e.target.checked })}
+						/>
+					)}
+				</Row>
 			</fieldset>
 
 			<fieldset className={styles.panel}>
