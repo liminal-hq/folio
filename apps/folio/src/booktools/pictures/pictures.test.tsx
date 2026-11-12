@@ -18,6 +18,7 @@ const dialogs: FileDialogs = {
 	pickBook: async () => null,
 	pickSavePath: async () => null,
 	pickImage: async () => '/pics/otter.png',
+	pickFolder: async () => null,
 	pickText: async () => null,
 };
 

@@ -1,0 +1,40 @@
+.folder {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	align-items: center;
+	gap: 6px 12px;
+	margin-block-start: 16px;
+	font-size: 13px;
+}
+
+.label {
+	color: var(--folio-text-secondary);
+	font-weight: 600;
+}
+
+.path {
+	overflow: hidden;
+	color: var(--folio-text-primary);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.actions {
+	display: flex;
+	grid-column: 1 / -1;
+	gap: 12px;
+}
+
+.button {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--folio-accent);
+	font: inherit;
+	cursor: pointer;
+}
+
+.button:disabled {
+	color: var(--folio-text-secondary);
+	cursor: default;
+}

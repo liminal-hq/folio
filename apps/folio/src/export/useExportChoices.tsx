@@ -14,10 +14,13 @@ import { createStore } from 'zustand/vanilla';
 import { useStore } from 'zustand';
 import type { BooksClient } from '../books/booksClient';
 import { DEFAULT_SETTINGS } from '../settings/fakeSettingsClient';
+import { BooksContext } from '../books/useBooks';
 import { SettingsContext } from '../settings/useSettings';
 import { settingsOf, type SettingsState } from '../settings/settingsStore';
 import { emptyPrefs, isBlank, kindOf, overlay, withPdf, type PdfKind } from './exportPrefs';
 import { ExpertPdfOptions } from './ExpertPdfOptions';
+import { DestinationFolder } from './DestinationFolder';
+import { absoluteFor, relativeToBook } from './folder';
 import { PdfQuality } from './PdfQuality';
 import { SizeEstimate } from './SizeEstimate';
 
@@ -52,6 +55,8 @@ export function useExportChoices(
 	const user = settings.export;
 	const [book, setBook] = useState<ExportPrefs>(emptyPrefs());
 	const [edits, setEdits] = useState<ExportPrefs>(emptyPrefs());
+	const [bookFile, setBookFile] = useState<string | null>(null);
+	const dialogs = useContext(BooksContext)?.dialogs;
 
 	// The book's own choices are read each time the dialog opens, and what was changed is dropped.
 	useEffect(() => {
@@ -60,7 +65,11 @@ export function useExportChoices(
 		setEdits(emptyPrefs());
 		client
 			.snapshot(id)
-			.then((snapshot) => live && setBook(snapshot.book.export ?? emptyPrefs()))
+			.then((snapshot) => {
+				if (!live) return;
+				setBook(snapshot.book.export ?? emptyPrefs());
+				setBookFile(snapshot.summary.path ?? null);
+			})
 			.catch(() => undefined);
 		return () => {
 			live = false;
@@ -89,26 +98,59 @@ export function useExportChoices(
 
 	const makeDefaults = useCallback(async () => {
 		if (!store) return;
-		await store.update({ export: { pdf: edits.pdf } } as SettingsPatch);
-	}, [store, edits]);
+		// A folder is kept in full for the person's defaults: a relative one means each book's own.
+		const folder =
+			edits.folder === undefined ? {} : { folder: absoluteFor(edits.folder, bookFile) };
+		await store.update({ export: { pdf: edits.pdf, ...folder } } as SettingsPatch);
+	}, [store, edits, bookFile]);
+
+	const folder = edits.folder ?? book.folder ?? user.folder;
+	const chooseFolder = useCallback(async () => {
+		if (!dialogs) return;
+		const picked = await dialogs.pickFolder(
+			folder === undefined ? undefined : absoluteFor(folder, bookFile),
+		);
+		if (picked !== null) setEdits((now) => ({ ...now, folder: relativeToBook(picked, bookFile) }));
+	}, [dialogs, folder, bookFile]);
+	// The usual folder is `exports` beside the book, which a choice of it sets aside any other.
+	const usualFolder = useCallback(() => setEdits((now) => ({ ...now, folder: 'exports' })), []);
 
 	const choices = useMemo<ExportChoices>(() => ({ prefs: edits, user }), [edits, user]);
 	const kinds = [...new Set(targets.map(kindOf).filter((k): k is PdfKind => k !== null))];
-	const panel =
-		kinds.length === 0 ? null : (
-			<>
-				<PdfQuality
-					kinds={kinds}
-					user={user}
-					book={book}
-					edits={edits}
-					onChange={change}
-					onMakeDefaults={store ? () => void makeDefaults() : undefined}
-					changed={!isBlank(edits)}
+	const usual = folder === undefined || folder === 'exports';
+	const panel = (
+		<>
+			{kinds.length > 0 && (
+				<>
+					<PdfQuality
+						kinds={kinds}
+						user={user}
+						book={book}
+						edits={edits}
+						onChange={change}
+						onMakeDefaults={store ? () => void makeDefaults() : undefined}
+						changed={!isBlank(edits)}
+					/>
+					{settings.mode === 'expert' && (
+						<ExpertPdfOptions
+							kinds={kinds}
+							user={user}
+							book={book}
+							edits={edits}
+							onChange={change}
+						/>
+					)}
+				</>
+			)}
+			{dialogs && (
+				<DestinationFolder
+					folder={usual ? undefined : folder}
+					shown={usual || folder === undefined ? undefined : absoluteFor(folder, bookFile)}
+					onChoose={() => void chooseFolder()}
+					onUsual={usualFolder}
 				/>
-				{settings.mode === 'expert' && (
-					<ExpertPdfOptions kinds={kinds} user={user} book={book} edits={edits} onChange={change} />
-				)}
+			)}
+			{kinds.length > 0 && (
 				<SizeEstimate
 					client={client}
 					id={id}
@@ -117,7 +159,8 @@ export function useExportChoices(
 					choices={choices}
 					open={open}
 				/>
-			</>
-		);
+			)}
+		</>
+	);
 	return { panel, choices, remember };
 }

@@ -63,6 +63,7 @@ function setup(
 		pickBook: async () => picks.open ?? null,
 		pickSavePath: async () => picks.save ?? null,
 		pickImage: async () => null,
+		pickFolder: async () => null,
 		pickText: async () => null,
 	};
 	render(
@@ -758,6 +759,7 @@ describe('books the system asks Folio to open', () => {
 							pickBook: async () => null,
 							pickSavePath: async () => null,
 							pickImage: async () => null,
+							pickFolder: async () => null,
 							pickText: async () => null,
 						}}
 					>

@@ -14,6 +14,7 @@ import { t, type MessageKey } from '../i18n/messages';
 import styles from './ExportDialog.module.css';
 import { EXPORT_TARGETS } from './exportTargets';
 import { whereItGoes } from './uploadGuide';
+import { ExportNotes } from '../export/ExportNotes';
 import { useExportChoices } from '../export/useExportChoices';
 
 const targetName = (id: ExportTarget) =>
@@ -231,6 +232,7 @@ export function ExportDialog({
 						{t(showWhere ? 'export.where.hide' : 'export.where.show')}
 					</button>
 					<p className={styles.where}>{stage.report.folder}</p>
+					<ExportNotes notes={stage.report.notes} />
 				</section>
 			) : (
 				<fieldset className={styles.targets} disabled={stage.kind === 'working'}>

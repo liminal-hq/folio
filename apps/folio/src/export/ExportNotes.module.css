@@ -1,0 +1,15 @@
+.notes {
+	margin-block-start: 12px;
+	color: var(--folio-text-secondary);
+	font-size: 13px;
+}
+
+.title {
+	margin: 0 0 4px;
+	font-weight: 600;
+}
+
+.list {
+	margin: 0;
+	padding-inline-start: 20px;
+}
