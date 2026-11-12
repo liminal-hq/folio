@@ -209,6 +209,23 @@ pub fn plan_books(books: &[&Book], sheets: &[Vec<(usize, &PageScene)>]) -> Plan 
     Planner::new(books, sheets).run()
 }
 
+/// How many figures in `plan` have no description.
+pub fn undescribed_figures(plan: &Plan) -> usize {
+    fn count(nodes: &[Node]) -> usize {
+        nodes
+            .iter()
+            .map(|node| match node {
+                Node::Leaf(_) => 0,
+                Node::Group(group) => {
+                    usize::from(matches!(group.kind, Kind::Figure { alt: None }))
+                        + count(&group.children)
+                }
+            })
+            .sum()
+    }
+    count(&plan.tree)
+}
+
 /// Whether a style's words are read as a heading, and which level.
 fn heading_level(role: Role) -> Option<u8> {
     match role {

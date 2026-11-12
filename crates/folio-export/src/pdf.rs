@@ -132,6 +132,10 @@ pub fn export_pdf_with(
 
 /// Draws every page of `book` into a PDF as `export_pdf_with` does, and says what it left as it was
 /// where the file was asked to be flattened: the notes, one line each, for the person to read.
+///
+/// A tagged Sharing PDF is made as a PDF/UA-1 file when the book qualifies (a title, a description
+/// for every picture, bookmarks, fonts whose licences allow it). When it does not, the file is made
+/// again without the claim, and a note says why.
 pub fn export_pdf_noted(
     book: &Book,
     styles: &StyleSheet,
@@ -141,6 +145,46 @@ pub fn export_pdf_noted(
     pictures: &ImagePolicy,
     cache: &PictureCache,
 ) -> Result<(Vec<u8>, Vec<String>), ExportError> {
+    let claim = options.target == PdfTarget::Sharing && options.navigation.tagged;
+    if !claim {
+        return attempt(book, styles, fonts, assets, options, pictures, cache, false)
+            .map(|made| (made.bytes, made.notes));
+    }
+    match attempt(book, styles, fonts, assets, options, pictures, cache, true) {
+        Ok(made) => Ok((made.bytes, made.notes)),
+        Err(ExportError::Pdf(why)) => {
+            let mut made = attempt(book, styles, fonts, assets, options, pictures, cache, false)?;
+            let reason = match made.undescribed {
+                0 => why,
+                1 => "a picture has no description".to_owned(),
+                n => format!("{n} pictures have no description"),
+            };
+            made.notes
+                .push(format!("Not marked as accessible (PDF/UA): {reason}"));
+            Ok((made.bytes, made.notes))
+        }
+        Err(other) => Err(other),
+    }
+}
+
+/// A finished PDF, what to tell the person about it, and how many figures in it have no description.
+struct Made {
+    bytes: Vec<u8>,
+    notes: Vec<String>,
+    undescribed: usize,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn attempt(
+    book: &Book,
+    styles: &StyleSheet,
+    fonts: &FontBook,
+    assets: &dyn Assets,
+    options: &PdfOptions,
+    pictures: &ImagePolicy,
+    cache: &PictureCache,
+    claim: bool,
+) -> Result<Made, ExportError> {
     let choice = options.pages.for_target(options.target);
     // A print PDF is the interior only: the cover is made for the cover file.
     let skip = usize::from(
@@ -166,11 +210,17 @@ pub fn export_pdf_noted(
         &front
     };
     let layouter = Layouter::new(book, styles, fonts);
-    let settings = SerializeSettings {
+    let mut settings = SerializeSettings {
         compress_content_streams: true,
         xmp_metadata: options.target == PdfTarget::Sharing,
         ..SerializeSettings::default()
     };
+    if claim {
+        settings.configuration = krilla::configure::ConfigurationBuilder::new()
+            .with_accessibility_validator(krilla::configure::Accessibility::UA1)
+            .finish()
+            .map_err(|e| ExportError::Pdf(format!("{e:?}")))?;
+    }
     let mut document = krilla::Document::new_with(settings);
     // A print shop's file is in ink only when it has a press profile to name the output condition.
     let ink = match options.target {
@@ -307,6 +357,7 @@ pub fn export_pdf_noted(
     // A tagged file says what its marks are: the plan decides, the drawing follows it.
     let tagged =
         navigation.tagged && matches!(options.target, PdfTarget::Sharing | PdfTarget::PrintShop);
+    let mut undescribed = 0;
     if tagged {
         let mut books: Vec<&Book> = vec![book];
         if let Some(back) = &back {
@@ -325,6 +376,7 @@ pub fn export_pdf_noted(
             })
             .collect();
         let plan = crate::structure::plan_books(&books, &planned);
+        undescribed = crate::structure::undescribed_figures(&plan);
         drawing.tagging = Some(Tagging {
             links: plan.link_of_leaf(),
             plan,
@@ -552,9 +604,17 @@ pub fn export_pdf_noted(
             },
             tagged,
         )?;
-        return Ok((made, notes));
+        return Ok(Made {
+            bytes: made,
+            notes,
+            undescribed,
+        });
     }
-    Ok((bytes, notes))
+    Ok(Made {
+        bytes,
+        notes,
+        undescribed,
+    })
 }
 
 /// Where on the page a piece of a link is, as a rectangle `(x, y, w, h)` before the frame's turn,

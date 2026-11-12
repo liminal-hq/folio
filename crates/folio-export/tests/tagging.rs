@@ -7,9 +7,11 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
 
+use folio_export::outline::Bookmarks;
 use folio_export::outline::Navigation;
 use folio_export::pages::{CoverPages, PageChoice};
-use folio_export::pdf::{export_pdf, Assets, PdfOptions, PdfTarget};
+use folio_export::pdf::{export_pdf, export_pdf_noted, Assets, PdfOptions, PdfTarget};
+use folio_export::picture::{ImagePolicy, PictureCache};
 use folio_layout::{FontBook, StyleSheet};
 use folio_model::{
     Book, BookKind, Fit, Frame, FrameBase, FrameId, ImageFrame, ImageRef, InlineContent, Pt, Rect,
@@ -569,4 +571,100 @@ fn qpdf_finds_a_tagged_file_well_formed() {
         );
     }
     let _ = std::fs::remove_dir_all(dir);
+}
+
+fn with_bookmarks(mut o: PdfOptions) -> PdfOptions {
+    o.navigation.bookmarks = Bookmarks::Pages;
+    o
+}
+
+fn xmp(doc: &Document) -> String {
+    let catalog = doc.catalog().unwrap();
+    let Ok(Object::Reference(id)) = catalog.get(b"Metadata") else {
+        return String::new();
+    };
+    let stream = doc.get_object(*id).unwrap().as_stream().unwrap();
+    String::from_utf8_lossy(
+        &stream
+            .decompressed_content()
+            .unwrap_or_else(|_| stream.content.clone()),
+    )
+    .into_owned()
+}
+
+fn noted(
+    book: &Book,
+    styles: &StyleSheet,
+    assets: &Memory,
+    o: &PdfOptions,
+) -> (Vec<u8>, Vec<String>) {
+    export_pdf_noted(
+        book,
+        styles,
+        &FontBook::bundled(),
+        assets,
+        o,
+        &ImagePolicy::standard(),
+        &PictureCache::default(),
+    )
+    .unwrap()
+}
+
+#[test]
+fn a_book_that_qualifies_says_it_is_pdf_ua_and_one_that_does_not_says_why_and_stays_tagged() {
+    let (mut book, styles, assets) = storybook();
+    // The cover's own picture, if the template has one, is described too.
+    for frame in book.spreads[0].frames.iter_mut() {
+        if matches!(frame, Frame::Image(_)) && frame.base().description.is_none() {
+            frame.base_mut().description = Some("The cover".into());
+        }
+    }
+    let ua = |bytes: &[u8]| xmp(&Document::load_mem(bytes).unwrap()).contains("pdfuaid");
+    let (good, notes) = noted(
+        &book,
+        &styles,
+        &assets,
+        &with_bookmarks(options(true, PdfTarget::Sharing)),
+    );
+    assert!(
+        ua(&good),
+        "a book with a title, bookmarks and every picture described qualifies"
+    );
+    assert!(notes.is_empty(), "{notes:?}");
+
+    // A picture with no description keeps the file from the claim, and the note says so.
+    book.spreads[2]
+        .frames
+        .push(picture("bare", 30.0, 300.0, 100.0, 60.0, None));
+    let (bare, notes) = noted(
+        &book,
+        &styles,
+        &assets,
+        &with_bookmarks(options(true, PdfTarget::Sharing)),
+    );
+    assert!(!ua(&bare));
+    let doc = Document::load_mem(&bare).unwrap();
+    assert!(
+        doc.catalog().unwrap().has(b"StructTreeRoot"),
+        "still tagged"
+    );
+    assert_eq!(
+        notes,
+        vec!["Not marked as accessible (PDF/UA): a picture has no description".to_string()]
+    );
+
+    // Without bookmarks there is no outline, which PDF/UA asks for.
+    let (none, notes) = noted(&book, &styles, &assets, &options(true, PdfTarget::Sharing));
+    assert!(!ua(&none));
+    assert_eq!(notes.len(), 1);
+
+    // An untagged file makes no claim and says nothing.
+    let (plain, notes) = noted(
+        &book,
+        &styles,
+        &assets,
+        &with_bookmarks(options(false, PdfTarget::Sharing)),
+    );
+    assert!(!ua(&plain));
+    assert!(notes.is_empty());
 }
