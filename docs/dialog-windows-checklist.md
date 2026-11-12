@@ -5,8 +5,9 @@ The mock runtime cannot parent or block a window, so the platform behaviour of t
 For each platform check that:
 
 - [ ] The dialog opens as its own window, above the main window, centred over it (Windows and X11) or placed by the compositor (Wayland).
-- [ ] The main window cannot be used while the dialog is open: clicks, scrolling, typing and its title bar buttons do nothing, and pressing it brings the dialog forward.
-- [ ] The main window dims while the dialog is open and clears when it closes.
+- [ ] A modal dialog (Book size, Margins, Book details, Barcode, Page background, Import report, Update, Connect an agent): the main window cannot be used while it is open: clicks, scrolling, typing and its title bar buttons do nothing, and pressing it brings the dialog forward.
+- [ ] The main window dims while a modal dialog is open (inside its visible edge, not in the shadow margin) and clears when it closes.
+- [ ] Dragging a dialog's title bar moves the dialog only, never the main window.
 - [ ] Opening the same dialog again (the ribbon button, the shortcut) focuses it rather than making a second.
 - [ ] Esc closes the dialog, and so does its ✕ and the window manager's close; the opener hears a cancellation.
 - [ ] Enter in a field presses the default button; Enter in a multi-line field adds a line.
@@ -17,7 +18,7 @@ For each platform check that:
 - [ ] A file picker or message box started from inside the dialog belongs to the dialog, not the main window.
 - [ ] The window opens quickly: its content is painted within about 300 ms (the log line `first paint … ms after opening` says how long).
 
-- [ ] Check book (the one dialog that does not block): the main window stays usable beside it, and "Show me" moves the main window to the issue without closing the list.
+- [ ] Modeless dialogs (Export, Check book, Cover sheet, Soft proof, Story editor, Spread templates): the main window is not dimmed and stays usable beside them, they stay above it and minimise and close with it, and for Check book and "Show me" moves the main window to the issue without closing the list.
 - [ ] Page background: the main window is not dimmed behind it and shows each colour tried; Cancel puts the page back.
 
 ## Windows 11
@@ -28,7 +29,7 @@ For each platform check that:
 
 ## Linux, Wayland: GNOME (Mutter)
 
-- [ ] The dialog is attached to the main window (it moves with it) and the compositor places it.
+- [ ] The compositor places the dialog, it stays above the main window, and it is not attached: dragging it leaves the main window where it is (D-79).
 
 ## Linux, Wayland: KDE (KWin)
 

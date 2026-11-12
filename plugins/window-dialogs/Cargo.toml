@@ -14,7 +14,7 @@ categories = ["api-bindings", "gui"]
 
 [package.metadata.platforms.support]
 windows = { level = "partial", notes = "The dialog is owned by its opener (`parent`) and the opener is disabled with `EnableWindow` while the dialog is open, then enabled and focused before the dialog is destroyed so Windows does not activate another application; run on Windows 11 to verify" }
-linux = { level = "partial", notes = "The dialog is a transient of its opener and a GTK modal (`gtk_window_set_modal`), so GTK blocks input to the opener; GNOME attaches it, KWin and wlroots treat it as an ordinary transient (GTK 3 has no `xdg_dialog_v1`), and the page shows its own blocker as a fallback. Wayland compositors place the dialog themselves" }
+linux = { level = "partial", notes = "The dialog is a transient of its opener and the opener is made insensitive (`gtk_widget_set_sensitive`) while a modal dialog is open; it is not a GTK modal, because GNOME attaches a modal dialog to its parent and dragging the dialog moved the parent. A modeless dialog is only a transient. KWin and wlroots treat a GTK 3 transient as an ordinary window (no `xdg_dialog_v1`), so the page shows its own blocker as well. Wayland compositors place the dialog themselves" }
 macos = { level = "none", notes = "Opens the window as a child but does not block the opener; the page's blocker is the fallback" }
 android = { level = "none", notes = "Desktop windows only" }
 ios = { level = "none", notes = "Desktop windows only" }

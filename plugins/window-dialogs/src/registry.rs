@@ -176,6 +176,30 @@ mod tests {
     }
 
     #[test]
+    fn a_modeless_dialog_never_blocks_its_opener() {
+        let mut registry = Registry::default();
+        registry.begin("dialog-a", Some("main"), false, json!(null));
+        assert_eq!(registry.modal_of("main"), None);
+        assert!(!registry.request("dialog-a").unwrap().modal);
+        // A modal dialog can still open beside it, and then blocks only itself.
+        registry.begin("dialog-b", Some("main"), true, json!(null));
+        assert_eq!(registry.modal_of("main"), Some("dialog-b"));
+        // Several modeless dialogs can be open at once.
+        assert!(matches!(
+            registry.begin("dialog-c", Some("main"), false, json!(null)),
+            Opening::New { .. }
+        ));
+        assert_eq!(
+            registry.take("dialog-a"),
+            Some(Closing {
+                request_id: 1,
+                opener: Some("main".into()),
+                modal: false
+            })
+        );
+    }
+
+    #[test]
     fn a_dialog_ends_once() {
         let mut registry = Registry::default();
         registry.begin("dialog-a", Some("main"), true, json!(null));

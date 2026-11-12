@@ -4,7 +4,7 @@ Dialogs that are windows of their own. The app asks for a dialog window by label
 
 ## How it works
 
-- `open_dialog(label, spec, payload)` builds the window and returns a request id. The same label while it is open focuses it; a second modal dialog from the same window is refused.
+- `open_dialog(label, spec, payload)` builds the window and returns a request id. The same label while it is open focuses it; a second modal dialog from the same window is refused. A spec with `modal: false` is a modeless transient child: it stays above its opener and goes with it, but nothing is blocked, no `modal` event is sent, and several can be open at once.
 - The dialog window asks for its own request with `dialog_request()` when it starts, so there is no race between opening and the payload arriving.
 - `finish_dialog(result)` sends the result to the opener on `window-dialogs://finished` and closes the window. Closing the window any other way sends the same event with `cancelled: true`.
 - `post_to_opener(message)` sends a message to the opener while the dialog stays open, for dialogs that do not block.
@@ -13,10 +13,10 @@ Dialogs that are windows of their own. The app asks for a dialog window by label
 
 ## Modality
 
-| Platform | How the opener is blocked                                                                                                                                                                               |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Windows  | The dialog is owned by the opener, which is disabled with `EnableWindow`, then enabled and focused before the dialog is destroyed.                                                                      |
-| Linux    | The dialog is a transient of the opener and a GTK modal. GNOME attaches it; KWin and wlroots treat it as an ordinary transient (GTK 3 has no `xdg_dialog_v1`). Compositors place the dialog on Wayland. |
-| Other    | Not blocked; the page's blocker is the fallback.                                                                                                                                                        |
+| Platform | How the opener is blocked                                                                                                                                                                                                                                                                                                              |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Windows  | The dialog is owned by the opener, which is disabled with `EnableWindow`, then enabled and focused before the dialog is destroyed.                                                                                                                                                                                                     |
+| Linux    | The dialog is a transient of the opener, and a modal one makes the opener insensitive (`gtk_widget_set_sensitive`) rather than being a GTK modal, which GNOME would attach to its parent and move with it; KWin and wlroots treat it as an ordinary transient (GTK 3 has no `xdg_dialog_v1`). Compositors place the dialog on Wayland. |
+| Other    | Not blocked; the page's blocker is the fallback.                                                                                                                                                                                                                                                                                       |
 
 The mock runtime cannot parent or block a window, so the tests open dialogs without an opener and the platform behaviour is checked by hand.
