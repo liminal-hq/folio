@@ -6,11 +6,59 @@
 use std::io::Read;
 
 use folio_export::fixed::export_fixed_epub;
-use folio_export::pdf::NoAssets;
+use folio_export::pdf::{Assets, NoAssets};
 use folio_layout::{FontBook, StyleSheet};
-use folio_model::{Book, BookKind};
+use folio_model::{
+    Book, BookKind, Fit, Frame, FrameBase, FrameId, ImageFrame, ImageRef, Pt, Rect, SpreadKind,
+};
 use folio_presets::{new_book, NewBookSpec};
+use image::ImageEncoder;
 use zip::ZipArchive;
+
+/// One small picture, whatever path is asked for.
+struct Square(Vec<u8>);
+
+impl Square {
+    fn new() -> Self {
+        let mut png = Vec::new();
+        image::codecs::png::PngEncoder::new(&mut png)
+            .write_image(&[200; 12], 2, 2, image::ExtendedColorType::Rgb8)
+            .unwrap();
+        Self(png)
+    }
+}
+
+impl Assets for Square {
+    fn bytes(&self, _path: &str) -> Option<Vec<u8>> {
+        Some(self.0.clone())
+    }
+}
+
+fn picture(id: &str, x: f64, description: Option<&str>, decorative: bool) -> Frame {
+    Frame::Image(ImageFrame {
+        base: FrameBase {
+            id: FrameId(id.into()),
+            rect: Rect {
+                x: Pt(x),
+                y: Pt(36.0),
+                w: Pt(80.0),
+                h: Pt(80.0),
+            },
+            rotation: 0.0,
+            locked: false,
+            from_master: None,
+            description: description.map(str::to_owned),
+            decorative,
+        },
+        image: ImageRef {
+            asset: Some("square.png".into()),
+            fit: Fit::Fill,
+            focus: (0.5, 0.5),
+            crop: None,
+        },
+        placeholder_label: None,
+    })
+}
 
 fn sample(kind: BookKind) -> (Book, Vec<u8>) {
     let made = new_book(&NewBookSpec {
@@ -312,5 +360,44 @@ fn linked_words_are_anchors_and_a_link_to_a_spread_goes_to_the_page_it_begins_on
     }
     for (name, text) in &pages {
         assert!(well_formed(text), "{name}");
+    }
+}
+
+#[test]
+fn a_described_picture_carries_its_description_as_alt_and_a_decorative_one_stays_empty() {
+    let (mut book, _) = sample(BookKind::Picture);
+    let spread = book
+        .spreads
+        .iter_mut()
+        .find(|s| s.kind == SpreadKind::Spread)
+        .unwrap();
+    spread.frames = vec![
+        picture("fr_cat", 36.0, Some("A cat on a \"gate\" & a mouse"), false),
+        picture("fr_bare", 136.0, None, false),
+        // Marked as decoration, so its words are not an alt even though it has some.
+        picture(
+            "fr_swirl",
+            236.0,
+            Some("A swirl nobody needs described"),
+            true,
+        ),
+        picture("fr_blank", 336.0, Some("   "), false),
+    ];
+    let styles = StyleSheet::from_styles(&book.styles);
+    let bytes = export_fixed_epub(&book, &styles, &FontBook::bundled(), &Square::new()).unwrap();
+    let (mut zip, names) = open(&bytes);
+    let pages: String = names
+        .iter()
+        .filter(|n| n.contains("/text/page-"))
+        .map(|n| read(&mut zip, n))
+        .collect();
+    // The words are escaped for an attribute.
+    assert!(pages.contains("alt=\"A cat on a &quot;gate&quot; &amp; a mouse\""));
+    assert!(!pages.contains("A swirl"));
+    // The other three pictures (no words, decorative, only spaces) are present and have no alt.
+    assert_eq!(pages.matches("<img ").count(), 4);
+    assert_eq!(pages.matches("alt=\"\"").count(), 3);
+    for name in names.iter().filter(|n| n.contains("/text/page-")) {
+        assert!(well_formed(&read(&mut zip, name)), "{name}");
     }
 }

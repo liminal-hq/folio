@@ -9,12 +9,13 @@
 //! piece at a time at the position layout gave it, so the lines break where Folio broke them and a
 //! screen reader still reads them. The reader scales the page to its screen.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::io::Write;
 
+use folio_layout::decoration::Decorations;
 use folio_layout::scene::{focused_rect, PageScene, SceneKind, SceneRect};
 use folio_layout::{FontBook, FontRequest, Layouter, StyleSheet};
-use folio_model::{Background, Book, Colour, Fit, Shape};
+use folio_model::{Background, Book, Colour, Fit, Frame, FrameId, Shape};
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
@@ -62,12 +63,41 @@ fn css_colour(c: &Colour) -> &str {
     &c.0
 }
 
+/// The alt text of each picture the person described, by frame. A picture that is decoration (one
+/// the person marked, or a pumpkin behind a page number) is left out, so it keeps an empty `alt`
+/// and a reader skips it, as the tagged PDF does; so is one with no words, which the alt-text
+/// check in preflight is there to find.
+fn picture_alts(book: &Book) -> HashMap<FrameId, String> {
+    let decorations = Decorations::of_book(book);
+    let mut alts = HashMap::new();
+    for spread in &book.spreads {
+        for frame in folio_model::leaves(&spread.frames) {
+            let Frame::Image(image) = frame else {
+                continue;
+            };
+            let described = image
+                .base
+                .description
+                .as_deref()
+                .map(str::trim)
+                .filter(|d| !d.is_empty());
+            if let Some(words) = described {
+                if !decorations.is_decoration(spread, &image.base.id) {
+                    alts.insert(image.base.id.clone(), words.to_owned());
+                }
+            }
+        }
+    }
+    alts
+}
+
 /// One page as XHTML: the background on the page itself, then each item over it in order.
 fn page_html(
     scene: &PageScene,
     names: &mut BTreeMap<String, String>,
     images: &mut Vec<String>,
     assets: &dyn Assets,
+    alts: &HashMap<FrameId, String>,
     natural: &dyn Fn(&str) -> Option<(f64, f64)>,
     spread_file: &dyn Fn(usize) -> String,
 ) -> Page {
@@ -146,7 +176,7 @@ fn page_html(
                         rect,
                         *rotation,
                         &name.1,
-                        "",
+                        alts.get(&item.frame).map_or("", String::as_str),
                         *fit,
                         *focus,
                         natural(&name.0),
@@ -500,12 +530,14 @@ pub fn export_fixed_epub(
             format!("page-{:03}.xhtml", page + 1)
         }
     };
+    let alts = picture_alts(book);
     for scene in &scenes {
         pages.push(page_html(
             scene,
             &mut names,
             &mut images,
             assets,
+            &alts,
             &natural,
             &spread_file,
         ));
